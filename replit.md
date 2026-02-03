@@ -16,7 +16,8 @@ Preferred communication style: Simple, everyday language.
 - **State Management**: TanStack Query (React Query) for server state
 - **Form Handling**: React Hook Form with Zod validation
 - **UI Components**: shadcn/ui component library built on Radix UI primitives
-- **Styling**: Tailwind CSS with custom BSU-themed color palette (primary blue, secondary gold, accent green)
+- **Styling**: Tailwind CSS with BSU-themed color palette (crimson primary, black secondary, white) - color-blind friendly design with high contrast
+- **Typography**: Atkinson Hyperlegible font (dyslexia-friendly) as primary, with Lexend as fallback
 - **Build Tool**: Vite with custom plugins for Replit integration
 
 ### Backend Architecture

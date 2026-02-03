@@ -14,10 +14,10 @@ export async function seedDatabase() {
 
     console.log("Seeding database with sample courses...");
 
-    // Sample courses for BSU faculty
+    // Sample courses for BSU faculty (clearly marked as samples)
     const sampleCourses = [
       {
-        courseName: "Introduction to Psychology",
+        courseName: "[SAMPLE] Introduction to Psychology",
         courseNumber: "PSYC 101",
         courseLevel: "Undergraduate - 100 level",
         credits: "3",
@@ -31,7 +31,7 @@ export async function seedDatabase() {
         additionalContext: "This is a large lecture course with approximately 150 students. Weekly discussion sections are led by teaching assistants.",
       },
       {
-        courseName: "Technical Writing",
+        courseName: "[SAMPLE] Technical Writing",
         courseNumber: "ENGL 202",
         courseLevel: "Undergraduate - 200 level",
         credits: "3",
@@ -45,7 +45,7 @@ export async function seedDatabase() {
         additionalContext: "Students will complete a major collaborative project working with a local organization to create professional documentation.",
       },
       {
-        courseName: "Data Structures and Algorithms",
+        courseName: "[SAMPLE] Data Structures and Algorithms",
         courseNumber: "COMP 285",
         courseLevel: "Undergraduate - 200 level",
         credits: "4",

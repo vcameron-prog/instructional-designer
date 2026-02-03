@@ -83,7 +83,7 @@ export default {
         },
       },
       fontFamily: {
-        sans: ["Lexend", "var(--font-sans)", "system-ui", "sans-serif"],
+        sans: ["Atkinson Hyperlegible", "Lexend", "var(--font-sans)", "system-ui", "sans-serif"],
         serif: ["var(--font-serif)"],
         mono: ["var(--font-mono)"],
       },
