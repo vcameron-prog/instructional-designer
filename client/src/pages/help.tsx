@@ -21,7 +21,8 @@ import {
   ExternalLink,
   Globe,
   Heart,
-  GraduationCap
+  GraduationCap,
+  Scale
 } from "lucide-react";
 
 const tools = [
@@ -78,6 +79,17 @@ const tools = [
       "List specific criteria you want assessed",
       "Choose appropriate point values",
       "Review descriptors for clarity and measurability",
+    ],
+  },
+  {
+    id: "grading",
+    name: "Grading Policy Designer",
+    icon: Scale,
+    description: "Creates equitable grading policies based on Grading for Equity principles.",
+    tips: [
+      "Focus on measuring content knowledge, not compliance",
+      "Consider revision opportunities and late work flexibility",
+      "Review traditional participation/attendance requirements",
     ],
   },
   {

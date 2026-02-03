@@ -113,6 +113,40 @@ const getFormFields = (toolId: string): ToolFormField[] => {
       ], required: true },
       { name: "additionalContext", label: "Additional Context", type: "textarea", placeholder: "Any specific concerns about alignment?" },
     ],
+    grading: [
+      { name: "currentGradingApproach", label: "Current Grading Approach", type: "textarea", placeholder: "Describe your current grading system (categories, weights, late policies, etc.)...", helper: "Include any existing policies you want to reconsider or keep" },
+      { name: "gradingPhilosophy", label: "Your Grading Philosophy Goals", type: "checkbox-group", options: [
+        "Focus on content mastery over compliance",
+        "Reduce impact of late penalties on final grades",
+        "Allow revision and resubmission opportunities",
+        "Use standards-based or specifications grading",
+        "Eliminate or reduce participation/attendance grades",
+        "Create more transparent grading criteria",
+        "Reduce grade anxiety and promote learning",
+      ], required: true },
+      { name: "assessmentTypes", label: "Types of Assessments in Your Course", type: "checkbox-group", options: [
+        "Exams/Quizzes",
+        "Papers/Essays",
+        "Projects",
+        "Presentations",
+        "Discussions/Participation",
+        "Labs/Practicals",
+        "Homework/Problem Sets",
+        "Portfolios",
+        "Reflections/Journals",
+      ], required: true },
+      { name: "challenges", label: "Current Grading Challenges", type: "checkbox-group", options: [
+        "Students focus on points rather than learning",
+        "Late work management is burdensome",
+        "Grading feels subjective or inconsistent",
+        "Participation grades seem unfair",
+        "Students don't engage with feedback",
+        "Grade distribution doesn't reflect learning",
+        "Students with life challenges are penalized",
+      ] },
+      { name: "constraints", label: "Constraints to Consider", type: "textarea", placeholder: "Any departmental requirements, accreditation standards, or other constraints?" },
+      { name: "additionalContext", label: "Additional Context", type: "textarea", placeholder: "Any other information about your course or students?" },
+    ],
   };
 
   return fields[toolId] || [];

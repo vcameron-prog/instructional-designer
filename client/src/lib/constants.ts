@@ -105,18 +105,25 @@ export const TOOLS = [
     color: "secondary",
   },
   {
+    id: "grading",
+    name: "Grading Policy Designer",
+    icon: "Scale",
+    description: "Design equitable grading policies that measure content knowledge, not compliance",
+    color: "accent",
+  },
+  {
     id: "aipolicy",
     name: "AI Policy Generator",
     icon: "Sparkles",
     description: "Create clear, nuanced AI use policies tailored to your course and assignments",
-    color: "accent",
+    color: "primary",
   },
   {
     id: "alignment",
     name: "Alignment Checker",
     icon: "Target",
     description: "Verify how your assignments and assessments connect to learning outcomes",
-    color: "primary",
+    color: "secondary",
   },
 ];
 

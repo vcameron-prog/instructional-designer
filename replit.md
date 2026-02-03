@@ -2,7 +2,7 @@
 
 ## Overview
 
-This is an AI-powered instructional design tool built for Bridgewater State University (BSU) faculty. The application helps educators create comprehensive, UDL-aligned (Universal Design for Learning) course materials including assignments, rubrics, syllabi, and learning modules. Faculty can input course information and use AI generation tools to produce ready-to-implement educational content.
+This is an AI-powered instructional design tool built for Bridgewater State University (BSU) faculty. The application helps educators create comprehensive, UDL-aligned (Universal Design for Learning) course materials including assignments, rubrics, syllabi, learning modules, and equitable grading policies. Faculty can input course information and use AI generation tools to produce ready-to-implement educational content.
 
 ## Recent Updates
 

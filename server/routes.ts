@@ -359,6 +359,112 @@ Please provide:
 11. **Equity Considerations**: Any barriers that might disadvantage certain student populations?
 
 Format the matrix clearly so it can be used for accreditation documentation or course improvement.`,
+
+    grading: `${baseContext}
+
+Design an EQUITABLE GRADING POLICY based on Grading for Equity principles (Joe Feldman) that measures student content knowledge rather than compliance behaviors.
+
+CURRENT GRADING APPROACH:
+${toolData.currentGradingApproach || "Not specified - design a new system from scratch"}
+
+GRADING PHILOSOPHY GOALS:
+${toolData.gradingPhilosophy?.map((g: string) => `- ${g}`).join("\n") || "Focus on content mastery"}
+
+ASSESSMENT TYPES IN COURSE:
+${toolData.assessmentTypes?.map((a: string) => `- ${a}`).join("\n") || "Various assessments"}
+
+CURRENT CHALLENGES:
+${toolData.challenges?.map((c: string) => `- ${c}`).join("\n") || "None specified"}
+
+CONSTRAINTS:
+${toolData.constraints || "None specified"}
+
+ADDITIONAL CONTEXT: ${toolData.additionalContext || "None"}
+
+Create a comprehensive grading policy that includes:
+
+1. **GRADING PHILOSOPHY STATEMENT**
+   - Clear statement of the grading approach and its pedagogical foundation
+   - How this system measures content knowledge, not compliance
+   - Connection to research on equitable grading
+
+2. **GRADE BREAKDOWN**
+   - Recommended percentage weights for assessment categories
+   - Rationale for each weight
+   - How this distribution prioritizes learning over compliance
+
+3. **LATE WORK POLICY** (Equitable Approach)
+   - Policy that doesn't penalize students for life circumstances
+   - Options: grace periods, dropped lowest scores, revision windows
+   - How to maintain accountability without punitive measures
+   - Sample language for syllabus
+
+4. **REVISION AND RESUBMISSION POLICY**
+   - How students can demonstrate improved mastery
+   - Clear process for resubmission
+   - What qualifies for revision opportunities
+   - Grading of revised work
+
+5. **PARTICIPATION/ATTENDANCE** (If applicable)
+   - Why traditional participation grades may be inequitable
+   - Alternative approaches that measure engagement without penalizing:
+     * Introverted students
+     * Students with disabilities
+     * Students with work/family obligations
+   - Engagement alternatives if participation is important
+
+6. **MINIMUM GRADING POLICY** (Optional but recommended)
+   - Why 50% minimums can be more equitable than 0%
+   - How to implement minimum grading
+   - Addressing concerns about "giving away points"
+
+7. **GRADING SCALE**
+   - Recommended scale (traditional A-F or alternative)
+   - Clear criteria for each grade level
+   - Connection to learning outcomes
+
+8. **EXTRA CREDIT** (Equitable Approach)
+   - Why some extra credit policies are inequitable
+   - If offering extra credit, how to make it accessible to all
+   - Alternatives to traditional extra credit
+
+9. **TRANSPARENCY AND FEEDBACK**
+   - How grades will be communicated
+   - Frequency and type of feedback
+   - How students can track their progress
+   - Clear rubrics and expectations
+
+10. **SAMPLE SYLLABUS LANGUAGE**
+    - Ready-to-use policy text for the syllabus
+    - Student-friendly explanation of the approach
+
+**INCLUSIVE DESIGN CONSIDERATIONS** (dedicated section):
+
+11. **UDL in Assessment**
+    - Multiple ways to demonstrate mastery
+    - Flexible deadlines and formats where possible
+    - Reducing barriers to showing knowledge
+
+12. **Culturally Responsive Grading**
+    - Avoiding cultural bias in assessment
+    - Valuing diverse ways of knowing
+    - Considering cultural factors in participation expectations
+
+13. **SEL-Informed Grading**
+    - Reducing grade anxiety
+    - Supporting growth mindset through grading practices
+    - Building trust through fair and transparent policies
+
+14. **ADDRESSING COMMON CONCERNS**
+    - FAQ for faculty concerns about equitable grading
+    - Research citations supporting these practices
+    - How to communicate this approach to students and colleagues
+
+Make the policy:
+- Grounded in Grading for Equity research (Joe Feldman)
+- Practical and implementable
+- Ready to paste into syllabus
+- Supportive of student learning while maintaining rigor`,
   };
 
   return prompts[toolId] || baseContext;
