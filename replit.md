@@ -16,7 +16,10 @@ This is an AI-powered instructional design tool built for Bridgewater State Univ
 ### Key Features
 - **Welcome Modal**: 6-step onboarding tour for first-time users
 - **Course Templates**: Pre-fill common course configurations
-- **UDL Tips**: Contextual Universal Design for Learning guidance
+- **Inclusive Design Tips**: Tabbed interface with three pedagogical frameworks:
+  - UDL (Universal Design for Learning)
+  - Cultural Relevance & Inclusivity
+  - SEL (Social-Emotional Learning)
 - **Content Library**: Save and reuse generated content across courses
 - **Course Duplication**: Clone courses with progress dashboard
 - **Sample Courses**: Marked with [SAMPLE] prefix for clarity
