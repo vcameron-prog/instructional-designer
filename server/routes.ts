@@ -23,7 +23,25 @@ function generatePrompt(
     ? `\n\nEXISTING SYLLABUS CONTENT (use this to maintain consistency with the course's established structure, topics, assessments, and terminology):\n${course.existingSyllabus}`
     : "";
 
-  const baseContext = `You are an expert instructional designer creating materials for Bridgewater State University faculty. Create comprehensive, ready-to-implement content that incorporates Universal Design for Learning (UDL) principles.
+  const baseContext = `You are an expert instructional designer creating materials for Bridgewater State University faculty. Create comprehensive, ready-to-implement content that incorporates THREE KEY PEDAGOGICAL FRAMEWORKS:
+
+1. **UNIVERSAL DESIGN FOR LEARNING (UDL)**
+   - Engagement: Multiple ways to motivate and engage learners
+   - Representation: Multiple ways to present information
+   - Action & Expression: Multiple ways for students to demonstrate learning
+
+2. **CULTURAL RELEVANCE & INCLUSIVITY**
+   - Include diverse perspectives, authors, and examples
+   - Honor student identities and backgrounds
+   - Use inclusive language and avoid assumptions
+   - Consider diverse ways of knowing and demonstrating competence
+
+3. **SOCIAL-EMOTIONAL LEARNING (SEL)**
+   - Self-awareness and reflection opportunities
+   - Relationship and collaboration skills
+   - Responsible decision-making
+   - Supportive, growth-oriented framing
+   - Attention to student wellbeing
 
 COURSE INFORMATION:
 Course: ${course.courseName} (${course.courseNumber})
@@ -47,11 +65,15 @@ Create a COMPLETE assignment that includes:
 1. Clear title and overview
 2. Detailed learning objectives
 3. Comprehensive step-by-step instructions
-4. UDL accommodations and alternatives
-5. Submission requirements for Blackboard Ultra
-6. Grading criteria overview
-7. Resources and support materials
-8. Timeline and milestones
+4. Submission requirements for Blackboard Ultra
+5. Grading criteria overview
+6. Resources and support materials
+7. Timeline and milestones
+
+**INCLUSIVE DESIGN SECTION** (include this as a dedicated section in the output):
+8. **UDL Accommodations**: Multiple ways to complete/submit the assignment, accessibility considerations
+9. **Cultural Relevance**: How students can connect the assignment to their own backgrounds/experiences, diverse examples or options
+10. **SEL Integration**: Reflection prompts, collaboration opportunities, how the assignment supports student growth and wellbeing
 
 Assignment Type: ${toolData.assignmentType}
 Learning Objectives: ${toolData.learningObjectives}
@@ -68,6 +90,11 @@ Create a COMPLETE rubric with:
 5. Specific observable behaviors for each level
 6. Ready for Blackboard Ultra
 
+**INCLUSIVE DESIGN CONSIDERATIONS** (weave these into the rubric criteria):
+7. **UDL-Aligned Criteria**: Criteria that allow diverse approaches to demonstrating mastery, not just one "right way"
+8. **Culturally Responsive Assessment**: Criteria free from cultural bias, recognizing diverse communication styles and perspectives
+9. **Growth-Oriented Language**: Use supportive, developmental framing that emphasizes learning over judgment
+
 Assessment Type: ${toolData.assessmentType}
 Total Points: ${toolData.totalPoints}
 Criteria: ${toolData.criteria}
@@ -82,8 +109,21 @@ Create a COMPLETE module with:
 4. Reading assignments with purpose
 5. Learning activities with instructions
 6. Assessment components
-7. UDL implementation strategies
-8. Blackboard organization structure
+7. Blackboard organization structure
+
+**INCLUSIVE DESIGN SECTION** (include as a dedicated section):
+8. **UDL Implementation**: 
+   - Multiple formats for content (text, video, audio options)
+   - Flexible ways to demonstrate learning
+   - Built-in supports and scaffolding
+9. **Cultural Relevance**:
+   - Diverse authors, examples, and case studies
+   - Connections to students' lived experiences
+   - Global perspectives on the topic
+10. **SEL Integration**:
+    - Community-building activities
+    - Reflection and self-assessment opportunities
+    - Stress management and pacing considerations
 
 Module Title: ${toolData.moduleTitle}
 Duration: ${toolData.moduleDuration}
@@ -201,6 +241,11 @@ Create a COMPREHENSIVE course schedule with ACTUAL CALENDAR DATES:
 5. Assessment schedule
 6. Account for breaks and holidays
 
+**INCLUSIVE DESIGN CONSIDERATIONS** (integrate into the schedule):
+7. **UDL Pacing**: Build in flexibility, avoid clustering too many deadlines
+8. **Cultural Awareness**: Note major religious/cultural observances, consider diverse heritage months
+9. **SEL-Informed Timing**: Include lighter weeks after intensive periods, build in check-in points for student wellbeing
+
 Course Dates: ${toolData.startDate} to ${toolData.endDate}
 Format: ${toolData.courseFormat}
 Duration: ${toolData.numberOfWeeks} weeks
@@ -306,6 +351,12 @@ Please provide:
 5. **Bloom's Taxonomy Analysis** - What cognitive levels are assignments targeting?
 6. **Recommendations** - Specific suggestions to improve alignment
 7. **Strengths** - What's working well in the current design
+
+**INCLUSIVE DESIGN ANALYSIS** (include as a dedicated section):
+8. **UDL Assessment**: Are there multiple ways for students to demonstrate mastery of each outcome?
+9. **Cultural Responsiveness**: Do assessments allow for diverse perspectives and ways of knowing?
+10. **SEL Integration**: Are there opportunities for reflection, collaboration, and growth mindset throughout?
+11. **Equity Considerations**: Any barriers that might disadvantage certain student populations?
 
 Format the matrix clearly so it can be used for accreditation documentation or course improvement.`,
   };

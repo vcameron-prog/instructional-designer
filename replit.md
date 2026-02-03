@@ -13,6 +13,13 @@ This is an AI-powered instructional design tool built for Bridgewater State Univ
 - UDL Tips component displays contextual guidance on tool forms
 - "Save to Library" feature on result pages for reusing content across courses
 
+### Inclusive Design Integration
+- All generated content now includes three pedagogical frameworks:
+  - **UDL (Universal Design for Learning)**: Multiple means of engagement, representation, action & expression
+  - **Cultural Relevance & Inclusivity**: Diverse perspectives, student identity, inclusive language
+  - **SEL (Social-Emotional Learning)**: Self-awareness, relationship skills, growth mindset
+- Each tool output includes dedicated inclusive design sections with actionable guidance
+
 ### Key Features
 - **Welcome Modal**: 6-step onboarding tour for first-time users
 - **Course Templates**: Pre-fill common course configurations
