@@ -14,6 +14,7 @@ import { TOOLS, BSU_CALENDAR, LOADING_MESSAGES } from "@/lib/constants";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Course } from "@shared/schema";
+import { UdlTips } from "@/components/udl-tips";
 
 interface ToolFormField {
   name: string;
@@ -286,6 +287,8 @@ export default function ToolForm() {
               </CardContent>
             </Card>
           )}
+
+          {toolId && <UdlTips toolId={toolId} />}
 
           <Card>
             <CardHeader>

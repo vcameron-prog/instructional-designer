@@ -9,6 +9,9 @@ import CourseForm from "@/pages/course-form";
 import ToolSelection from "@/pages/tool-selection";
 import ToolForm from "@/pages/tool-form";
 import ResultPage from "@/pages/result";
+import HelpPage from "@/pages/help";
+import LibraryPage from "@/pages/library";
+import { WelcomeModal } from "@/components/welcome-modal";
 
 function NewCourseWrapper() {
   return <CourseForm />;
@@ -29,6 +32,8 @@ function Router() {
       <Route path="/course/:id/tools" component={ToolSelection} />
       <Route path="/course/:id/tool/:toolId" component={ToolForm} />
       <Route path="/course/:id/result/:contentId" component={ResultPage} />
+      <Route path="/help" component={HelpPage} />
+      <Route path="/library" component={LibraryPage} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -38,6 +43,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
+        <WelcomeModal />
         <Toaster />
         <Router />
       </TooltipProvider>

@@ -20,7 +20,9 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { ArrowLeft, Copy, Download, FileText, RefreshCw, CheckCircle, AlertTriangle, Lightbulb, ChevronDown, Loader2 } from "lucide-react";
+import { ArrowLeft, Copy, Download, FileText, RefreshCw, CheckCircle, AlertTriangle, Lightbulb, ChevronDown, Loader2, Library } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { TOOLS, LOADING_MESSAGES } from "@/lib/constants";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -101,6 +103,9 @@ export default function ResultPage() {
   const [refinementRequest, setRefinementRequest] = useState("");
   const [isRefining, setIsRefining] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("");
+  const [saveLibraryOpen, setSaveLibraryOpen] = useState(false);
+  const [libraryTitle, setLibraryTitle] = useState("");
+  const [libraryDescription, setLibraryDescription] = useState("");
 
   const { data: course } = useQuery<Course>({
     queryKey: ["/api/courses", courseId],
@@ -129,6 +134,28 @@ export default function ResultPage() {
     onError: (error) => {
       toast({ title: "Refinement failed", description: error.message, variant: "destructive" });
       setIsRefining(false);
+    },
+  });
+
+  const saveToLibraryMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/library", {
+        title: libraryTitle || content?.toolName,
+        toolType: content?.toolType,
+        content: content?.content,
+        description: libraryDescription,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/library"] });
+      setSaveLibraryOpen(false);
+      setLibraryTitle("");
+      setLibraryDescription("");
+      toast({ title: "Saved to library!", description: "You can access this content from the Content Library." });
+    },
+    onError: (error) => {
+      toast({ title: "Failed to save", description: error.message, variant: "destructive" });
     },
   });
 
@@ -303,6 +330,60 @@ export default function ResultPage() {
                 <FileText className="w-4 h-4 mr-2" />
                 .doc
               </Button>
+              <Dialog open={saveLibraryOpen} onOpenChange={setSaveLibraryOpen}>
+                <DialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+                    data-testid="button-save-library"
+                  >
+                    <Library className="w-4 h-4 mr-2" />
+                    Save to Library
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Save to Content Library</DialogTitle>
+                    <DialogDescription>
+                      Save this content to reuse across other courses
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="library-title">Title</Label>
+                      <Input
+                        id="library-title"
+                        placeholder={content?.toolName}
+                        value={libraryTitle}
+                        onChange={(e) => setLibraryTitle(e.target.value)}
+                        data-testid="input-library-title"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="library-description">Description (optional)</Label>
+                      <Textarea
+                        id="library-description"
+                        placeholder="Add notes about this content..."
+                        value={libraryDescription}
+                        onChange={(e) => setLibraryDescription(e.target.value)}
+                        data-testid="textarea-library-description"
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setSaveLibraryOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button 
+                      onClick={() => saveToLibraryMutation.mutate()}
+                      disabled={saveToLibraryMutation.isPending}
+                      data-testid="button-confirm-save-library"
+                    >
+                      {saveToLibraryMutation.isPending ? "Saving..." : "Save to Library"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
           </div>
         </div>

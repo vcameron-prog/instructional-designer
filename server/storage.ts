@@ -4,6 +4,7 @@ import {
   courses, 
   generatedContent, 
   contentVersions,
+  savedContent,
   users,
   type Course, 
   type InsertCourse,
@@ -11,6 +12,8 @@ import {
   type InsertGeneratedContent,
   type ContentVersion,
   type InsertContentVersion,
+  type SavedContent,
+  type InsertSavedContent,
   type User,
   type InsertUser
 } from "@shared/schema";
@@ -38,6 +41,15 @@ export interface IStorage {
   // Content Versions
   createVersion(version: InsertContentVersion): Promise<ContentVersion>;
   getVersionsByContent(contentId: number): Promise<ContentVersion[]>;
+  
+  // Saved Content Library
+  getAllSavedContent(): Promise<SavedContent[]>;
+  getSavedContent(id: number): Promise<SavedContent | undefined>;
+  createSavedContent(content: InsertSavedContent): Promise<SavedContent>;
+  deleteSavedContent(id: number): Promise<void>;
+  
+  // Course Duplication
+  duplicateCourse(id: number): Promise<Course | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -129,6 +141,48 @@ export class DatabaseStorage implements IStorage {
       .from(contentVersions)
       .where(eq(contentVersions.generatedContentId, contentId))
       .orderBy(desc(contentVersions.createdAt));
+  }
+
+  // Saved Content Library
+  async getAllSavedContent(): Promise<SavedContent[]> {
+    return db.select().from(savedContent).orderBy(desc(savedContent.createdAt));
+  }
+
+  async getSavedContent(id: number): Promise<SavedContent | undefined> {
+    const [content] = await db.select().from(savedContent).where(eq(savedContent.id, id));
+    return content;
+  }
+
+  async createSavedContent(content: InsertSavedContent): Promise<SavedContent> {
+    const [created] = await db.insert(savedContent).values(content).returning();
+    return created;
+  }
+
+  async deleteSavedContent(id: number): Promise<void> {
+    await db.delete(savedContent).where(eq(savedContent.id, id));
+  }
+
+  // Course Duplication
+  async duplicateCourse(id: number): Promise<Course | undefined> {
+    const original = await this.getCourse(id);
+    if (!original) return undefined;
+
+    const duplicated = await this.createCourse({
+      courseName: `${original.courseName} (Copy)`,
+      courseNumber: original.courseNumber,
+      courseLevel: original.courseLevel,
+      credits: original.credits,
+      semester: original.semester,
+      instructor: original.instructor,
+      department: original.department,
+      courseDescription: original.courseDescription,
+      learningOutcomes: original.learningOutcomes,
+      prerequisites: original.prerequisites,
+      existingSyllabus: original.existingSyllabus,
+      additionalContext: original.additionalContext,
+    });
+
+    return duplicated;
   }
 }
 

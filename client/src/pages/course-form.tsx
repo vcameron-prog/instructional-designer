@@ -11,11 +11,64 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { ArrowLeft, ArrowRight, Upload, FileText, Loader2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Upload, FileText, Loader2, BookOpen } from "lucide-react";
 import { COURSE_LEVELS, CREDIT_OPTIONS, SEMESTERS } from "@/lib/constants";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Course } from "@shared/schema";
+
+const COURSE_TEMPLATES = [
+  {
+    id: "lecture",
+    name: "Traditional Lecture Course",
+    description: "Standard lecture-based course with exams and papers",
+    defaults: {
+      credits: "3",
+      courseLevel: "Undergraduate",
+      learningOutcomes: "Upon completion of this course, students will be able to:\n1. Demonstrate understanding of key concepts and theories\n2. Apply course concepts to real-world scenarios\n3. Analyze and evaluate relevant topics critically\n4. Communicate ideas effectively in written and oral formats",
+    },
+  },
+  {
+    id: "seminar",
+    name: "Discussion Seminar",
+    description: "Small group discussion-based course",
+    defaults: {
+      credits: "3",
+      courseLevel: "Graduate",
+      learningOutcomes: "Upon completion of this course, students will be able to:\n1. Engage critically with primary source materials\n2. Lead and participate in scholarly discussions\n3. Develop and defend original arguments\n4. Synthesize diverse perspectives on complex topics",
+    },
+  },
+  {
+    id: "lab",
+    name: "Lab/Hands-On Course",
+    description: "Course with significant hands-on or lab components",
+    defaults: {
+      credits: "4",
+      courseLevel: "Undergraduate",
+      learningOutcomes: "Upon completion of this course, students will be able to:\n1. Apply theoretical knowledge in practical settings\n2. Use equipment and tools safely and effectively\n3. Collect, analyze, and interpret data\n4. Document procedures and results professionally",
+    },
+  },
+  {
+    id: "online",
+    name: "Online Asynchronous",
+    description: "Fully online self-paced course",
+    defaults: {
+      credits: "3",
+      courseLevel: "Undergraduate",
+      learningOutcomes: "Upon completion of this course, students will be able to:\n1. Demonstrate mastery of course content through varied assessments\n2. Manage time effectively in self-paced learning\n3. Engage meaningfully in online discussions and collaborations\n4. Apply course concepts independently",
+    },
+  },
+  {
+    id: "hybrid",
+    name: "Hybrid Course",
+    description: "Mix of in-person and online components",
+    defaults: {
+      credits: "3",
+      courseLevel: "Undergraduate",
+      learningOutcomes: "Upon completion of this course, students will be able to:\n1. Navigate effectively between online and in-person learning\n2. Demonstrate understanding through multiple modalities\n3. Collaborate with peers both virtually and in person\n4. Apply course concepts in varied contexts",
+    },
+  },
+];
 
 const courseFormSchema = z.object({
   courseName: z.string().min(1, "Course name is required"),
@@ -39,6 +92,7 @@ export default function CourseForm({ courseId }: { courseId?: number }) {
   const { toast } = useToast();
   const [uploadedFileName, setUploadedFileName] = useState("");
   const [isUploading, setIsUploading] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
 
   const { data: existingCourse, isLoading: isLoadingCourse } = useQuery<Course>({
     queryKey: ["/api/courses", courseId],
@@ -144,6 +198,17 @@ export default function CourseForm({ courseId }: { courseId?: number }) {
     }
   };
 
+  const applyTemplate = (templateId: string) => {
+    const template = COURSE_TEMPLATES.find((t) => t.id === templateId);
+    if (template) {
+      setSelectedTemplate(templateId);
+      form.setValue("credits", template.defaults.credits);
+      form.setValue("courseLevel", template.defaults.courseLevel);
+      form.setValue("learningOutcomes", template.defaults.learningOutcomes);
+      toast({ title: `Applied ${template.name} template` });
+    }
+  };
+
   const isPending = createMutation.isPending || updateMutation.isPending;
 
   if (courseId && isLoadingCourse) {
@@ -179,6 +244,40 @@ export default function CourseForm({ courseId }: { courseId?: number }) {
       <div className="container mx-auto px-4 py-8">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 max-w-4xl mx-auto">
+            {!courseId && (
+              <Card className="bg-primary/5 border-primary/20">
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <BookOpen className="w-5 h-5 text-primary" />
+                    <CardTitle className="text-lg">Quick Start with Templates</CardTitle>
+                  </div>
+                  <CardDescription>
+                    Select a template to pre-fill common settings for your course type
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                    {COURSE_TEMPLATES.map((template) => (
+                      <button
+                        key={template.id}
+                        type="button"
+                        onClick={() => applyTemplate(template.id)}
+                        className={`p-4 rounded-lg border text-left transition-colors hover-elevate ${
+                          selectedTemplate === template.id
+                            ? "border-primary bg-primary/10"
+                            : "border-border bg-background"
+                        }`}
+                        data-testid={`button-template-${template.id}`}
+                      >
+                        <p className="font-medium text-sm">{template.name}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{template.description}</p>
+                      </button>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             <Card>
               <CardHeader>
                 <CardTitle>Basic Information</CardTitle>

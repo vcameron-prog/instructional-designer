@@ -103,15 +103,93 @@ ${!course.existingSyllabus && !toolData.currentSyllabusText ? "No existing sylla
 SPECIFIC CONCERNS:
 ${toolData.specificConcerns || "None specified"}
 
-Create an ENHANCED syllabus following BSU's template with:
-1. Warm course welcome
-2. Course information at-a-glance
-3. Learning outcomes (course and module level)
-4. Assignments with rubric connections
-5. Grading policies
-6. BSU institutional policies
-7. Student success sections
-8. Complete course schedule`,
+Create or revise the syllabus following BSU's OFFICIAL SYLLABUS TEMPLATE structure exactly:
+
+1. **COURSE HEADER**
+   - Course Number/Section Number
+   - Course Title
+   - "Bridgewater State University"
+
+2. **COURSE WELCOME** (warm, encouraging, partnership tone)
+   - Personal welcome from instructor with pronouns
+   - Brief background and enthusiasm for teaching this course
+   - Set collaborative, student-centered tone
+
+3. **COURSE INFORMATION AT-A-GLANCE** (formatted table)
+   - Instructor name
+   - Office Hours
+   - Office Location
+   - Office Phone
+   - E-Mail (with response time commitment)
+   - Textbook(s) with title, author, edition, ISBN
+   - Course Meeting Dates/Times
+   - Classroom Location
+
+4. **COURSE TECHNOLOGY AND STUDENT SUPPORT**
+   - myBSU portal link
+   - Blackboard Ultra information
+   - Online Student Support & Success link
+
+5. **LEARNING OUTCOMES SECTION**
+   - Brief course description
+   - Overarching learning goal (what students should retain a year later)
+   - Course Learning Outcomes (numbered list)
+   - Module Learning Outcomes (if applicable)
+
+6. **ASSIGNMENTS & ACTIVITIES**
+   For each major assignment include:
+   - Assignment Title with percentage of grade
+   - Assignment Description
+   - Instructions
+   - Connection to course/module learning outcomes
+   - Note: Rubrics will be provided separately
+
+7. **EXAMS, TESTS, & QUIZZES** (if applicable)
+   - Description of each assessment
+   - Instructions
+   - Relevant learning outcomes being assessed
+
+8. **GRADING POLICIES**
+   - Late or missed work policy
+   - Attendance policy (unexpected and anticipated absences)
+   - Participation policies
+   - Grade notification timeline
+   - Final grading scale
+
+9. **BSU POLICIES AND RESOURCES**
+   - Online Student Support & Success
+   - Academic Support Resources
+   - Belongingness and Wellness Resources
+   - Student Crisis Resources
+
+10. **COURSE POLICIES: STUDENT COMMITMENT**
+    - Student-centered approach statement
+    - Student choice and flexibility options
+    - Diversity, Equity, and Inclusion statement
+    - Student Conduct expectations
+    - AI Policy (match to instructor's stance)
+
+11. **INSTRUCTOR COMMITMENT**
+    - Response time for communications
+    - Grading notification expectations
+    - Student choice philosophy
+    - Openness to feedback
+
+12. **COURSE SCHEDULE** (table format)
+    - Week number
+    - Topics
+    - Student Responsibilities (readings, activities, due dates)
+    - Note about potential changes
+
+13. **CLASS CANCELLATIONS**
+    - BSU notification procedure
+
+IMPORTANT FORMATTING NOTES:
+- Use a warm, encouraging, partnership tone throughout
+- Be learner-centered rather than instructor-centered
+- Include UDL principles where appropriate
+- Make policies clear but supportive, not punitive
+- Ready to paste into Blackboard Ultra or Word document`,
 
     schedule: `${baseContext}
 
@@ -134,7 +212,7 @@ Additional Context: ${toolData.additionalContext || "None"}`,
 
     aipolicy: `${baseContext}
 
-Create a COMPREHENSIVE AI USE POLICY for this course that is clear, fair, and pedagogically sound.
+Create an AI USE POLICY for this course following BSU's AI Policy Framework.
 
 INSTRUCTOR'S STANCE: ${toolData.aiStance}
 
@@ -149,24 +227,61 @@ ${toolData.concerns?.map((c: string) => `- ${c}`).join("\n") || "General concern
 
 ADDITIONAL CONTEXT: ${toolData.additionalContext || "None"}
 
-Please create a policy that includes:
-1. **Clear Policy Statement** - Overall stance in student-friendly language
-2. **Rationale** - Why this policy exists (pedagogical reasoning)
-3. **Assignment-Specific Guidelines** - A matrix or list showing what's allowed for each assignment type
-4. **Permitted Uses** - Specific ways students CAN use AI (if any)
-5. **Prohibited Uses** - What is NOT allowed
-6. **Disclosure Requirements** - How students should cite/acknowledge AI use
-7. **Consequences** - What happens if policy is violated
-8. **Equity Statement** - Acknowledging access differences
-9. **Resources** - Where students can get help instead of/in addition to AI
-10. **FAQ Section** - Common questions students might have
+BSU uses a 4-LEVEL AI POLICY FRAMEWORK (adapted from Leon Furze's AI Assessment Scale v2):
+
+**Policy 1: No AI** - No AI tools allowed for any assessments, assignments, or studying
+**Policy 2: AI for Planning** - AI allowed for brainstorming and planning only, not for creating content
+**Policy 3: AI for Collaboration** - AI may assist with drafting/revising, but student must critically evaluate and modify all AI content
+**Policy 4: Full AI** - AI may be used extensively; focus is on directing AI effectively and demonstrating critical thinking
+
+Based on the instructor's stance, create a policy that includes:
+
+1. **POLICY STATEMENT**
+   - Clear statement matching one of the 4 levels (or a hybrid approach)
+   - Written in student-friendly, supportive language
+
+2. **RATIONALE**
+   - Pedagogical reasoning for this policy level
+   - How this supports the learning outcomes
+
+3. **ASSIGNMENT-SPECIFIC MATRIX** (if stance varies by assignment)
+   - Table showing which policy level applies to each assignment type
+   - Clear guidance for different activities
+
+4. **PERMITTED USES** (specific examples)
+   - What students CAN do with AI in this course
+   - Concrete examples relevant to course content
+
+5. **PROHIBITED USES** (specific examples)
+   - What is NOT allowed
+   - Clear boundaries
+
+6. **CITATION REQUIREMENTS**
+   - How to acknowledge AI use (matching BSU style)
+   - Examples: "Initial brainstorming supported by [AI tool]" or "Draft revision suggestions provided by [AI tool], modified for final submission"
+   - Reference to Maxwell Library's AI citation resources
+
+7. **ACADEMIC INTEGRITY**
+   - Connection to BSU's academic integrity policies
+   - Consequences for policy violations
+
+8. **EQUITY CONSIDERATIONS**
+   - Acknowledgment that not all students have equal AI access
+   - How this is addressed in the policy
+
+9. **SUPPORT RESOURCES**
+   - Alternatives to AI for getting help
+   - BSU tutoring, writing center, office hours
+
+10. **FAQ SECTION**
+    - Common student questions
+    - Practical scenarios
 
 Make the policy:
-- Written in a supportive, educational tone (not punitive)
+- Warm and educational in tone (not punitive)
 - Specific enough to be enforceable
-- Flexible enough to adapt as AI evolves
-- Aligned with academic integrity principles
-- Ready to paste into a syllabus or Blackboard`,
+- Ready to paste into syllabus or Blackboard
+- Aligned with BSU's TTC guidelines`,
 
     alignment: `${baseContext}
 
@@ -418,6 +533,59 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     } catch (error) {
       console.error("Error uploading file:", error);
       res.status(500).json({ error: "Failed to process file" });
+    }
+  });
+
+  // Course duplication
+  app.post("/api/courses/:id/duplicate", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const duplicated = await storage.duplicateCourse(id);
+      if (!duplicated) {
+        return res.status(404).json({ error: "Course not found" });
+      }
+      res.status(201).json(duplicated);
+    } catch (error) {
+      console.error("Error duplicating course:", error);
+      res.status(500).json({ error: "Failed to duplicate course" });
+    }
+  });
+
+  // Saved Content Library API
+  app.get("/api/library", async (req: Request, res: Response) => {
+    try {
+      const savedContent = await storage.getAllSavedContent();
+      res.json(savedContent);
+    } catch (error) {
+      console.error("Error fetching library:", error);
+      res.status(500).json({ error: "Failed to fetch library" });
+    }
+  });
+
+  app.post("/api/library", async (req: Request, res: Response) => {
+    try {
+      const { title, toolType, content, description } = req.body;
+      const saved = await storage.createSavedContent({
+        title,
+        toolType,
+        content,
+        description,
+      });
+      res.status(201).json(saved);
+    } catch (error) {
+      console.error("Error saving to library:", error);
+      res.status(500).json({ error: "Failed to save to library" });
+    }
+  });
+
+  app.delete("/api/library/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteSavedContent(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting from library:", error);
+      res.status(500).json({ error: "Failed to delete from library" });
     }
   });
 

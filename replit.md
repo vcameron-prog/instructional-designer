@@ -4,6 +4,23 @@
 
 This is an AI-powered instructional design tool built for Bridgewater State University (BSU) faculty. The application helps educators create comprehensive, UDL-aligned (Universal Design for Learning) course materials including assignments, rubrics, syllabi, and learning modules. Faculty can input course information and use AI generation tools to produce ready-to-implement educational content.
 
+## Recent Updates
+
+### BSU Template Integration (Latest)
+- Syllabus generation now follows BSU's official TTC syllabus template structure
+- AI Policy generation uses BSU's 4-level AI Policy Framework (adapted from Leon Furze's AI Assessment Scale v2)
+- Course templates added for quick start (Lecture, Seminar, Lab, Online, Hybrid)
+- UDL Tips component displays contextual guidance on tool forms
+- "Save to Library" feature on result pages for reusing content across courses
+
+### Key Features
+- **Welcome Modal**: 6-step onboarding tour for first-time users
+- **Course Templates**: Pre-fill common course configurations
+- **UDL Tips**: Contextual Universal Design for Learning guidance
+- **Content Library**: Save and reuse generated content across courses
+- **Course Duplication**: Clone courses with progress dashboard
+- **Sample Courses**: Marked with [SAMPLE] prefix for clarity
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.

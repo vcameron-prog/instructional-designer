@@ -81,3 +81,69 @@ export const insertContentVersionSchema = createInsertSchema(contentVersions).om
 
 export type InsertContentVersion = z.infer<typeof insertContentVersionSchema>;
 export type ContentVersion = typeof contentVersions.$inferSelect;
+
+// Saved content library (favorites)
+export const savedContent = pgTable("saved_content", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  toolType: text("tool_type").notNull(),
+  content: text("content").notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+export const insertSavedContentSchema = createInsertSchema(savedContent).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertSavedContent = z.infer<typeof insertSavedContentSchema>;
+export type SavedContent = typeof savedContent.$inferSelect;
+
+// Course templates
+export const COURSE_TEMPLATES = {
+  lecture: {
+    name: "Traditional Lecture",
+    description: "Standard lecture-based course with exams and assignments",
+    defaults: {
+      additionalContext: "This is a traditional lecture course. Students attend scheduled lectures, complete readings, and are assessed through exams and written assignments. Consider incorporating active learning strategies and discussion opportunities.",
+    }
+  },
+  lab: {
+    name: "Laboratory Course",
+    description: "Hands-on lab with practical experiments and reports",
+    defaults: {
+      additionalContext: "This is a laboratory course with hands-on components. Students work in lab settings conducting experiments or practical exercises. Assessment includes lab reports, practical exams, and safety compliance. Equipment and material preparation is required.",
+    }
+  },
+  online: {
+    name: "Fully Online",
+    description: "Asynchronous online course with flexible scheduling",
+    defaults: {
+      additionalContext: "This is a fully online asynchronous course. All content is delivered through Blackboard Ultra. Students work at their own pace within weekly deadlines. Include video lectures, discussion forums, and varied assessment types for engagement.",
+    }
+  },
+  hybrid: {
+    name: "Hybrid/Blended",
+    description: "Mix of in-person and online components",
+    defaults: {
+      additionalContext: "This is a hybrid course combining in-person and online components. Some sessions meet face-to-face while others are completed online. Clear communication about which sessions are in-person vs. online is essential.",
+    }
+  },
+  seminar: {
+    name: "Seminar/Discussion",
+    description: "Discussion-based course with student presentations",
+    defaults: {
+      additionalContext: "This is a seminar-style course emphasizing discussion, critical analysis, and student presentations. Students are expected to actively participate, lead discussions, and engage with peer work. Assessment focuses on participation, presentations, and written analysis.",
+    }
+  },
+  studio: {
+    name: "Studio/Workshop",
+    description: "Creative or skill-based hands-on course",
+    defaults: {
+      additionalContext: "This is a studio/workshop course focused on developing practical skills through hands-on work. Students create projects, receive critique, and iterate on their work. Assessment includes portfolio work, progress demonstrations, and final projects.",
+    }
+  },
+} as const;
+
+export type CourseTemplateId = keyof typeof COURSE_TEMPLATES;
