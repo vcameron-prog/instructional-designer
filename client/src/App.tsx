@@ -10,6 +10,7 @@ import ToolSelection from "@/pages/tool-selection";
 import ToolForm from "@/pages/tool-form";
 import ResultPage from "@/pages/result";
 import HelpPage from "@/pages/help";
+import ResearchPage from "@/pages/research";
 import LibraryPage from "@/pages/library";
 import { WelcomeModal } from "@/components/welcome-modal";
 
@@ -33,6 +34,7 @@ function Router() {
       <Route path="/course/:id/tool/:toolId" component={ToolForm} />
       <Route path="/course/:id/result/:contentId" component={ResultPage} />
       <Route path="/help" component={HelpPage} />
+      <Route path="/research" component={ResearchPage} />
       <Route path="/library" component={LibraryPage} />
       <Route component={NotFound} />
     </Switch>
