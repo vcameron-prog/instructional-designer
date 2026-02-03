@@ -16,6 +16,8 @@ export const SEMESTERS = [
   "Summer 2026 Session II",
   "Fall 2026",
   "Spring 2027",
+  "Summer 2027 Session I",
+  "Summer 2027 Session II",
 ];
 
 export const BSU_CALENDAR: Record<string, { startDate: string; endDate: string; breaks: { name: string; start: string; end: string }[] }> = {
@@ -65,6 +67,19 @@ export const BSU_CALENDAR: Record<string, { startDate: string; endDate: string; 
       { name: "Spring Break", start: "2027-03-08", end: "2027-03-12" },
       { name: "Patriots Day", start: "2027-04-19", end: "2027-04-19" },
     ],
+  },
+  "Summer 2027 Session I": {
+    startDate: "2027-05-24",
+    endDate: "2027-06-28",
+    breaks: [
+      { name: "Memorial Day", start: "2027-05-31", end: "2027-05-31" },
+      { name: "Juneteenth", start: "2027-06-18", end: "2027-06-18" },
+    ],
+  },
+  "Summer 2027 Session II": {
+    startDate: "2027-07-12",
+    endDate: "2027-08-13",
+    breaks: [],
   },
 };
 
