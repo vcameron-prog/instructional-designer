@@ -1,0 +1,2250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BSU Instructional Design Tool</title>
+  <meta name="description" content="Create comprehensive, UDL-aligned course materials for Bridgewater State University faculty">
+  
+  <!-- Preconnect for performance -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  
+  <!-- Lexend + Atkinson Hyperlegible for accessibility -->
+  <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700;800;900&family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+  
+  <!-- React + Babel for standalone deployment -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- PDF.js for reading PDF files -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  </script>
+  
+  <!-- Mammoth.js for reading Word documents -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+  
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Lexend', 'Atkinson Hyperlegible', -apple-system, BlinkMacSystemFont, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    
+    #root {
+      min-height: 100vh;
+    }
+    
+    /* Animations */
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    
+    @keyframes slideBackground {
+      from { background-position: 0 0; }
+      to { background-position: 100px 100px; }
+    }
+    
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+    
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    
+    @keyframes bounce {
+      0%, 80%, 100% { transform: scale(0); }
+      40% { transform: scale(1); }
+    }
+    
+    /* Print styles */
+    @media print {
+      body { background: white !important; }
+      .no-print { display: none !important; }
+    }
+    
+    /* Focus styles for accessibility */
+    button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+      outline: 3px solid #D97706;
+      outline-offset: 2px;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+    
+    // Simple icon components (replacing lucide-react)
+    const Icon = ({ name, size = 24, color = 'currentColor', strokeWidth = 2 }) => {
+      const icons = {
+        BookOpen: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>,
+        FileText: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>,
+        Layout: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>,
+        GraduationCap: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>,
+        CheckCircle: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>,
+        Sparkles: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>,
+        Copy: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>,
+        Download: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
+        ChevronRight: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>,
+        ArrowLeft: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>,
+        Trash2: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>,
+        Calendar: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
+      };
+      return icons[name] || null;
+    };
+
+    // Main Application Component
+    const BSUInstructionalDesignTool = () => {
+      // Load saved data from localStorage on mount
+      const loadFromLocalStorage = () => {
+        try {
+          const saved = localStorage.getItem('bsu_id_tool_data');
+          if (saved) {
+            return JSON.parse(saved);
+          }
+        } catch (error) {
+          console.error('Error loading from localStorage:', error);
+        }
+        return null;
+      };
+
+      const initialData = loadFromLocalStorage();
+
+      const [step, setStep] = useState('landing');
+      const [courseInfo, setCourseInfo] = useState({});
+      const [selectedTool, setSelectedTool] = useState(null);
+      const [toolFormData, setToolFormData] = useState({});
+      const [isGenerating, setIsGenerating] = useState(false);
+      const [generatedContent, setGeneratedContent] = useState('');
+      const [previousWork, setPreviousWork] = useState({});
+      const [showRefinementDialog, setShowRefinementDialog] = useState(false);
+      const [refinementRequest, setRefinementRequest] = useState('');
+      const [versionHistory, setVersionHistory] = useState({});
+      const [savedCourses, setSavedCourses] = useState(initialData?.savedCourses || []);
+      const [currentCourseId, setCurrentCourseId] = useState(null);
+      const [showPreview, setShowPreview] = useState(false);
+      const [scheduleViewMode, setScheduleViewMode] = useState('list');
+      
+      // New state for enhanced UX features
+      const [confirmDialog, setConfirmDialog] = useState({ show: false, title: '', message: '', onConfirm: null });
+      const [loadingMessage, setLoadingMessage] = useState('');
+      const [accessibilityIssues, setAccessibilityIssues] = useState([]);
+      const [showAccessibilityPanel, setShowAccessibilityPanel] = useState(false);
+      const [copySuccess, setCopySuccess] = useState(false);
+      const [fileUploadStatus, setFileUploadStatus] = useState({ loading: false, fileName: '', error: '' });
+
+      // Function to read uploaded file content
+      const handleFileUpload = async (file, fieldName) => {
+        if (!file) return;
+        
+        setFileUploadStatus({ loading: true, fileName: file.name, error: '' });
+        
+        try {
+          let content = '';
+          
+          if (file.type === 'text/plain' || file.name.endsWith('.txt')) {
+            // Read text files directly
+            content = await file.text();
+          } else if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
+            // For PDFs, we'll use pdf.js from CDN
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            const textParts = [];
+            
+            for (let i = 1; i <= pdf.numPages; i++) {
+              const page = await pdf.getPage(i);
+              const textContent = await page.getTextContent();
+              const pageText = textContent.items.map(item => item.str).join(' ');
+              textParts.push(pageText);
+            }
+            content = textParts.join('\n\n');
+          } else if (file.name.endsWith('.doc') || file.name.endsWith('.docx')) {
+            // For Word docs, use mammoth.js
+            const arrayBuffer = await file.arrayBuffer();
+            const result = await mammoth.extractRawText({ arrayBuffer });
+            content = result.value;
+          } else {
+            throw new Error('Unsupported file type. Please upload a PDF, Word document, or text file.');
+          }
+          
+          // Update courseInfo with the extracted content
+          setCourseInfo(prev => ({ 
+            ...prev, 
+            [fieldName]: content,
+            [`${fieldName}FileName`]: file.name 
+          }));
+          setFileUploadStatus({ loading: false, fileName: file.name, error: '' });
+          
+        } catch (error) {
+          console.error('Error reading file:', error);
+          setFileUploadStatus({ loading: false, fileName: '', error: error.message || 'Error reading file. Please try pasting the content instead.' });
+        }
+      };
+
+      // BSU Academic Calendar Data
+      const bsuCalendar = {
+        'Fall 2025': {
+          startDate: '2025-09-03',
+          endDate: '2025-12-10',
+          breaks: [
+            { name: 'Columbus Day/Indigenous Peoples Day', start: '2025-10-13', end: '2025-10-13' },
+            { name: 'Veterans Day', start: '2025-11-11', end: '2025-11-11' },
+            { name: 'Thanksgiving Recess', start: '2025-11-26', end: '2025-11-30' }
+          ]
+        },
+        'Spring 2026': {
+          startDate: '2026-01-21',
+          endDate: '2026-05-04',
+          breaks: [
+            { name: 'Presidents Day', start: '2026-02-16', end: '2026-02-16' },
+            { name: 'Spring Break', start: '2026-03-09', end: '2026-03-13' },
+            { name: 'Patriots Day', start: '2026-04-20', end: '2026-04-20' }
+          ]
+        },
+        'Summer 2026 Session I': {
+          startDate: '2026-05-26',
+          endDate: '2026-06-29',
+          breaks: [
+            { name: 'Juneteenth', start: '2026-06-19', end: '2026-06-19' }
+          ]
+        },
+        'Summer 2026 Session II': {
+          startDate: '2026-07-13',
+          endDate: '2026-08-14',
+          breaks: []
+        },
+        'Fall 2026': {
+          startDate: '2026-09-02',
+          endDate: '2026-12-10',
+          breaks: [
+            { name: 'Labor Day', start: '2026-09-07', end: '2026-09-07' },
+            { name: 'Columbus Day/Indigenous Peoples Day', start: '2026-10-12', end: '2026-10-12' },
+            { name: 'Veterans Day', start: '2026-11-11', end: '2026-11-11' },
+            { name: 'Thanksgiving Recess', start: '2026-11-25', end: '2026-11-30' }
+          ]
+        },
+        'Spring 2027': {
+          startDate: '2027-01-20',
+          endDate: '2027-05-03',
+          breaks: [
+            { name: 'Presidents Day', start: '2027-02-15', end: '2027-02-15' },
+            { name: 'Spring Break', start: '2027-03-08', end: '2027-03-12' },
+            { name: 'Patriots Day', start: '2027-04-19', end: '2027-04-19' }
+          ]
+        }
+      };
+
+      // Loading messages that cycle during generation
+      const loadingMessages = [
+        'Analyzing your course requirements...',
+        'Incorporating UDL principles...',
+        'Building comprehensive content structure...',
+        'Adding accessibility features...',
+        'Tailoring for Blackboard Ultra...',
+        'Aligning with learning outcomes...',
+        'Applying best practices in pedagogy...',
+        'Finalizing your materials...'
+      ];
+
+      // Accessibility checker function
+      const checkAccessibility = (content) => {
+        const issues = [];
+        
+        const headingMatches = content.match(/^#{1,6}\s|^[A-Z][A-Z\s]{5,}$/gm) || [];
+        if (headingMatches.length === 0 && content.length > 500) {
+          issues.push({
+            type: 'structure',
+            severity: 'suggestion',
+            message: 'Consider adding clear section headings to improve navigation',
+            fix: 'Add headings like "## Overview" or "## Learning Objectives" to organize content'
+          });
+        }
+
+        const paragraphs = content.split(/\n\n+/);
+        const longParagraphs = paragraphs.filter(p => p.length > 800 && !p.includes('|'));
+        if (longParagraphs.length > 0) {
+          issues.push({
+            type: 'readability',
+            severity: 'suggestion',
+            message: `${longParagraphs.length} paragraph(s) may be too long for easy reading`,
+            fix: 'Break long paragraphs into smaller chunks of 3-4 sentences each'
+          });
+        }
+
+        if (content.match(/\[click here\]|\[here\]|\[link\]/gi)) {
+          issues.push({
+            type: 'accessibility',
+            severity: 'warning',
+            message: 'Avoid vague link text like "click here" or "here"',
+            fix: 'Use descriptive link text that explains the destination (e.g., [BSU Academic Calendar])'
+          });
+        }
+
+        if (content.match(/\b(red|green|blue|yellow|orange|purple)\s+(text|items?|sections?|parts?)\b/gi)) {
+          issues.push({
+            type: 'accessibility',
+            severity: 'warning',
+            message: 'Information may rely on color alone to convey meaning',
+            fix: 'Use additional indicators like icons, labels, or patterns alongside color'
+          });
+        }
+
+        const allCapsMatches = content.match(/\b[A-Z]{10,}\b/g) || [];
+        if (allCapsMatches.length > 3) {
+          issues.push({
+            type: 'readability',
+            severity: 'suggestion',
+            message: 'Excessive use of ALL CAPS text can reduce readability',
+            fix: 'Use bold or heading styles instead of all caps for emphasis'
+          });
+        }
+
+        const jargonTerms = ['UDL', 'SLO', 'CLO', 'LMS', 'synchronous', 'asynchronous', 'scaffolding'];
+        const usedJargon = jargonTerms.filter(term => {
+          const regex = new RegExp(`\\b${term}\\b`, 'gi');
+          return content.match(regex) && !content.match(new RegExp(`${term}[\\s]*\\([^)]+\\)`, 'gi'));
+        });
+        if (usedJargon.length > 0) {
+          issues.push({
+            type: 'clarity',
+            severity: 'suggestion',
+            message: `Academic terms used without definition: ${usedJargon.join(', ')}`,
+            fix: 'Consider adding brief explanations for specialized terms on first use'
+          });
+        }
+
+        return issues;
+      };
+
+      // Auto-save to localStorage
+      useEffect(() => {
+        try {
+          const dataToSave = {
+            savedCourses: savedCourses,
+            lastSaved: new Date().toISOString()
+          };
+          localStorage.setItem('bsu_id_tool_data', JSON.stringify(dataToSave));
+        } catch (error) {
+          console.error('Error saving to localStorage:', error);
+        }
+      }, [savedCourses]);
+
+      // Auto-fill schedule dates when semester is selected
+      useEffect(() => {
+        if (selectedTool?.id === 'schedule' && courseInfo.semester && bsuCalendar[courseInfo.semester]) {
+          const semester = bsuCalendar[courseInfo.semester];
+          setToolFormData(prev => ({
+            ...prev,
+            startDate: prev.startDate || semester.startDate,
+            endDate: prev.endDate || semester.endDate
+          }));
+        }
+      }, [selectedTool, courseInfo.semester]);
+
+      // Accessible color palette
+      const colors = {
+        primary: '#0F4C81',
+        secondary: '#D97706',
+        accent: '#059669',
+        dark: '#1F2937',
+        light: '#F3F4F6',
+        white: '#FFFFFF'
+      };
+
+      const courseIntakeFields = [
+        { name: 'courseName', label: 'Course Name', type: 'text', required: true, placeholder: 'e.g., Introduction to Psychology' },
+        { name: 'courseNumber', label: 'Course Number', type: 'text', required: true, placeholder: 'e.g., PSYC 101' },
+        { name: 'courseLevel', label: 'Course Level', type: 'select', options: ['Undergraduate - 100 level', 'Undergraduate - 200 level', 'Undergraduate - 300 level', 'Undergraduate - 400 level', 'Graduate', 'Continuing Education'], required: true },
+        { name: 'credits', label: 'Credit Hours', type: 'select', options: ['0', '1', '2', '3', '4'], required: true },
+        { name: 'semester', label: 'Semester', type: 'select', options: ['Fall 2025', 'Spring 2026', 'Summer 2026 Session I', 'Summer 2026 Session II', 'Fall 2026', 'Spring 2027'], required: true },
+        { name: 'instructor', label: 'Instructor Name', type: 'text', required: true },
+        { name: 'department', label: 'Department', type: 'text', required: true, placeholder: 'e.g., Psychology' },
+        { name: 'courseDescription', label: 'Course Description', type: 'textarea', required: true, placeholder: 'Provide a comprehensive description of the course content and goals...' },
+        { name: 'learningOutcomes', label: 'Primary Learning Outcomes', type: 'textarea', required: true, placeholder: 'List the main learning outcomes students should achieve...' },
+        { name: 'prerequisites', label: 'Prerequisites (if any)', type: 'text', required: false, placeholder: 'e.g., PSYC 100 or instructor permission' },
+        { name: 'existingSyllabusFile', label: 'Upload Existing Syllabus (Optional)', type: 'file', required: false, accept: '.pdf,.doc,.docx,.txt', helper: '💡 Upload your syllabus as PDF, Word, or text file. This helps all tools generate materials that align with your course.' },
+        { name: 'existingSyllabus', label: 'Or Paste Syllabus Content', type: 'textarea', required: false, placeholder: 'Alternatively, paste your current syllabus content here...', helper: '💡 You can upload a file above OR paste content here - whichever is easier.' },
+        { name: 'additionalContext', label: 'Additional Course Context', type: 'textarea', required: false, placeholder: 'Any other important information about your course...' }
+      ];
+
+      const tools = [
+        {
+          id: 'syllabus',
+          name: 'Syllabus Editor',
+          icon: 'BookOpen',
+          color: colors.primary,
+          description: 'Enhance and revise your syllabus with UDL, cultural relevance, and modern pedagogy'
+        },
+        {
+          id: 'schedule',
+          name: 'Course Schedule Designer',
+          icon: 'Calendar',
+          color: colors.secondary,
+          description: 'Create detailed week-by-week course timelines with actual dates'
+        },
+        {
+          id: 'assignment',
+          name: 'Assignment Design',
+          icon: 'FileText',
+          color: colors.accent,
+          description: 'Create comprehensive, UDL-aligned assignments ready for Blackboard Ultra'
+        },
+        {
+          id: 'module',
+          name: 'Module Design',
+          icon: 'Layout',
+          color: colors.primary,
+          description: 'Design complete course modules with learning activities and assessments'
+        },
+        {
+          id: 'rubric',
+          name: 'Rubric Builder',
+          icon: 'CheckCircle',
+          color: colors.secondary,
+          description: 'Build detailed, criteria-based rubrics with clear performance levels'
+        },
+        {
+          id: 'aipolicy',
+          name: 'AI Policy Generator',
+          icon: 'Sparkles',
+          color: '#7C3AED',
+          description: 'Create clear, nuanced AI use policies tailored to your course and assignments'
+        },
+        {
+          id: 'alignment',
+          name: 'Alignment Checker',
+          icon: 'CheckCircle',
+          color: colors.accent,
+          description: 'Verify how your assignments and assessments connect to learning outcomes'
+        }
+      ];
+
+      const getFormFields = (toolId) => {
+        const specificFields = {
+          assignment: [
+            { name: 'assignmentType', label: 'Assignment Type', type: 'select', options: ['Essay/Paper', 'Research Project', 'Problem Set', 'Lab Report', 'Presentation', 'Discussion', 'Creative Project', 'Case Study'], required: true },
+            { name: 'learningObjectives', label: 'Key Learning Objectives', type: 'textarea', placeholder: 'What should students learn from this assignment?', required: true },
+            { name: 'duration', label: 'Time to Complete', type: 'text', placeholder: 'e.g., 2 weeks, 1 week' },
+            { name: 'additionalContext', label: 'Additional Context', type: 'textarea', placeholder: 'Any specific requirements, constraints, or preferences?' }
+          ],
+          rubric: [
+            { name: 'assessmentType', label: 'What are you assessing?', type: 'text', placeholder: 'e.g., Research paper, presentation', required: true },
+            { name: 'totalPoints', label: 'Total Points', type: 'number', placeholder: 'e.g., 100', required: true },
+            { name: 'criteria', label: 'Key Evaluation Criteria', type: 'textarea', placeholder: 'What aspects should be evaluated?', required: true },
+            { name: 'levels', label: 'Performance Levels', type: 'select', options: ['3 levels', '4 levels', '5 levels'], required: true },
+            { name: 'additionalContext', label: 'Additional Context', type: 'textarea', placeholder: 'Any specific requirements?' }
+          ],
+          module: [
+            { name: 'moduleTitle', label: 'Module Title/Topic', type: 'text', required: true },
+            { name: 'moduleDuration', label: 'Module Duration', type: 'select', options: ['1 week', '2 weeks', '3 weeks', '4 weeks'], required: true },
+            { name: 'learningOutcomes', label: 'Learning Outcomes', type: 'textarea', placeholder: 'What should students be able to do after this module?', required: true },
+            { name: 'additionalContext', label: 'Additional Context', type: 'textarea', placeholder: 'Any required readings, activities, or constraints?' }
+          ],
+          syllabus: [
+            { name: 'revisionGoals', label: 'What would you like to enhance?', type: 'checkbox-group', options: [
+              'Add Universal Design for Learning (UDL) principles',
+              'Incorporate cultural relevance and inclusivity',
+              'Modernize pedagogy and teaching approaches',
+              'Improve clarity and student-friendliness',
+              'Add or revise assessment strategies',
+              'Update course policies',
+              'Enhance accessibility features'
+            ], required: true },
+            { name: 'currentSyllabusText', label: 'Current Syllabus Content', type: 'textarea', placeholder: 'Paste your current syllabus here (or add to what you provided in Course Info)...', required: false, helper: '💡 If you already pasted your syllabus in the Course Info section, you can skip this or add additional content here.' },
+            { name: 'specificConcerns', label: 'Specific Areas of Concern', type: 'textarea', placeholder: 'Are there specific sections you want to focus on?' },
+            { name: 'additionalContext', label: 'Additional Context', type: 'textarea', placeholder: 'Any other information?' }
+          ],
+          schedule: [
+            { name: 'startDate', label: 'Course Start Date', type: 'date', required: true },
+            { name: 'endDate', label: 'Course End Date', type: 'date', required: true },
+            { name: 'courseFormat', label: 'Course Format', type: 'select', options: ['Weekly (Traditional Semester)', 'Bi-Weekly', 'Module-Based', 'Accelerated (8-week)'], required: true },
+            { name: 'numberOfWeeks', label: 'Number of Weeks', type: 'select', options: ['4', '5', '8', '10', '12', '14', '15', '16'], required: true },
+            { name: 'meetingPattern', label: 'Meeting Pattern', type: 'select', options: ['Once per week', 'Twice per week', 'Three times per week', 'Online asynchronous', 'Hybrid'], required: true },
+            { name: 'meetingDays', label: 'Meeting Days (if applicable)', type: 'text', placeholder: 'e.g., Monday/Wednesday' },
+            { name: 'majorTopics', label: 'Major Topics to Cover', type: 'textarea', placeholder: 'List the main topics or units...', required: true },
+            { name: 'assessments', label: 'Major Assessments', type: 'textarea', placeholder: 'List key assessments and their timing...', required: true },
+            { name: 'additionalContext', label: 'Additional Context', type: 'textarea', placeholder: 'Any other constraints?' }
+          ],
+          aipolicy: [
+            { name: 'aiStance', label: 'Your General Stance on AI Use', type: 'select', options: [
+              'AI use prohibited entirely',
+              'AI use prohibited for most work, allowed for specific tasks',
+              'AI use allowed with restrictions and disclosure',
+              'AI use encouraged as a learning tool',
+              'Varies by assignment - need a matrix'
+            ], required: true },
+            { name: 'aiTools', label: 'Which AI Tools Are You Addressing?', type: 'checkbox-group', options: [
+              'ChatGPT / Claude / other chatbots',
+              'AI writing assistants (Grammarly AI, etc.)',
+              'AI image generators (DALL-E, Midjourney)',
+              'AI coding assistants (GitHub Copilot)',
+              'AI research tools (Elicit, Consensus)',
+              'AI translation tools',
+              'Other AI tools'
+            ], required: true },
+            { name: 'keyAssignments', label: 'Key Assignments to Address', type: 'textarea', placeholder: 'List your major assignments (e.g., research paper, presentations, problem sets, discussions)...', required: true },
+            { name: 'concerns', label: 'Your Primary Concerns', type: 'checkbox-group', options: [
+              'Academic integrity',
+              'Students missing learning opportunities',
+              'Equity (not all students have equal access)',
+              'Accuracy/hallucinations in AI output',
+              'Students not developing critical skills',
+              'Citation and plagiarism issues',
+              'Preparing students for AI-enabled workplaces'
+            ], required: true },
+            { name: 'additionalContext', label: 'Additional Context', type: 'textarea', placeholder: 'Any specific situations or concerns you want addressed?' }
+          ],
+          alignment: [
+            { name: 'learningOutcomes', label: 'Course Learning Outcomes', type: 'textarea', placeholder: 'List all your course learning outcomes (copy from syllabus or Course Info)...', required: true, helper: '💡 Tip: Copy these from your syllabus for accuracy' },
+            { name: 'assignments', label: 'Assignments and Assessments', type: 'textarea', placeholder: 'List all assignments with brief descriptions (e.g., "Research Paper - 20% - Students analyze a historical event")...', required: true },
+            { name: 'checkType', label: 'What Would You Like to Check?', type: 'checkbox-group', options: [
+              'Which outcomes each assignment addresses',
+              'Gaps - outcomes not assessed by any assignment',
+              'Overlaps - outcomes assessed multiple times',
+              'Suggestions for better alignment',
+              'Bloom\'s taxonomy level analysis'
+            ], required: true },
+            { name: 'additionalContext', label: 'Additional Context', type: 'textarea', placeholder: 'Any specific concerns about alignment?' }
+          ]
+        };
+        return specificFields[toolId] || [];
+      };
+
+      const handleCourseInfoChange = (fieldName, value) => {
+        setCourseInfo(prev => ({ ...prev, [fieldName]: value }));
+      };
+
+      const handleToolInputChange = (fieldName, value) => {
+        setToolFormData(prev => ({ ...prev, [fieldName]: value }));
+      };
+
+      const generatePrompt = (toolId, toolData) => {
+        const syllabusContext = courseInfo.existingSyllabus ? `
+
+EXISTING SYLLABUS CONTENT (use this to maintain consistency with the course's established structure, topics, assessments, and terminology):
+${courseInfo.existingSyllabus}
+` : '';
+
+        const baseContext = `You are an expert instructional designer creating materials for Bridgewater State University faculty. Create comprehensive, ready-to-implement content that incorporates Universal Design for Learning (UDL) principles.
+
+COURSE INFORMATION:
+Course: ${courseInfo.courseName} (${courseInfo.courseNumber})
+Level: ${courseInfo.courseLevel}
+Credits: ${courseInfo.credits}
+Semester: ${courseInfo.semester}
+Instructor: ${courseInfo.instructor}
+Department: ${courseInfo.department}
+Prerequisites: ${courseInfo.prerequisites || 'None'}
+
+Course Description: ${courseInfo.courseDescription}
+
+Primary Learning Outcomes: ${courseInfo.learningOutcomes}
+
+Additional Context: ${courseInfo.additionalContext || 'None provided'}${syllabusContext}`;
+
+        const prompts = {
+          assignment: `${baseContext}
+
+Create a COMPLETE assignment that includes:
+1. Clear title and overview
+2. Detailed learning objectives
+3. Comprehensive step-by-step instructions
+4. UDL accommodations and alternatives
+5. Submission requirements for Blackboard Ultra
+6. Grading criteria overview
+7. Resources and support materials
+8. Timeline and milestones
+
+Assignment Type: ${toolData.assignmentType}
+Learning Objectives: ${toolData.learningObjectives}
+Duration: ${toolData.duration || 'Flexible'}
+Additional Context: ${toolData.additionalContext || 'None'}`,
+
+          rubric: `${baseContext}
+
+Create a COMPLETE rubric with:
+1. Clear title and purpose
+2. Detailed criteria descriptions
+3. Performance level descriptors (${toolData.levels})
+4. Point values totaling ${toolData.totalPoints} points
+5. Specific observable behaviors for each level
+6. Ready for Blackboard Ultra
+
+Assessment Type: ${toolData.assessmentType}
+Total Points: ${toolData.totalPoints}
+Criteria: ${toolData.criteria}
+Additional Context: ${toolData.additionalContext || 'None'}`,
+
+          module: `${baseContext}
+
+Create a COMPLETE module with:
+1. Module title and overview
+2. Detailed learning outcomes
+3. Week-by-week content breakdown
+4. Reading assignments with purpose
+5. Learning activities with instructions
+6. Assessment components
+7. UDL implementation strategies
+8. Blackboard organization structure
+
+Module Title: ${toolData.moduleTitle}
+Duration: ${toolData.moduleDuration}
+Learning Outcomes: ${toolData.learningOutcomes}
+Additional Context: ${toolData.additionalContext || 'None'}`,
+
+          syllabus: `${baseContext}
+
+REVISION GOALS:
+${toolData.revisionGoals?.map(goal => `- ${goal}`).join('\n') || 'General enhancement'}
+
+CURRENT SYLLABUS CONTENT:
+${courseInfo.existingSyllabus || ''}
+${toolData.currentSyllabusText || ''}
+${!courseInfo.existingSyllabus && !toolData.currentSyllabusText ? 'No existing syllabus provided - create a new syllabus based on the course information above.' : ''}
+
+SPECIFIC CONCERNS:
+${toolData.specificConcerns || 'None specified'}
+
+Create an ENHANCED syllabus following BSU's template with:
+1. Warm course welcome
+2. Course information at-a-glance
+3. Learning outcomes (course and module level)
+4. Assignments with rubric connections
+5. Grading policies
+6. BSU institutional policies
+7. Student success sections
+8. Complete course schedule`,
+
+          schedule: `${baseContext}
+
+Create a COMPREHENSIVE course schedule with ACTUAL CALENDAR DATES:
+1. Week-by-week breakdown with specific dates
+2. Topics and learning objectives
+3. Readings and materials
+4. Assignments with due dates
+5. Assessment schedule
+6. Account for breaks and holidays
+
+Course Dates: ${toolData.startDate} to ${toolData.endDate}
+Format: ${toolData.courseFormat}
+Duration: ${toolData.numberOfWeeks} weeks
+Meeting Pattern: ${toolData.meetingPattern}
+Meeting Days: ${toolData.meetingDays || 'Not specified'}
+Major Topics: ${toolData.majorTopics}
+Assessments: ${toolData.assessments}
+Additional Context: ${toolData.additionalContext || 'None'}`,
+
+          aipolicy: `${baseContext}
+
+Create a COMPREHENSIVE AI USE POLICY for this course that is clear, fair, and pedagogically sound.
+
+INSTRUCTOR'S STANCE: ${toolData.aiStance}
+
+AI TOOLS TO ADDRESS:
+${toolData.aiTools?.map(tool => `- ${tool}`).join('\n') || 'General AI tools'}
+
+KEY ASSIGNMENTS:
+${toolData.keyAssignments}
+
+PRIMARY CONCERNS:
+${toolData.concerns?.map(c => `- ${c}`).join('\n') || 'General concerns'}
+
+ADDITIONAL CONTEXT: ${toolData.additionalContext || 'None'}
+
+Please create a policy that includes:
+1. **Clear Policy Statement** - Overall stance in student-friendly language
+2. **Rationale** - Why this policy exists (pedagogical reasoning)
+3. **Assignment-Specific Guidelines** - A matrix or list showing what's allowed for each assignment type
+4. **Permitted Uses** - Specific ways students CAN use AI (if any)
+5. **Prohibited Uses** - What is NOT allowed
+6. **Disclosure Requirements** - How students should cite/acknowledge AI use
+7. **Consequences** - What happens if policy is violated
+8. **Equity Statement** - Acknowledging access differences
+9. **Resources** - Where students can get help instead of/in addition to AI
+10. **FAQ Section** - Common questions students might have
+
+Make the policy:
+- Written in a supportive, educational tone (not punitive)
+- Specific enough to be enforceable
+- Flexible enough to adapt as AI evolves
+- Aligned with academic integrity principles
+- Ready to paste into a syllabus or Blackboard`,
+
+          alignment: `${baseContext}
+
+Perform a DETAILED ALIGNMENT ANALYSIS between learning outcomes and assessments.
+
+COURSE LEARNING OUTCOMES:
+${toolData.learningOutcomes}
+
+ASSIGNMENTS AND ASSESSMENTS:
+${toolData.assignments}
+
+ANALYSIS REQUESTED:
+${toolData.checkType?.map(c => `- ${c}`).join('\n') || 'Full alignment check'}
+
+ADDITIONAL CONTEXT: ${toolData.additionalContext || 'None'}
+
+Please provide:
+1. **Alignment Matrix** - A clear table showing which assignments assess which outcomes
+2. **Coverage Analysis** - Are all outcomes adequately assessed?
+3. **Gap Identification** - Any outcomes not assessed or under-assessed
+4. **Overlap Analysis** - Outcomes assessed multiple times (is this intentional/appropriate?)
+5. **Bloom's Taxonomy Analysis** - What cognitive levels are assignments targeting?
+6. **Recommendations** - Specific suggestions to improve alignment
+7. **Strengths** - What's working well in the current design
+
+Format the matrix clearly so it can be used for accreditation documentation or course improvement.`
+        };
+
+        return prompts[toolId];
+      };
+
+      const handleGenerate = async () => {
+        setIsGenerating(true);
+        setGeneratedContent('');
+        setAccessibilityIssues([]);
+        setStep('result');
+
+        let messageIndex = 0;
+        setLoadingMessage(loadingMessages[0]);
+        const messageInterval = setInterval(() => {
+          messageIndex = (messageIndex + 1) % loadingMessages.length;
+          setLoadingMessage(loadingMessages[messageIndex]);
+        }, 2500);
+
+        const prompt = generatePrompt(selectedTool.id, toolFormData);
+
+        try {
+          const response = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: 'claude-sonnet-4-20250514',
+              max_tokens: 4000,
+              messages: [{ role: 'user', content: prompt }]
+            })
+          });
+
+          const data = await response.json();
+          const content = data.content
+            .filter(item => item.type === 'text')
+            .map(item => item.text)
+            .join('\n\n');
+
+          setGeneratedContent(content);
+          const issues = checkAccessibility(content);
+          setAccessibilityIssues(issues);
+        } catch (error) {
+          setGeneratedContent(`Error generating content: ${error.message}\n\nPlease try again.`);
+        } finally {
+          clearInterval(messageInterval);
+          setLoadingMessage('');
+          setIsGenerating(false);
+        }
+      };
+
+      const copyToClipboard = () => {
+        navigator.clipboard.writeText(generatedContent);
+        setCopySuccess(true);
+        setTimeout(() => setCopySuccess(false), 2000);
+      };
+
+      const downloadAsText = () => {
+        const blob = new Blob([generatedContent], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${selectedTool?.name.replace(/\s/g, '_')}_${courseInfo.courseNumber || 'output'}.txt`;
+        a.click();
+        URL.revokeObjectURL(url);
+      };
+
+      const downloadAsWord = () => {
+        const htmlContent = generatedContent
+          .split('\n\n')
+          .map(para => `<p>${para.replace(/\n/g, '<br>')}</p>`)
+          .join('');
+        
+        const wordDoc = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+          <head><meta charset='utf-8'><title>${selectedTool?.name}</title>
+          <style>body{font-family:Calibri,sans-serif;font-size:11pt;line-height:1.6;}h1{font-size:16pt;font-weight:bold;}h2{font-size:14pt;font-weight:bold;}p{margin-bottom:10pt;}</style>
+          </head><body><h1>${selectedTool?.name}</h1><p><strong>Course:</strong> ${courseInfo.courseName} (${courseInfo.courseNumber})</p><hr>${htmlContent}</body></html>`;
+        
+        const blob = new Blob(['\ufeff', wordDoc], { type: 'application/msword' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${selectedTool?.name.replace(/\s/g, '_')}_${courseInfo.courseNumber || 'output'}.doc`;
+        a.click();
+        URL.revokeObjectURL(url);
+      };
+
+      const resetToTools = () => {
+        if (selectedTool && generatedContent) {
+          setPreviousWork(prev => ({
+            ...prev,
+            [selectedTool.id]: {
+              toolName: selectedTool.name,
+              content: generatedContent,
+              formData: toolFormData,
+              timestamp: new Date().toISOString()
+            }
+          }));
+        }
+        setSelectedTool(null);
+        setToolFormData({});
+        setGeneratedContent('');
+        setAccessibilityIssues([]);
+        setStep('tools');
+      };
+
+      const startOver = () => {
+        setConfirmDialog({
+          show: true,
+          title: 'Start New Course?',
+          message: 'Your current work will be saved automatically. Are you sure you want to start working on a different course?',
+          onConfirm: () => {
+            if (courseInfo.courseName && courseInfo.courseNumber) {
+              saveCourse();
+            }
+            setCourseInfo({});
+            setSelectedTool(null);
+            setToolFormData({});
+            setGeneratedContent('');
+            setPreviousWork({});
+            setVersionHistory({});
+            setCurrentCourseId(null);
+            setAccessibilityIssues([]);
+            setStep('landing');
+            setConfirmDialog({ show: false, title: '', message: '', onConfirm: null });
+          }
+        });
+      };
+
+      const saveCourse = () => {
+        const courseId = currentCourseId || `${courseInfo.courseNumber}_${Date.now()}`;
+        const courseData = {
+          id: courseId,
+          courseInfo: courseInfo,
+          previousWork: previousWork,
+          versionHistory: versionHistory,
+          lastUpdated: new Date().toISOString()
+        };
+
+        setSavedCourses(prev => {
+          const filtered = prev.filter(c => c.id !== courseData.id);
+          return [...filtered, courseData];
+        });
+        setCurrentCourseId(courseId);
+      };
+
+      const loadCourse = (courseData) => {
+        setCourseInfo(courseData.courseInfo);
+        setPreviousWork(courseData.previousWork || {});
+        setVersionHistory(courseData.versionHistory || {});
+        setCurrentCourseId(courseData.id);
+        setStep('tools');
+      };
+
+      const deleteCourse = (courseId, courseName) => {
+        setConfirmDialog({
+          show: true,
+          title: 'Delete Course?',
+          message: `Are you sure you want to delete "${courseName}"? This will permanently remove all saved work and cannot be undone.`,
+          onConfirm: () => {
+            setSavedCourses(prev => prev.filter(c => c.id !== courseId));
+            setConfirmDialog({ show: false, title: '', message: '', onConfirm: null });
+          }
+        });
+      };
+
+      const handleRefine = async () => {
+        if (!refinementRequest.trim()) {
+          alert('Please describe what changes you\'d like to make.');
+          return;
+        }
+
+        setShowRefinementDialog(false);
+        setIsGenerating(true);
+        setAccessibilityIssues([]);
+
+        let messageIndex = 0;
+        setLoadingMessage('Processing your refinement request...');
+        const refinementMessages = [
+          'Processing your refinement request...',
+          'Analyzing requested changes...',
+          'Updating content structure...',
+          'Incorporating your feedback...',
+          'Finalizing refined version...'
+        ];
+        const messageInterval = setInterval(() => {
+          messageIndex = (messageIndex + 1) % refinementMessages.length;
+          setLoadingMessage(refinementMessages[messageIndex]);
+        }, 2000);
+
+        const refinementPrompt = `You previously generated the following ${selectedTool.name} content:
+
+PREVIOUS VERSION:
+${generatedContent}
+
+REFINEMENT REQUEST:
+${refinementRequest}
+
+Please generate an IMPROVED version that incorporates the requested changes while maintaining quality and comprehensiveness.`;
+
+        try {
+          const response = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model: 'claude-sonnet-4-20250514',
+              max_tokens: 4000,
+              messages: [{ role: 'user', content: refinementPrompt }]
+            })
+          });
+
+          const data = await response.json();
+          const content = data.content
+            .filter(item => item.type === 'text')
+            .map(item => item.text)
+            .join('\n\n');
+
+          setVersionHistory(prev => ({
+            ...prev,
+            [selectedTool.id]: [...(prev[selectedTool.id] || []), {
+              content: generatedContent,
+              timestamp: new Date().toISOString(),
+              refinementRequest: 'Original version'
+            }]
+          }));
+
+          setGeneratedContent(content);
+          setRefinementRequest('');
+          const issues = checkAccessibility(content);
+          setAccessibilityIssues(issues);
+        } catch (error) {
+          alert(`Error refining content: ${error.message}`);
+        } finally {
+          clearInterval(messageInterval);
+          setLoadingMessage('');
+          setIsGenerating(false);
+        }
+      };
+
+      // Confirmation Dialog Component
+      const ConfirmationDialog = () => {
+        if (!confirmDialog.show) return null;
+        
+        return (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0,0,0,0.6)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            animation: 'fadeIn 0.2s ease-out'
+          }}>
+            <div style={{
+              background: colors.white,
+              borderRadius: '20px',
+              padding: '2.5rem',
+              maxWidth: '450px',
+              width: '90%',
+              boxShadow: '0 25px 50px rgba(0,0,0,0.3)',
+              animation: 'fadeInUp 0.3s ease-out'
+            }}>
+              <div style={{
+                width: '60px',
+                height: '60px',
+                borderRadius: '50%',
+                background: `${colors.secondary}20`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 1.5rem',
+                fontSize: '1.8rem'
+              }}>⚠️</div>
+              <h3 style={{
+                fontSize: '1.5rem',
+                fontWeight: '800',
+                color: colors.dark,
+                marginBottom: '1rem',
+                textAlign: 'center'
+              }}>{confirmDialog.title}</h3>
+              <p style={{
+                fontSize: '1.05rem',
+                color: colors.dark,
+                opacity: 0.8,
+                lineHeight: '1.6',
+                textAlign: 'center',
+                marginBottom: '2rem'
+              }}>{confirmDialog.message}</p>
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+                <button
+                  onClick={() => setConfirmDialog({ show: false, title: '', message: '', onConfirm: null })}
+                  style={{
+                    padding: '1rem 2rem',
+                    background: colors.light,
+                    border: `2px solid ${colors.dark}`,
+                    borderRadius: '12px',
+                    cursor: 'pointer',
+                    fontSize: '1rem',
+                    fontWeight: '700',
+                    color: colors.dark
+                  }}
+                >Cancel</button>
+                <button
+                  onClick={confirmDialog.onConfirm}
+                  style={{
+                    padding: '1rem 2rem',
+                    background: colors.secondary,
+                    border: 'none',
+                    borderRadius: '12px',
+                    cursor: 'pointer',
+                    fontSize: '1rem',
+                    fontWeight: '700',
+                    color: colors.white
+                  }}
+                >Confirm</button>
+              </div>
+            </div>
+          </div>
+        );
+      };
+
+      // Accessibility Panel Component
+      const AccessibilityPanel = () => {
+        if (accessibilityIssues.length === 0) return null;
+        
+        const severityColors = { warning: colors.secondary, suggestion: colors.primary };
+        const severityIcons = { warning: '⚠️', suggestion: '💡' };
+
+        return (
+          <div style={{
+            marginBottom: '1.5rem',
+            borderRadius: '16px',
+            border: `3px solid ${colors.accent}`,
+            overflow: 'hidden'
+          }}>
+            <button
+              onClick={() => setShowAccessibilityPanel(!showAccessibilityPanel)}
+              style={{
+                width: '100%',
+                padding: '1.25rem 1.5rem',
+                background: `${colors.accent}15`,
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                fontFamily: 'inherit'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <span style={{ fontSize: '1.5rem' }}>♿</span>
+                <span style={{ fontSize: '1.1rem', fontWeight: '800', color: colors.dark }}>Accessibility Check</span>
+                <span style={{
+                  background: accessibilityIssues.some(i => i.severity === 'warning') ? colors.secondary : colors.primary,
+                  color: colors.white,
+                  padding: '0.25rem 0.75rem',
+                  borderRadius: '20px',
+                  fontSize: '0.85rem',
+                  fontWeight: '700'
+                }}>{accessibilityIssues.length} suggestion{accessibilityIssues.length !== 1 ? 's' : ''}</span>
+              </div>
+              <span style={{ transform: showAccessibilityPanel ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.3s', fontSize: '1.2rem' }}>▼</span>
+            </button>
+            
+            {showAccessibilityPanel && (
+              <div style={{ padding: '1.5rem', background: colors.white, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <p style={{ fontSize: '0.95rem', color: colors.dark, opacity: 0.7, margin: 0 }}>
+                  These suggestions can help improve accessibility for all learners:
+                </p>
+                {accessibilityIssues.map((issue, index) => (
+                  <div key={index} style={{
+                    padding: '1.25rem',
+                    background: `${severityColors[issue.severity]}10`,
+                    borderRadius: '12px',
+                    borderLeft: `4px solid ${severityColors[issue.severity]}`
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
+                      <span style={{ fontSize: '1.2rem' }}>{severityIcons[issue.severity]}</span>
+                      <div style={{ flex: 1 }}>
+                        <span style={{ fontSize: '0.75rem', fontWeight: '700', color: severityColors[issue.severity], textTransform: 'uppercase' }}>{issue.type}</span>
+                        <p style={{ fontSize: '1rem', fontWeight: '600', color: colors.dark, margin: '0.25rem 0' }}>{issue.message}</p>
+                        <p style={{ fontSize: '0.9rem', color: colors.dark, opacity: 0.7, margin: 0, fontStyle: 'italic' }}><strong>Fix:</strong> {issue.fix}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      };
+
+      // Copy Success Toast
+      const CopyToast = () => {
+        if (!copySuccess) return null;
+        return (
+          <div style={{
+            position: 'fixed',
+            bottom: '2rem',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: colors.accent,
+            color: colors.white,
+            padding: '1rem 2rem',
+            borderRadius: '12px',
+            fontWeight: '700',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
+            zIndex: 9999,
+            animation: 'fadeInUp 0.3s ease-out'
+          }}>✓ Copied to clipboard!</div>
+        );
+      };
+
+      // LANDING PAGE
+      if (step === 'landing') {
+        return (
+          <>
+            <ConfirmationDialog />
+            <CopyToast />
+            <div style={{
+              minHeight: '100vh',
+              background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.dark} 100%)`,
+              padding: '2rem',
+              position: 'relative',
+              overflow: 'hidden'
+            }}>
+              <div style={{
+                position: 'absolute',
+                top: 0, left: 0, right: 0, bottom: 0,
+                backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px)',
+                backgroundSize: '30px 30px',
+                opacity: 0.5
+              }} />
+              
+              <div style={{ maxWidth: '1000px', margin: '0 auto', position: 'relative' }}>
+                <div style={{ textAlign: 'center', marginBottom: '3rem', animation: 'fadeInUp 0.6s ease-out' }}>
+                  <div style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '100px',
+                    height: '100px',
+                    background: `linear-gradient(135deg, ${colors.primary}, ${colors.accent})`,
+                    borderRadius: '24px',
+                    marginBottom: '2rem',
+                    boxShadow: '0 20px 40px rgba(0,0,0,0.3)'
+                  }}>
+                    <Icon name="GraduationCap" size={56} color={colors.white} />
+                  </div>
+                  <h1 style={{
+                    fontSize: '3.5rem',
+                    fontWeight: '900',
+                    color: colors.white,
+                    marginBottom: '1rem',
+                    textShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                    letterSpacing: '-0.02em'
+                  }}>BSU Instructional Design Tool</h1>
+                  <p style={{
+                    fontSize: '1.3rem',
+                    color: colors.white,
+                    opacity: 0.9,
+                    maxWidth: '700px',
+                    margin: '0 auto',
+                    lineHeight: '1.6'
+                  }}>Create comprehensive, UDL-aligned course materials ready for Blackboard Ultra</p>
+                </div>
+
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: savedCourses.length > 0 ? 'repeat(auto-fit, minmax(350px, 1fr))' : '1fr',
+                  gap: '2rem',
+                  maxWidth: savedCourses.length > 0 ? '900px' : '500px',
+                  margin: '0 auto'
+                }}>
+                  {/* Start New Course */}
+                  <button
+                    onClick={() => setStep('welcome')}
+                    style={{
+                      background: colors.white,
+                      border: 'none',
+                      borderRadius: '24px',
+                      padding: '3rem',
+                      cursor: 'pointer',
+                      textAlign: 'center',
+                      transition: 'all 0.3s',
+                      boxShadow: '0 10px 30px rgba(0,0,0,0.15)'
+                    }}
+                    onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-8px)'; e.currentTarget.style.boxShadow = '0 20px 50px rgba(0,0,0,0.25)'; }}
+                    onMouseOut={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 10px 30px rgba(0,0,0,0.15)'; }}
+                  >
+                    <div style={{
+                      width: '80px',
+                      height: '80px',
+                      borderRadius: '20px',
+                      background: `linear-gradient(135deg, ${colors.accent}, ${colors.secondary})`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      margin: '0 auto 1.5rem'
+                    }}>
+                      <Icon name="Sparkles" size={40} color={colors.white} />
+                    </div>
+                    <h2 style={{ fontSize: '1.8rem', fontWeight: '800', color: colors.dark, marginBottom: '0.75rem' }}>Start New Course</h2>
+                    <p style={{ fontSize: '1.1rem', color: colors.dark, opacity: 0.7 }}>Begin with course information and create materials from scratch</p>
+                  </button>
+
+                  {/* Continue Previous */}
+                  {savedCourses.length > 0 && (
+                    <button
+                      onClick={() => setStep('saved-courses')}
+                      style={{
+                        background: colors.white,
+                        border: 'none',
+                        borderRadius: '24px',
+                        padding: '3rem',
+                        cursor: 'pointer',
+                        textAlign: 'center',
+                        transition: 'all 0.3s',
+                        boxShadow: '0 10px 30px rgba(0,0,0,0.15)',
+                        position: 'relative'
+                      }}
+                      onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-8px)'; e.currentTarget.style.boxShadow = '0 20px 50px rgba(0,0,0,0.25)'; }}
+                      onMouseOut={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 10px 30px rgba(0,0,0,0.15)'; }}
+                    >
+                      <div style={{
+                        position: 'absolute',
+                        top: '1rem',
+                        right: '1rem',
+                        background: colors.secondary,
+                        color: colors.white,
+                        padding: '0.5rem 1rem',
+                        borderRadius: '12px',
+                        fontSize: '0.9rem',
+                        fontWeight: '800'
+                      }}>{savedCourses.length} Course{savedCourses.length !== 1 ? 's' : ''}</div>
+                      <div style={{
+                        width: '80px',
+                        height: '80px',
+                        borderRadius: '20px',
+                        background: `linear-gradient(135deg, ${colors.primary}, ${colors.accent})`,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        margin: '0 auto 1.5rem'
+                      }}>
+                        <Icon name="BookOpen" size={40} color={colors.white} />
+                      </div>
+                      <h2 style={{ fontSize: '1.8rem', fontWeight: '800', color: colors.dark, marginBottom: '0.75rem' }}>Continue Previous</h2>
+                      <p style={{ fontSize: '1.1rem', color: colors.dark, opacity: 0.7 }}>Resume work on a course you've already started</p>
+                    </button>
+                  )}
+                </div>
+
+                {/* Storage Notice */}
+                <div style={{
+                  maxWidth: '700px',
+                  margin: '3rem auto 0',
+                  padding: '1.5rem',
+                  background: 'rgba(255,255,255,0.15)',
+                  borderRadius: '16px',
+                  border: '2px solid rgba(255,255,255,0.2)'
+                }}>
+                  <p style={{ color: colors.white, fontSize: '1rem', margin: 0, lineHeight: '1.7', textAlign: 'center' }}>
+                    💾 <strong>Important:</strong> Your work is saved in this browser only.
+                  </p>
+                  <p style={{ color: colors.white, fontSize: '0.9rem', margin: '0.75rem 0 0', lineHeight: '1.6', textAlign: 'center', opacity: 0.9 }}>
+                    • Clearing browser data or using a different browser/device will erase saved courses<br/>
+                    • Private/incognito mode does not save work<br/>
+                    • <strong>Always download your generated materials</strong> using the export buttons
+                  </p>
+                </div>
+              </div>
+            </div>
+          </>
+        );
+      }
+
+      // SAVED COURSES
+      if (step === 'saved-courses') {
+        return (
+          <>
+            <ConfirmationDialog />
+            <div style={{
+              minHeight: '100vh',
+              background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.dark} 100%)`,
+              padding: '2rem'
+            }}>
+              <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+                <button
+                  onClick={() => setStep('landing')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.75rem 1.5rem',
+                    background: 'rgba(255,255,255,0.2)',
+                    border: '2px solid rgba(255,255,255,0.3)',
+                    borderRadius: '12px',
+                    cursor: 'pointer',
+                    color: colors.white,
+                    fontWeight: '700',
+                    marginBottom: '2rem'
+                  }}
+                >
+                  <Icon name="ArrowLeft" size={20} /> Back
+                </button>
+
+                <h1 style={{ fontSize: '2.5rem', fontWeight: '800', color: colors.white, marginBottom: '2rem', textAlign: 'center' }}>
+                  Your Saved Courses
+                </h1>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                  {savedCourses.sort((a, b) => new Date(b.lastUpdated) - new Date(a.lastUpdated)).map((course) => (
+                    <div key={course.id} style={{
+                      background: colors.white,
+                      borderRadius: '20px',
+                      padding: '2rem',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      flexWrap: 'wrap',
+                      gap: '1rem'
+                    }}>
+                      <div style={{ flex: 1, minWidth: '200px' }}>
+                        <h3 style={{ fontSize: '1.4rem', fontWeight: '800', color: colors.dark, marginBottom: '0.5rem' }}>
+                          {course.courseInfo.courseName} ({course.courseInfo.courseNumber})
+                        </h3>
+                        <p style={{ fontSize: '0.95rem', color: colors.dark, opacity: 0.7 }}>
+                          {course.courseInfo.semester} • Last updated: {new Date(course.lastUpdated).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.75rem' }}>
+                        <button
+                          onClick={() => loadCourse(course)}
+                          style={{
+                            padding: '0.875rem 1.75rem',
+                            background: colors.primary,
+                            color: colors.white,
+                            border: 'none',
+                            borderRadius: '12px',
+                            cursor: 'pointer',
+                            fontWeight: '700'
+                          }}
+                        >Continue</button>
+                        <button
+                          onClick={() => deleteCourse(course.id, course.courseInfo.courseName)}
+                          style={{
+                            padding: '0.875rem',
+                            background: colors.light,
+                            border: `2px solid ${colors.dark}30`,
+                            borderRadius: '12px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <Icon name="Trash2" size={18} color={colors.dark} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </>
+        );
+      }
+
+      // WELCOME / COURSE INFO
+      if (step === 'welcome') {
+        const allRequired = courseIntakeFields.filter(f => f.required).every(f => {
+          const val = courseInfo[f.name];
+          return val && (typeof val !== 'string' || val.trim() !== '');
+        });
+
+        return (
+          <>
+            <ConfirmationDialog />
+            <div style={{
+              minHeight: '100vh',
+              background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.dark} 100%)`,
+              padding: '2rem'
+            }}>
+              <div style={{
+                maxWidth: '800px',
+                margin: '0 auto',
+                background: colors.white,
+                borderRadius: '24px',
+                padding: '3rem',
+                boxShadow: '0 25px 50px rgba(0,0,0,0.25)'
+              }}>
+                <div style={{ textAlign: 'center', marginBottom: '2.5rem', borderBottom: `4px solid ${colors.secondary}`, paddingBottom: '2rem' }}>
+                  <div style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '70px',
+                    height: '70px',
+                    background: `linear-gradient(135deg, ${colors.primary}, ${colors.accent})`,
+                    borderRadius: '16px',
+                    marginBottom: '1.5rem'
+                  }}>
+                    <Icon name="GraduationCap" size={40} color={colors.white} />
+                  </div>
+                  <h1 style={{ fontSize: '2rem', fontWeight: '800', color: colors.dark, marginBottom: '0.5rem' }}>Course Information</h1>
+                  <p style={{ color: colors.dark, opacity: 0.7 }}>This information will be used to generate all your materials</p>
+                </div>
+
+                {courseIntakeFields.map((field) => (
+                  <div key={field.name} style={{ marginBottom: '1.5rem' }}>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '700', color: colors.dark }}>
+                      {field.label} {field.required && <span style={{ color: colors.secondary }}>*</span>}
+                    </label>
+                    
+                    {field.type === 'select' ? (
+                      <select
+                        value={courseInfo[field.name] || ''}
+                        onChange={(e) => handleCourseInfoChange(field.name, e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '1rem',
+                          border: `3px solid ${colors.light}`,
+                          borderRadius: '12px',
+                          fontSize: '1rem',
+                          fontFamily: 'inherit'
+                        }}
+                      >
+                        <option value="">Select...</option>
+                        {field.options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                      </select>
+                    ) : field.type === 'file' ? (
+                      <div>
+                        <div style={{
+                          border: `3px dashed ${courseInfo[`${field.name.replace('File', '')}FileName`] ? colors.accent : colors.light}`,
+                          borderRadius: '12px',
+                          padding: '2rem',
+                          textAlign: 'center',
+                          background: courseInfo[`${field.name.replace('File', '')}FileName`] ? `${colors.accent}10` : colors.white,
+                          cursor: 'pointer',
+                          transition: 'all 0.3s'
+                        }}>
+                          <input
+                            type="file"
+                            accept={field.accept}
+                            onChange={(e) => {
+                              const file = e.target.files[0];
+                              if (file) {
+                                handleFileUpload(file, field.name.replace('File', ''));
+                              }
+                            }}
+                            style={{
+                              position: 'absolute',
+                              opacity: 0,
+                              width: '1px',
+                              height: '1px'
+                            }}
+                            id={`file-${field.name}`}
+                          />
+                          <label htmlFor={`file-${field.name}`} style={{ cursor: 'pointer', display: 'block' }}>
+                            {fileUploadStatus.loading ? (
+                              <div>
+                                <div style={{
+                                  width: '40px',
+                                  height: '40px',
+                                  margin: '0 auto 1rem',
+                                  border: `3px solid ${colors.light}`,
+                                  borderTopColor: colors.primary,
+                                  borderRadius: '50%',
+                                  animation: 'spin 1s linear infinite'
+                                }} />
+                                <p style={{ color: colors.dark, fontWeight: '600' }}>Reading file...</p>
+                              </div>
+                            ) : courseInfo[`${field.name.replace('File', '')}FileName`] ? (
+                              <div>
+                                <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>✅</div>
+                                <p style={{ color: colors.accent, fontWeight: '700', marginBottom: '0.25rem' }}>
+                                  {courseInfo[`${field.name.replace('File', '')}FileName`]}
+                                </p>
+                                <p style={{ color: colors.dark, opacity: 0.7, fontSize: '0.9rem' }}>
+                                  File loaded successfully! Click to change.
+                                </p>
+                              </div>
+                            ) : (
+                              <div>
+                                <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📄</div>
+                                <p style={{ color: colors.dark, fontWeight: '600', marginBottom: '0.25rem' }}>
+                                  Drop file here or click to browse
+                                </p>
+                                <p style={{ color: colors.dark, opacity: 0.7, fontSize: '0.9rem' }}>
+                                  Supports PDF, Word (.doc, .docx), and text files
+                                </p>
+                              </div>
+                            )}
+                          </label>
+                        </div>
+                        {fileUploadStatus.error && (
+                          <p style={{ color: '#DC2626', fontSize: '0.9rem', marginTop: '0.5rem' }}>
+                            ⚠️ {fileUploadStatus.error}
+                          </p>
+                        )}
+                        {field.helper && (
+                          <p style={{ fontSize: '0.9rem', color: colors.dark, opacity: 0.7, marginTop: '0.5rem', fontStyle: 'italic' }}>
+                            {field.helper}
+                          </p>
+                        )}
+                      </div>
+                    ) : field.type === 'textarea' ? (
+                      <>
+                        <textarea
+                          value={courseInfo[field.name] || ''}
+                          onChange={(e) => handleCourseInfoChange(field.name, e.target.value)}
+                          placeholder={field.placeholder}
+                          rows={field.name === 'existingSyllabus' ? 8 : 4}
+                          style={{
+                            width: '100%',
+                            padding: '1rem',
+                            border: `3px solid ${colors.light}`,
+                            borderRadius: '12px',
+                            fontSize: '1rem',
+                            fontFamily: 'inherit',
+                            resize: 'vertical'
+                          }}
+                        />
+                        {field.helper && (
+                          <p style={{ fontSize: '0.9rem', color: colors.dark, opacity: 0.7, marginTop: '0.5rem', fontStyle: 'italic' }}>
+                            {field.helper}
+                          </p>
+                        )}
+                      </>
+                    ) : (
+                      <input
+                        type={field.type}
+                        value={courseInfo[field.name] || ''}
+                        onChange={(e) => handleCourseInfoChange(field.name, e.target.value)}
+                        placeholder={field.placeholder}
+                        style={{
+                          width: '100%',
+                          padding: '1rem',
+                          border: `3px solid ${colors.light}`,
+                          borderRadius: '12px',
+                          fontSize: '1rem',
+                          fontFamily: 'inherit'
+                        }}
+                      />
+                    )}
+                  </div>
+                ))}
+
+                <button
+                  onClick={() => setStep('tools')}
+                  disabled={!allRequired}
+                  style={{
+                    width: '100%',
+                    padding: '1.25rem',
+                    background: allRequired ? `linear-gradient(135deg, ${colors.primary}, ${colors.accent})` : colors.light,
+                    color: allRequired ? colors.white : colors.dark,
+                    border: 'none',
+                    borderRadius: '16px',
+                    fontSize: '1.1rem',
+                    fontWeight: '700',
+                    cursor: allRequired ? 'pointer' : 'not-allowed',
+                    marginTop: '1rem'
+                  }}
+                >
+                  Continue to Tools →
+                </button>
+              </div>
+            </div>
+          </>
+        );
+      }
+
+      // TOOLS SELECTION (only show if no tool is selected)
+      if (step === 'tools' && !selectedTool) {
+        return (
+          <>
+            <ConfirmationDialog />
+            <div style={{
+              minHeight: '100vh',
+              background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.dark} 100%)`,
+              padding: '2rem'
+            }}>
+              <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+                <div style={{ textAlign: 'center', marginBottom: '2.5rem', color: colors.white }}>
+                  <h1 style={{ fontSize: '2.5rem', fontWeight: '900', marginBottom: '1rem' }}>Select Your Tool</h1>
+                  <div style={{
+                    background: 'rgba(255,255,255,0.15)',
+                    borderRadius: '16px',
+                    padding: '1.5rem',
+                    display: 'inline-block'
+                  }}>
+                    <p style={{ fontSize: '1.2rem', fontWeight: '700', margin: 0 }}>
+                      {courseInfo.courseName} ({courseInfo.courseNumber})
+                    </p>
+                    <p style={{ fontSize: '1rem', opacity: 0.9, margin: '0.5rem 0 0' }}>
+                      {courseInfo.courseLevel} • {courseInfo.credits} credits • {courseInfo.semester}
+                    </p>
+                  </div>
+                  <button
+                    onClick={startOver}
+                    style={{
+                      display: 'block',
+                      margin: '1.5rem auto 0',
+                      padding: '0.75rem 1.5rem',
+                      background: 'rgba(255,255,255,0.2)',
+                      border: '2px solid rgba(255,255,255,0.3)',
+                      borderRadius: '12px',
+                      cursor: 'pointer',
+                      color: colors.white,
+                      fontWeight: '700'
+                    }}
+                  >← Save & Return Home</button>
+                </div>
+
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+                  gap: '2rem'
+                }}>
+                  {tools.map((tool) => (
+                    <button
+                      key={tool.id}
+                      onClick={() => setSelectedTool(tool)}
+                      style={{
+                        background: colors.white,
+                        border: 'none',
+                        borderRadius: '20px',
+                        padding: '2.5rem',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        transition: 'all 0.3s',
+                        boxShadow: '0 10px 30px rgba(0,0,0,0.15)',
+                        position: 'relative'
+                      }}
+                      onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-8px)'; e.currentTarget.style.boxShadow = '0 20px 50px rgba(0,0,0,0.25)'; }}
+                      onMouseOut={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 10px 30px rgba(0,0,0,0.15)'; }}
+                    >
+                      <div style={{
+                        width: '70px',
+                        height: '70px',
+                        borderRadius: '16px',
+                        background: `linear-gradient(135deg, ${tool.color}, ${colors.accent})`,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginBottom: '1.5rem'
+                      }}>
+                        <Icon name={tool.icon} size={36} color={colors.white} />
+                        {previousWork[tool.id] && (
+                          <div style={{
+                            position: 'absolute',
+                            top: '1rem',
+                            right: '1rem',
+                            background: colors.accent,
+                            color: colors.white,
+                            padding: '0.5rem',
+                            borderRadius: '50%'
+                          }}>
+                            <Icon name="CheckCircle" size={16} color={colors.white} />
+                          </div>
+                        )}
+                      </div>
+                      <h3 style={{ fontSize: '1.4rem', fontWeight: '800', color: colors.dark, marginBottom: '0.75rem' }}>{tool.name}</h3>
+                      <p style={{ fontSize: '1rem', color: colors.dark, opacity: 0.7, lineHeight: '1.5' }}>{tool.description}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </>
+        );
+      }
+
+      // TOOL INPUT FORM (when a tool is selected)
+      if (selectedTool && step === 'tools') {
+        const fields = getFormFields(selectedTool.id);
+        const allRequired = fields.filter(f => f.required).every(f => {
+          const val = toolFormData[f.name];
+          if (!val) return false;
+          if (Array.isArray(val)) return val.length > 0;
+          if (typeof val === 'string') return val.trim() !== '';
+          return true;
+        });
+
+        return (
+          <>
+            <ConfirmationDialog />
+            <div style={{
+              minHeight: '100vh',
+              background: `linear-gradient(135deg, ${selectedTool.color} 0%, ${colors.dark} 100%)`,
+              padding: '2rem'
+            }}>
+              <div style={{
+                maxWidth: '800px',
+                margin: '0 auto',
+                background: colors.white,
+                borderRadius: '24px',
+                padding: '3rem',
+                boxShadow: '0 25px 50px rgba(0,0,0,0.25)'
+              }}>
+                <div style={{ marginBottom: '2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+                  <button
+                    onClick={() => setSelectedTool(null)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      padding: '0.75rem 1.25rem',
+                      background: colors.light,
+                      border: `2px solid ${colors.dark}`,
+                      borderRadius: '12px',
+                      cursor: 'pointer',
+                      fontWeight: '700',
+                      color: colors.dark
+                    }}
+                  >
+                    <Icon name="ArrowLeft" size={18} /> Back to Tools
+                  </button>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem' }}>
+                  <div style={{
+                    width: '60px',
+                    height: '60px',
+                    borderRadius: '16px',
+                    background: `linear-gradient(135deg, ${selectedTool.color}, ${colors.accent})`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    <Icon name={selectedTool.icon} size={32} color={colors.white} />
+                  </div>
+                  <div>
+                    <h2 style={{ fontSize: '1.75rem', fontWeight: '800', color: colors.dark, margin: 0 }}>{selectedTool.name}</h2>
+                    <p style={{ color: colors.dark, opacity: 0.7, margin: 0 }}>{courseInfo.courseName} ({courseInfo.courseNumber})</p>
+                  </div>
+                </div>
+
+                {fields.map((field) => (
+                  <div key={field.name} style={{ marginBottom: '1.5rem' }}>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '700', color: colors.dark }}>
+                      {field.label} {field.required && <span style={{ color: colors.secondary }}>*</span>}
+                    </label>
+                    
+                    {field.type === 'select' ? (
+                      <select
+                        value={toolFormData[field.name] || ''}
+                        onChange={(e) => handleToolInputChange(field.name, e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '1rem',
+                          border: `3px solid ${colors.light}`,
+                          borderRadius: '12px',
+                          fontSize: '1rem',
+                          fontFamily: 'inherit'
+                        }}
+                      >
+                        <option value="">Select...</option>
+                        {field.options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                      </select>
+                    ) : field.type === 'textarea' ? (
+                      <>
+                        <textarea
+                          value={toolFormData[field.name] || ''}
+                          onChange={(e) => handleToolInputChange(field.name, e.target.value)}
+                          placeholder={field.placeholder}
+                          rows={4}
+                          style={{
+                            width: '100%',
+                            padding: '1rem',
+                            border: `3px solid ${colors.light}`,
+                            borderRadius: '12px',
+                            fontSize: '1rem',
+                            fontFamily: 'inherit',
+                            resize: 'vertical'
+                          }}
+                        />
+                        {field.helper && (
+                          <p style={{ fontSize: '0.9rem', color: colors.dark, opacity: 0.7, marginTop: '0.5rem', fontStyle: 'italic' }}>
+                            {field.helper}
+                          </p>
+                        )}
+                      </>
+                    ) : field.type === 'checkbox-group' ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                        {field.options.map(opt => (
+                          <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}>
+                            <input
+                              type="checkbox"
+                              checked={(toolFormData[field.name] || []).includes(opt)}
+                              onChange={(e) => {
+                                const current = toolFormData[field.name] || [];
+                                if (e.target.checked) {
+                                  handleToolInputChange(field.name, [...current, opt]);
+                                } else {
+                                  handleToolInputChange(field.name, current.filter(v => v !== opt));
+                                }
+                              }}
+                              style={{ width: '20px', height: '20px' }}
+                            />
+                            <span style={{ color: colors.dark }}>{opt}</span>
+                          </label>
+                        ))}
+                      </div>
+                    ) : (
+                      <input
+                        type={field.type}
+                        value={toolFormData[field.name] || ''}
+                        onChange={(e) => handleToolInputChange(field.name, e.target.value)}
+                        placeholder={field.placeholder}
+                        style={{
+                          width: '100%',
+                          padding: '1rem',
+                          border: `3px solid ${colors.light}`,
+                          borderRadius: '12px',
+                          fontSize: '1rem',
+                          fontFamily: 'inherit'
+                        }}
+                      />
+                    )}
+                  </div>
+                ))}
+
+                <button
+                  onClick={handleGenerate}
+                  disabled={!allRequired}
+                  style={{
+                    width: '100%',
+                    padding: '1.25rem',
+                    background: allRequired ? `linear-gradient(135deg, ${selectedTool.color}, ${colors.accent})` : colors.light,
+                    color: allRequired ? colors.white : colors.dark,
+                    border: 'none',
+                    borderRadius: '16px',
+                    fontSize: '1.1rem',
+                    fontWeight: '700',
+                    cursor: allRequired ? 'pointer' : 'not-allowed',
+                    marginTop: '1rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem'
+                  }}
+                >
+                  <Icon name="Sparkles" size={24} color={allRequired ? colors.white : colors.dark} />
+                  {allRequired ? `Generate ${selectedTool.name}` : 'Please fill all required fields (*)'}
+                </button>
+              </div>
+            </div>
+          </>
+        );
+      }
+
+      // RESULT SCREEN
+      if (step === 'result') {
+        return (
+          <>
+            <ConfirmationDialog />
+            <CopyToast />
+            <div style={{
+              minHeight: '100vh',
+              background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.dark} 100%)`,
+              padding: '2rem'
+            }}>
+              <div style={{
+                maxWidth: '1000px',
+                margin: '0 auto',
+                background: colors.white,
+                borderRadius: '24px',
+                padding: '3rem',
+                boxShadow: '0 25px 50px rgba(0,0,0,0.25)'
+              }}>
+                <div style={{ marginBottom: '2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <div style={{
+                      width: '50px',
+                      height: '50px',
+                      borderRadius: '12px',
+                      background: selectedTool.color,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <Icon name={selectedTool.icon} size={28} color={colors.white} />
+                    </div>
+                    <div>
+                      <h2 style={{ fontSize: '1.5rem', fontWeight: '800', color: colors.dark, margin: 0 }}>{selectedTool.name}</h2>
+                      <p style={{ color: colors.dark, opacity: 0.7, margin: 0 }}>{courseInfo.courseName}</p>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.75rem' }}>
+                    <button
+                      onClick={resetToTools}
+                      style={{
+                        padding: '0.75rem 1.5rem',
+                        background: colors.light,
+                        border: `2px solid ${colors.dark}`,
+                        borderRadius: '12px',
+                        cursor: 'pointer',
+                        fontWeight: '700',
+                        color: colors.dark
+                      }}
+                    >← Back to Tools</button>
+                    <button
+                      onClick={startOver}
+                      style={{
+                        padding: '0.75rem 1.5rem',
+                        background: colors.white,
+                        border: `2px solid ${colors.dark}`,
+                        borderRadius: '12px',
+                        cursor: 'pointer',
+                        fontWeight: '700',
+                        color: colors.dark
+                      }}
+                    >Save & Home</button>
+                  </div>
+                </div>
+
+                {isGenerating && (
+                  <div style={{ textAlign: 'center', padding: '3rem' }}>
+                    <div style={{
+                      width: '60px',
+                      height: '60px',
+                      margin: '0 auto 1.5rem',
+                      border: `4px solid ${colors.light}`,
+                      borderTopColor: selectedTool.color,
+                      borderRadius: '50%',
+                      animation: 'spin 1s linear infinite'
+                    }} />
+                    <p style={{ fontSize: '1.2rem', fontWeight: '700', color: colors.dark, marginBottom: '0.5rem' }}>
+                      Generating your {selectedTool.name.toLowerCase()}...
+                    </p>
+                    <p style={{ color: colors.primary, fontWeight: '500' }}>{loadingMessage}</p>
+                  </div>
+                )}
+
+                {generatedContent && !isGenerating && (
+                  <>
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+                      gap: '0.75rem',
+                      marginBottom: '1.5rem'
+                    }}>
+                      <button onClick={copyToClipboard} style={{
+                        padding: '0.875rem',
+                        background: selectedTool.color,
+                        color: colors.white,
+                        border: 'none',
+                        borderRadius: '12px',
+                        cursor: 'pointer',
+                        fontWeight: '700',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.5rem',
+                        fontSize: '0.9rem'
+                      }}>
+                        <Icon name="Copy" size={18} color={colors.white} /> Copy
+                      </button>
+                      <button onClick={downloadAsText} style={{
+                        padding: '0.875rem',
+                        background: colors.secondary,
+                        color: colors.white,
+                        border: 'none',
+                        borderRadius: '12px',
+                        cursor: 'pointer',
+                        fontWeight: '700',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.5rem',
+                        fontSize: '0.9rem'
+                      }}>
+                        <Icon name="Download" size={18} color={colors.white} /> Text
+                      </button>
+                      <button onClick={downloadAsWord} style={{
+                        padding: '0.875rem',
+                        background: colors.primary,
+                        color: colors.white,
+                        border: 'none',
+                        borderRadius: '12px',
+                        cursor: 'pointer',
+                        fontWeight: '700',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.5rem',
+                        fontSize: '0.9rem'
+                      }}>
+                        <Icon name="FileText" size={18} color={colors.white} /> Word
+                      </button>
+                      <button onClick={() => {
+                        const printWindow = window.open('', '_blank');
+                        printWindow.document.write(`
+                          <html>
+                            <head>
+                              <title>${selectedTool.name} - ${courseInfo.courseName}</title>
+                              <style>
+                                body { font-family: Georgia, serif; line-height: 1.6; max-width: 800px; margin: 40px auto; padding: 20px; }
+                                h1 { color: #0F4C81; border-bottom: 2px solid #0F4C81; padding-bottom: 10px; }
+                                h2 { color: #1F2937; margin-top: 24px; }
+                                pre { white-space: pre-wrap; font-family: inherit; }
+                                @media print { body { margin: 0; } }
+                              </style>
+                            </head>
+                            <body>
+                              <h1>${selectedTool.name}</h1>
+                              <p><strong>Course:</strong> ${courseInfo.courseName} (${courseInfo.courseNumber})</p>
+                              <p><strong>Instructor:</strong> ${courseInfo.instructor}</p>
+                              <p><strong>Generated:</strong> ${new Date().toLocaleDateString()}</p>
+                              <hr/>
+                              <pre>${generatedContent}</pre>
+                            </body>
+                          </html>
+                        `);
+                        printWindow.document.close();
+                        printWindow.print();
+                      }} style={{
+                        padding: '0.875rem',
+                        background: '#6B7280',
+                        color: colors.white,
+                        border: 'none',
+                        borderRadius: '12px',
+                        cursor: 'pointer',
+                        fontWeight: '700',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.5rem',
+                        fontSize: '0.9rem'
+                      }}>
+                        🖨️ Print
+                      </button>
+                      <button onClick={() => {
+                        // Copy to clipboard first, then open email
+                        navigator.clipboard.writeText(generatedContent).then(() => {
+                          const subject = encodeURIComponent(`${selectedTool.name} - ${courseInfo.courseName}`);
+                          const bodyIntro = encodeURIComponent(`${selectedTool.name}\nCourse: ${courseInfo.courseName} (${courseInfo.courseNumber})\nGenerated: ${new Date().toLocaleDateString()}\n\n---\n\nThe full content has been copied to your clipboard. Please paste it below:\n\n`);
+                          window.open(`mailto:?subject=${subject}&body=${bodyIntro}`, '_blank');
+                          setCopySuccess(true);
+                          setTimeout(() => setCopySuccess(false), 3000);
+                        });
+                      }} style={{
+                        padding: '0.875rem',
+                        background: '#059669',
+                        color: colors.white,
+                        border: 'none',
+                        borderRadius: '12px',
+                        cursor: 'pointer',
+                        fontWeight: '700',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.5rem',
+                        fontSize: '0.9rem'
+                      }} title="Copies content to clipboard and opens email">
+                        ✉️ Email
+                      </button>
+                      <button onClick={() => setShowRefinementDialog(true)} style={{
+                        padding: '0.875rem',
+                        background: '#7C3AED',
+                        color: colors.white,
+                        border: 'none',
+                        borderRadius: '12px',
+                        cursor: 'pointer',
+                        fontWeight: '700',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.5rem',
+                        fontSize: '0.9rem'
+                      }}>
+                        <Icon name="Sparkles" size={18} color={colors.white} /> Refine
+                      </button>
+                    </div>
+
+                    {/* Download reminder */}
+                    <div style={{
+                      padding: '1rem 1.5rem',
+                      background: `${colors.secondary}15`,
+                      borderRadius: '12px',
+                      marginBottom: '1.5rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.75rem',
+                      border: `2px solid ${colors.secondary}30`
+                    }}>
+                      <span style={{ fontSize: '1.25rem' }}>💾</span>
+                      <p style={{ margin: 0, fontSize: '0.95rem', color: colors.dark }}>
+                        <strong>Remember to download!</strong> This content is only saved in your browser. Use the buttons above to save a copy.
+                      </p>
+                    </div>
+
+                    <AccessibilityPanel />
+
+                    {showRefinementDialog && (
+                      <div style={{
+                        marginBottom: '1.5rem',
+                        padding: '2rem',
+                        background: `${colors.accent}15`,
+                        borderRadius: '16px',
+                        border: `3px solid ${colors.accent}`
+                      }}>
+                        <h3 style={{ fontSize: '1.2rem', fontWeight: '800', color: colors.dark, marginBottom: '1rem' }}>
+                          ✨ Refine This Output
+                        </h3>
+                        <textarea
+                          value={refinementRequest}
+                          onChange={(e) => setRefinementRequest(e.target.value)}
+                          placeholder="Describe what changes you'd like..."
+                          rows={3}
+                          style={{
+                            width: '100%',
+                            padding: '1rem',
+                            border: `3px solid ${colors.light}`,
+                            borderRadius: '12px',
+                            fontSize: '1rem',
+                            fontFamily: 'inherit',
+                            marginBottom: '1rem'
+                          }}
+                        />
+                        <div style={{ display: 'flex', gap: '1rem' }}>
+                          <button onClick={handleRefine} style={{
+                            flex: 1,
+                            padding: '1rem',
+                            background: colors.accent,
+                            color: colors.white,
+                            border: 'none',
+                            borderRadius: '12px',
+                            cursor: 'pointer',
+                            fontWeight: '700'
+                          }}>Generate Refined Version</button>
+                          <button onClick={() => { setShowRefinementDialog(false); setRefinementRequest(''); }} style={{
+                            padding: '1rem 1.5rem',
+                            background: colors.light,
+                            border: `2px solid ${colors.dark}`,
+                            borderRadius: '12px',
+                            cursor: 'pointer',
+                            fontWeight: '700',
+                            color: colors.dark
+                          }}>Cancel</button>
+                        </div>
+                      </div>
+                    )}
+
+                    {versionHistory[selectedTool.id]?.length > 0 && (
+                      <div style={{
+                        marginBottom: '1.5rem',
+                        padding: '1.5rem',
+                        background: colors.light,
+                        borderRadius: '16px'
+                      }}>
+                        <h3 style={{ fontSize: '1rem', fontWeight: '800', color: colors.dark, marginBottom: '1rem' }}>
+                          📜 Previous Versions ({versionHistory[selectedTool.id].length})
+                        </h3>
+                        {versionHistory[selectedTool.id].map((version, index) => (
+                          <div key={index} style={{
+                            padding: '1rem',
+                            background: colors.white,
+                            borderRadius: '10px',
+                            marginBottom: '0.75rem',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
+                          }}>
+                            <div>
+                              <p style={{ fontWeight: '700', color: colors.dark, margin: 0 }}>Version {index + 1}</p>
+                              <p style={{ fontSize: '0.85rem', color: colors.dark, opacity: 0.6, margin: 0 }}>
+                                {new Date(version.timestamp).toLocaleString()}
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => setGeneratedContent(version.content)}
+                              style={{
+                                padding: '0.5rem 1rem',
+                                background: colors.primary,
+                                color: colors.white,
+                                border: 'none',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontWeight: '700'
+                              }}
+                            >Restore</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <div style={{
+                      background: colors.light,
+                      borderRadius: '16px',
+                      padding: '2rem',
+                      border: `3px solid ${colors.dark}`,
+                      maxHeight: '500px',
+                      overflowY: 'auto'
+                    }}>
+                      <pre style={{
+                        whiteSpace: 'pre-wrap',
+                        wordWrap: 'break-word',
+                        fontFamily: 'monospace',
+                        fontSize: '0.95rem',
+                        lineHeight: '1.8',
+                        color: colors.dark,
+                        margin: 0
+                      }}>{generatedContent}</pre>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </>
+        );
+      }
+
+      return null;
+    };
+
+    // Render the app
+    ReactDOM.render(<BSUInstructionalDesignTool />, document.getElementById('root'));
+  </script>
+</body>
+</html>
