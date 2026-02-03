@@ -1,0 +1,433 @@
+import { useState } from "react";
+import { useLocation, useParams } from "wouter";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { ArrowLeft, Copy, Download, FileText, RefreshCw, CheckCircle, AlertTriangle, Lightbulb, ChevronDown, Loader2 } from "lucide-react";
+import { TOOLS, LOADING_MESSAGES } from "@/lib/constants";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import type { Course, GeneratedContent } from "@shared/schema";
+
+interface AccessibilityIssue {
+  type: string;
+  severity: "warning" | "suggestion";
+  message: string;
+  fix: string;
+}
+
+const checkAccessibility = (content: string): AccessibilityIssue[] => {
+  const issues: AccessibilityIssue[] = [];
+
+  const headingMatches = content.match(/^#{1,6}\s|^[A-Z][A-Z\s]{5,}$/gm) || [];
+  if (headingMatches.length === 0 && content.length > 500) {
+    issues.push({
+      type: "structure",
+      severity: "suggestion",
+      message: "Consider adding clear section headings to improve navigation",
+      fix: 'Add headings like "## Overview" or "## Learning Objectives" to organize content',
+    });
+  }
+
+  const paragraphs = content.split(/\n\n+/);
+  const longParagraphs = paragraphs.filter(p => p.length > 800 && !p.includes("|"));
+  if (longParagraphs.length > 0) {
+    issues.push({
+      type: "readability",
+      severity: "suggestion",
+      message: `${longParagraphs.length} paragraph(s) may be too long for easy reading`,
+      fix: "Break long paragraphs into smaller chunks of 3-4 sentences each",
+    });
+  }
+
+  if (content.match(/\[click here\]|\[here\]|\[link\]/gi)) {
+    issues.push({
+      type: "accessibility",
+      severity: "warning",
+      message: 'Avoid vague link text like "click here" or "here"',
+      fix: "Use descriptive link text that explains the destination (e.g., [BSU Academic Calendar])",
+    });
+  }
+
+  if (content.match(/\b(red|green|blue|yellow|orange|purple)\s+(text|items?|sections?|parts?)\b/gi)) {
+    issues.push({
+      type: "accessibility",
+      severity: "warning",
+      message: "Information may rely on color alone to convey meaning",
+      fix: "Use additional indicators like icons, labels, or patterns alongside color",
+    });
+  }
+
+  const allCapsMatches = content.match(/\b[A-Z]{10,}\b/g) || [];
+  if (allCapsMatches.length > 3) {
+    issues.push({
+      type: "readability",
+      severity: "suggestion",
+      message: "Excessive use of ALL CAPS text can reduce readability",
+      fix: "Use bold or heading styles instead of all caps for emphasis",
+    });
+  }
+
+  return issues;
+};
+
+export default function ResultPage() {
+  const params = useParams();
+  const courseId = params.id ? parseInt(params.id) : undefined;
+  const contentId = params.contentId ? parseInt(params.contentId) : undefined;
+  const [, navigate] = useLocation();
+  const { toast } = useToast();
+
+  const [copied, setCopied] = useState(false);
+  const [showAccessibility, setShowAccessibility] = useState(false);
+  const [refinementOpen, setRefinementOpen] = useState(false);
+  const [refinementRequest, setRefinementRequest] = useState("");
+  const [isRefining, setIsRefining] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState("");
+
+  const { data: course } = useQuery<Course>({
+    queryKey: ["/api/courses", courseId],
+    enabled: !!courseId,
+  });
+
+  const { data: content, isLoading } = useQuery<GeneratedContent>({
+    queryKey: ["/api/content", contentId],
+    enabled: !!contentId,
+  });
+
+  const refineMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", `/api/content/${contentId}/refine`, {
+        refinementRequest,
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/content", contentId] });
+      setRefinementOpen(false);
+      setRefinementRequest("");
+      setIsRefining(false);
+      toast({ title: "Content refined successfully!" });
+    },
+    onError: (error) => {
+      toast({ title: "Refinement failed", description: error.message, variant: "destructive" });
+      setIsRefining(false);
+    },
+  });
+
+  const handleCopy = async () => {
+    if (!content) return;
+    await navigator.clipboard.writeText(content.content);
+    setCopied(true);
+    toast({ title: "Copied to clipboard!" });
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleDownloadText = () => {
+    if (!content || !course) return;
+    const blob = new Blob([content.content], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${content.toolName.replace(/\s/g, "_")}_${course.courseNumber}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadWord = () => {
+    if (!content || !course) return;
+    const htmlContent = content.content
+      .split("\n\n")
+      .map(para => `<p>${para.replace(/\n/g, "<br>")}</p>`)
+      .join("");
+
+    const wordDoc = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+      <head><meta charset='utf-8'><title>${content.toolName}</title>
+      <style>body{font-family:Calibri,sans-serif;font-size:11pt;line-height:1.6;}h1{font-size:16pt;font-weight:bold;}h2{font-size:14pt;font-weight:bold;}p{margin-bottom:10pt;}</style>
+      </head><body><h1>${content.toolName}</h1><p><strong>Course:</strong> ${course.courseName} (${course.courseNumber})</p><hr>${htmlContent}</body></html>`;
+
+    const blob = new Blob(["\ufeff", wordDoc], { type: "application/msword" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${content.toolName.replace(/\s/g, "_")}_${course.courseNumber}.doc`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleRefine = () => {
+    if (!refinementRequest.trim()) {
+      toast({ title: "Please describe what changes you'd like to make", variant: "destructive" });
+      return;
+    }
+    setIsRefining(true);
+    let index = 0;
+    setLoadingMessage("Processing your refinement request...");
+    const refinementMessages = [
+      "Processing your refinement request...",
+      "Analyzing requested changes...",
+      "Updating content structure...",
+      "Incorporating your feedback...",
+      "Finalizing refined version...",
+    ];
+    const interval = setInterval(() => {
+      index = (index + 1) % refinementMessages.length;
+      setLoadingMessage(refinementMessages[index]);
+    }, 2000);
+    
+    refineMutation.mutate(undefined, {
+      onSettled: () => clearInterval(interval),
+    });
+  };
+
+  const tool = content ? TOOLS.find(t => t.id === content.toolType) : null;
+  const accessibilityIssues = content ? checkAccessibility(content.content) : [];
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!content) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Card className="max-w-md">
+          <CardContent className="p-6 text-center">
+            <p className="text-muted-foreground">Content not found</p>
+            <Button className="mt-4" onClick={() => navigate(`/course/${courseId}/tools`)}>
+              Return to Tools
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (isRefining) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 to-accent/5 flex items-center justify-center">
+        <Card className="max-w-lg w-full mx-4">
+          <CardContent className="p-12 text-center">
+            <div className="w-20 h-20 mx-auto mb-8 relative">
+              <div className="absolute inset-0 bg-secondary/20 rounded-full animate-ping" />
+              <div className="relative w-full h-full bg-secondary rounded-full flex items-center justify-center">
+                <RefreshCw className="w-10 h-10 text-white animate-spin-slow" />
+              </div>
+            </div>
+            <h2 className="text-2xl font-bold mb-4">Refining Your Content</h2>
+            <p className="text-muted-foreground mb-6 animate-pulse-subtle">
+              {loadingMessage}
+            </p>
+            <div className="flex justify-center gap-1">
+              {[0, 1, 2].map(i => (
+                <div
+                  key={i}
+                  className="w-2 h-2 bg-secondary rounded-full animate-bounce"
+                  style={{ animationDelay: `${i * 0.15}s` }}
+                />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="bg-gradient-to-r from-primary to-primary/80 text-white py-6">
+        <div className="container mx-auto px-4">
+          <Button
+            variant="ghost"
+            className="text-white hover:bg-white/10 mb-4"
+            onClick={() => navigate(`/course/${courseId}/tools`)}
+            data-testid="button-back-tools"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Tools
+          </Button>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-bold">{content.toolName}</h1>
+              {course && (
+                <p className="text-white/80 mt-1">
+                  {course.courseName} ({course.courseNumber})
+                </p>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+                onClick={handleCopy}
+                data-testid="button-copy"
+              >
+                {copied ? <CheckCircle className="w-4 h-4 mr-2" /> : <Copy className="w-4 h-4 mr-2" />}
+                {copied ? "Copied!" : "Copy"}
+              </Button>
+              <Button
+                variant="outline"
+                className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+                onClick={handleDownloadText}
+                data-testid="button-download-txt"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                .txt
+              </Button>
+              <Button
+                variant="outline"
+                className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+                onClick={handleDownloadWord}
+                data-testid="button-download-doc"
+              >
+                <FileText className="w-4 h-4 mr-2" />
+                .doc
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="container mx-auto px-4 py-8 max-w-5xl">
+        {accessibilityIssues.length > 0 && (
+          <Collapsible open={showAccessibility} onOpenChange={setShowAccessibility} className="mb-6">
+            <Card className="border-accent">
+              <CollapsibleTrigger asChild>
+                <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-accent/10 rounded-lg flex items-center justify-center">
+                        <Lightbulb className="w-5 h-5 text-accent" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-lg">Accessibility Check</CardTitle>
+                        <CardDescription>
+                          {accessibilityIssues.length} suggestion{accessibilityIssues.length !== 1 ? "s" : ""} to improve accessibility
+                        </CardDescription>
+                      </div>
+                    </div>
+                    <ChevronDown className={`w-5 h-5 transition-transform ${showAccessibility ? "rotate-180" : ""}`} />
+                  </div>
+                </CardHeader>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <CardContent className="pt-0 space-y-3">
+                  {accessibilityIssues.map((issue, index) => (
+                    <div
+                      key={index}
+                      className={`p-4 rounded-lg border-l-4 ${
+                        issue.severity === "warning"
+                          ? "bg-secondary/10 border-secondary"
+                          : "bg-primary/5 border-primary"
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        {issue.severity === "warning" ? (
+                          <AlertTriangle className="w-5 h-5 text-secondary mt-0.5" />
+                        ) : (
+                          <Lightbulb className="w-5 h-5 text-primary mt-0.5" />
+                        )}
+                        <div>
+                          <Badge variant="outline" className="mb-2 text-xs">
+                            {issue.type}
+                          </Badge>
+                          <p className="font-medium">{issue.message}</p>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            <strong>Fix:</strong> {issue.fix}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
+        )}
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-4 space-y-0">
+            <div>
+              <CardTitle>Generated Content</CardTitle>
+              <CardDescription>
+                Created on {new Date(content.createdAt).toLocaleDateString()} at{" "}
+                {new Date(content.createdAt).toLocaleTimeString()}
+              </CardDescription>
+            </div>
+            <Dialog open={refinementOpen} onOpenChange={setRefinementOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="gap-2" data-testid="button-refine">
+                  <RefreshCw className="w-4 h-4" />
+                  Refine
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>Refine Your Content</DialogTitle>
+                  <DialogDescription>
+                    Describe the changes you'd like to make to improve this content
+                  </DialogDescription>
+                </DialogHeader>
+                <Textarea
+                  placeholder="e.g., Make the rubric more detailed, add more UDL accommodations, simplify the language..."
+                  value={refinementRequest}
+                  onChange={(e) => setRefinementRequest(e.target.value)}
+                  className="min-h-32"
+                  data-testid="textarea-refinement"
+                />
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setRefinementOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleRefine} className="gap-2" data-testid="button-submit-refine">
+                    <RefreshCw className="w-4 h-4" />
+                    Refine Content
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </CardHeader>
+          <CardContent>
+            <ScrollArea className="h-[600px] pr-4">
+              <div className="prose-content whitespace-pre-wrap text-foreground leading-relaxed">
+                {content.content}
+              </div>
+            </ScrollArea>
+          </CardContent>
+        </Card>
+
+        <div className="mt-8 flex justify-center">
+          <Button
+            variant="outline"
+            size="lg"
+            onClick={() => navigate(`/course/${courseId}/tool/${content.toolType}`)}
+            className="gap-2"
+            data-testid="button-create-another"
+          >
+            Create Another {tool?.name || "Item"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
