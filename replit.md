@@ -30,6 +30,8 @@ This is an AI-powered instructional design tool built for Bridgewater State Univ
 - **Content Library**: Save and reuse generated content across courses
 - **Course Duplication**: Clone courses with progress dashboard
 - **Sample Courses**: Marked with [SAMPLE] prefix for clarity
+- **Word Document Export**: Professional .docx export with preserved formatting (headings, bullets, numbered lists, bold/italic text) for easy import into Blackboard Ultra
+- **Research & Theory Page**: Dedicated page with academic citations for all four pedagogical frameworks
 
 ## User Preferences
 

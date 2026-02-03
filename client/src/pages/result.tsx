@@ -178,25 +178,27 @@ export default function ResultPage() {
     URL.revokeObjectURL(url);
   };
 
-  const handleDownloadWord = () => {
-    if (!content || !course) return;
-    const htmlContent = content.content
-      .split("\n\n")
-      .map(para => `<p>${para.replace(/\n/g, "<br>")}</p>`)
-      .join("");
-
-    const wordDoc = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-      <head><meta charset='utf-8'><title>${content.toolName}</title>
-      <style>body{font-family:Calibri,sans-serif;font-size:11pt;line-height:1.6;}h1{font-size:16pt;font-weight:bold;}h2{font-size:14pt;font-weight:bold;}p{margin-bottom:10pt;}</style>
-      </head><body><h1>${content.toolName}</h1><p><strong>Course:</strong> ${course.courseName} (${course.courseNumber})</p><hr>${htmlContent}</body></html>`;
-
-    const blob = new Blob(["\ufeff", wordDoc], { type: "application/msword" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${content.toolName.replace(/\s/g, "_")}_${course.courseNumber}.doc`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const handleDownloadWord = async () => {
+    if (!content) return;
+    try {
+      const response = await fetch(`/api/content/${contentId}/export-docx`);
+      if (!response.ok) {
+        throw new Error("Export failed");
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const filename = course 
+        ? `${content.toolName.replace(/\s+/g, "_")}_${course.courseNumber}.docx`
+        : `${content.toolName.replace(/\s+/g, "_")}.docx`;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast({ title: "Word document downloaded!" });
+    } catch (error) {
+      toast({ title: "Export failed", description: "Could not generate Word document", variant: "destructive" });
+    }
   };
 
   const handleRefine = () => {
@@ -325,10 +327,10 @@ export default function ResultPage() {
                 variant="outline"
                 className="bg-white/10 border-white/20 text-white hover:bg-white/20"
                 onClick={handleDownloadWord}
-                data-testid="button-download-doc"
+                data-testid="button-download-docx"
               >
                 <FileText className="w-4 h-4 mr-2" />
-                .doc
+                .docx
               </Button>
               <Dialog open={saveLibraryOpen} onOpenChange={setSaveLibraryOpen}>
                 <DialogTrigger asChild>

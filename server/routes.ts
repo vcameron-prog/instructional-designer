@@ -5,6 +5,15 @@ import { insertCourseSchema, type Course } from "@shared/schema";
 import Anthropic from "@anthropic-ai/sdk";
 import multer from "multer";
 import { z } from "zod";
+import {
+  Document,
+  Packer,
+  Paragraph,
+  TextRun,
+  HeadingLevel,
+  AlignmentType,
+  BorderStyle,
+} from "docx";
 
 const anthropic = new Anthropic({
   apiKey: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
@@ -746,5 +755,271 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     }
   });
 
+  // Word Document Export
+  app.get("/api/content/:id/export-docx", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const content = await storage.getContent(id);
+      
+      if (!content) {
+        return res.status(404).json({ error: "Content not found" });
+      }
+
+      const course = content.courseId ? await storage.getCourse(content.courseId) : null;
+      
+      const children: Paragraph[] = [];
+      
+      children.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: content.toolName,
+              bold: true,
+              size: 36,
+              color: "7C1D32",
+            }),
+          ],
+          heading: HeadingLevel.TITLE,
+          spacing: { after: 200 },
+        })
+      );
+
+      if (course) {
+        children.push(
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: `${course.courseName} (${course.courseNumber})`,
+                size: 24,
+                color: "666666",
+              }),
+            ],
+            spacing: { after: 100 },
+          }),
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: `Instructor: ${course.instructor} | Semester: ${course.semester}`,
+                size: 20,
+                color: "666666",
+              }),
+            ],
+            spacing: { after: 400 },
+          })
+        );
+      }
+
+      children.push(
+        new Paragraph({
+          children: [],
+          border: {
+            bottom: { color: "CCCCCC", style: BorderStyle.SINGLE, size: 6 },
+          },
+          spacing: { after: 400 },
+        })
+      );
+
+      const lines = content.content.split("\n");
+      
+      for (const line of lines) {
+        if (!line.trim()) {
+          children.push(new Paragraph({ children: [] }));
+          continue;
+        }
+
+        if (line.startsWith("# ")) {
+          children.push(
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: line.replace(/^# /, ""),
+                  bold: true,
+                  size: 32,
+                  color: "7C1D32",
+                }),
+              ],
+              heading: HeadingLevel.HEADING_1,
+              spacing: { before: 400, after: 200 },
+            })
+          );
+        } else if (line.startsWith("## ")) {
+          children.push(
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: line.replace(/^## /, ""),
+                  bold: true,
+                  size: 28,
+                  color: "333333",
+                }),
+              ],
+              heading: HeadingLevel.HEADING_2,
+              spacing: { before: 300, after: 150 },
+            })
+          );
+        } else if (line.startsWith("### ")) {
+          children.push(
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: line.replace(/^### /, ""),
+                  bold: true,
+                  size: 24,
+                }),
+              ],
+              heading: HeadingLevel.HEADING_3,
+              spacing: { before: 200, after: 100 },
+            })
+          );
+        } else if (line.match(/^[-*] /)) {
+          const textContent = line.replace(/^[-*] /, "");
+          const textRuns = parseInlineFormatting(textContent);
+          children.push(
+            new Paragraph({
+              children: textRuns,
+              bullet: { level: 0 },
+              spacing: { after: 80 },
+            })
+          );
+        } else if (line.match(/^\d+\. /)) {
+          const textContent = line.replace(/^\d+\. /, "");
+          const textRuns = parseInlineFormatting(textContent);
+          children.push(
+            new Paragraph({
+              children: textRuns,
+              numbering: { reference: "numbering", level: 0 },
+              spacing: { after: 80 },
+            })
+          );
+        } else if (line.startsWith("   - ") || line.startsWith("   * ")) {
+          const textContent = line.replace(/^   [-*] /, "");
+          const textRuns = parseInlineFormatting(textContent);
+          children.push(
+            new Paragraph({
+              children: textRuns,
+              bullet: { level: 1 },
+              spacing: { after: 60 },
+            })
+          );
+        } else {
+          const textRuns = parseInlineFormatting(line);
+          children.push(
+            new Paragraph({
+              children: textRuns,
+              spacing: { after: 120 },
+            })
+          );
+        }
+      }
+
+      children.push(
+        new Paragraph({ children: [], spacing: { before: 600 } }),
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: "Generated by BSU Instructional Design Tool",
+              size: 18,
+              color: "999999",
+              italics: true,
+            }),
+          ],
+          alignment: AlignmentType.CENTER,
+        }),
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: `Created on ${new Date(content.createdAt).toLocaleDateString()}`,
+              size: 18,
+              color: "999999",
+              italics: true,
+            }),
+          ],
+          alignment: AlignmentType.CENTER,
+        })
+      );
+
+      const doc = new Document({
+        numbering: {
+          config: [
+            {
+              reference: "numbering",
+              levels: [
+                {
+                  level: 0,
+                  format: "decimal",
+                  text: "%1.",
+                  alignment: AlignmentType.START,
+                },
+              ],
+            },
+          ],
+        },
+        sections: [
+          {
+            properties: {
+              page: {
+                margin: {
+                  top: 1440,
+                  right: 1440,
+                  bottom: 1440,
+                  left: 1440,
+                },
+              },
+            },
+            children,
+          },
+        ],
+      });
+
+      const buffer = await Packer.toBuffer(doc);
+      
+      const filename = `${content.toolName.replace(/\s+/g, "_")}_${course?.courseNumber || "export"}.docx`;
+      
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.send(buffer);
+    } catch (error) {
+      console.error("Error exporting to Word:", error);
+      res.status(500).json({ error: "Failed to export to Word" });
+    }
+  });
+
   return httpServer;
+}
+
+function parseInlineFormatting(text: string): TextRun[] {
+  const runs: TextRun[] = [];
+  let currentText = text;
+  
+  const regex = /(\*\*([^*]+)\*\*|\*([^*]+)\*|__([^_]+)__|_([^_]+)_)/g;
+  let lastIndex = 0;
+  let match;
+  
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      runs.push(new TextRun({ text: text.slice(lastIndex, match.index), size: 22 }));
+    }
+    
+    if (match[2]) {
+      runs.push(new TextRun({ text: match[2], bold: true, size: 22 }));
+    } else if (match[3]) {
+      runs.push(new TextRun({ text: match[3], italics: true, size: 22 }));
+    } else if (match[4]) {
+      runs.push(new TextRun({ text: match[4], bold: true, size: 22 }));
+    } else if (match[5]) {
+      runs.push(new TextRun({ text: match[5], italics: true, size: 22 }));
+    }
+    
+    lastIndex = match.index + match[0].length;
+  }
+  
+  if (lastIndex < text.length) {
+    runs.push(new TextRun({ text: text.slice(lastIndex), size: 22 }));
+  }
+  
+  if (runs.length === 0) {
+    runs.push(new TextRun({ text, size: 22 }));
+  }
+  
+  return runs;
 }
