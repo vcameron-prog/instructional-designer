@@ -1,4 +1,5 @@
 import { useLocation } from "wouter";
+import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
@@ -125,6 +126,10 @@ const researchFrameworks = {
 
 export default function ResearchPage() {
   const [, navigate] = useLocation();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
 
   return (
     <div className="min-h-screen bg-background">

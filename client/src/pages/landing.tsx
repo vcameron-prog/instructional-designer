@@ -16,7 +16,8 @@ import {
   BookOpen,
   Calendar,
   Layout,
-  Target
+  Target,
+  FlaskConical
 } from "lucide-react";
 import type { Course, GeneratedContent } from "@shared/schema";
 import { format } from "date-fns";
@@ -182,14 +183,25 @@ export default function LandingPage() {
             variant="outline" 
             className="bg-white/10 border-white/30 text-white hover:bg-white/20"
             onClick={() => navigate("/help")}
+            data-testid="button-help-footer"
           >
             <HelpCircle className="w-4 h-4 mr-2" />
-            View Help & Tips
+            Help & Tips
+          </Button>
+          <Button 
+            variant="outline" 
+            className="bg-white/10 border-white/30 text-white hover:bg-white/20"
+            onClick={() => navigate("/research")}
+            data-testid="button-research-footer"
+          >
+            <FlaskConical className="w-4 h-4 mr-2" />
+            Research & Theory
           </Button>
           <Button 
             variant="outline" 
             className="bg-white/10 border-white/30 text-white hover:bg-white/20"
             onClick={() => navigate("/library")}
+            data-testid="button-library-footer"
           >
             <Library className="w-4 h-4 mr-2" />
             Content Library
