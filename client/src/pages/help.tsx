@@ -248,6 +248,36 @@ const researchFrameworks = {
       { name: "Yale Center for Emotional Intelligence", url: "https://www.ycei.org/", description: "RULER approach and research" },
     ],
   },
+  grading: {
+    title: "Grading for Equity",
+    icon: Scale,
+    color: "text-primary",
+    bgColor: "bg-primary/10",
+    theory: "Grading for Equity is a framework that challenges traditional grading practices that often measure compliance, behavior, and privilege rather than actual learning. It emphasizes grading practices that are accurate (reflecting only content mastery), bias-resistant (avoiding subjective factors), and motivational (supporting student growth rather than punishment).",
+    keyResearch: [
+      {
+        citation: "Feldman, J. (2018). Grading for Equity: What It Is, Why It Matters, and How It Can Transform Schools and Classrooms. Corwin Press.",
+        description: "The foundational text establishing equitable grading principles and practical implementation strategies.",
+      },
+      {
+        citation: "Brookhart, S.M. (2011). Grading and Learning: Practices That Support Student Achievement. Solution Tree Press.",
+        description: "Research on how grading practices impact student motivation and learning outcomes.",
+      },
+      {
+        citation: "Guskey, T.R., & Bailey, J.M. (2001). Developing Grading and Reporting Systems for Student Learning. Corwin Press.",
+        description: "Framework for designing standards-based grading systems that focus on learning.",
+      },
+      {
+        citation: "Schimmer, T., Hillman, G., & Stalets, M. (2018). Standards-Based Learning in Action. Solution Tree Press.",
+        description: "Practical guide to implementing standards-based grading in higher education.",
+      },
+    ],
+    resources: [
+      { name: "Grading for Equity", url: "https://gradingforequity.org/", description: "Official resources from Joe Feldman" },
+      { name: "ASCD - Equitable Grading", url: "https://www.ascd.org/topics/grading", description: "Articles and research on grading practices" },
+      { name: "Cult of Pedagogy - Grading", url: "https://www.cultofpedagogy.com/grading-for-equity/", description: "Practical guides and discussions" },
+    ],
+  },
 };
 
 export default function HelpPage() {
