@@ -31,7 +31,7 @@ const COURSE_TEMPLATES = [
   {
     id: "seminar",
     name: "Discussion Seminar",
-    description: "Small group discussion-based course",
+    description: "Small, discussion-based classes focused on student participation and critical thinking",
     defaults: {
       credits: "3",
       courseLevel: "Graduate",
@@ -39,13 +39,43 @@ const COURSE_TEMPLATES = [
     },
   },
   {
+    id: "studio",
+    name: "Studio Course",
+    description: "Project-based, hands-on environment for art, design, music, or creative disciplines",
+    defaults: {
+      credits: "3",
+      courseLevel: "Undergraduate",
+      learningOutcomes: "Upon completion of this course, students will be able to:\n1. Apply creative techniques and processes to produce original work\n2. Critique and reflect on their own work and the work of peers\n3. Demonstrate proficiency with discipline-specific tools and materials\n4. Document and present creative projects professionally",
+    },
+  },
+  {
     id: "lab",
-    name: "Lab/Hands-On Course",
-    description: "Course with significant hands-on or lab components",
+    name: "Lab/Science Course",
+    description: "Course with significant hands-on lab or fieldwork components",
     defaults: {
       credits: "4",
       courseLevel: "Undergraduate",
       learningOutcomes: "Upon completion of this course, students will be able to:\n1. Apply theoretical knowledge in practical settings\n2. Use equipment and tools safely and effectively\n3. Collect, analyze, and interpret data\n4. Document procedures and results professionally",
+    },
+  },
+  {
+    id: "independent",
+    name: "Independent Study",
+    description: "Tailored, individual projects directed by a faculty member",
+    defaults: {
+      credits: "3",
+      courseLevel: "Undergraduate",
+      learningOutcomes: "Upon completion of this course, students will be able to:\n1. Design and execute an independent research or creative project\n2. Demonstrate self-directed learning and time management\n3. Synthesize knowledge from prior coursework in a focused application\n4. Communicate project outcomes through written and oral presentations",
+    },
+  },
+  {
+    id: "capstone",
+    name: "Capstone Course",
+    description: "Culminating senior-level project representing cumulative learning in the major",
+    defaults: {
+      credits: "3",
+      courseLevel: "Undergraduate",
+      learningOutcomes: "Upon completion of this course, students will be able to:\n1. Integrate and apply knowledge and skills from across the major\n2. Complete a substantial project demonstrating professional-level competency\n3. Reflect critically on their academic and professional development\n4. Present and defend their work to faculty, peers, or external audiences",
     },
   },
   {

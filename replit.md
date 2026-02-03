@@ -22,7 +22,7 @@ This is an AI-powered instructional design tool built for Bridgewater State Univ
 
 ### Key Features
 - **Welcome Modal**: 6-step onboarding tour for first-time users
-- **Course Templates**: Pre-fill common course configurations
+- **Course Templates**: Pre-fill common course configurations (8 types: Lecture, Seminar, Studio, Lab/Science, Independent Study, Capstone, Online, Hybrid)
 - **Inclusive Design Tips**: Tabbed interface with three pedagogical frameworks:
   - UDL (Universal Design for Learning)
   - Cultural Relevance & Inclusivity
