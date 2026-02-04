@@ -65,7 +65,14 @@ Course Description: ${course.courseDescription}
 
 Primary Learning Outcomes: ${course.learningOutcomes}
 
-Additional Context: ${course.additionalContext || "None provided"}${syllabusContext}`;
+Additional Context: ${course.additionalContext || "None provided"}${syllabusContext}
+
+**CRITICAL FORMATTING RULES - FOLLOW EXACTLY:**
+- DO NOT use markdown table syntax (no |---|---| or | column | column | formats)
+- Instead of tables, use clear formatted lists with labels
+- Use **bold labels** followed by content on the same line or as sub-bullets
+- For schedules and matrices, use numbered sections with clear headings
+- Keep output clean and readable without complex formatting symbols`;
 
   const prompts: Record<string, string> = {
     assignment: `${baseContext}
@@ -164,7 +171,7 @@ Create or revise the syllabus following BSU's OFFICIAL SYLLABUS TEMPLATE structu
    - Brief background and enthusiasm for teaching this course
    - Set collaborative, student-centered tone
 
-3. **COURSE INFORMATION AT-A-GLANCE** (formatted table)
+3. **COURSE INFORMATION AT-A-GLANCE** (use formatted list with bold labels, NOT a table)
    - Instructor name
    - Office Hours
    - Office Location
@@ -224,7 +231,7 @@ Create or revise the syllabus following BSU's OFFICIAL SYLLABUS TEMPLATE structu
     - Student choice philosophy
     - Openness to feedback
 
-12. **COURSE SCHEDULE** (table format)
+12. **COURSE SCHEDULE** (use week-by-week sections with bold labels, NOT a table)
     - Week number
     - Topics
     - Student Responsibilities (readings, activities, due dates)
@@ -299,7 +306,7 @@ Based on the instructor's stance, create a policy that includes:
    - How this supports the learning outcomes
 
 3. **ASSIGNMENT-SPECIFIC MATRIX** (if stance varies by assignment)
-   - Table showing which policy level applies to each assignment type
+   - List showing which policy level applies to each assignment type (use bold labels, NOT a table)
    - Clear guidance for different activities
 
 4. **PERMITTED USES** (specific examples)
@@ -353,7 +360,7 @@ ${toolData.checkType?.map((c: string) => `- ${c}`).join("\n") || "Full alignment
 ADDITIONAL CONTEXT: ${toolData.additionalContext || "None"}
 
 Please provide:
-1. **Alignment Matrix** - A clear table showing which assignments assess which outcomes
+1. **Alignment Matrix** - A clear formatted list showing which assignments assess which outcomes (use bullet points with bold labels, NOT a table)
 2. **Coverage Analysis** - Are all outcomes adequately assessed?
 3. **Gap Identification** - Any outcomes not assessed or under-assessed
 4. **Overlap Analysis** - Outcomes assessed multiple times (is this intentional/appropriate?)
