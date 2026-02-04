@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useLocation, useParams } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -492,8 +494,61 @@ export default function ResultPage() {
           </CardHeader>
           <CardContent>
             <ScrollArea className="h-[600px] pr-4">
-              <div className="prose-content whitespace-pre-wrap text-foreground leading-relaxed">
-                {content.content}
+              <div className="prose prose-sm max-w-none dark:prose-invert prose-headings:text-primary prose-headings:font-bold prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-p:text-foreground prose-li:text-foreground prose-strong:text-foreground prose-table:text-sm">
+                <ReactMarkdown 
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    table: ({ children }) => (
+                      <div className="overflow-x-auto my-4">
+                        <table className="min-w-full border-collapse border border-border">
+                          {children}
+                        </table>
+                      </div>
+                    ),
+                    thead: ({ children }) => (
+                      <thead className="bg-muted">{children}</thead>
+                    ),
+                    th: ({ children }) => (
+                      <th className="border border-border px-3 py-2 text-left font-semibold text-foreground">
+                        {children}
+                      </th>
+                    ),
+                    td: ({ children }) => (
+                      <td className="border border-border px-3 py-2 text-foreground">
+                        {children}
+                      </td>
+                    ),
+                    h1: ({ children }) => (
+                      <h1 className="text-2xl font-bold text-primary mt-6 mb-3">{children}</h1>
+                    ),
+                    h2: ({ children }) => (
+                      <h2 className="text-xl font-bold text-primary mt-5 mb-2">{children}</h2>
+                    ),
+                    h3: ({ children }) => (
+                      <h3 className="text-lg font-semibold text-primary mt-4 mb-2">{children}</h3>
+                    ),
+                    ul: ({ children }) => (
+                      <ul className="list-disc pl-6 my-2 space-y-1">{children}</ul>
+                    ),
+                    ol: ({ children }) => (
+                      <ol className="list-decimal pl-6 my-2 space-y-1">{children}</ol>
+                    ),
+                    li: ({ children }) => (
+                      <li className="text-foreground">{children}</li>
+                    ),
+                    p: ({ children }) => (
+                      <p className="my-2 text-foreground leading-relaxed">{children}</p>
+                    ),
+                    strong: ({ children }) => (
+                      <strong className="font-semibold text-foreground">{children}</strong>
+                    ),
+                    hr: () => (
+                      <hr className="my-4 border-border" />
+                    ),
+                  }}
+                >
+                  {content.content}
+                </ReactMarkdown>
               </div>
             </ScrollArea>
           </CardContent>
