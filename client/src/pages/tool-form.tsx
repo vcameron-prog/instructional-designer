@@ -184,6 +184,11 @@ export default function ToolForm() {
   const [loadingMessage, setLoadingMessage] = useState("");
 
   const tool = TOOLS.find(t => t.id === toolId);
+
+  // Scroll to top when component mounts
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [toolId]);
   const formFields = getFormFields(toolId || "");
 
   const { data: course } = useQuery<Course>({
