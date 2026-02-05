@@ -2,7 +2,7 @@ import { useLocation, useParams } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, BookOpen, Calendar, FileText, Layout, CheckCircle, Sparkles, Target, ArrowRight, FolderOpen, Loader2, Scale, ShieldCheck, Link2 } from "lucide-react";
+import { ArrowLeft, BookOpen, Calendar, FileText, Layout, CheckCircle, Sparkles, Target, ArrowRight, FolderOpen, Loader2, Scale, ShieldCheck, Link2, HelpCircle, GraduationCap, Library } from "lucide-react";
 import { TOOLS } from "@/lib/constants";
 import type { Course, GeneratedContent } from "@shared/schema";
 
@@ -228,6 +228,35 @@ export default function ToolSelection() {
             </div>
           </div>
         )}
+
+        <div className="mt-12 pt-8 border-t">
+          <div className="flex flex-wrap justify-center gap-4">
+            <Button
+              variant="outline"
+              onClick={() => navigate("/help")}
+              data-testid="button-help"
+            >
+              <HelpCircle className="w-4 h-4 mr-2" />
+              Help & Tips
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => navigate("/research")}
+              data-testid="button-research"
+            >
+              <GraduationCap className="w-4 h-4 mr-2" />
+              Research & Theory
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => navigate("/library")}
+              data-testid="button-library"
+            >
+              <Library className="w-4 h-4 mr-2" />
+              Template Library
+            </Button>
+          </div>
+        </div>
       </div>
     </div>
   );
