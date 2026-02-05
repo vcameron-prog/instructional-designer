@@ -64,6 +64,7 @@ const researchFrameworks = {
       },
     ],
     resources: [
+      { name: "BSU Lewis and Gaines Center for Inclusion and Equity", url: "https://www.bridgew.edu/student-life/lgcie", description: "BSU campus inclusion resources" },
       { name: "Culturally Responsive Teaching", url: "https://www.tolerance.org/magazine/publications/critical-practices-for-antibias-education", description: "Learning for Justice resources" },
       { name: "NYU Steinhardt - CRT", url: "https://steinhardt.nyu.edu/metrocenter/culturally-responsive-curriculum-scorecards", description: "Curriculum assessment tools" },
       { name: "Equity Literacy Institute", url: "https://www.equityliteracy.org/", description: "Research and practice resources" },
