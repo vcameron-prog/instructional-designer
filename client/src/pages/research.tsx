@@ -39,6 +39,7 @@ const researchFrameworks = {
     ],
     resources: [
       { name: "BSU Academic Achievement Center", url: "https://www.bridgew.edu/academics/academic-achievement", description: "BSU campus academic support" },
+      { name: "BSU Teaching and Technology Center", url: "https://bridgew.teamdynamix.com/TDClient/1926/Portal/KB/?CategoryID=11588", description: "BSU teaching resources and support" },
       { name: "CAST UDL Guidelines", url: "https://udlguidelines.cast.org/", description: "Official interactive guidelines" },
       { name: "UDL on Campus", url: "https://udloncampus.cast.org/", description: "Higher education resources" },
       { name: "National Center on UDL", url: "https://www.cast.org/", description: "Research and professional development" },
