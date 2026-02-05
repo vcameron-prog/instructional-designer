@@ -17,8 +17,11 @@ import {
   Calendar,
   Layout,
   Target,
-  FlaskConical
+  FlaskConical,
+  Moon,
+  Sun
 } from "lucide-react";
+import { useTheme } from "@/components/theme-provider";
 import type { Course, GeneratedContent } from "@shared/schema";
 import { format } from "date-fns";
 import {
@@ -54,6 +57,7 @@ const toolIconMap: Record<string, any> = {
 export default function LandingPage() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
+  const { theme, toggleTheme } = useTheme();
 
   const { data: courses = [], isLoading } = useQuery<Course[]>({
     queryKey: ["/api/courses"],
@@ -88,6 +92,16 @@ export default function LandingPage() {
       <div className="absolute inset-0 pattern-dots text-white/10 opacity-50" />
       
       <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-white hover:bg-white/20"
+          onClick={toggleTheme}
+          data-testid="button-theme-toggle"
+          aria-label={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
+        >
+          {theme === "light" ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+        </Button>
         <Button
           variant="ghost"
           size="icon"

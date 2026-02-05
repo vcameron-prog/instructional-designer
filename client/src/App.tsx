@@ -13,6 +13,7 @@ import HelpPage from "@/pages/help";
 import ResearchPage from "@/pages/research";
 import LibraryPage from "@/pages/library";
 import { WelcomeModal } from "@/components/welcome-modal";
+import { ThemeProvider } from "@/components/theme-provider";
 
 function NewCourseWrapper() {
   return <CourseForm />;
@@ -44,11 +45,13 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <WelcomeModal />
-        <Toaster />
-        <Router />
-      </TooltipProvider>
+      <ThemeProvider>
+        <TooltipProvider>
+          <WelcomeModal />
+          <Toaster />
+          <Router />
+        </TooltipProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }
