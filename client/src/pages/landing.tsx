@@ -22,12 +22,19 @@ import {
   Sun,
   Plus,
   Minus,
-  Type
+  Type,
+  LogOut,
+  User,
+  Shield,
+  Users,
+  Loader2
 } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
 import { useFontSize } from "@/components/font-size-provider";
+import { useAuth } from "@/hooks/use-auth";
 import type { Course, GeneratedContent } from "@shared/schema";
 import { format } from "date-fns";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -58,14 +65,135 @@ const toolIconMap: Record<string, any> = {
   alignment: Target,
 };
 
+// Login page for unauthenticated users
+function LoginPage({ theme, toggleTheme, fontSize, increaseFontSize, decreaseFontSize }: {
+  theme: string;
+  toggleTheme: () => void;
+  fontSize: string;
+  increaseFontSize: () => void;
+  decreaseFontSize: () => void;
+}) {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-primary via-primary/90 to-primary/80 relative overflow-hidden">
+      <div className="absolute inset-0 pattern-dots text-white/10 opacity-50" />
+      
+      <div className="absolute top-4 right-4 z-20 flex items-center gap-1">
+        <div className="flex items-center bg-white/10 rounded-lg mr-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-white h-9 w-9"
+            onClick={decreaseFontSize}
+            disabled={fontSize === "small"}
+            data-testid="button-font-decrease"
+            aria-label="Decrease font size"
+          >
+            <Minus className="w-4 h-4" />
+          </Button>
+          <Type className="w-4 h-4 text-white mx-1" />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-white h-9 w-9"
+            onClick={increaseFontSize}
+            disabled={fontSize === "xlarge"}
+            data-testid="button-font-increase"
+            aria-label="Increase font size"
+          >
+            <Plus className="w-4 h-4" />
+          </Button>
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-white"
+          onClick={toggleTheme}
+          data-testid="button-theme-toggle"
+          aria-label={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
+        >
+          {theme === "light" ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+        </Button>
+      </div>
+
+      <div className="relative z-10 container mx-auto px-4 py-12 md:py-20 flex flex-col items-center justify-center min-h-screen">
+        <div className="text-center mb-12 animate-fade-in-up">
+          <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-primary to-accent rounded-3xl mb-8 shadow-2xl border-4 border-white/20">
+            <GraduationCap className="w-14 h-14 text-white" />
+          </div>
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4 tracking-tight">
+            BSU Instructional Design Tool
+          </h1>
+          <p className="text-lg md:text-xl text-white/90 max-w-2xl mx-auto leading-relaxed mb-8">
+            Create comprehensive, UDL-aligned course materials ready for Blackboard Ultra
+          </p>
+        </div>
+
+        <Card className="max-w-md w-full bg-card border-0 shadow-2xl">
+          <CardContent className="p-8 text-center">
+            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center mx-auto mb-6">
+              <User className="w-10 h-10 text-white" />
+            </div>
+            <CardTitle className="text-2xl mb-3">Welcome, Faculty</CardTitle>
+            <CardDescription className="text-base mb-6">
+              Sign in to create and manage your course materials. Your work is private and secure.
+            </CardDescription>
+            <Button 
+              size="lg" 
+              className="w-full gap-2" 
+              onClick={() => window.location.href = "/api/login"}
+              data-testid="button-login"
+            >
+              <User className="w-5 h-5" />
+              Sign In with Replit
+            </Button>
+            <div className="mt-6 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+              <Shield className="w-4 h-4" />
+              <span>Secure authentication via Replit</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4 max-w-3xl">
+          <div className="bg-white/10 rounded-lg p-4 text-center text-white">
+            <Sparkles className="w-8 h-8 mx-auto mb-2" />
+            <p className="font-medium">AI-Powered</p>
+            <p className="text-sm text-white/70">Generate complete course materials</p>
+          </div>
+          <div className="bg-white/10 rounded-lg p-4 text-center text-white">
+            <Users className="w-8 h-8 mx-auto mb-2" />
+            <p className="font-medium">UDL-Aligned</p>
+            <p className="text-sm text-white/70">Inclusive design principles</p>
+          </div>
+          <div className="bg-white/10 rounded-lg p-4 text-center text-white">
+            <Shield className="w-8 h-8 mx-auto mb-2" />
+            <p className="font-medium">Private & Secure</p>
+            <p className="text-sm text-white/70">Your data stays yours</p>
+          </div>
+        </div>
+
+        <div className="mt-12 text-center">
+          <p className="text-white/70 text-sm">
+            Powered by AI to help Bridgewater State University faculty create accessible, engaging course materials
+          </p>
+          <p className="text-white/50 text-xs mt-2">
+            Your data is not used to train AI models
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function LandingPage() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const { theme, toggleTheme } = useTheme();
   const { fontSize, increaseFontSize, decreaseFontSize } = useFontSize();
+  const { user, isLoading: isAuthLoading, isAuthenticated } = useAuth();
 
   const { data: courses = [], isLoading } = useQuery<Course[]>({
     queryKey: ["/api/courses"],
+    enabled: isAuthenticated,
   });
 
   const deleteMutation = useMutation({
@@ -92,16 +220,46 @@ export default function LandingPage() {
     },
   });
 
+  // Show loading state
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-primary via-primary/90 to-primary/80 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-white animate-spin mx-auto mb-4" />
+          <p className="text-white/80">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show login page if not authenticated
+  if (!isAuthenticated) {
+    return <LoginPage theme={theme} toggleTheme={toggleTheme} fontSize={fontSize} increaseFontSize={increaseFontSize} decreaseFontSize={decreaseFontSize} />;
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary via-primary/90 to-primary/80 relative overflow-hidden">
       <div className="absolute inset-0 pattern-dots text-white/10 opacity-50" />
       
-      <div className="absolute top-4 right-4 z-20 flex items-center gap-1">
+      <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+        {user && (
+          <div className="flex items-center gap-2 bg-white/10 rounded-lg px-3 py-1.5 mr-1" data-testid="user-info">
+            <Avatar className="w-7 h-7">
+              <AvatarImage src={user.profileImageUrl || undefined} alt={user.firstName || "User"} />
+              <AvatarFallback className="text-xs bg-white/20 text-white">
+                {user.firstName?.[0] || user.email?.[0]?.toUpperCase() || "U"}
+              </AvatarFallback>
+            </Avatar>
+            <span className="text-white text-sm hidden md:inline" data-testid="text-user-name">
+              {user.firstName || user.email?.split("@")[0] || "User"}
+            </span>
+          </div>
+        )}
         <div className="flex items-center bg-white/10 rounded-lg mr-1">
           <Button
             variant="ghost"
             size="icon"
-            className="text-white hover:bg-white/20 h-9 w-9"
+            className="text-white h-9 w-9"
             onClick={decreaseFontSize}
             disabled={fontSize === "small"}
             data-testid="button-font-decrease"
@@ -113,7 +271,7 @@ export default function LandingPage() {
           <Button
             variant="ghost"
             size="icon"
-            className="text-white hover:bg-white/20 h-9 w-9"
+            className="text-white h-9 w-9"
             onClick={increaseFontSize}
             disabled={fontSize === "xlarge"}
             data-testid="button-font-increase"
@@ -125,7 +283,7 @@ export default function LandingPage() {
         <Button
           variant="ghost"
           size="icon"
-          className="text-white hover:bg-white/20"
+          className="text-white"
           onClick={toggleTheme}
           data-testid="button-theme-toggle"
           aria-label={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
@@ -135,7 +293,7 @@ export default function LandingPage() {
         <Button
           variant="ghost"
           size="icon"
-          className="text-white hover:bg-white/20"
+          className="text-white"
           onClick={() => navigate("/library")}
           data-testid="button-library"
         >
@@ -144,11 +302,21 @@ export default function LandingPage() {
         <Button
           variant="ghost"
           size="icon"
-          className="text-white hover:bg-white/20"
+          className="text-white"
           onClick={() => navigate("/help")}
           data-testid="button-help"
         >
           <HelpCircle className="w-5 h-5" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-white"
+          onClick={() => window.location.href = "/api/logout"}
+          data-testid="button-logout"
+          aria-label="Sign out"
+        >
+          <LogOut className="w-5 h-5" />
         </Button>
       </div>
       

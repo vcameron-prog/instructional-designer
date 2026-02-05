@@ -6,7 +6,15 @@ This is an AI-powered instructional design tool built for Bridgewater State Univ
 
 ## Recent Updates
 
-### Connected Course Materials (Latest)
+### User Authentication (Latest)
+- Implemented Replit Auth (OpenID Connect) for secure user authentication
+- Each faculty member has private, isolated course data
+- User profile display in header with avatar/name and logout button
+- Login page for unauthenticated users with security messaging
+- All API routes protected with `isAuthenticated` middleware
+- Courses filtered by `userId` to ensure data isolation
+
+### Connected Course Materials
 - Faculty can mark generated content as "connected" to their course
 - Connected content is available to inform other tools (e.g., an approved syllabus can inform assignment generation)
 - Toggle button on result pages: "Connect to Course" / "Connected" with visual feedback

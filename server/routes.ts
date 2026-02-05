@@ -2,9 +2,15 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertCourseSchema, type Course } from "@shared/schema";
+import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import Anthropic from "@anthropic-ai/sdk";
 import multer from "multer";
 import { z } from "zod";
+
+// Helper to get userId from authenticated request
+function getUserId(req: Request): string {
+  return (req.user as any)?.claims?.sub;
+}
 import {
   Document,
   Packer,
@@ -597,10 +603,15 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // Courses API
-  app.get("/api/courses", async (req: Request, res: Response) => {
+  // Setup authentication (before other routes)
+  await setupAuth(app);
+  registerAuthRoutes(app);
+
+  // Courses API (protected)
+  app.get("/api/courses", isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const courses = await storage.getAllCourses();
+      const userId = getUserId(req) as string;
+      const courses = await storage.getAllCourses(userId);
       res.json(courses);
     } catch (error) {
       console.error("Error fetching courses:", error);
@@ -608,10 +619,11 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/courses/:id", async (req: Request, res: Response) => {
+  app.get("/api/courses/:id", isAuthenticated, async (req: Request, res: Response) => {
     try {
+      const userId = getUserId(req) as string;
       const id = parseInt(req.params.id);
-      const course = await storage.getCourse(id);
+      const course = await storage.getCourse(id, userId);
       if (!course) {
         return res.status(404).json({ error: "Course not found" });
       }
@@ -622,13 +634,14 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/courses", async (req: Request, res: Response) => {
+  app.post("/api/courses", isAuthenticated, async (req: Request, res: Response) => {
     try {
+      const userId = getUserId(req) as string;
       const parsed = insertCourseSchema.safeParse(req.body);
       if (!parsed.success) {
         return res.status(400).json({ error: parsed.error.message });
       }
-      const course = await storage.createCourse(parsed.data);
+      const course = await storage.createCourse(parsed.data, userId);
       res.status(201).json(course);
     } catch (error) {
       console.error("Error creating course:", error);
@@ -636,8 +649,9 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/courses/:id", async (req: Request, res: Response) => {
+  app.patch("/api/courses/:id", isAuthenticated, async (req: Request, res: Response) => {
     try {
+      const userId = getUserId(req) as string;
       const id = parseInt(req.params.id);
       // Validate partial course data
       const partialSchema = insertCourseSchema.partial();
@@ -645,7 +659,7 @@ export async function registerRoutes(
       if (!parsed.success) {
         return res.status(400).json({ error: parsed.error.message });
       }
-      const course = await storage.updateCourse(id, parsed.data);
+      const course = await storage.updateCourse(id, parsed.data, userId);
       if (!course) {
         return res.status(404).json({ error: "Course not found" });
       }
@@ -656,10 +670,11 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/courses/:id", async (req: Request, res: Response) => {
+  app.delete("/api/courses/:id", isAuthenticated, async (req: Request, res: Response) => {
     try {
+      const userId = getUserId(req) as string;
       const id = parseInt(req.params.id);
-      await storage.deleteCourse(id);
+      await storage.deleteCourse(id, userId);
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting course:", error);
@@ -667,10 +682,18 @@ export async function registerRoutes(
     }
   });
 
-  // Generated Content API
-  app.get("/api/courses/:id/content", async (req: Request, res: Response) => {
+  // Generated Content API (protected with ownership verification)
+  app.get("/api/courses/:id/content", isAuthenticated, async (req: Request, res: Response) => {
     try {
+      const userId = getUserId(req) as string;
       const courseId = parseInt(req.params.id);
+      
+      // Verify course ownership
+      const course = await storage.getCourse(courseId, userId);
+      if (!course) {
+        return res.status(404).json({ error: "Course not found" });
+      }
+      
       const content = await storage.getContentByCourse(courseId);
       res.json(content);
     } catch (error) {
@@ -679,13 +702,21 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/content/:id", async (req: Request, res: Response) => {
+  app.get("/api/content/:id", isAuthenticated, async (req: Request, res: Response) => {
     try {
+      const userId = getUserId(req) as string;
       const id = parseInt(req.params.id);
       const content = await storage.getContent(id);
       if (!content) {
         return res.status(404).json({ error: "Content not found" });
       }
+      
+      // Verify course ownership through content's courseId
+      const course = await storage.getCourse(content.courseId, userId);
+      if (!course) {
+        return res.status(404).json({ error: "Content not found" });
+      }
+      
       res.json(content);
     } catch (error) {
       console.error("Error fetching content:", error);
@@ -694,8 +725,9 @@ export async function registerRoutes(
   });
 
   // Toggle content approval for connected materials
-  app.patch("/api/content/:id/approval", async (req: Request, res: Response) => {
+  app.patch("/api/content/:id/approval", isAuthenticated, async (req: Request, res: Response) => {
     try {
+      const userId = getUserId(req) as string;
       const id = parseInt(req.params.id);
       const { isApproved } = req.body;
       
@@ -703,11 +735,18 @@ export async function registerRoutes(
         return res.status(400).json({ error: "isApproved must be a boolean" });
       }
       
-      const content = await storage.toggleContentApproval(id, isApproved);
+      // Verify ownership before toggling
+      const content = await storage.getContent(id);
       if (!content) {
         return res.status(404).json({ error: "Content not found" });
       }
-      res.json(content);
+      const course = await storage.getCourse(content.courseId, userId);
+      if (!course) {
+        return res.status(404).json({ error: "Content not found" });
+      }
+      
+      const updated = await storage.toggleContentApproval(id, isApproved);
+      res.json(updated);
     } catch (error) {
       console.error("Error toggling content approval:", error);
       res.status(500).json({ error: "Failed to toggle approval" });
@@ -715,12 +754,13 @@ export async function registerRoutes(
   });
 
   // Generate content using AI
-  app.post("/api/courses/:id/generate", async (req: Request, res: Response) => {
+  app.post("/api/courses/:id/generate", isAuthenticated, async (req: Request, res: Response) => {
     try {
+      const userId = getUserId(req) as string;
       const courseId = parseInt(req.params.id);
       const { toolId, toolName, formData } = req.body;
 
-      const course = await storage.getCourse(courseId);
+      const course = await storage.getCourse(courseId, userId);
       if (!course) {
         return res.status(404).json({ error: "Course not found" });
       }
@@ -754,13 +794,20 @@ export async function registerRoutes(
   });
 
   // Refine content
-  app.post("/api/content/:id/refine", async (req: Request, res: Response) => {
+  app.post("/api/content/:id/refine", isAuthenticated, async (req: Request, res: Response) => {
     try {
+      const userId = getUserId(req) as string;
       const id = parseInt(req.params.id);
       const { refinementRequest } = req.body;
 
       const content = await storage.getContent(id);
       if (!content) {
+        return res.status(404).json({ error: "Content not found" });
+      }
+      
+      // Verify course ownership
+      const course = await storage.getCourse(content.courseId, userId);
+      if (!course) {
         return res.status(404).json({ error: "Content not found" });
       }
 
@@ -838,10 +885,11 @@ Please generate an IMPROVED version that incorporates the requested changes whil
   });
 
   // Course duplication
-  app.post("/api/courses/:id/duplicate", async (req: Request, res: Response) => {
+  app.post("/api/courses/:id/duplicate", isAuthenticated, async (req: Request, res: Response) => {
     try {
+      const userId = getUserId(req) as string;
       const id = parseInt(req.params.id);
-      const duplicated = await storage.duplicateCourse(id);
+      const duplicated = await storage.duplicateCourse(id, userId);
       if (!duplicated) {
         return res.status(404).json({ error: "Course not found" });
       }
@@ -852,8 +900,8 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     }
   });
 
-  // Saved Content Library API
-  app.get("/api/library", async (req: Request, res: Response) => {
+  // Saved Content Library API (protected)
+  app.get("/api/library", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const savedContent = await storage.getAllSavedContent();
       res.json(savedContent);
@@ -863,7 +911,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     }
   });
 
-  app.post("/api/library", async (req: Request, res: Response) => {
+  app.post("/api/library", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const { title, toolType, content, description } = req.body;
       const saved = await storage.createSavedContent({
@@ -879,7 +927,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     }
   });
 
-  app.delete("/api/library/:id", async (req: Request, res: Response) => {
+  app.delete("/api/library/:id", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
       await storage.deleteSavedContent(id);
@@ -891,8 +939,9 @@ Please generate an IMPROVED version that incorporates the requested changes whil
   });
 
   // Word Document Export
-  app.get("/api/content/:id/export-docx", async (req: Request, res: Response) => {
+  app.get("/api/content/:id/export-docx", isAuthenticated, async (req: Request, res: Response) => {
     try {
+      const userId = getUserId(req) as string;
       const id = parseInt(req.params.id);
       const content = await storage.getContent(id);
       
@@ -900,7 +949,11 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         return res.status(404).json({ error: "Content not found" });
       }
 
-      const course = content.courseId ? await storage.getCourse(content.courseId) : null;
+      // Verify course ownership before exporting
+      const course = await storage.getCourse(content.courseId, userId);
+      if (!course) {
+        return res.status(404).json({ error: "Content not found" });
+      }
       
       const children: Paragraph[] = [];
       

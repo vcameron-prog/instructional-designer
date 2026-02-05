@@ -3,24 +3,13 @@ import { pgTable, text, varchar, serial, integer, timestamp, jsonb, boolean } fr
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Users table (basic)
-export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
-});
-
-export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  password: true,
-});
-
-export type InsertUser = z.infer<typeof insertUserSchema>;
-export type User = typeof users.$inferSelect;
+// Re-export auth models (required for Replit Auth)
+export * from "./models/auth";
 
 // Courses table
 export const courses = pgTable("courses", {
   id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull(),
   courseName: text("course_name").notNull(),
   courseNumber: text("course_number").notNull(),
   courseLevel: text("course_level").notNull(),
@@ -39,6 +28,7 @@ export const courses = pgTable("courses", {
 
 export const insertCourseSchema = createInsertSchema(courses).omit({
   id: true,
+  userId: true,
   createdAt: true,
   updatedAt: true,
 });

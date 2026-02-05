@@ -5,7 +5,6 @@ import {
   generatedContent, 
   contentVersions,
   savedContent,
-  users,
   type Course, 
   type InsertCourse,
   type GeneratedContent,
@@ -14,23 +13,15 @@ import {
   type InsertContentVersion,
   type SavedContent,
   type InsertSavedContent,
-  type User,
-  type InsertUser
 } from "@shared/schema";
-import { randomUUID } from "crypto";
 
 export interface IStorage {
-  // Users
-  getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
-  
-  // Courses
-  getAllCourses(): Promise<Course[]>;
-  getCourse(id: number): Promise<Course | undefined>;
-  createCourse(course: InsertCourse): Promise<Course>;
-  updateCourse(id: number, course: Partial<InsertCourse>): Promise<Course | undefined>;
-  deleteCourse(id: number): Promise<void>;
+  // Courses (user-scoped)
+  getAllCourses(userId: string): Promise<Course[]>;
+  getCourse(id: number, userId: string): Promise<Course | undefined>;
+  createCourse(course: InsertCourse, userId: string): Promise<Course>;
+  updateCourse(id: number, course: Partial<InsertCourse>, userId: string): Promise<Course | undefined>;
+  deleteCourse(id: number, userId: string): Promise<void>;
   
   // Generated Content
   getContentByCourse(courseId: number): Promise<GeneratedContent[]>;
@@ -50,54 +41,37 @@ export interface IStorage {
   createSavedContent(content: InsertSavedContent): Promise<SavedContent>;
   deleteSavedContent(id: number): Promise<void>;
   
-  // Course Duplication
-  duplicateCourse(id: number): Promise<Course | undefined>;
+  // Course Duplication (user-scoped)
+  duplicateCourse(id: number, userId: string): Promise<Course | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
-  // Users
-  async getUser(id: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
-    return user;
+  // Courses (user-scoped)
+  async getAllCourses(userId: string): Promise<Course[]> {
+    return db.select().from(courses).where(eq(courses.userId, userId)).orderBy(desc(courses.updatedAt));
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.username, username));
-    return user;
-  }
-
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const [user] = await db.insert(users).values({ ...insertUser, id }).returning();
-    return user;
-  }
-
-  // Courses
-  async getAllCourses(): Promise<Course[]> {
-    return db.select().from(courses).orderBy(desc(courses.updatedAt));
-  }
-
-  async getCourse(id: number): Promise<Course | undefined> {
-    const [course] = await db.select().from(courses).where(eq(courses.id, id));
+  async getCourse(id: number, userId: string): Promise<Course | undefined> {
+    const [course] = await db.select().from(courses).where(and(eq(courses.id, id), eq(courses.userId, userId)));
     return course;
   }
 
-  async createCourse(course: InsertCourse): Promise<Course> {
-    const [created] = await db.insert(courses).values(course).returning();
+  async createCourse(course: InsertCourse, userId: string): Promise<Course> {
+    const [created] = await db.insert(courses).values({ ...course, userId }).returning();
     return created;
   }
 
-  async updateCourse(id: number, course: Partial<InsertCourse>): Promise<Course | undefined> {
+  async updateCourse(id: number, course: Partial<InsertCourse>, userId: string): Promise<Course | undefined> {
     const [updated] = await db
       .update(courses)
       .set({ ...course, updatedAt: new Date() })
-      .where(eq(courses.id, id))
+      .where(and(eq(courses.id, id), eq(courses.userId, userId)))
       .returning();
     return updated;
   }
 
-  async deleteCourse(id: number): Promise<void> {
-    await db.delete(courses).where(eq(courses.id, id));
+  async deleteCourse(id: number, userId: string): Promise<void> {
+    await db.delete(courses).where(and(eq(courses.id, id), eq(courses.userId, userId)));
   }
 
   // Generated Content
@@ -181,9 +155,9 @@ export class DatabaseStorage implements IStorage {
     await db.delete(savedContent).where(eq(savedContent.id, id));
   }
 
-  // Course Duplication
-  async duplicateCourse(id: number): Promise<Course | undefined> {
-    const original = await this.getCourse(id);
+  // Course Duplication (user-scoped)
+  async duplicateCourse(id: number, userId: string): Promise<Course | undefined> {
+    const original = await this.getCourse(id, userId);
     if (!original) return undefined;
 
     const duplicated = await this.createCourse({
@@ -199,7 +173,7 @@ export class DatabaseStorage implements IStorage {
       prerequisites: original.prerequisites,
       existingSyllabus: original.existingSyllabus,
       additionalContext: original.additionalContext,
-    });
+    }, userId);
 
     return duplicated;
   }
