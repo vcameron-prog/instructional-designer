@@ -152,6 +152,7 @@ const researchFrameworks = {
       },
     ],
     resources: [
+      { name: "BSU Center for Artificial Intelligence", url: "https://www.bridgew.edu/center/artificial-intelligence", description: "BSU campus AI resources" },
       { name: "ISTE - AI in Education", url: "https://www.iste.org/areas-of-focus/AI-in-education", description: "Resources for teaching with and about AI" },
       { name: "Stanford HAI", url: "https://hai.stanford.edu/education", description: "Human-centered AI education research" },
       { name: "UNESCO AI & Education", url: "https://www.unesco.org/en/digital-education/artificial-intelligence", description: "Global frameworks for AI in education" },
