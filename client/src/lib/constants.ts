@@ -140,6 +140,13 @@ export const TOOLS = [
     description: "Verify how your assignments and assessments connect to learning outcomes",
     color: "secondary",
   },
+  {
+    id: "airesistant",
+    name: "AI-Resistant Assignment Designer",
+    icon: "ShieldCheck",
+    description: "Analyze assignments for AI vulnerability and get strategies to make them more authentic",
+    color: "accent",
+  },
 ];
 
 export const LOADING_MESSAGES = [

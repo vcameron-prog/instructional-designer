@@ -10,7 +10,8 @@ import {
   GraduationCap,
   Lightbulb,
   Scale,
-  HelpCircle
+  HelpCircle,
+  ShieldCheck
 } from "lucide-react";
 
 const researchFrameworks = {
@@ -122,6 +123,36 @@ const researchFrameworks = {
       { name: "Cult of Pedagogy - Grading", url: "https://www.cultofpedagogy.com/grading-for-equity/", description: "Practical guides and discussions" },
     ],
   },
+  airesistant: {
+    title: "AI-Resistant Assignment Design",
+    icon: ShieldCheck,
+    color: "text-primary",
+    bgColor: "bg-primary/10",
+    theory: "As generative AI becomes increasingly capable, educators face new challenges in designing assignments that authentically assess student learning. AI-resistant assignment design draws on research in authentic assessment, academic integrity, and learning sciences to create assignments that require genuine student engagement while being difficult for AI to complete authentically. These strategies focus on leveraging what humans do best: personal reflection, local knowledge, process documentation, and multimodal expression.",
+    keyResearch: [
+      {
+        citation: "Eaton, S.E. (2023). Postplagiarism: Transdisciplinary Ethics and Integrity in the Age of Artificial Intelligence. International Journal for Educational Integrity, 19(1).",
+        description: "Explores how academic integrity must evolve beyond plagiarism detection to embrace authentic assessment in the AI era.",
+      },
+      {
+        citation: "Perkins, M., Roe, J., et al. (2024). Academic Integrity Considerations of AI Large Language Models in the Post-Pandemic Era. Journal of University Teaching & Learning Practice, 21(2).",
+        description: "Comprehensive analysis of how LLMs challenge traditional assessment and strategies for authentic evaluation.",
+      },
+      {
+        citation: "Wiggins, G. & McTighe, J. (2005). Understanding by Design (2nd ed.). ASCD.",
+        description: "Foundational framework for authentic assessment design that naturally resists AI completion through genuine understanding.",
+      },
+      {
+        citation: "Dawson, P. (2021). Defending Assessment Security in a Digital World. Routledge.",
+        description: "Strategies for maintaining assessment validity when students have access to digital tools and resources.",
+      },
+    ],
+    resources: [
+      { name: "ISTE - AI in Education", url: "https://www.iste.org/areas-of-focus/AI-in-education", description: "Resources for teaching with and about AI" },
+      { name: "Stanford HAI", url: "https://hai.stanford.edu/education", description: "Human-centered AI education research" },
+      { name: "UNESCO AI & Education", url: "https://www.unesco.org/en/digital-education/artificial-intelligence", description: "Global frameworks for AI in education" },
+    ],
+  },
 };
 
 export default function ResearchPage() {
@@ -160,7 +191,7 @@ export default function ResearchPage() {
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="mb-8 flex items-center justify-between">
           <p className="text-muted-foreground">
-            This tool incorporates four evidence-based pedagogical frameworks. Here's the research behind why 
+            This tool incorporates five evidence-based pedagogical frameworks. Here's the research behind why 
             they're included in all generated content.
           </p>
           <Button
