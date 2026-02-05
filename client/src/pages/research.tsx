@@ -184,6 +184,7 @@ const researchFrameworks = {
       },
     ],
     resources: [
+      { name: "BSU Student Accessibility Services", url: "https://www.bridgew.edu/academics/academic-achievement/student-accessibility-services", description: "BSU campus accessibility resources" },
       { name: "WebAIM", url: "https://webaim.org/", description: "Web accessibility training and resources" },
       { name: "WCAG 2.1 Guidelines", url: "https://www.w3.org/WAI/WCAG21/quickref/", description: "Quick reference for accessibility standards" },
       { name: "Section 508", url: "https://www.section508.gov/", description: "Federal accessibility requirements" },
