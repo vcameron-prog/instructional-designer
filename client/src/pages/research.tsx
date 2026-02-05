@@ -12,7 +12,8 @@ import {
   Lightbulb,
   Scale,
   HelpCircle,
-  ShieldCheck
+  ShieldCheck,
+  Eye
 } from "lucide-react";
 
 const researchFrameworks = {
@@ -154,6 +155,41 @@ const researchFrameworks = {
       { name: "UNESCO AI & Education", url: "https://www.unesco.org/en/digital-education/artificial-intelligence", description: "Global frameworks for AI in education" },
     ],
   },
+  accessibility: {
+    title: "Accessibility in Education",
+    icon: Eye,
+    color: "text-accent",
+    bgColor: "bg-accent/10",
+    theory: "Accessible education ensures that all students, including those with disabilities, can fully participate in learning experiences. This framework draws on legal requirements (ADA, Section 508), international standards (WCAG 2.1), and cognitive science research to create course materials that work for everyone. Accessibility is not just compliance—it's about removing barriers and creating equitable learning opportunities through proactive, inclusive design.",
+    keyResearch: [
+      {
+        citation: "World Wide Web Consortium (W3C). (2018). Web Content Accessibility Guidelines (WCAG) 2.1. W3C Recommendation.",
+        description: "International standard defining how to make digital content accessible to people with disabilities.",
+      },
+      {
+        citation: "Burgstahler, S. (2015). Universal Design in Higher Education: From Principles to Practice (2nd ed.). Harvard Education Press.",
+        description: "Comprehensive guide to applying universal design principles across all aspects of higher education.",
+      },
+      {
+        citation: "Sweller, J. (2011). Cognitive Load Theory. Psychology of Learning and Motivation, 55, 37-76.",
+        description: "Research on how cognitive load affects learning, informing accessible instructional design.",
+      },
+      {
+        citation: "Mayer, R.E. (2014). The Cambridge Handbook of Multimedia Learning (2nd ed.). Cambridge University Press.",
+        description: "Evidence-based principles for designing accessible multimedia learning materials.",
+      },
+      {
+        citation: "Rose, D.H., Harbour, W.S., Johnston, C.S., Daley, S.G., & Abarbanell, L. (2006). Universal Design for Learning in Postsecondary Education. Journal of Postsecondary Education and Disability, 19(2), 135-151.",
+        description: "Research connecting UDL principles to accessibility in higher education contexts.",
+      },
+    ],
+    resources: [
+      { name: "WebAIM", url: "https://webaim.org/", description: "Web accessibility training and resources" },
+      { name: "WCAG 2.1 Guidelines", url: "https://www.w3.org/WAI/WCAG21/quickref/", description: "Quick reference for accessibility standards" },
+      { name: "Section 508", url: "https://www.section508.gov/", description: "Federal accessibility requirements" },
+      { name: "AHEAD", url: "https://www.ahead.org/", description: "Association on Higher Education and Disability" },
+    ],
+  },
 };
 
 export default function ResearchPage() {
@@ -198,8 +234,8 @@ export default function ResearchPage() {
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="mb-8 flex items-center justify-between">
           <p className="text-muted-foreground">
-            This tool incorporates five evidence-based pedagogical frameworks. Here's the research behind why 
-            they're included in all generated content.
+            This tool incorporates six evidence-based pedagogical frameworks. Here's the research behind why 
+            they're included in generated content.
           </p>
           <Button
             variant="outline"
