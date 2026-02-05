@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { PoweredByFooter } from "@/components/powered-by-footer";
 import type { Course } from "@shared/schema";
 import { UdlTips } from "@/components/udl-tips";
+import { AccessibilityTips } from "@/components/accessibility-tips";
 
 interface ToolFormField {
   name: string;
@@ -377,7 +378,8 @@ export default function ToolForm() {
             </Card>
           )}
 
-          {toolId && <UdlTips toolId={toolId} />}
+          {toolId && toolId !== "accessibility" && <UdlTips toolId={toolId} />}
+          {toolId === "accessibility" && <AccessibilityTips />}
 
           <Card>
             <CardHeader>

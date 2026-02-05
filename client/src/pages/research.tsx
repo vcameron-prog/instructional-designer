@@ -124,6 +124,7 @@ const researchFrameworks = {
       },
     ],
     resources: [
+      { name: "BSU Office of Assessment", url: "https://www.bridgew.edu/office/assessment", description: "BSU campus assessment resources" },
       { name: "Grading for Equity", url: "https://gradingforequity.org/", description: "Official resources from Joe Feldman" },
       { name: "ASCD - Equitable Grading", url: "https://www.ascd.org/topics/grading", description: "Articles and research on grading practices" },
       { name: "Cult of Pedagogy - Grading", url: "https://www.cultofpedagogy.com/grading-for-equity/", description: "Practical guides and discussions" },

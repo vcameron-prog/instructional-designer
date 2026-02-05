@@ -25,7 +25,8 @@ import {
   GraduationCap,
   ShieldCheck,
   Link2,
-  Library
+  Library,
+  Eye
 } from "lucide-react";
 
 const tools = [
@@ -55,11 +56,12 @@ const tools = [
     id: "assignment",
     name: "Assignment Design",
     icon: FileText,
-    description: "Creates detailed assignment instructions with UDL accommodations.",
+    description: "Creates detailed assignment instructions with optional inclusive design frameworks.",
     tips: [
       "Be specific about learning objectives",
+      "Choose which frameworks to include: UDL, Cultural Relevance, SEL, and/or Accessibility",
+      "Only selected frameworks will be incorporated into the output",
       "Include any constraints (word count, format requirements)",
-      "Review the UDL accommodations for appropriateness",
     ],
   },
   {
@@ -127,6 +129,18 @@ const tools = [
       "Consider which enhancement strategies fit your course context",
       "Use the revised assignment as a starting point, then customize",
       "Focus on authentic assessment rather than just detection",
+    ],
+  },
+  {
+    id: "accessibility",
+    name: "Accessibility Checker",
+    icon: Eye,
+    description: "Analyzes course content for accessibility compliance and provides improvement recommendations.",
+    tips: [
+      "Paste assignment instructions, syllabus sections, or any course content",
+      "Select which areas to analyze: visual, cognitive, motor, auditory, language",
+      "Choose student populations to consider for targeted recommendations",
+      "Use suggestions to improve content before sharing with students",
     ],
   },
 ];
@@ -332,7 +346,7 @@ export default function HelpPage() {
                   </div>
                   <div>
                     <h4 className="font-semibold">Generate Content</h4>
-                    <p className="text-sm text-muted-foreground">Use any of the 9 design tools to create course materials like syllabi, assignments, or rubrics.</p>
+                    <p className="text-sm text-muted-foreground">Use any of the 10 design tools to create course materials like syllabi, assignments, or rubrics.</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
