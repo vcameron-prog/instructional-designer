@@ -29,6 +29,7 @@ import {
   Users,
   Loader2
 } from "lucide-react";
+import { SiGoogle } from "react-icons/si";
 import { useTheme } from "@/components/theme-provider";
 import { useFontSize } from "@/components/font-size-provider";
 import { useAuth } from "@/hooks/use-auth";
@@ -143,12 +144,12 @@ function LoginPage({ theme, toggleTheme, fontSize, increaseFontSize, decreaseFon
               onClick={() => window.location.href = "/api/login"}
               data-testid="button-login"
             >
-              <User className="w-5 h-5" />
-              Sign In with Replit
+              <SiGoogle size={18} />
+              Sign In with Google
             </Button>
             <div className="mt-6 flex items-center justify-center gap-2 text-sm text-muted-foreground">
               <Shield className="w-4 h-4" />
-              <span>Secure authentication via Replit</span>
+              <span>Secure authentication via Google</span>
             </div>
           </CardContent>
         </Card>
