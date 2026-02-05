@@ -6,7 +6,22 @@ This is an AI-powered instructional design tool built for Bridgewater State Univ
 
 ## Recent Updates
 
-### User Authentication (Latest)
+### Accessibility Checker Tool & Selective Framework Inclusion (Latest)
+- **New Accessibility Checker Tool (10th tool)**: Analyzes course content for accessibility compliance
+  - Evaluates content against WCAG 2.1 guidelines, Section 508 standards, cognitive accessibility principles
+  - Configurable analysis areas (visual, cognitive, motor, auditory, language)
+  - Student population considerations (screen reader users, neurodivergent learners, ESL students, etc.)
+  - Neutral base context (no forced frameworks - focuses purely on accessibility analysis)
+- **Selective Framework Inclusion for Assignment Designer**:
+  - Faculty can choose which pedagogical frameworks to include via checkboxes:
+    - UDL (Universal Design for Learning)
+    - Cultural Relevance & Inclusivity
+    - SEL (Social-Emotional Learning)
+    - Accessibility Features
+  - Only selected frameworks are included in the AI prompt (conditional inclusion)
+  - Research-grounded: CAST UDL Guidelines, CASEL SEL Framework, Geneva Gay, Gloria Ladson-Billings, WCAG 2.1
+
+### User Authentication
 - Implemented Replit Auth (OpenID Connect) for secure user authentication
 - Each faculty member has private, isolated course data
 - User profile display in header with avatar/name and logout button
