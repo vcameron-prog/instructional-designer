@@ -19,9 +19,13 @@ import {
   Target,
   FlaskConical,
   Moon,
-  Sun
+  Sun,
+  Plus,
+  Minus,
+  Type
 } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
+import { useFontSize } from "@/components/font-size-provider";
 import type { Course, GeneratedContent } from "@shared/schema";
 import { format } from "date-fns";
 import {
@@ -58,6 +62,7 @@ export default function LandingPage() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const { theme, toggleTheme } = useTheme();
+  const { fontSize, increaseFontSize, decreaseFontSize } = useFontSize();
 
   const { data: courses = [], isLoading } = useQuery<Course[]>({
     queryKey: ["/api/courses"],
@@ -91,7 +96,32 @@ export default function LandingPage() {
     <div className="min-h-screen bg-gradient-to-br from-primary via-primary/90 to-primary/80 relative overflow-hidden">
       <div className="absolute inset-0 pattern-dots text-white/10 opacity-50" />
       
-      <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+      <div className="absolute top-4 right-4 z-20 flex items-center gap-1">
+        <div className="flex items-center bg-white/10 rounded-lg mr-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-white hover:bg-white/20 h-9 w-9"
+            onClick={decreaseFontSize}
+            disabled={fontSize === "small"}
+            data-testid="button-font-decrease"
+            aria-label="Decrease font size"
+          >
+            <Minus className="w-4 h-4" />
+          </Button>
+          <Type className="w-4 h-4 text-white mx-1" />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-white hover:bg-white/20 h-9 w-9"
+            onClick={increaseFontSize}
+            disabled={fontSize === "xlarge"}
+            data-testid="button-font-increase"
+            aria-label="Increase font size"
+          >
+            <Plus className="w-4 h-4" />
+          </Button>
+        </div>
         <Button
           variant="ghost"
           size="icon"

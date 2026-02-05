@@ -14,6 +14,7 @@ import ResearchPage from "@/pages/research";
 import LibraryPage from "@/pages/library";
 import { WelcomeModal } from "@/components/welcome-modal";
 import { ThemeProvider } from "@/components/theme-provider";
+import { FontSizeProvider } from "@/components/font-size-provider";
 
 function NewCourseWrapper() {
   return <CourseForm />;
@@ -46,11 +47,13 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <TooltipProvider>
-          <WelcomeModal />
-          <Toaster />
-          <Router />
-        </TooltipProvider>
+        <FontSizeProvider>
+          <TooltipProvider>
+            <WelcomeModal />
+            <Toaster />
+            <Router />
+          </TooltipProvider>
+        </FontSizeProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );
