@@ -45,6 +45,12 @@ const iconMap: Record<string, any> = {
 export default function LibraryPage() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
+  const searchParams = new URLSearchParams(window.location.search);
+  const fromPath = searchParams.get("from");
+
+  const handleBack = () => {
+    navigate(fromPath || "/");
+  };
 
   const { data: library = [], isLoading } = useQuery<SavedContent[]>({
     queryKey: ["/api/library"],
@@ -83,8 +89,8 @@ export default function LibraryPage() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => navigate("/")}
-              data-testid="button-back-home"
+              onClick={handleBack}
+              data-testid="button-back"
             >
               <ArrowLeft className="w-5 h-5" />
             </Button>

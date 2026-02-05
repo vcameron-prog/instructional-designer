@@ -157,10 +157,16 @@ const researchFrameworks = {
 
 export default function ResearchPage() {
   const [, navigate] = useLocation();
+  const searchParams = new URLSearchParams(window.location.search);
+  const fromPath = searchParams.get("from");
 
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
+
+  const handleBack = () => {
+    navigate(fromPath || "/");
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -170,8 +176,8 @@ export default function ResearchPage() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => navigate("/")}
-              data-testid="button-back-home"
+              onClick={handleBack}
+              data-testid="button-back"
             >
               <ArrowLeft className="w-5 h-5" />
             </Button>

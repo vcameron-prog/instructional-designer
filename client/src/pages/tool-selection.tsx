@@ -233,7 +233,7 @@ export default function ToolSelection() {
           <div className="flex flex-wrap justify-center gap-4">
             <Button
               variant="outline"
-              onClick={() => navigate("/help")}
+              onClick={() => navigate(`/help?from=/course/${courseId}/tools`)}
               data-testid="button-help"
             >
               <HelpCircle className="w-4 h-4 mr-2" />
@@ -241,7 +241,7 @@ export default function ToolSelection() {
             </Button>
             <Button
               variant="outline"
-              onClick={() => navigate("/research")}
+              onClick={() => navigate(`/research?from=/course/${courseId}/tools`)}
               data-testid="button-research"
             >
               <GraduationCap className="w-4 h-4 mr-2" />
@@ -249,7 +249,7 @@ export default function ToolSelection() {
             </Button>
             <Button
               variant="outline"
-              onClick={() => navigate("/library")}
+              onClick={() => navigate(`/library?from=/course/${courseId}/tools`)}
               data-testid="button-library"
             >
               <Library className="w-4 h-4 mr-2" />
