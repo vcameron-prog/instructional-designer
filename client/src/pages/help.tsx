@@ -21,7 +21,8 @@ import {
   Lightbulb,
   ExternalLink,
   Scale,
-  GraduationCap
+  GraduationCap,
+  ShieldCheck
 } from "lucide-react";
 
 const tools = [
@@ -111,6 +112,18 @@ const tools = [
       "Include all course components for comprehensive analysis",
       "Review gaps identified in the alignment",
       "Use suggestions to strengthen course design",
+    ],
+  },
+  {
+    id: "airesistant",
+    name: "AI-Resistant Assignment Designer",
+    icon: ShieldCheck,
+    description: "Analyzes assignments for AI vulnerability and provides strategies to make them more authentic.",
+    tips: [
+      "Paste your complete existing assignment for best analysis",
+      "Consider which enhancement strategies fit your course context",
+      "Use the revised assignment as a starting point, then customize",
+      "Focus on authentic assessment rather than just detection",
     ],
   },
 ];
