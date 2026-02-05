@@ -18,7 +18,7 @@ This is an AI-powered instructional design tool built for Bridgewater State Univ
 - AI Policy generation uses BSU's 4-level AI Policy Framework (adapted from Leon Furze's AI Assessment Scale v2)
 - Course templates added for quick start (Lecture, Seminar, Lab, Online, Hybrid)
 - UDL Tips component displays contextual guidance on tool forms
-- "Save to Library" feature on result pages for reusing content across courses
+- "Save as Template" feature on result pages for reusing content across any course
 
 ### Inclusive Design Integration
 - All generated content now includes three pedagogical frameworks:
@@ -34,7 +34,7 @@ This is an AI-powered instructional design tool built for Bridgewater State Univ
   - UDL (Universal Design for Learning)
   - Cultural Relevance & Inclusivity
   - SEL (Social-Emotional Learning)
-- **Content Library**: Save and reuse generated content across courses
+- **Content Template Library**: Save generated content as reusable templates across any course
 - **Course Duplication**: Clone courses with progress dashboard
 - **Sample Courses**: Marked with [SAMPLE] prefix for clarity
 - **Word Document Export**: Professional .docx export with preserved formatting (headings, bullets, numbered lists, bold/italic text) for easy import into Blackboard Ultra

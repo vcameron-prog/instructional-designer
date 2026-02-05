@@ -160,7 +160,7 @@ export default function ResultPage() {
       setSaveLibraryOpen(false);
       setLibraryTitle("");
       setLibraryDescription("");
-      toast({ title: "Saved to library!", description: "You can access this content from the Content Library." });
+      toast({ title: "Saved as template!", description: "You can access this template from the Content Template Library to use in any course." });
     },
     onError: (error) => {
       toast({ title: "Failed to save", description: error.message, variant: "destructive" });
@@ -390,12 +390,12 @@ export default function ResultPage() {
                     data-testid="button-save-library"
                   >
                     <Library className="w-4 h-4 mr-2" />
-                    Save to Library
+                    Save as Template
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>Save to Content Library</DialogTitle>
+                    <DialogTitle>Save as Template</DialogTitle>
                     <DialogDescription>
                       Save this content to reuse across other courses
                     </DialogDescription>
@@ -431,7 +431,7 @@ export default function ResultPage() {
                       disabled={saveToLibraryMutation.isPending}
                       data-testid="button-confirm-save-library"
                     >
-                      {saveToLibraryMutation.isPending ? "Saving..." : "Save to Library"}
+                      {saveToLibraryMutation.isPending ? "Saving..." : "Save Template"}
                     </Button>
                   </DialogFooter>
                 </DialogContent>

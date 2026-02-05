@@ -56,7 +56,7 @@ export default function LibraryPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/library"] });
-      toast({ title: "Removed from library" });
+      toast({ title: "Removed from template library" });
     },
   });
 
@@ -93,8 +93,8 @@ export default function LibraryPage() {
                 <Library className="w-5 h-5 text-primary" />
               </div>
               <div>
-                <h1 className="text-xl font-bold">Content Library</h1>
-                <p className="text-sm text-muted-foreground">Saved content you can reuse across courses</p>
+                <h1 className="text-xl font-bold">Content Template Library</h1>
+                <p className="text-sm text-muted-foreground">Saved templates you can reuse across any course</p>
               </div>
             </div>
           </div>
@@ -112,10 +112,10 @@ export default function LibraryPage() {
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <Library className="w-12 h-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Your library is empty</h3>
+              <h3 className="text-lg font-semibold mb-2">Your template library is empty</h3>
               <p className="text-muted-foreground text-center max-w-md">
-                Save generated content to your library to reuse it across courses. 
-                Look for the "Save to Library" button on any generated content.
+                Save generated content as templates to reuse across any course. 
+                Look for the "Save as Template" button on any generated content.
               </p>
             </CardContent>
           </Card>
@@ -166,9 +166,9 @@ export default function LibraryPage() {
                           </AlertDialogTrigger>
                           <AlertDialogContent>
                             <AlertDialogHeader>
-                              <AlertDialogTitle>Remove from library?</AlertDialogTitle>
+                              <AlertDialogTitle>Remove template?</AlertDialogTitle>
                               <AlertDialogDescription>
-                                This will permanently remove this content from your library.
+                                This will permanently remove this template from your library.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>

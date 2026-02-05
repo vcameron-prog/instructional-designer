@@ -22,7 +22,9 @@ import {
   ExternalLink,
   Scale,
   GraduationCap,
-  ShieldCheck
+  ShieldCheck,
+  Link2,
+  Library
 } from "lucide-react";
 
 const tools = [
@@ -151,7 +153,7 @@ const faqs = [
   },
   {
     question: "Can I reuse content across courses?",
-    answer: "Yes! Use the 'Save to Library' feature to save content you want to reuse. You can also duplicate a course to use it as a starting point for a new course.",
+    answer: "Yes! Use the 'Save as Template' button to save content to your Template Library for use across any course. You can also duplicate a course to use it as a starting point for a new course.",
   },
   {
     question: "What if I don't like the generated content?",
@@ -299,6 +301,115 @@ export default function HelpPage() {
                 >
                   Learn more about UDL at CAST.org <ExternalLink className="w-3 h-3" />
                 </a>
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+
+        <section className="mb-12">
+          <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+            <Link2 className="w-6 h-6 text-green-600" />
+            Connected Course Materials
+          </h2>
+          <Card>
+            <CardContent className="pt-6">
+              <p className="mb-4 text-muted-foreground">
+                Connected Course Materials is a powerful feature that allows you to link your approved content 
+                together within a single course. When you mark content as "connected," it becomes available 
+                to inform other tools when generating new materials.
+              </p>
+              <div className="space-y-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center flex-shrink-0">
+                    <span className="text-green-600 font-semibold">1</span>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold">Generate Content</h4>
+                    <p className="text-sm text-muted-foreground">Use any of the 9 design tools to create course materials like syllabi, assignments, or rubrics.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center flex-shrink-0">
+                    <span className="text-green-600 font-semibold">2</span>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold">Connect to Course</h4>
+                    <p className="text-sm text-muted-foreground">Click the "Connect to Course" button on content you've reviewed and approved. This marks it as part of your official course materials.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center flex-shrink-0">
+                    <span className="text-green-600 font-semibold">3</span>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold">Inform Other Tools</h4>
+                    <p className="text-sm text-muted-foreground">Connected materials are displayed on your tools page and will be used as context when generating new content, ensuring consistency across your course.</p>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-6 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                <p className="text-sm">
+                  <strong>Example:</strong> If you connect your syllabus, then when you generate assignments, 
+                  the AI will reference your syllabus learning objectives to ensure alignment.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+
+        <section className="mb-12">
+          <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+            <Library className="w-6 h-6 text-primary" />
+            Content Template Library
+          </h2>
+          <Card>
+            <CardContent className="pt-6">
+              <p className="mb-4 text-muted-foreground">
+                The Content Template Library allows you to save your best content as reusable templates 
+                that can be applied to any course. Unlike Connected Course Materials (which are 
+                course-specific), templates are available across all your courses.
+              </p>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="p-4 bg-muted/50 rounded-lg">
+                  <h4 className="font-semibold mb-2">Saving Templates</h4>
+                  <ul className="text-sm text-muted-foreground space-y-2">
+                    <li className="flex items-start gap-2">
+                      <CheckCircle className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                      Click "Save as Template" on any generated content
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <CheckCircle className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                      Give it a descriptive title for easy finding
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <CheckCircle className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                      Add optional notes about when to use it
+                    </li>
+                  </ul>
+                </div>
+                <div className="p-4 bg-muted/50 rounded-lg">
+                  <h4 className="font-semibold mb-2">Using Templates</h4>
+                  <ul className="text-sm text-muted-foreground space-y-2">
+                    <li className="flex items-start gap-2">
+                      <CheckCircle className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                      Access templates from the Template Library button
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <CheckCircle className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                      Copy content to use in any course
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <CheckCircle className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                      Download as text file for offline use
+                    </li>
+                  </ul>
+                </div>
+              </div>
+              <div className="mt-6 p-4 bg-primary/5 rounded-lg border border-primary/10">
+                <p className="text-sm">
+                  <strong>Tip:</strong> Save your best AI policies, rubric frameworks, and module structures 
+                  as templates. This way you can quickly apply consistent formats across all your courses.
+                </p>
               </div>
             </CardContent>
           </Card>
