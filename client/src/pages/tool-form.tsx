@@ -147,6 +147,26 @@ const getFormFields = (toolId: string): ToolFormField[] => {
       { name: "constraints", label: "Constraints to Consider", type: "textarea", placeholder: "Any departmental requirements, accreditation standards, or other constraints?" },
       { name: "additionalContext", label: "Additional Context", type: "textarea", placeholder: "Any other information about your course or students?" },
     ],
+    airesistant: [
+      { name: "existingAssignment", label: "Paste Your Current Assignment", type: "textarea", placeholder: "Copy and paste your existing assignment instructions here...", required: true, helper: "Include the full assignment prompt, instructions, and any rubric details" },
+      { name: "assignmentType", label: "Assignment Type", type: "select", options: ["Essay/Paper", "Research Project", "Discussion Post", "Problem Set", "Lab Report", "Presentation", "Creative Project", "Case Study", "Exam/Quiz", "Other"], required: true },
+      { name: "whatYouWant", label: "What Would You Like?", type: "checkbox-group", options: [
+        "Vulnerability analysis - how easily can AI complete this?",
+        "Specific enhancement recommendations",
+        "Revised assignment with AI-resistant features",
+        "Alternative assessment options",
+        "Detection strategies for AI-generated work",
+      ], required: true },
+      { name: "constraints", label: "Constraints to Keep in Mind", type: "checkbox-group", options: [
+        "Must remain a written assignment",
+        "Limited class time available",
+        "Large enrollment course",
+        "Online/asynchronous delivery",
+        "Students have varied access to technology",
+        "Departmental requirements for format",
+      ] },
+      { name: "additionalContext", label: "Additional Context", type: "textarea", placeholder: "Any other information about your course, students, or concerns?" },
+    ],
   };
 
   return fields[toolId] || [];

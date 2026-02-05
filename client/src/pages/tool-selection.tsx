@@ -2,7 +2,7 @@ import { useLocation, useParams } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, BookOpen, Calendar, FileText, Layout, CheckCircle, Sparkles, Target, ArrowRight, FolderOpen, Loader2, Scale } from "lucide-react";
+import { ArrowLeft, BookOpen, Calendar, FileText, Layout, CheckCircle, Sparkles, Target, ArrowRight, FolderOpen, Loader2, Scale, ShieldCheck } from "lucide-react";
 import { TOOLS } from "@/lib/constants";
 import type { Course, GeneratedContent } from "@shared/schema";
 
@@ -15,6 +15,7 @@ const iconMap: Record<string, any> = {
   Sparkles,
   Target,
   Scale,
+  ShieldCheck,
 };
 
 const colorMap: Record<string, string> = {
