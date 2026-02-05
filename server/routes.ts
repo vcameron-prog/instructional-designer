@@ -481,6 +481,113 @@ Make the policy:
 - Practical and implementable
 - Ready to paste into syllabus
 - Supportive of student learning while maintaining rigor`,
+
+    airesistant: `${baseContext}
+
+You are an expert in academic integrity and authentic assessment design. Analyze the following assignment for its vulnerability to AI-generated completion, and provide specific, research-based strategies to make it more AI-resistant while maintaining educational value.
+
+EXISTING ASSIGNMENT:
+${toolData.existingAssignment}
+
+ASSIGNMENT TYPE: ${toolData.assignmentType}
+
+ANALYSIS REQUESTED:
+${toolData.whatYouWant?.map((w: string) => `- ${w}`).join("\n") || "Full analysis"}
+
+CONSTRAINTS TO CONSIDER:
+${toolData.constraints?.map((c: string) => `- ${c}`).join("\n") || "None specified"}
+
+ADDITIONAL CONTEXT: ${toolData.additionalContext || "None"}
+
+Provide a comprehensive analysis with the following sections:
+
+## 1. AI VULNERABILITY ASSESSMENT
+
+**Vulnerability Score: [LOW / MEDIUM / HIGH / VERY HIGH]**
+
+Analyze how easily current AI tools (ChatGPT, Claude, etc.) could complete this assignment:
+
+- **What AI can easily do:** Identify specific elements AI would handle well
+- **What AI would struggle with:** Elements that require human-specific knowledge or skills
+- **Red flags for detection:** What would indicate AI-generated work
+- **Likelihood of detection:** How likely would AI use be caught with current detection methods
+
+## 2. VULNERABILITY BREAKDOWN
+
+For each component of the assignment, rate vulnerability and explain:
+- Assignment prompt/instructions
+- Required content or topics
+- Format and length requirements
+- Research or citation requirements
+- Personal reflection elements (if any)
+- Process documentation (if any)
+
+## 3. AI-RESISTANT ENHANCEMENT STRATEGIES
+
+Based on research in authentic assessment and academic integrity, recommend specific changes using these evidence-based strategies:
+
+**Personal & Lived Experience Integration**
+- How to incorporate personal reflection, local observations, or lived experience
+- Specific prompts that require authentic human experience
+
+**Process Documentation Requirements**
+- How to require drafts, research logs, or revision notes
+- Ways to make the thinking process visible
+
+**Hyperlocal & Current Content**
+- Connecting to specific class discussions, campus events, or local issues
+- Using recent or unpublished sources AI wouldn't know
+
+**Multimodal Evidence**
+- Adding photos, recordings, or physical artifacts
+- Requiring evidence of real-world engagement
+
+**Oral Defense or Presentation Components**
+- Adding brief verbal explanation requirements
+- How to implement efficiently in various course sizes
+
+**Iterative Peer Collaboration**
+- Building in peer feedback and response requirements
+- Creating accountability through collaboration
+
+**Metacognitive Reflection**
+- Specific prompts about struggle, confusion, and learning process
+- Questions AI answers generically but humans answer authentically
+
+## 4. REVISED ASSIGNMENT (If Requested)
+
+Provide a rewritten version of the assignment incorporating the recommended AI-resistant features:
+- Maintain the original learning objectives
+- Add specific elements from the strategies above
+- Include clear instructions for any new requirements
+- Keep workload reasonable for students
+
+## 5. ALTERNATIVE ASSESSMENT OPTIONS
+
+If a fundamentally different approach would be more AI-resistant, suggest alternatives:
+- Different assignment formats that achieve the same learning outcomes
+- Portfolio-based alternatives
+- Authentic assessment approaches
+- Project-based options with built-in authenticity
+
+## 6. DETECTION AND RESPONSE STRATEGIES
+
+Practical guidance for instructors:
+- Conversation starters to verify student understanding
+- Follow-up questions to ask about submitted work
+- Signs of AI-generated content specific to this assignment type
+- Recommended approach if AI use is suspected
+
+## 7. STUDENT COMMUNICATION
+
+Draft language for communicating expectations:
+- Why AI-resistant elements are included (focus on learning, not punishment)
+- What is and isn't allowed
+- How to use AI appropriately as a learning tool (if applicable)
+
+**Key Principle:** The goal is authentic assessment that measures genuine student learning, not simply making students' lives harder. Every recommendation should serve the learning objectives while naturally requiring human engagement.
+
+Format all output clearly with headers and bullet points for easy reading.`,
   };
 
   return prompts[toolId] || baseContext;
