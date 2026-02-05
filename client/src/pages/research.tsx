@@ -91,6 +91,7 @@ const researchFrameworks = {
       },
     ],
     resources: [
+      { name: "BSU Wellness Center", url: "https://www.bridgew.edu/student-life/wellness", description: "BSU campus wellness resources" },
       { name: "CASEL", url: "https://casel.org/", description: "Collaborative for Academic, Social, and Emotional Learning" },
       { name: "Edutopia SEL", url: "https://www.edutopia.org/social-emotional-learning", description: "Practical resources and articles" },
       { name: "Yale Center for Emotional Intelligence", url: "https://www.ycei.org/", description: "RULER approach and research" },
