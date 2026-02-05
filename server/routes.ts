@@ -38,6 +38,15 @@ function generatePrompt(
     ? `\n\nEXISTING SYLLABUS CONTENT (use this to maintain consistency with the course's established structure, topics, assessments, and terminology):\n${course.existingSyllabus}`
     : "";
 
+  // Build inclusive design sections based on user selections (for assignment tool)
+  const inclusiveOptions = toolData.inclusiveDesignOptions || [];
+  const hasUDL = inclusiveOptions.includes("UDL (Universal Design for Learning)");
+  const hasCultural = inclusiveOptions.includes("Cultural Relevance & Inclusivity");
+  const hasSEL = inclusiveOptions.includes("SEL (Social-Emotional Learning)");
+  const hasAccessibility = inclusiveOptions.includes("Accessibility Features");
+  const hasAnyInclusive = inclusiveOptions.length > 0;
+
+  // Standard base context with all frameworks (for most tools)
   const baseContext = `You are an expert instructional designer creating materials for Bridgewater State University faculty. Create comprehensive, ready-to-implement content that incorporates THREE KEY PEDAGOGICAL FRAMEWORKS:
 
 1. **UNIVERSAL DESIGN FOR LEARNING (UDL)**
@@ -80,8 +89,121 @@ Additional Context: ${course.additionalContext || "None provided"}${syllabusCont
 - For schedules and matrices, use numbered sections with clear headings
 - Keep output clean and readable without complex formatting symbols`;
 
+  // Conditional base context for assignment tool (only include selected frameworks)
+  const assignmentBaseContext = `You are an expert instructional designer creating materials for Bridgewater State University faculty. Create comprehensive, ready-to-implement content.
+${hasAnyInclusive ? "\nIncorporate the following pedagogical framework(s) selected by the instructor:" : ""}
+${hasUDL ? `
+**UNIVERSAL DESIGN FOR LEARNING (UDL)** - Based on CAST's UDL Guidelines (cast.org):
+- Engagement: Multiple ways to motivate and engage learners (Guidelines 7-9)
+- Representation: Multiple ways to present information (Guidelines 1-3)
+- Action & Expression: Multiple ways for students to demonstrate learning (Guidelines 4-6)
+` : ""}${hasCultural ? `
+**CULTURAL RELEVANCE & INCLUSIVITY** - Based on Geneva Gay's Culturally Responsive Teaching:
+- Include diverse perspectives, authors, and examples
+- Honor student identities and backgrounds
+- Use inclusive language and avoid assumptions
+- Consider diverse ways of knowing and demonstrating competence
+` : ""}${hasSEL ? `
+**SOCIAL-EMOTIONAL LEARNING (SEL)** - Based on CASEL's SEL Framework (casel.org):
+- Self-awareness and reflection opportunities
+- Relationship and collaboration skills
+- Responsible decision-making
+- Supportive, growth-oriented framing
+- Attention to student wellbeing
+` : ""}${hasAccessibility ? `
+**ACCESSIBILITY** - Based on WCAG 2.1 and Section 508 Standards:
+- Document structure and readability
+- Multiple format options
+- Assistive technology compatibility
+- Cognitive accessibility considerations
+` : ""}
+COURSE INFORMATION:
+Course: ${course.courseName} (${course.courseNumber})
+Level: ${course.courseLevel}
+Credits: ${course.credits}
+Semester: ${course.semester}
+Instructor: ${course.instructor}
+Department: ${course.department}
+Prerequisites: ${course.prerequisites || "None"}
+
+Course Description: ${course.courseDescription}
+
+Primary Learning Outcomes: ${course.learningOutcomes}
+
+Additional Context: ${course.additionalContext || "None provided"}${syllabusContext}
+
+**CRITICAL FORMATTING RULES - FOLLOW EXACTLY:**
+- DO NOT use markdown table syntax (no |---|---| or | column | column | formats)
+- Instead of tables, use clear formatted lists with labels
+- Use **bold labels** followed by content on the same line or as sub-bullets
+- For schedules and matrices, use numbered sections with clear headings
+- Keep output clean and readable without complex formatting symbols`;
+
+  // Neutral base context for Accessibility Checker (no forced frameworks)
+  const accessibilityBaseContext = `You are an expert in accessible design, Universal Design for Learning (UDL), and inclusive education. Analyze course content for accessibility barriers and provide research-based recommendations.
+
+COURSE INFORMATION:
+Course: ${course.courseName} (${course.courseNumber})
+Level: ${course.courseLevel}
+Department: ${course.department}
+
+**CRITICAL FORMATTING RULES - FOLLOW EXACTLY:**
+- DO NOT use markdown table syntax (no |---|---| or | column | column | formats)
+- Instead of tables, use clear formatted lists with labels
+- Use **bold labels** followed by content on the same line or as sub-bullets
+- Keep output clean and readable without complex formatting symbols`;
+
+  let inclusiveDesignSection = "";
+  if (hasAnyInclusive) {
+    inclusiveDesignSection = `
+
+**INCLUSIVE DESIGN SECTION** (include this as a dedicated section in the output with research citations):
+`;
+    if (hasUDL) {
+      inclusiveDesignSection += `
+**UDL (Universal Design for Learning)** - Based on CAST's UDL Guidelines (cast.org):
+- **Multiple Means of Engagement**: Offer choices in how students approach the assignment, include self-regulation strategies, and connect to student interests (Guideline 7-9)
+- **Multiple Means of Representation**: Present instructions in varied formats (text, visual, video options), clarify vocabulary, and highlight patterns (Guideline 1-3)
+- **Multiple Means of Action & Expression**: Allow flexible submission formats (written, recorded, visual), provide scaffolding tools, and support executive function (Guideline 4-6)
+- Cite specific UDL principles being applied
+`;
+    }
+    if (hasCultural) {
+      inclusiveDesignSection += `
+**Cultural Relevance & Inclusivity** - Based on Geneva Gay's Culturally Responsive Teaching and Gloria Ladson-Billings' research:
+- **Diverse Perspectives**: Include readings, examples, or case studies from diverse cultural backgrounds and global perspectives
+- **Student Identity**: Provide options for students to connect content to their own cultural backgrounds, communities, or lived experiences
+- **Inclusive Language**: Use non-exclusionary language and avoid cultural assumptions
+- **Diverse Ways of Knowing**: Recognize and validate different approaches to demonstrating competence
+- Reference culturally responsive pedagogy principles
+`;
+    }
+    if (hasSEL) {
+      inclusiveDesignSection += `
+**Social-Emotional Learning (SEL)** - Based on CASEL's SEL Framework (casel.org):
+- **Self-Awareness**: Include reflection prompts that help students recognize their strengths, growth areas, and emotions around the work
+- **Self-Management**: Build in stress management strategies, time management supports, and growth mindset framing
+- **Relationship Skills**: Include opportunities for peer collaboration, feedback, or community building
+- **Responsible Decision-Making**: Encourage ethical considerations and thoughtful choices
+- Use supportive, developmental language that emphasizes learning over judgment
+- Reference CASEL competencies being addressed
+`;
+    }
+    if (hasAccessibility) {
+      inclusiveDesignSection += `
+**Accessibility Features** - Based on WCAG Guidelines and Section 508 standards:
+- **Document Accessibility**: Ensure instructions use proper heading structure, alt text descriptions for images, and readable fonts
+- **Flexible Formats**: Offer content in multiple formats (PDF, HTML, audio) when possible
+- **Time & Pacing**: Consider extended time options and chunked deadlines for students who need accommodations
+- **Assistive Technology Compatibility**: Ensure materials work with screen readers and other assistive technologies
+- **Cognitive Accessibility**: Use clear, simple language; break complex tasks into steps; provide examples
+- Reference specific accessibility standards being met
+`;
+    }
+  }
+
   const prompts: Record<string, string> = {
-    assignment: `${baseContext}
+    assignment: `${assignmentBaseContext}
 
 Create a COMPLETE assignment that includes:
 1. Clear title and overview
@@ -91,15 +213,11 @@ Create a COMPLETE assignment that includes:
 5. Grading criteria overview
 6. Resources and support materials
 7. Timeline and milestones
-
-**INCLUSIVE DESIGN SECTION** (include this as a dedicated section in the output):
-8. **UDL Accommodations**: Multiple ways to complete/submit the assignment, accessibility considerations
-9. **Cultural Relevance**: How students can connect the assignment to their own backgrounds/experiences, diverse examples or options
-10. **SEL Integration**: Reflection prompts, collaboration opportunities, how the assignment supports student growth and wellbeing
-
+${inclusiveDesignSection}
 Assignment Type: ${toolData.assignmentType}
 Learning Objectives: ${toolData.learningObjectives}
 Duration: ${toolData.duration || "Flexible"}
+${hasAnyInclusive ? `Selected Inclusive Design Frameworks: ${inclusiveOptions.join(", ")}` : ""}
 Additional Context: ${toolData.additionalContext || "None"}`,
 
     rubric: `${baseContext}
@@ -592,6 +710,132 @@ Draft language for communicating expectations:
 - How to use AI appropriately as a learning tool (if applicable)
 
 **Key Principle:** The goal is authentic assessment that measures genuine student learning, not simply making students' lives harder. Every recommendation should serve the learning objectives while naturally requiring human engagement.
+
+Format all output clearly with headers and bullet points for easy reading.`,
+
+    accessibility: `${accessibilityBaseContext}
+
+Analyze the following course content for accessibility barriers and provide research-based recommendations to make it more inclusive for all learners.
+
+CONTENT TO ANALYZE:
+${toolData.contentToAnalyze}
+
+CONTENT TYPE: ${toolData.contentType}
+
+AREAS TO ANALYZE:
+${toolData.analysisAreas?.map((a: string) => `- ${a}`).join("\n") || "Full analysis"}
+
+STUDENT POPULATIONS TO CONSIDER:
+${toolData.studentPopulation?.map((s: string) => `- ${s}`).join("\n") || "General student population"}
+
+ADDITIONAL CONTEXT: ${toolData.additionalContext || "None"}
+
+Provide a comprehensive accessibility analysis with the following sections. Ground all recommendations in established research and standards:
+
+## 1. ACCESSIBILITY OVERVIEW
+
+**Overall Accessibility Rating: [EXCELLENT / GOOD / NEEDS IMPROVEMENT / SIGNIFICANT BARRIERS]**
+
+Provide a brief summary of the content's current accessibility status, highlighting major strengths and concerns.
+
+## 2. BARRIER IDENTIFICATION
+
+Analyze the content for specific accessibility barriers, organized by category:
+
+**Document Structure & Readability** (Based on WCAG 2.1 Guidelines)
+- Heading hierarchy and organization
+- Reading level analysis (aim for 8th-10th grade level per plain language guidelines)
+- Font and formatting considerations
+- Use of color and visual elements
+
+**Cognitive Load & Complexity** (Based on Cognitive Load Theory - Sweller, 2011)
+- Information density and chunking
+- Clarity of instructions and expectations
+- Working memory demands
+- Scaffolding and supports provided
+
+**Time & Pacing Considerations** (Based on UDL Guideline 8.2)
+- Time requirements and flexibility
+- Deadline structures
+- Accommodation-friendly pacing
+
+**Format Flexibility** (Based on UDL Principle II: Multiple Means of Representation)
+- Alternative format availability
+- Modality options (visual, auditory, kinesthetic)
+- Representation of information
+
+**Assistive Technology Compatibility** (Based on Section 508 and WCAG standards)
+- Screen reader compatibility
+- Keyboard navigation requirements
+- Compatibility with common assistive technologies
+
+## 3. UDL ALIGNMENT CHECK
+
+Evaluate alignment with CAST's Universal Design for Learning framework:
+
+**Engagement (The "Why" of Learning)**
+- Multiple options for recruiting interest (Guideline 7)
+- Options for sustaining effort and persistence (Guideline 8)
+- Options for self-regulation (Guideline 9)
+
+**Representation (The "What" of Learning)**
+- Options for perception (Guideline 1)
+- Options for language and symbols (Guideline 2)
+- Options for comprehension (Guideline 3)
+
+**Action & Expression (The "How" of Learning)**
+- Options for physical action (Guideline 4)
+- Options for expression and communication (Guideline 5)
+- Options for executive functions (Guideline 6)
+
+## 4. POPULATION-SPECIFIC CONSIDERATIONS
+
+For each student population selected, provide targeted recommendations:
+- Specific barriers this population might encounter
+- Evidence-based accommodations and modifications
+- Proactive design changes to reduce accommodation needs
+
+## 5. IMPROVEMENT RECOMMENDATIONS
+
+Provide specific, actionable improvements organized by priority:
+
+**High Priority (Address Immediately)**
+- Changes that remove significant barriers
+- Modifications required for legal compliance (ADA, Section 508)
+
+**Medium Priority (Address Soon)**
+- Improvements that enhance accessibility for many students
+- UDL enhancements that benefit all learners
+
+**Low Priority (Consider for Future)**
+- Enhancements that provide additional flexibility
+- Innovative accessible design features
+
+## 6. REVISED CONTENT (If Applicable)
+
+If the content is brief enough, provide a revised version incorporating accessibility improvements:
+- Clear heading structure
+- Simplified language where appropriate
+- Built-in flexibility and options
+- Explicit accommodations integrated naturally
+
+## 7. ACCESSIBLE DESIGN CHECKLIST
+
+A practical checklist for this type of content:
+- [ ] Specific actionable items for accessibility
+- [ ] Items organized by category
+- [ ] Include both required standards and best practices
+
+## 8. RESEARCH REFERENCES
+
+Cite the research and standards that inform these recommendations:
+- WCAG 2.1 Guidelines (Web Content Accessibility Guidelines)
+- CAST UDL Guidelines 2.2
+- Section 508 Standards
+- Relevant cognitive science research (Mayer, Sweller, etc.)
+- Disability-specific research as applicable
+
+**Key Principle:** Accessible design benefits ALL learners, not just those with documented disabilities. The goal is to proactively design learning experiences that reduce barriers and provide multiple pathways to success.
 
 Format all output clearly with headers and bullet points for easy reading.`,
   };

@@ -33,6 +33,12 @@ const getFormFields = (toolId: string): ToolFormField[] => {
       { name: "assignmentType", label: "Assignment Type", type: "select", options: ["Essay/Paper", "Research Project", "Problem Set", "Lab Report", "Presentation", "Discussion", "Creative Project", "Case Study"], required: true },
       { name: "learningObjectives", label: "Key Learning Objectives", type: "textarea", placeholder: "What should students learn from this assignment?", required: true },
       { name: "duration", label: "Time to Complete", type: "text", placeholder: "e.g., 2 weeks, 1 week" },
+      { name: "inclusiveDesignOptions", label: "Inclusive Design Frameworks to Include", type: "checkbox-group", options: [
+        "UDL (Universal Design for Learning)",
+        "Cultural Relevance & Inclusivity",
+        "SEL (Social-Emotional Learning)",
+        "Accessibility Features",
+      ], helper: "Select which research-based frameworks to incorporate. Each framework adds specific guidance grounded in educational theory." },
       { name: "additionalContext", label: "Additional Context", type: "textarea", placeholder: "Any specific requirements, constraints, or preferences?" },
     ],
     rubric: [
@@ -167,6 +173,29 @@ const getFormFields = (toolId: string): ToolFormField[] => {
         "Departmental requirements for format",
       ] },
       { name: "additionalContext", label: "Additional Context", type: "textarea", placeholder: "Any other information about your course, students, or concerns?" },
+    ],
+    accessibility: [
+      { name: "contentToAnalyze", label: "Paste Your Assignment or Course Content", type: "textarea", placeholder: "Copy and paste the assignment instructions, syllabus section, or course materials you want to analyze for accessibility...", required: true, helper: "Include as much detail as possible for a comprehensive analysis" },
+      { name: "contentType", label: "Content Type", type: "select", options: ["Assignment Instructions", "Syllabus Section", "Discussion Prompt", "Quiz/Exam", "Learning Module", "Course Materials/Readings", "Rubric", "Other"], required: true },
+      { name: "analysisAreas", label: "Areas to Analyze", type: "checkbox-group", options: [
+        "Document structure and readability",
+        "Cognitive load and complexity",
+        "Time and pacing considerations",
+        "Alternative format options",
+        "Assistive technology compatibility",
+        "UDL alignment check",
+        "Language clarity and simplicity",
+      ], required: true },
+      { name: "studentPopulation", label: "Student Population Considerations", type: "checkbox-group", options: [
+        "Students with visual impairments",
+        "Students with hearing impairments",
+        "Students with learning disabilities",
+        "English language learners",
+        "Students with attention/executive function challenges",
+        "Students with physical/motor disabilities",
+        "Neurodiverse students",
+      ], helper: "Select specific populations to tailor recommendations" },
+      { name: "additionalContext", label: "Additional Context", type: "textarea", placeholder: "Any specific accessibility concerns or accommodations you're already aware of?" },
     ],
   };
 

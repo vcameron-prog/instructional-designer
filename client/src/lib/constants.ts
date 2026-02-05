@@ -147,6 +147,13 @@ export const TOOLS = [
     description: "Analyze assignments for AI vulnerability and get strategies to make them more authentic",
     color: "primary",
   },
+  {
+    id: "accessibility",
+    name: "Accessibility Checker",
+    icon: "Eye",
+    description: "Analyze assignments for accessibility barriers and get research-based improvement ideas",
+    color: "primary",
+  },
 ];
 
 export const LOADING_MESSAGES = [
