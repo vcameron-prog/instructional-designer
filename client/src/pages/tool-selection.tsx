@@ -2,7 +2,7 @@ import { useLocation, useParams } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, BookOpen, Calendar, FileText, Layout, CheckCircle, Sparkles, Target, ArrowRight, FolderOpen, Loader2, Scale, ShieldCheck } from "lucide-react";
+import { ArrowLeft, BookOpen, Calendar, FileText, Layout, CheckCircle, Sparkles, Target, ArrowRight, FolderOpen, Loader2, Scale, ShieldCheck, Link2 } from "lucide-react";
 import { TOOLS } from "@/lib/constants";
 import type { Course, GeneratedContent } from "@shared/schema";
 
@@ -150,6 +150,46 @@ export default function ToolSelection() {
           })}
         </div>
 
+        {generatedContents.filter(c => c.isApproved).length > 0 && (
+          <div className="mt-12">
+            <div className="flex items-center gap-2 mb-4">
+              <Link2 className="w-5 h-5 text-green-600" />
+              <h3 className="text-xl font-bold">Connected Course Materials</h3>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              These materials will inform other tools when generating new content for this course.
+            </p>
+            <div className="space-y-3">
+              {generatedContents.filter(c => c.isApproved).map((content) => {
+                const tool = TOOLS.find(t => t.id === content.toolType);
+                const Icon = tool ? iconMap[tool.icon] : FileText;
+                
+                return (
+                  <Card
+                    key={content.id}
+                    className="cursor-pointer hover-elevate active-elevate-2 border-green-200 dark:border-green-800"
+                    onClick={() => navigate(`/course/${courseId}/result/${content.id}`)}
+                    data-testid={`card-connected-${content.id}`}
+                  >
+                    <CardContent className="flex items-center gap-4 p-4">
+                      <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                        <Icon className="w-5 h-5 text-green-600 dark:text-green-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{content.toolName}</p>
+                        <p className="text-sm text-muted-foreground">
+                          Created {new Date(content.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <Link2 className="w-4 h-4 text-green-600 dark:text-green-400" />
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {generatedContents.length > 0 && (
           <div className="mt-12">
             <h3 className="text-xl font-bold mb-4">Previously Generated Content</h3>
@@ -161,7 +201,7 @@ export default function ToolSelection() {
                 return (
                   <Card
                     key={content.id}
-                    className="cursor-pointer hover:bg-muted/50 transition-colors"
+                    className="cursor-pointer hover-elevate active-elevate-2"
                     onClick={() => navigate(`/course/${courseId}/result/${content.id}`)}
                     data-testid={`card-content-${content.id}`}
                   >
@@ -170,7 +210,12 @@ export default function ToolSelection() {
                         <Icon className="w-5 h-5 text-primary" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{content.toolName}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium truncate">{content.toolName}</p>
+                          {content.isApproved && (
+                            <Link2 className="w-3.5 h-3.5 text-green-600 dark:text-green-400 flex-shrink-0" />
+                          )}
+                        </div>
                         <p className="text-sm text-muted-foreground">
                           Created {new Date(content.createdAt).toLocaleDateString()}
                         </p>

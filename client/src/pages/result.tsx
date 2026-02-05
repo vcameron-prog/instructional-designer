@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation, useParams } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import ReactMarkdown from "react-markdown";
@@ -108,6 +108,12 @@ export default function ResultPage() {
   const [saveLibraryOpen, setSaveLibraryOpen] = useState(false);
   const [libraryTitle, setLibraryTitle] = useState("");
   const [libraryDescription, setLibraryDescription] = useState("");
+
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+    });
+  }, [contentId]);
 
   const { data: course } = useQuery<Course>({
     queryKey: ["/api/courses", courseId],
