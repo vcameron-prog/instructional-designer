@@ -96,14 +96,14 @@ export const TOOLS = [
     name: "Course Schedule Designer",
     icon: "Calendar",
     description: "Create detailed week-by-week course timelines with actual dates",
-    color: "secondary",
+    color: "primary",
   },
   {
     id: "assignment",
     name: "Assignment Design",
     icon: "FileText",
     description: "Create comprehensive, UDL-aligned assignments ready for Blackboard Ultra",
-    color: "accent",
+    color: "primary",
   },
   {
     id: "module",
@@ -117,14 +117,14 @@ export const TOOLS = [
     name: "Rubric Builder",
     icon: "CheckCircle",
     description: "Build detailed, criteria-based rubrics with clear performance levels",
-    color: "secondary",
+    color: "primary",
   },
   {
     id: "grading",
     name: "Grading Policy Designer",
     icon: "Scale",
     description: "Design equitable grading policies that measure content knowledge, not compliance",
-    color: "accent",
+    color: "primary",
   },
   {
     id: "aipolicy",
@@ -138,14 +138,14 @@ export const TOOLS = [
     name: "Alignment Checker",
     icon: "Target",
     description: "Verify how your assignments and assessments connect to learning outcomes",
-    color: "secondary",
+    color: "primary",
   },
   {
     id: "airesistant",
     name: "AI-Resistant Assignment Designer",
     icon: "ShieldCheck",
     description: "Analyze assignments for AI vulnerability and get strategies to make them more authentic",
-    color: "accent",
+    color: "primary",
   },
 ];
 
