@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { 
   courses, 
   generatedContent, 
@@ -34,9 +34,11 @@ export interface IStorage {
   
   // Generated Content
   getContentByCourse(courseId: number): Promise<GeneratedContent[]>;
+  getApprovedContentByCourse(courseId: number): Promise<GeneratedContent[]>;
   getContent(id: number): Promise<GeneratedContent | undefined>;
   createContent(content: InsertGeneratedContent): Promise<GeneratedContent>;
   updateContent(id: number, content: string): Promise<GeneratedContent | undefined>;
+  toggleContentApproval(id: number, isApproved: boolean): Promise<GeneratedContent | undefined>;
   
   // Content Versions
   createVersion(version: InsertContentVersion): Promise<ContentVersion>;
@@ -124,6 +126,23 @@ export class DatabaseStorage implements IStorage {
     const [updated] = await db
       .update(generatedContent)
       .set({ content })
+      .where(eq(generatedContent.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getApprovedContentByCourse(courseId: number): Promise<GeneratedContent[]> {
+    return db
+      .select()
+      .from(generatedContent)
+      .where(and(eq(generatedContent.courseId, courseId), eq(generatedContent.isApproved, true)))
+      .orderBy(desc(generatedContent.createdAt));
+  }
+
+  async toggleContentApproval(id: number, isApproved: boolean): Promise<GeneratedContent | undefined> {
+    const [updated] = await db
+      .update(generatedContent)
+      .set({ isApproved })
       .where(eq(generatedContent.id, id))
       .returning();
     return updated;

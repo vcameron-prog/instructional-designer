@@ -6,7 +6,14 @@ This is an AI-powered instructional design tool built for Bridgewater State Univ
 
 ## Recent Updates
 
-### BSU Template Integration (Latest)
+### Connected Course Materials (Latest)
+- Faculty can mark generated content as "connected" to their course
+- Connected content is available to inform other tools (e.g., an approved syllabus can inform assignment generation)
+- Toggle button on result pages: "Connect to Course" / "Connected" with visual feedback
+- Database tracks `isApproved` status for each piece of generated content
+- API endpoint: `PATCH /api/content/:id/approval` to toggle connection status
+
+### BSU Template Integration
 - Syllabus generation now follows BSU's official TTC syllabus template structure
 - AI Policy generation uses BSU's 4-level AI Policy Framework (adapted from Leon Furze's AI Assessment Scale v2)
 - Course templates added for quick start (Lecture, Seminar, Lab, Online, Hybrid)

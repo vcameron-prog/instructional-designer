@@ -22,7 +22,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { ArrowLeft, Copy, Download, FileText, RefreshCw, CheckCircle, AlertTriangle, Lightbulb, ChevronDown, Loader2, Library } from "lucide-react";
+import { ArrowLeft, Copy, Download, FileText, RefreshCw, CheckCircle, AlertTriangle, Lightbulb, ChevronDown, Loader2, Library, Link2, Link2Off } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TOOLS, LOADING_MESSAGES } from "@/lib/constants";
@@ -158,6 +158,29 @@ export default function ResultPage() {
     },
     onError: (error) => {
       toast({ title: "Failed to save", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const toggleApprovalMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("PATCH", `/api/content/${contentId}/approval`, {
+        isApproved: !content?.isApproved,
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/content", contentId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId, "content"] });
+      const isNowApproved = data.isApproved;
+      toast({ 
+        title: isNowApproved ? "Added to Course Materials" : "Removed from Course Materials",
+        description: isNowApproved 
+          ? "This content will inform other tools in this course." 
+          : "This content will no longer influence other tools."
+      });
+    },
+    onError: (error) => {
+      toast({ title: "Failed to update", description: error.message, variant: "destructive" });
     },
   });
 
@@ -333,6 +356,25 @@ export default function ResultPage() {
               >
                 <FileText className="w-4 h-4 mr-2" />
                 .docx
+              </Button>
+              <Button
+                variant="outline"
+                className={`border-white/20 text-white ${content.isApproved ? "bg-green-600/30 hover:bg-green-600/40" : "bg-white/10 hover:bg-white/20"}`}
+                onClick={() => toggleApprovalMutation.mutate()}
+                disabled={toggleApprovalMutation.isPending}
+                data-testid="button-toggle-approval"
+              >
+                {content.isApproved ? (
+                  <>
+                    <Link2 className="w-4 h-4 mr-2" />
+                    Connected
+                  </>
+                ) : (
+                  <>
+                    <Link2Off className="w-4 h-4 mr-2" />
+                    Connect to Course
+                  </>
+                )}
               </Button>
               <Dialog open={saveLibraryOpen} onOpenChange={setSaveLibraryOpen}>
                 <DialogTrigger asChild>

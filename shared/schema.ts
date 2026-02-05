@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, serial, integer, timestamp, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, serial, integer, timestamp, jsonb, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -50,10 +50,11 @@ export type Course = typeof courses.$inferSelect;
 export const generatedContent = pgTable("generated_content", {
   id: serial("id").primaryKey(),
   courseId: integer("course_id").notNull().references(() => courses.id, { onDelete: "cascade" }),
-  toolType: text("tool_type").notNull(), // syllabus, schedule, assignment, module, rubric, aipolicy, alignment
+  toolType: text("tool_type").notNull(), // syllabus, schedule, assignment, module, rubric, aipolicy, alignment, airesistant
   toolName: text("tool_name").notNull(),
   formData: jsonb("form_data").notNull(),
   content: text("content").notNull(),
+  isApproved: boolean("is_approved").default(false).notNull(), // When true, this content is used as context for other tools
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 

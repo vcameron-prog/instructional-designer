@@ -693,6 +693,27 @@ export async function registerRoutes(
     }
   });
 
+  // Toggle content approval for connected materials
+  app.patch("/api/content/:id/approval", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { isApproved } = req.body;
+      
+      if (typeof isApproved !== "boolean") {
+        return res.status(400).json({ error: "isApproved must be a boolean" });
+      }
+      
+      const content = await storage.toggleContentApproval(id, isApproved);
+      if (!content) {
+        return res.status(404).json({ error: "Content not found" });
+      }
+      res.json(content);
+    } catch (error) {
+      console.error("Error toggling content approval:", error);
+      res.status(500).json({ error: "Failed to toggle approval" });
+    }
+  });
+
   // Generate content using AI
   app.post("/api/courses/:id/generate", async (req: Request, res: Response) => {
     try {
