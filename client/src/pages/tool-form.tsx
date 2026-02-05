@@ -13,6 +13,7 @@ import { ArrowLeft, Loader2, Sparkles } from "lucide-react";
 import { TOOLS, BSU_CALENDAR, LOADING_MESSAGES } from "@/lib/constants";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { PoweredByFooter } from "@/components/powered-by-footer";
 import type { Course } from "@shared/schema";
 import { UdlTips } from "@/components/udl-tips";
 
@@ -465,6 +466,7 @@ export default function ToolForm() {
           </div>
         </form>
       </div>
+      <PoweredByFooter />
     </div>
   );
 }

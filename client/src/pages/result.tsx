@@ -22,6 +22,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { PoweredByFooter } from "@/components/powered-by-footer";
 import { ArrowLeft, Copy, Download, FileText, RefreshCw, CheckCircle, AlertTriangle, Lightbulb, ChevronDown, Loader2, Library, Link2, Link2Off } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -365,7 +366,7 @@ export default function ResultPage() {
               </Button>
               <Button
                 variant="outline"
-                className={`border-white/20 text-white ${content.isApproved ? "bg-green-600/30 hover:bg-green-600/40" : "bg-white/10 hover:bg-white/20"}`}
+                className={`border-white/20 text-white ${content.isApproved ? "bg-blue-600/30" : "bg-white/10"}`}
                 onClick={() => toggleApprovalMutation.mutate()}
                 disabled={toggleApprovalMutation.isPending}
                 data-testid="button-toggle-approval"
@@ -614,6 +615,7 @@ export default function ResultPage() {
           </Button>
         </div>
       </div>
+      <PoweredByFooter />
     </div>
   );
 }

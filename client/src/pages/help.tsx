@@ -8,6 +8,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { PoweredByFooter } from "@/components/powered-by-footer";
 import { 
   ArrowLeft, 
   BookOpen, 
@@ -314,7 +315,7 @@ export default function HelpPage() {
 
         <section className="mb-12">
           <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
-            <Link2 className="w-6 h-6 text-green-600" />
+            <Link2 className="w-6 h-6 text-blue-600 dark:text-blue-400" />
             Connected Course Materials
           </h2>
           <Card>
@@ -326,8 +327,8 @@ export default function HelpPage() {
               </p>
               <div className="space-y-4">
                 <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center flex-shrink-0">
-                    <span className="text-green-600 font-semibold">1</span>
+                  <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
+                    <span className="text-blue-600 dark:text-blue-400 font-semibold">1</span>
                   </div>
                   <div>
                     <h4 className="font-semibold">Generate Content</h4>
@@ -335,8 +336,8 @@ export default function HelpPage() {
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center flex-shrink-0">
-                    <span className="text-green-600 font-semibold">2</span>
+                  <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
+                    <span className="text-blue-600 dark:text-blue-400 font-semibold">2</span>
                   </div>
                   <div>
                     <h4 className="font-semibold">Connect to Course</h4>
@@ -344,8 +345,8 @@ export default function HelpPage() {
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center flex-shrink-0">
-                    <span className="text-green-600 font-semibold">3</span>
+                  <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
+                    <span className="text-blue-600 dark:text-blue-400 font-semibold">3</span>
                   </div>
                   <div>
                     <h4 className="font-semibold">Inform Other Tools</h4>
@@ -353,7 +354,7 @@ export default function HelpPage() {
                   </div>
                 </div>
               </div>
-              <div className="mt-6 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+              <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                 <p className="text-sm">
                   <strong>Example:</strong> If you connect your syllabus, then when you generate assignments, 
                   the AI will reference your syllabus learning objectives to ensure alignment.
@@ -444,6 +445,7 @@ export default function HelpPage() {
           </Card>
         </section>
       </div>
+      <PoweredByFooter />
     </div>
   );
 }

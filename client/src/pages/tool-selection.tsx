@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, BookOpen, Calendar, FileText, Layout, CheckCircle, Sparkles, Target, ArrowRight, FolderOpen, Loader2, Scale, ShieldCheck, Link2, HelpCircle, GraduationCap, Library } from "lucide-react";
 import { TOOLS } from "@/lib/constants";
+import { PoweredByFooter } from "@/components/powered-by-footer";
 import type { Course, GeneratedContent } from "@shared/schema";
 
 const iconMap: Record<string, any> = {
@@ -153,7 +154,7 @@ export default function ToolSelection() {
         {generatedContents.filter(c => c.isApproved).length > 0 && (
           <div className="mt-12">
             <div className="flex items-center gap-2 mb-4">
-              <Link2 className="w-5 h-5 text-green-600" />
+              <Link2 className="w-5 h-5 text-blue-600 dark:text-blue-400" />
               <h3 className="text-xl font-bold">Connected Course Materials</h3>
             </div>
             <p className="text-sm text-muted-foreground mb-4">
@@ -167,13 +168,13 @@ export default function ToolSelection() {
                 return (
                   <Card
                     key={content.id}
-                    className="cursor-pointer hover-elevate active-elevate-2 border-green-200 dark:border-green-800"
+                    className="cursor-pointer hover-elevate active-elevate-2 border-blue-200 dark:border-blue-800"
                     onClick={() => navigate(`/course/${courseId}/result/${content.id}`)}
                     data-testid={`card-connected-${content.id}`}
                   >
                     <CardContent className="flex items-center gap-4 p-4">
-                      <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                        <Icon className="w-5 h-5 text-green-600 dark:text-green-400" />
+                      <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                        <Icon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">{content.toolName}</p>
@@ -181,7 +182,7 @@ export default function ToolSelection() {
                           Created {new Date(content.createdAt).toLocaleDateString()}
                         </p>
                       </div>
-                      <Link2 className="w-4 h-4 text-green-600 dark:text-green-400" />
+                      <Link2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                     </CardContent>
                   </Card>
                 );
@@ -213,7 +214,7 @@ export default function ToolSelection() {
                         <div className="flex items-center gap-2">
                           <p className="font-medium truncate">{content.toolName}</p>
                           {content.isApproved && (
-                            <Link2 className="w-3.5 h-3.5 text-green-600 dark:text-green-400 flex-shrink-0" />
+                            <Link2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
                           )}
                         </div>
                         <p className="text-sm text-muted-foreground">
@@ -258,6 +259,7 @@ export default function ToolSelection() {
           </div>
         </div>
       </div>
+      <PoweredByFooter />
     </div>
   );
 }

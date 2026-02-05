@@ -2,6 +2,7 @@ import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { PoweredByFooter } from "@/components/powered-by-footer";
 import { 
   ArrowLeft, 
   Library, 
@@ -194,6 +195,7 @@ export default function LibraryPage() {
           </div>
         )}
       </div>
+      <PoweredByFooter />
     </div>
   );
 }

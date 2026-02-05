@@ -2,6 +2,7 @@ import { useLocation } from "wouter";
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PoweredByFooter } from "@/components/powered-by-footer";
 import { 
   ArrowLeft, 
   ExternalLink,
@@ -268,6 +269,7 @@ export default function ResearchPage() {
           })}
         </div>
       </div>
+      <PoweredByFooter />
     </div>
   );
 }

@@ -15,6 +15,7 @@ import { ArrowLeft, ArrowRight, Upload, FileText, Loader2, BookOpen } from "luci
 import { COURSE_LEVELS, CREDIT_OPTIONS, SEMESTERS } from "@/lib/constants";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { PoweredByFooter } from "@/components/powered-by-footer";
 import type { Course } from "@shared/schema";
 
 const COURSE_TEMPLATES = [
@@ -605,6 +606,7 @@ export default function CourseForm({ courseId }: { courseId?: number }) {
           </form>
         </Form>
       </div>
+      <PoweredByFooter />
     </div>
   );
 }
