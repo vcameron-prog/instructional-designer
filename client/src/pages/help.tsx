@@ -40,6 +40,7 @@ const tools = [
       "Include detailed learning outcomes for better results",
       "Review the policies section for accuracy",
     ],
+    exampleOutput: "Course overview, learning outcomes, weekly schedule, grading breakdown, policies (attendance, academic integrity, accessibility), required materials, and instructor contact information.",
   },
   {
     id: "schedule",
@@ -51,6 +52,7 @@ const tools = [
       "Specify key topics and assessments you want included",
       "Review dates against your department's specific requirements",
     ],
+    exampleOutput: "Week-by-week breakdown with topics, readings, activities, and due dates. Includes BSU holidays, spring/fall breaks, and exam periods.",
   },
   {
     id: "assignment",
@@ -63,6 +65,7 @@ const tools = [
       "Only selected frameworks will be incorporated into the output",
       "Include any constraints (word count, format requirements)",
     ],
+    exampleOutput: "Assignment overview, learning objectives, detailed instructions, submission requirements, grading criteria, and optional inclusive design guidance based on selected frameworks.",
   },
   {
     id: "module",
@@ -74,6 +77,7 @@ const tools = [
       "Specify the estimated time for completion",
       "Consider varied activity types for engagement",
     ],
+    exampleOutput: "Module overview, learning objectives, content sections with readings/videos, learning activities, discussion prompts, and assessment aligned with module goals.",
   },
   {
     id: "rubric",
@@ -85,6 +89,7 @@ const tools = [
       "Choose appropriate point values",
       "Review descriptors for clarity and measurability",
     ],
+    exampleOutput: "Evaluation criteria with performance levels (e.g., Excellent, Good, Developing, Beginning), point values, and specific behavioral descriptors for each level.",
   },
   {
     id: "grading",
@@ -96,6 +101,7 @@ const tools = [
       "Consider revision opportunities and late work flexibility",
       "Review traditional participation/attendance requirements",
     ],
+    exampleOutput: "Grading scale, assignment categories with weights, late work policy, revision/reassessment opportunities, and policies that focus on learning over compliance.",
   },
   {
     id: "aipolicy",
@@ -107,6 +113,7 @@ const tools = [
       "Be specific about what constitutes acceptable use",
       "Include consequences and detection methods if relevant",
     ],
+    exampleOutput: "Policy statement, permitted vs. prohibited uses, citation/disclosure requirements, examples by assignment type, and guidance on maintaining academic integrity.",
   },
   {
     id: "alignment",
@@ -118,6 +125,7 @@ const tools = [
       "Review gaps identified in the alignment",
       "Use suggestions to strengthen course design",
     ],
+    exampleOutput: "Alignment matrix showing connections between learning outcomes, activities, and assessments. Identifies gaps and provides recommendations for strengthening alignment.",
   },
   {
     id: "airesistant",
@@ -130,6 +138,7 @@ const tools = [
       "Use the revised assignment as a starting point, then customize",
       "Focus on authentic assessment rather than just detection",
     ],
+    exampleOutput: "Vulnerability analysis, enhancement strategies (personal connection, process documentation, real-time components), and a revised assignment with AI-resistant features.",
   },
   {
     id: "accessibility",
@@ -142,6 +151,7 @@ const tools = [
       "Choose student populations to consider for targeted recommendations",
       "Use suggestions to improve content before sharing with students",
     ],
+    exampleOutput: "Overall accessibility rating, barrier identification by category, specific recommendations with high/medium/low priority, revised content samples, and an accessible design checklist.",
   },
 ];
 
@@ -268,7 +278,7 @@ export default function HelpPage() {
                   </CardHeader>
                   <CardContent>
                     <CardDescription className="mb-3">{tool.description}</CardDescription>
-                    <div className="text-sm">
+                    <div className="text-sm mb-3">
                       <span className="font-medium">Tips:</span>
                       <ul className="mt-1 space-y-1 text-muted-foreground">
                         {tool.tips.map((tip, i) => (
@@ -278,6 +288,10 @@ export default function HelpPage() {
                           </li>
                         ))}
                       </ul>
+                    </div>
+                    <div className="text-sm pt-3 border-t">
+                      <span className="font-medium">Example output:</span>
+                      <p className="mt-1 text-muted-foreground">{tool.exampleOutput}</p>
                     </div>
                   </CardContent>
                 </Card>

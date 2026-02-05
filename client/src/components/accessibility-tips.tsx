@@ -52,27 +52,27 @@ const quickChecklist = [
 
 export function AccessibilityTips() {
   return (
-    <Card className="bg-muted/30 border-border">
+    <Card className="bg-muted/30 border-border" data-testid="card-accessibility-tips">
       <CardHeader className="pb-3">
         <div className="flex items-center gap-2">
           <Eye className="w-5 h-5 text-primary" />
-          <CardTitle className="text-base">Accessibility Quick Guide</CardTitle>
+          <CardTitle className="text-base" data-testid="text-accessibility-guide-title">Accessibility Quick Guide</CardTitle>
         </div>
         <CardDescription className="text-sm">
           Key considerations for creating accessible course content
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="space-y-3">
+        <div className="space-y-3" data-testid="section-accessibility-areas">
           {accessibilityTips.map((tip, index) => {
             const Icon = tip.icon;
             return (
-              <div key={index} className="flex items-start gap-3">
+              <div key={index} className="flex items-start gap-3" data-testid={`tip-accessibility-${index}`}>
                 <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
                   <Icon className={`w-4 h-4 ${tip.color}`} />
                 </div>
                 <div>
-                  <p className="text-sm font-medium">{tip.area}</p>
+                  <p className="text-sm font-medium" data-testid={`text-tip-area-${index}`}>{tip.area}</p>
                   <p className="text-sm text-muted-foreground">{tip.tip}</p>
                 </div>
               </div>
@@ -80,14 +80,14 @@ export function AccessibilityTips() {
           })}
         </div>
         
-        <div className="pt-3 border-t">
+        <div className="pt-3 border-t" data-testid="section-quick-checklist">
           <div className="flex items-center gap-2 mb-2">
             <FileText className="w-4 h-4 text-primary" />
-            <p className="text-sm font-medium">Quick Checklist</p>
+            <p className="text-sm font-medium" data-testid="text-checklist-title">Quick Checklist</p>
           </div>
           <ul className="text-sm text-muted-foreground space-y-1">
             {quickChecklist.map((item, index) => (
-              <li key={index} className="flex items-start gap-2">
+              <li key={index} className="flex items-start gap-2" data-testid={`checklist-item-${index}`}>
                 <span className="text-primary mt-0.5">•</span>
                 {item}
               </li>
