@@ -137,7 +137,7 @@ export default function LandingPage() {
 
         <div className={`grid gap-6 max-w-4xl mx-auto ${courses.length > 0 ? "md:grid-cols-2" : "max-w-md"}`}>
           <Card 
-            className="group cursor-pointer transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl bg-white border-0"
+            className="group cursor-pointer transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl bg-card border-0"
             onClick={() => navigate("/new-course")}
             data-testid="card-new-course"
           >
@@ -156,7 +156,7 @@ export default function LandingPage() {
           </Card>
 
           {courses.length > 0 && (
-            <Card className="bg-white border-0">
+            <Card className="bg-card border-0">
               <CardHeader className="pb-3">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
