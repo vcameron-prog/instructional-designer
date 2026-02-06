@@ -14,7 +14,8 @@ import {
   Scale,
   HelpCircle,
   ShieldCheck,
-  Eye
+  Eye,
+  List
 } from "lucide-react";
 
 const researchFrameworks = {
@@ -243,7 +244,7 @@ export default function ResearchPage() {
       </div>
 
       <div className="container mx-auto px-4 py-8 max-w-4xl">
-        <div className="mb-8 flex items-center justify-between">
+        <div className="mb-6 flex items-center justify-between gap-4 flex-wrap">
           <p className="text-muted-foreground">
             This tool incorporates six evidence-based pedagogical frameworks. Here's the research behind why 
             they're included in generated content.
@@ -257,12 +258,41 @@ export default function ResearchPage() {
             Help & Resources
           </Button>
         </div>
+
+        <Card className="mb-8">
+          <CardContent className="pt-5 pb-4">
+            <div className="flex items-center gap-2 mb-3">
+              <List className="w-4 h-4 text-muted-foreground" />
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Topics on This Page</h3>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {Object.entries(researchFrameworks).map(([key, framework]) => {
+                const Icon = framework.icon;
+                return (
+                  <Button
+                    key={key}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const el = document.getElementById(`framework-${key}`);
+                      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+                    }}
+                    data-testid={`toc-link-${key}`}
+                  >
+                    <Icon className={`w-4 h-4 mr-1.5 ${framework.color}`} />
+                    {framework.title}
+                  </Button>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
         
         <div className="space-y-6">
           {Object.entries(researchFrameworks).map(([key, framework]) => {
             const Icon = framework.icon;
             return (
-              <Card key={key}>
+              <Card key={key} id={`framework-${key}`} className="scroll-mt-24">
                 <CardHeader>
                   <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 rounded-lg ${framework.bgColor} flex items-center justify-center`}>
