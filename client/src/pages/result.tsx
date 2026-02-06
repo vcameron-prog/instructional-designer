@@ -449,13 +449,13 @@ export default function ResultPage() {
       <div className="container mx-auto px-4 py-8 max-w-5xl">
         {accessibilityIssues.length > 0 && (
           <Collapsible open={showAccessibility} onOpenChange={setShowAccessibility} className="mb-6">
-            <Card className="border-accent">
+            <Card className="border-primary">
               <CollapsibleTrigger asChild>
                 <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-accent/10 rounded-lg flex items-center justify-center">
-                        <Lightbulb className="w-5 h-5 text-accent" />
+                      <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+                        <Lightbulb className="w-5 h-5 text-primary" />
                       </div>
                       <div>
                         <CardTitle className="text-lg">Accessibility Check</CardTitle>

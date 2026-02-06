@@ -42,19 +42,19 @@ const allTips: Record<string, ToolTips> = {
       {
         principle: "Diverse Perspectives",
         icon: Globe,
-        color: "text-secondary",
+        color: "text-primary",
         tip: "Include topics and examples that reflect diverse cultural backgrounds and experiences.",
       },
       {
         principle: "Student Identity",
         icon: Users,
-        color: "text-secondary",
+        color: "text-primary",
         tip: "Allow students to connect assignments to their own cultural experiences and communities.",
       },
       {
         principle: "Inclusive Language",
         icon: Globe,
-        color: "text-secondary",
+        color: "text-primary",
         tip: "Use inclusive language and avoid assumptions about students' backgrounds or experiences.",
       },
     ],
@@ -62,19 +62,19 @@ const allTips: Record<string, ToolTips> = {
       {
         principle: "Self-Awareness",
         icon: Brain,
-        color: "text-accent",
+        color: "text-primary",
         tip: "Include reflection prompts that help students connect learning to personal growth.",
       },
       {
         principle: "Relationship Skills",
         icon: Heart,
-        color: "text-accent",
+        color: "text-primary",
         tip: "Consider collaborative elements that build teamwork and communication skills.",
       },
       {
         principle: "Responsible Decision-Making",
         icon: Brain,
-        color: "text-accent",
+        color: "text-primary",
         tip: "Include ethical considerations or real-world decision-making scenarios when relevant.",
       },
     ],
@@ -104,19 +104,19 @@ const allTips: Record<string, ToolTips> = {
       {
         principle: "Equitable Assessment",
         icon: Globe,
-        color: "text-secondary",
+        color: "text-primary",
         tip: "Ensure criteria don't inadvertently favor certain cultural communication styles over others.",
       },
       {
         principle: "Diverse Excellence",
         icon: Users,
-        color: "text-secondary",
+        color: "text-primary",
         tip: "Define success in ways that recognize different cultural approaches to problem-solving.",
       },
       {
         principle: "Bias Review",
         icon: Globe,
-        color: "text-secondary",
+        color: "text-primary",
         tip: "Review rubric language for potential cultural bias or assumptions.",
       },
     ],
@@ -124,19 +124,19 @@ const allTips: Record<string, ToolTips> = {
       {
         principle: "Growth Mindset",
         icon: Brain,
-        color: "text-accent",
+        color: "text-primary",
         tip: "Frame criteria around growth and improvement, not just final achievement.",
       },
       {
         principle: "Self-Assessment",
         icon: Heart,
-        color: "text-accent",
+        color: "text-primary",
         tip: "Consider including self-reflection criteria that develop metacognitive skills.",
       },
       {
         principle: "Constructive Feedback",
         icon: Brain,
-        color: "text-accent",
+        color: "text-primary",
         tip: "Design rubric language to provide supportive, actionable feedback.",
       },
     ],
@@ -166,19 +166,19 @@ const allTips: Record<string, ToolTips> = {
       {
         principle: "Diverse Content",
         icon: Globe,
-        color: "text-secondary",
+        color: "text-primary",
         tip: "Include readings, examples, and case studies from diverse authors and perspectives.",
       },
       {
         principle: "Cultural Windows",
         icon: Users,
-        color: "text-secondary",
+        color: "text-primary",
         tip: "Provide 'windows' into other cultures and 'mirrors' where students see themselves reflected.",
       },
       {
         principle: "Global Perspectives",
         icon: Globe,
-        color: "text-secondary",
+        color: "text-primary",
         tip: "Connect topics to global contexts and diverse ways of knowing.",
       },
     ],
@@ -186,19 +186,19 @@ const allTips: Record<string, ToolTips> = {
       {
         principle: "Belonging",
         icon: Heart,
-        color: "text-accent",
+        color: "text-primary",
         tip: "Design activities that help students feel connected to peers and the learning community.",
       },
       {
         principle: "Emotional Safety",
         icon: Brain,
-        color: "text-accent",
+        color: "text-primary",
         tip: "Include content warnings for sensitive topics and create psychologically safe discussions.",
       },
       {
         principle: "Stress Management",
         icon: Heart,
-        color: "text-accent",
+        color: "text-primary",
         tip: "Consider workload balance and include strategies for managing academic stress.",
       },
     ],
@@ -228,19 +228,19 @@ const allTips: Record<string, ToolTips> = {
       {
         principle: "Inclusive Welcome",
         icon: Globe,
-        color: "text-secondary",
+        color: "text-primary",
         tip: "Include a diversity statement that genuinely welcomes students of all backgrounds.",
       },
       {
         principle: "Representation Matters",
         icon: Users,
-        color: "text-secondary",
+        color: "text-primary",
         tip: "Select course materials from diverse authors and perspectives.",
       },
       {
         principle: "Flexible Policies",
         icon: Globe,
-        color: "text-secondary",
+        color: "text-primary",
         tip: "Consider religious and cultural observances when setting deadlines and policies.",
       },
     ],
@@ -248,19 +248,19 @@ const allTips: Record<string, ToolTips> = {
       {
         principle: "Supportive Tone",
         icon: Heart,
-        color: "text-accent",
+        color: "text-primary",
         tip: "Write policies with empathy—assume students want to succeed and may face challenges.",
       },
       {
         principle: "Wellness Resources",
         icon: Brain,
-        color: "text-accent",
+        color: "text-primary",
         tip: "Include mental health resources and normalize asking for help.",
       },
       {
         principle: "Community Building",
         icon: Heart,
-        color: "text-accent",
+        color: "text-primary",
         tip: "Set expectations for respectful, supportive peer interactions.",
       },
     ],
@@ -290,19 +290,19 @@ const allTips: Record<string, ToolTips> = {
       {
         principle: "Cultural Calendar",
         icon: Globe,
-        color: "text-secondary",
+        color: "text-primary",
         tip: "Be aware of major religious and cultural holidays when scheduling assessments.",
       },
       {
         principle: "Diverse Celebrations",
         icon: Users,
-        color: "text-secondary",
+        color: "text-primary",
         tip: "Consider acknowledging diverse heritage months and cultural events in course content.",
       },
       {
         principle: "Time Zone Equity",
         icon: Globe,
-        color: "text-secondary",
+        color: "text-primary",
         tip: "For online components, consider students in different time zones.",
       },
     ],
@@ -310,19 +310,19 @@ const allTips: Record<string, ToolTips> = {
       {
         principle: "Sustainable Pacing",
         icon: Brain,
-        color: "text-accent",
+        color: "text-primary",
         tip: "Avoid clustering too many deadlines to reduce student stress and burnout.",
       },
       {
         principle: "Check-In Points",
         icon: Heart,
-        color: "text-accent",
+        color: "text-primary",
         tip: "Build in reflection or check-in moments to gauge student wellbeing.",
       },
       {
         principle: "Recovery Time",
         icon: Brain,
-        color: "text-accent",
+        color: "text-primary",
         tip: "Include lighter weeks after intensive periods to allow recovery.",
       },
     ],
@@ -352,19 +352,19 @@ const allTips: Record<string, ToolTips> = {
       {
         principle: "Access Equity",
         icon: Globe,
-        color: "text-secondary",
+        color: "text-primary",
         tip: "Recognize that not all students have equal access to AI tools outside of class.",
       },
       {
         principle: "Language Support",
         icon: Users,
-        color: "text-secondary",
+        color: "text-primary",
         tip: "Consider how multilingual students might appropriately use AI for language assistance.",
       },
       {
         principle: "Critical Perspective",
         icon: Globe,
-        color: "text-secondary",
+        color: "text-primary",
         tip: "Discuss how AI can reflect and perpetuate cultural biases.",
       },
     ],
@@ -372,19 +372,19 @@ const allTips: Record<string, ToolTips> = {
       {
         principle: "Anxiety Reduction",
         icon: Brain,
-        color: "text-accent",
+        color: "text-primary",
         tip: "Frame the policy clearly to reduce student anxiety about unintentional violations.",
       },
       {
         principle: "Ethical Reasoning",
         icon: Heart,
-        color: "text-accent",
+        color: "text-primary",
         tip: "Help students develop their own ethical framework for AI use beyond this course.",
       },
       {
         principle: "Support Resources",
         icon: Brain,
-        color: "text-accent",
+        color: "text-primary",
         tip: "Emphasize human support resources (office hours, tutoring) alongside AI policies.",
       },
     ],
@@ -414,19 +414,19 @@ const allTips: Record<string, ToolTips> = {
       {
         principle: "Outcome Equity",
         icon: Globe,
-        color: "text-secondary",
+        color: "text-primary",
         tip: "Review whether learning outcomes are achievable regardless of cultural background.",
       },
       {
         principle: "Diverse Pathways",
         icon: Users,
-        color: "text-secondary",
+        color: "text-primary",
         tip: "Ensure assessments don't privilege one cultural approach to demonstrating knowledge.",
       },
       {
         principle: "Inclusive Standards",
         icon: Globe,
-        color: "text-secondary",
+        color: "text-primary",
         tip: "Consider whether outcomes reflect diverse ways of knowing and demonstrating competence.",
       },
     ],
@@ -434,19 +434,19 @@ const allTips: Record<string, ToolTips> = {
       {
         principle: "Holistic Growth",
         icon: Brain,
-        color: "text-accent",
+        color: "text-primary",
         tip: "Consider including social-emotional outcomes alongside academic ones.",
       },
       {
         principle: "Self-Regulation",
         icon: Heart,
-        color: "text-accent",
+        color: "text-primary",
         tip: "Include outcomes related to self-directed learning and time management.",
       },
       {
         principle: "Collaboration Skills",
         icon: Brain,
-        color: "text-accent",
+        color: "text-primary",
         tip: "If group work is included, explicitly assess interpersonal and teamwork skills.",
       },
     ],
@@ -512,7 +512,7 @@ export function UdlTips({ toolId }: { toolId: string }) {
               const Icon = tip.icon;
               return (
                 <div key={index} className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-secondary/10 flex items-center justify-center flex-shrink-0">
+                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
                     <Icon className={`w-4 h-4 ${tip.color}`} />
                   </div>
                   <div>
@@ -532,7 +532,7 @@ export function UdlTips({ toolId }: { toolId: string }) {
               const Icon = tip.icon;
               return (
                 <div key={index} className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center flex-shrink-0">
+                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
                     <Icon className={`w-4 h-4 ${tip.color}`} />
                   </div>
                   <div>

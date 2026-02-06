@@ -50,8 +50,8 @@ const researchFrameworks = {
   cultural: {
     title: "Culturally Responsive Teaching",
     icon: Globe,
-    color: "text-secondary",
-    bgColor: "bg-secondary/10",
+    color: "text-primary",
+    bgColor: "bg-primary/10",
     theory: "Culturally Responsive Teaching (CRT) is a pedagogy that recognizes the importance of including students' cultural references in all aspects of learning. It builds on the premise that when academic knowledge and skills are situated within the lived experiences of students, they are more personally meaningful and easier to master.",
     keyResearch: [
       {
@@ -77,8 +77,8 @@ const researchFrameworks = {
   sel: {
     title: "Social-Emotional Learning (SEL)",
     icon: Heart,
-    color: "text-accent",
-    bgColor: "bg-accent/10",
+    color: "text-primary",
+    bgColor: "bg-primary/10",
     theory: "Social-Emotional Learning is the process through which individuals acquire and apply knowledge, skills, and attitudes to develop healthy identities, manage emotions, achieve goals, feel and show empathy, establish relationships, and make responsible decisions. Research shows SEL improves academic outcomes, behavior, and lifelong wellbeing.",
     keyResearch: [
       {
@@ -166,8 +166,8 @@ const researchFrameworks = {
   accessibility: {
     title: "Accessibility in Education",
     icon: Eye,
-    color: "text-accent",
-    bgColor: "bg-accent/10",
+    color: "text-primary",
+    bgColor: "bg-primary/10",
     theory: "Accessible education ensures that all students, including those with disabilities, can fully participate in learning experiences. This framework draws on legal requirements (ADA, Section 508), international standards (WCAG 2.1), and cognitive science research to create course materials that work for everyone. Accessibility is not just compliance—it's about removing barriers and creating equitable learning opportunities through proactive, inclusive design.",
     keyResearch: [
       {
