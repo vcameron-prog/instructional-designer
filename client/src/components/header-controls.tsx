@@ -26,12 +26,12 @@ export function HeaderControls({
 
   const isDark = variant === "dark";
   const btnVariant = isDark ? "ghost" : "outline";
-  const btnClass = isDark ? "text-white" : "";
+  const btnClass = isDark ? "text-white" : "text-primary";
   const groupClass = isDark
     ? "flex items-center bg-white/10 rounded-lg"
     : "flex items-center bg-muted/50 rounded-lg";
-  const typeClass = isDark ? "w-4 h-4 text-white mx-1" : "w-4 h-4 text-muted-foreground mx-1";
-  const fontBtnClass = isDark ? "text-white" : "";
+  const typeClass = isDark ? "w-4 h-4 text-white mx-1" : "w-4 h-4 text-primary mx-1";
+  const fontBtnClass = isDark ? "text-white" : "text-primary";
 
   return (
     <div className="flex items-center gap-1" data-testid="header-controls">
