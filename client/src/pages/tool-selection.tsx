@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ArrowLeft, BookOpen, Calendar, FileText, Layout, CheckCircle, Sparkles, Target, ArrowRight, FolderOpen, Loader2, Scale, ShieldCheck, Link2, HelpCircle, GraduationCap, Library, Eye } from "lucide-react";
 import { TOOLS } from "@/lib/constants";
 import { PoweredByFooter } from "@/components/powered-by-footer";
+import { HeaderControls } from "@/components/header-controls";
 import type { Course, GeneratedContent } from "@shared/schema";
 
 const iconMap: Record<string, any> = {
@@ -70,7 +71,10 @@ export default function ToolSelection() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="bg-gradient-to-r from-primary to-primary/80 text-white py-8">
+      <div className="bg-gradient-to-r from-primary to-primary/80 text-white py-8 relative">
+        <div className="absolute top-4 right-4 z-20">
+          <HeaderControls variant="dark" showHome={true} />
+        </div>
         <div className="container mx-auto px-4">
           <Button
             variant="ghost"

@@ -23,6 +23,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { PoweredByFooter } from "@/components/powered-by-footer";
+import { HeaderControls } from "@/components/header-controls";
 import { ArrowLeft, Copy, Download, FileText, RefreshCw, CheckCircle, AlertTriangle, Lightbulb, ChevronDown, Loader2, Library, Link2, Link2Off } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -316,7 +317,10 @@ export default function ResultPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="bg-gradient-to-r from-primary to-primary/80 text-white py-6">
+      <div className="bg-gradient-to-r from-primary to-primary/80 text-white py-6 relative">
+        <div className="absolute top-4 right-4 z-20">
+          <HeaderControls variant="dark" showHome={true} />
+        </div>
         <div className="container mx-auto px-4">
           <Button
             variant="ghost"

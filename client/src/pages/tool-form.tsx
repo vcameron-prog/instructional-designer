@@ -14,6 +14,7 @@ import { TOOLS, BSU_CALENDAR, LOADING_MESSAGES } from "@/lib/constants";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { PoweredByFooter } from "@/components/powered-by-footer";
+import { HeaderControls } from "@/components/header-controls";
 import type { Course } from "@shared/schema";
 import { UdlTips } from "@/components/udl-tips";
 import { AccessibilityTips } from "@/components/accessibility-tips";
@@ -350,7 +351,10 @@ export default function ToolForm() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="bg-primary text-white py-6">
+      <div className="bg-primary text-white py-6 relative">
+        <div className="absolute top-4 right-4 z-20">
+          <HeaderControls variant="dark" showHome={true} />
+        </div>
         <div className="container mx-auto px-4">
           <Button
             variant="ghost"

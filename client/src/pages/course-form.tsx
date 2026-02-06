@@ -16,6 +16,7 @@ import { COURSE_LEVELS, CREDIT_OPTIONS, SEMESTERS } from "@/lib/constants";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { PoweredByFooter } from "@/components/powered-by-footer";
+import { HeaderControls } from "@/components/header-controls";
 import type { Course } from "@shared/schema";
 
 const COURSE_TEMPLATES = [
@@ -252,7 +253,10 @@ export default function CourseForm({ courseId }: { courseId?: number }) {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="bg-primary text-white py-6">
+      <div className="bg-primary text-white py-6 relative">
+        <div className="absolute top-4 right-4 z-20">
+          <HeaderControls variant="dark" showHome={true} />
+        </div>
         <div className="container mx-auto px-4">
           <Button
             variant="ghost"

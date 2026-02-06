@@ -9,7 +9,7 @@ import {
   ArrowRight, 
   Trash2, 
   Copy, 
-  HelpCircle, 
+  HelpCircle,
   Library,
   CheckCircle,
   FileText,
@@ -18,21 +18,14 @@ import {
   Layout,
   Target,
   FlaskConical,
-  Moon,
-  Sun,
-  Plus,
-  Minus,
-  Type,
-  LogOut,
   User,
   Shield,
   Users,
   Loader2
 } from "lucide-react";
 import { SiGoogle } from "react-icons/si";
-import { useTheme } from "@/components/theme-provider";
-import { useFontSize } from "@/components/font-size-provider";
 import { useAuth } from "@/hooks/use-auth";
+import { HeaderControls } from "@/components/header-controls";
 import type { Course, GeneratedContent } from "@shared/schema";
 import { format } from "date-fns";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -66,54 +59,13 @@ const toolIconMap: Record<string, any> = {
   alignment: Target,
 };
 
-// Login page for unauthenticated users
-function LoginPage({ theme, toggleTheme, fontSize, increaseFontSize, decreaseFontSize }: {
-  theme: string;
-  toggleTheme: () => void;
-  fontSize: string;
-  increaseFontSize: () => void;
-  decreaseFontSize: () => void;
-}) {
+function LoginPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary via-primary/90 to-primary/80 relative overflow-hidden">
       <div className="absolute inset-0 pattern-dots text-white/10 opacity-50" />
       
-      <div className="absolute top-4 right-4 z-20 flex items-center gap-1">
-        <div className="flex items-center bg-white/10 rounded-lg mr-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-white h-9 w-9"
-            onClick={decreaseFontSize}
-            disabled={fontSize === "small"}
-            data-testid="button-font-decrease"
-            aria-label="Decrease font size"
-          >
-            <Minus className="w-4 h-4" />
-          </Button>
-          <Type className="w-4 h-4 text-white mx-1" />
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-white h-9 w-9"
-            onClick={increaseFontSize}
-            disabled={fontSize === "xlarge"}
-            data-testid="button-font-increase"
-            aria-label="Increase font size"
-          >
-            <Plus className="w-4 h-4" />
-          </Button>
-        </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="text-white"
-          onClick={toggleTheme}
-          data-testid="button-theme-toggle"
-          aria-label={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
-        >
-          {theme === "light" ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
-        </Button>
+      <div className="absolute top-4 right-4 z-20">
+        <HeaderControls variant="dark" showLogout={false} showLibrary={false} />
       </div>
 
       <div className="relative z-10 container mx-auto px-4 py-12 md:py-20 flex flex-col items-center justify-center min-h-screen">
@@ -188,8 +140,6 @@ function LoginPage({ theme, toggleTheme, fontSize, increaseFontSize, decreaseFon
 export default function LandingPage() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
-  const { theme, toggleTheme } = useTheme();
-  const { fontSize, increaseFontSize, decreaseFontSize } = useFontSize();
   const { user, isLoading: isAuthLoading, isAuthenticated } = useAuth();
 
   const { data: courses = [], isLoading } = useQuery<Course[]>({
@@ -235,7 +185,7 @@ export default function LandingPage() {
 
   // Show login page if not authenticated
   if (!isAuthenticated) {
-    return <LoginPage theme={theme} toggleTheme={toggleTheme} fontSize={fontSize} increaseFontSize={increaseFontSize} decreaseFontSize={decreaseFontSize} />;
+    return <LoginPage />;
   }
 
   return (
@@ -256,69 +206,7 @@ export default function LandingPage() {
             </span>
           </div>
         )}
-        <div className="flex items-center bg-white/10 rounded-lg mr-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-white h-9 w-9"
-            onClick={decreaseFontSize}
-            disabled={fontSize === "small"}
-            data-testid="button-font-decrease"
-            aria-label="Decrease font size"
-          >
-            <Minus className="w-4 h-4" />
-          </Button>
-          <Type className="w-4 h-4 text-white mx-1" />
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-white h-9 w-9"
-            onClick={increaseFontSize}
-            disabled={fontSize === "xlarge"}
-            data-testid="button-font-increase"
-            aria-label="Increase font size"
-          >
-            <Plus className="w-4 h-4" />
-          </Button>
-        </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="text-white"
-          onClick={toggleTheme}
-          data-testid="button-theme-toggle"
-          aria-label={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
-        >
-          {theme === "light" ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="text-white"
-          onClick={() => navigate("/library")}
-          data-testid="button-library"
-        >
-          <Library className="w-5 h-5" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="text-white"
-          onClick={() => navigate("/help")}
-          data-testid="button-help"
-        >
-          <HelpCircle className="w-5 h-5" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="text-white"
-          onClick={() => window.location.href = "/api/logout"}
-          data-testid="button-logout"
-          aria-label="Sign out"
-        >
-          <LogOut className="w-5 h-5" />
-        </Button>
+        <HeaderControls variant="dark" />
       </div>
       
       <div className="relative z-10 container mx-auto px-4 py-12 md:py-20">
