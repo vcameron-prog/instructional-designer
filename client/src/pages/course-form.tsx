@@ -253,26 +253,30 @@ export default function CourseForm({ courseId }: { courseId?: number }) {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="bg-primary text-white py-6 relative">
-        <div className="absolute top-4 right-4 z-20">
-          <HeaderControls variant="dark" showHome={true} />
-        </div>
-        <div className="container mx-auto px-4">
-          <Button
-            variant="ghost"
-            className="text-white hover:bg-white/10 mb-4"
-            onClick={() => navigate("/")}
-            data-testid="button-back-home"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Home
-          </Button>
-          <h1 className="text-3xl font-bold">
-            {courseId ? "Edit Course Information" : "Course Information"}
-          </h1>
-          <p className="text-white/80 mt-2">
-            Provide details about your course to help generate tailored materials
-          </p>
+      <div className="border-b bg-card">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate("/")}
+                data-testid="button-back-home"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <BookOpen className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold">{courseId ? "Edit Course Information" : "Course Information"}</h1>
+                  <p className="text-sm text-muted-foreground">Provide details about your course to help generate tailored materials</p>
+                </div>
+              </div>
+            </div>
+            <HeaderControls variant="light" showHome={true} />
+          </div>
         </div>
       </div>
 

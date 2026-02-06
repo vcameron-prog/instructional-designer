@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Loader2, Sparkles } from "lucide-react";
+import { ArrowLeft, Loader2, Sparkles, BookOpen, Calendar, FileText, Layout, CheckCircle, Target, Scale, ShieldCheck, Eye } from "lucide-react";
 import { TOOLS, BSU_CALENDAR, LOADING_MESSAGES } from "@/lib/constants";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -204,6 +204,19 @@ const getFormFields = (toolId: string): ToolFormField[] => {
   return fields[toolId] || [];
 };
 
+const toolIconMap: Record<string, any> = {
+  BookOpen,
+  Calendar,
+  FileText,
+  Layout,
+  CheckCircle,
+  Sparkles,
+  Target,
+  Scale,
+  ShieldCheck,
+  Eye,
+};
+
 export default function ToolForm() {
   const params = useParams();
   const courseId = params.id ? parseInt(params.id) : undefined;
@@ -351,22 +364,30 @@ export default function ToolForm() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="bg-primary text-white py-6 relative">
-        <div className="absolute top-4 right-4 z-20">
-          <HeaderControls variant="dark" showHome={true} />
-        </div>
-        <div className="container mx-auto px-4">
-          <Button
-            variant="ghost"
-            className="text-white hover:bg-white/10 mb-4"
-            onClick={() => navigate(`/course/${courseId}/tools`)}
-            data-testid="button-back-tools"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Tools
-          </Button>
-          <h1 className="text-3xl font-bold">{tool.name}</h1>
-          <p className="text-white/80 mt-2">{tool.description}</p>
+      <div className="border-b bg-card">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate(`/course/${courseId}/tools`)}
+                data-testid="button-back-tools"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  {(() => { const ToolIcon = toolIconMap[tool.icon] || Sparkles; return <ToolIcon className="w-5 h-5 text-primary" />; })()}
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold">{tool.name}</h1>
+                  <p className="text-sm text-muted-foreground">{tool.description}</p>
+                </div>
+              </div>
+            </div>
+            <HeaderControls variant="light" showHome={true} />
+          </div>
         </div>
       </div>
 

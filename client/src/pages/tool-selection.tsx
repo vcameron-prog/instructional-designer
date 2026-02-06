@@ -2,7 +2,7 @@ import { useLocation, useParams } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, BookOpen, Calendar, FileText, Layout, CheckCircle, Sparkles, Target, ArrowRight, FolderOpen, Loader2, Scale, ShieldCheck, Link2, HelpCircle, GraduationCap, Library, Eye } from "lucide-react";
+import { ArrowLeft, BookOpen, Calendar, FileText, Layout, CheckCircle, Sparkles, Target, ArrowRight, FolderOpen, Loader2, Scale, ShieldCheck, Link2, HelpCircle, GraduationCap, Library, Eye, Wrench, Pencil } from "lucide-react";
 import { TOOLS } from "@/lib/constants";
 import { PoweredByFooter } from "@/components/powered-by-footer";
 import { HeaderControls } from "@/components/header-controls";
@@ -71,36 +71,40 @@ export default function ToolSelection() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="bg-gradient-to-r from-primary to-primary/80 text-white py-8 relative">
-        <div className="absolute top-4 right-4 z-20">
-          <HeaderControls variant="dark" showHome={true} />
-        </div>
-        <div className="container mx-auto px-4">
-          <Button
-            variant="ghost"
-            className="text-white hover:bg-white/10 mb-4"
-            onClick={() => navigate("/")}
-            data-testid="button-back-home"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Home
-          </Button>
-          
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <h1 className="text-3xl font-bold">{course.courseName}</h1>
-              <p className="text-white/80 mt-1">
-                {course.courseNumber} • {course.semester} • {course.instructor}
-              </p>
+      <div className="border-b bg-card">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate("/")}
+                data-testid="button-back-home"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Wrench className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold">{course.courseName}</h1>
+                  <p className="text-sm text-muted-foreground">{course.courseNumber} · {course.semester} · {course.instructor}</p>
+                </div>
+              </div>
             </div>
-            <Button
-              variant="outline"
-              className="bg-white/10 border-white/20 text-white hover:bg-white/20 w-fit"
-              onClick={() => navigate(`/course/${courseId}/edit`)}
-              data-testid="button-edit-course"
-            >
-              Edit Course Info
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate(`/course/${courseId}/edit`)}
+                data-testid="button-edit-course"
+              >
+                <Pencil className="w-4 h-4 mr-1.5" />
+                Edit Course Info
+              </Button>
+              <HeaderControls variant="light" showHome={true} />
+            </div>
           </div>
         </div>
       </div>

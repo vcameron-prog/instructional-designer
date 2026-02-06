@@ -317,72 +317,81 @@ export default function ResultPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="bg-gradient-to-r from-primary to-primary/80 text-white py-6 relative">
-        <div className="absolute top-4 right-4 z-20">
-          <HeaderControls variant="dark" showHome={true} />
-        </div>
-        <div className="container mx-auto px-4">
-          <Button
-            variant="ghost"
-            className="text-white hover:bg-white/10 mb-4"
-            onClick={() => navigate(`/course/${courseId}/tools`)}
-            data-testid="button-back-tools"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Tools
-          </Button>
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <h1 className="text-3xl font-bold">{content.toolName}</h1>
-              {course && (
-                <p className="text-white/80 mt-1">
-                  {course.courseName} ({course.courseNumber})
-                </p>
-              )}
+      <div className="border-b bg-card">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate(`/course/${courseId}/tools`)}
+                data-testid="button-back-tools"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <FileText className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold">{content.toolName}</h1>
+                  {course && (
+                    <p className="text-sm text-muted-foreground">{course.courseName} ({course.courseNumber})</p>
+                  )}
+                </div>
+              </div>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <HeaderControls variant="light" showHome={true} />
+          </div>
+        </div>
+      </div>
+
+      <div className="container mx-auto px-4 py-8 max-w-5xl">
+        <Card className="mb-6">
+          <CardContent className="py-3 px-4">
+            <div className="flex flex-wrap gap-2 items-center">
               <Button
                 variant="outline"
-                className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+                size="sm"
                 onClick={handleCopy}
                 data-testid="button-copy"
               >
-                {copied ? <CheckCircle className="w-4 h-4 mr-2" /> : <Copy className="w-4 h-4 mr-2" />}
+                {copied ? <CheckCircle className="w-4 h-4 mr-1.5" /> : <Copy className="w-4 h-4 mr-1.5" />}
                 {copied ? "Copied!" : "Copy"}
               </Button>
               <Button
                 variant="outline"
-                className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+                size="sm"
                 onClick={handleDownloadText}
                 data-testid="button-download-txt"
               >
-                <Download className="w-4 h-4 mr-2" />
+                <Download className="w-4 h-4 mr-1.5" />
                 .txt
               </Button>
               <Button
                 variant="outline"
-                className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+                size="sm"
                 onClick={handleDownloadWord}
                 data-testid="button-download-docx"
               >
-                <FileText className="w-4 h-4 mr-2" />
+                <FileText className="w-4 h-4 mr-1.5" />
                 .docx
               </Button>
               <Button
-                variant="outline"
-                className={`border-white/20 text-white ${content.isApproved ? "bg-blue-600/30" : "bg-white/10"}`}
+                variant={content.isApproved ? "default" : "outline"}
+                size="sm"
                 onClick={() => toggleApprovalMutation.mutate()}
                 disabled={toggleApprovalMutation.isPending}
                 data-testid="button-toggle-approval"
               >
                 {content.isApproved ? (
                   <>
-                    <Link2 className="w-4 h-4 mr-2" />
+                    <Link2 className="w-4 h-4 mr-1.5" />
                     Connected
                   </>
                 ) : (
                   <>
-                    <Link2Off className="w-4 h-4 mr-2" />
+                    <Link2Off className="w-4 h-4 mr-1.5" />
                     Connect to Course
                   </>
                 )}
@@ -391,10 +400,10 @@ export default function ResultPage() {
                 <DialogTrigger asChild>
                   <Button
                     variant="outline"
-                    className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+                    size="sm"
                     data-testid="button-save-library"
                   >
-                    <Library className="w-4 h-4 mr-2" />
+                    <Library className="w-4 h-4 mr-1.5" />
                     Save as Template
                   </Button>
                 </DialogTrigger>
@@ -442,11 +451,8 @@ export default function ResultPage() {
                 </DialogContent>
               </Dialog>
             </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="container mx-auto px-4 py-8 max-w-5xl">
+          </CardContent>
+        </Card>
         {accessibilityIssues.length > 0 && (
           <Collapsible open={showAccessibility} onOpenChange={setShowAccessibility} className="mb-6">
             <Card className="border-primary">
