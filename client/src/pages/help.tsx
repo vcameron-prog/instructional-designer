@@ -454,6 +454,45 @@ export default function HelpPage() {
           </Card>
         </section>
 
+        <section className="mb-12">
+          <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+            <ExternalLink className="w-6 h-6 text-primary" />
+            Additional Resources
+          </h2>
+          <div className="grid gap-4 md:grid-cols-2">
+            <a
+              href="https://anthropic.skilljar.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block group"
+              data-testid="link-skilljar"
+            >
+              <Card className="h-full transition-shadow hover:shadow-md">
+                <CardHeader className="pb-2">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <GraduationCap className="w-5 h-5 text-primary" />
+                    </div>
+                    <CardTitle className="text-lg group-hover:text-primary transition-colors">
+                      Anthropic Learning Center
+                    </CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <CardDescription className="mb-3">
+                    Educational courses and training materials for Claude and Anthropic AI tools. 
+                    This learning platform provides interactive learning experiences, tracks your progress, 
+                    and helps you build skills for using AI effectively in your teaching practice.
+                  </CardDescription>
+                  <span className="text-sm text-primary inline-flex items-center gap-1 group-hover:underline">
+                    Visit anthropic.skilljar.com <ExternalLink className="w-3 h-3" />
+                  </span>
+                </CardContent>
+              </Card>
+            </a>
+          </div>
+        </section>
+
         <section>
           <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
             <HelpCircle className="w-6 h-6 text-primary" />
