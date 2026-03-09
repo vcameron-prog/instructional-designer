@@ -99,8 +99,11 @@ export default function ResultPage() {
   const params = useParams();
   const courseId = params.id ? parseInt(params.id) : undefined;
   const contentId = params.contentId ? parseInt(params.contentId) : undefined;
-  const [, navigate] = useLocation();
+  const [location, navigate] = useLocation();
   const { toast } = useToast();
+
+  const isStandalone = location.startsWith("/quick-tools");
+  const backPath = isStandalone ? "/quick-tools" : `/course/${courseId}/tools`;
 
   const [copied, setCopied] = useState(false);
   const [showAccessibility, setShowAccessibility] = useState(false);
@@ -120,11 +123,11 @@ export default function ResultPage() {
 
   const { data: course } = useQuery<Course>({
     queryKey: ["/api/courses", courseId],
-    enabled: !!courseId,
+    enabled: !!courseId && !isStandalone,
   });
 
   const { data: content, isLoading } = useQuery<GeneratedContent>({
-    queryKey: ["/api/content", contentId],
+    queryKey: isStandalone ? ["/api/standalone-content", contentId] : ["/api/content", contentId],
     enabled: !!contentId,
   });
 
@@ -139,6 +142,7 @@ export default function ResultPage() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/content", contentId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/standalone-content", contentId] });
       setRefinementOpen(false);
       setRefinementRequest("");
       setIsRefining(false);
@@ -204,12 +208,15 @@ export default function ResultPage() {
   };
 
   const handleDownloadText = () => {
-    if (!content || !course) return;
+    if (!content) return;
     const blob = new Blob([content.content], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${content.toolName.replace(/\s/g, "_")}_${course.courseNumber}.txt`;
+    const filename = course
+      ? `${content.toolName.replace(/\s/g, "_")}_${course.courseNumber}.txt`
+      : `${content.toolName.replace(/\s/g, "_")}.txt`;
+    a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -280,7 +287,7 @@ export default function ResultPage() {
         <Card className="max-w-md">
           <CardContent className="p-6 text-center">
             <p className="text-muted-foreground">Content not found</p>
-            <Button className="mt-4" onClick={() => navigate(`/course/${courseId}/tools`)}>
+            <Button className="mt-4" onClick={() => navigate(backPath)}>
               Return to Tools
             </Button>
           </CardContent>
@@ -328,7 +335,7 @@ export default function ResultPage() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => navigate(`/course/${courseId}/tools`)}
+                onClick={() => navigate(backPath)}
                 aria-label="Back to tools"
                 data-testid="button-back-tools"
               >
@@ -382,6 +389,7 @@ export default function ResultPage() {
                 <FileText className="w-4 h-4 mr-1.5" />
                 .docx
               </Button>
+              {!isStandalone && (
               <Button
                 variant={content.isApproved ? "default" : "outline"}
                 size="sm"
@@ -405,6 +413,7 @@ export default function ResultPage() {
                 )}
                 </span>
               </Button>
+              )}
               <Dialog open={saveLibraryOpen} onOpenChange={setSaveLibraryOpen}>
                 <DialogTrigger asChild>
                   <Button

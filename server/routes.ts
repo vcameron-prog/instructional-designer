@@ -32,9 +32,9 @@ const upload = multer({ storage: multer.memoryStorage() });
 function generatePrompt(
   toolId: string,
   toolData: Record<string, any>,
-  course: Course
+  course: Course | null
 ): string {
-  const syllabusContext = course.existingSyllabus
+  const syllabusContext = course?.existingSyllabus
     ? `\n\nEXISTING SYLLABUS CONTENT (use this to maintain consistency with the course's established structure, topics, assessments, and terminology):\n${course.existingSyllabus}`
     : "";
 
@@ -69,7 +69,7 @@ function generatePrompt(
    - Attention to student wellbeing
 
 COURSE INFORMATION:
-Course: ${course.courseName} (${course.courseNumber})
+${course ? `Course: ${course.courseName} (${course.courseNumber})
 Level: ${course.courseLevel}
 Credits: ${course.credits}
 Semester: ${course.semester}
@@ -81,7 +81,9 @@ Course Description: ${course.courseDescription}
 
 Primary Learning Outcomes: ${course.learningOutcomes}
 
-Additional Context: ${course.additionalContext || "None provided"}${syllabusContext}
+Additional Context: ${course.additionalContext || "None provided"}${syllabusContext}` : `${toolData.subject ? `Subject/Department: ${toolData.subject}` : ""}
+${toolData.courseLevel ? `Level: ${toolData.courseLevel}` : ""}
+Note: This is a standalone quick tool usage without full course context. Generate high-quality, broadly applicable content based on the provided information.`}
 
 **CRITICAL FORMATTING RULES - FOLLOW EXACTLY:**
 - DO NOT use markdown table syntax (no |---|---| or | column | column | formats)
@@ -126,7 +128,7 @@ ${hasUDL ? `
 - Build AI literacy skills alongside content knowledge
 ` : ""}
 COURSE INFORMATION:
-Course: ${course.courseName} (${course.courseNumber})
+${course ? `Course: ${course.courseName} (${course.courseNumber})
 Level: ${course.courseLevel}
 Credits: ${course.credits}
 Semester: ${course.semester}
@@ -138,7 +140,9 @@ Course Description: ${course.courseDescription}
 
 Primary Learning Outcomes: ${course.learningOutcomes}
 
-Additional Context: ${course.additionalContext || "None provided"}${syllabusContext}
+Additional Context: ${course.additionalContext || "None provided"}${syllabusContext}` : `${toolData.subject ? `Subject/Department: ${toolData.subject}` : ""}
+${toolData.courseLevel ? `Level: ${toolData.courseLevel}` : ""}
+Note: This is a standalone quick tool usage without full course context. Generate high-quality, broadly applicable content based on the provided information.`}
 
 **CRITICAL FORMATTING RULES - FOLLOW EXACTLY:**
 - DO NOT use markdown table syntax (no |---|---| or | column | column | formats)
@@ -151,9 +155,10 @@ Additional Context: ${course.additionalContext || "None provided"}${syllabusCont
   const accessibilityBaseContext = `You are an expert in accessible design, Universal Design for Learning (UDL), and inclusive education. Analyze course content for accessibility barriers and provide research-based recommendations.
 
 COURSE INFORMATION:
-Course: ${course.courseName} (${course.courseNumber})
+${course ? `Course: ${course.courseName} (${course.courseNumber})
 Level: ${course.courseLevel}
-Department: ${course.department}
+Department: ${course.department}` : `${toolData.subject ? `Subject/Department: ${toolData.subject}` : ""}
+${toolData.courseLevel ? `Level: ${toolData.courseLevel}` : ""}`}
 
 **CRITICAL FORMATTING RULES - FOLLOW EXACTLY:**
 - DO NOT use markdown table syntax (no |---|---| or | column | column | formats)
@@ -1056,9 +1061,12 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Content not found" });
       }
       
-      // Verify course ownership through content's courseId
-      const course = await storage.getCourse(content.courseId, userId);
-      if (!course) {
+      if (content.courseId) {
+        const course = await storage.getCourse(content.courseId, userId);
+        if (!course) {
+          return res.status(404).json({ error: "Content not found" });
+        }
+      } else if (content.userId !== userId) {
         return res.status(404).json({ error: "Content not found" });
       }
       
@@ -1080,13 +1088,16 @@ export async function registerRoutes(
         return res.status(400).json({ error: "isApproved must be a boolean" });
       }
       
-      // Verify ownership before toggling
       const content = await storage.getContent(id);
       if (!content) {
         return res.status(404).json({ error: "Content not found" });
       }
-      const course = await storage.getCourse(content.courseId, userId);
-      if (!course) {
+      if (content.courseId) {
+        const course = await storage.getCourse(content.courseId, userId);
+        if (!course) {
+          return res.status(404).json({ error: "Content not found" });
+        }
+      } else if (content.userId !== userId) {
         return res.status(404).json({ error: "Content not found" });
       }
       
@@ -1138,6 +1149,74 @@ export async function registerRoutes(
     }
   });
 
+  // Standalone generate (no course required)
+  app.post("/api/generate-standalone", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = getUserId(req) as string;
+      const { toolId, toolName, formData } = req.body;
+
+      const allowedTools = ["assignment", "rubric", "alignment", "airesistant", "accessibility", "aistudent"];
+      if (!allowedTools.includes(toolId)) {
+        return res.status(400).json({ error: "This tool requires a course" });
+      }
+
+      const prompt = generatePrompt(toolId, formData, null);
+
+      const message = await anthropic.messages.create({
+        model: "claude-sonnet-4-5",
+        max_tokens: 8192,
+        messages: [{ role: "user", content: prompt }],
+      });
+
+      const generatedText = message.content
+        .filter((item): item is Anthropic.TextBlock => item.type === "text")
+        .map((item) => item.text)
+        .join("\n\n");
+
+      const content = await storage.createContent({
+        courseId: null,
+        userId,
+        toolType: toolId,
+        toolName,
+        formData,
+        content: generatedText,
+      });
+
+      res.status(201).json(content);
+    } catch (error) {
+      console.error("Error generating standalone content:", error);
+      res.status(500).json({ error: "Failed to generate content" });
+    }
+  });
+
+  // Get standalone content for user
+  app.get("/api/standalone-content", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = getUserId(req) as string;
+      const content = await storage.getStandaloneContent(userId);
+      res.json(content);
+    } catch (error) {
+      console.error("Error fetching standalone content:", error);
+      res.status(500).json({ error: "Failed to fetch content" });
+    }
+  });
+
+  // Get single standalone content item
+  app.get("/api/standalone-content/:id", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = getUserId(req) as string;
+      const id = parseInt(req.params.id);
+      const content = await storage.getStandaloneContentById(id, userId);
+      if (!content) {
+        return res.status(404).json({ error: "Content not found" });
+      }
+      res.json(content);
+    } catch (error) {
+      console.error("Error fetching standalone content:", error);
+      res.status(500).json({ error: "Failed to fetch content" });
+    }
+  });
+
   // Refine content
   app.post("/api/content/:id/refine", isAuthenticated, async (req: Request, res: Response) => {
     try {
@@ -1150,9 +1229,12 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Content not found" });
       }
       
-      // Verify course ownership
-      const course = await storage.getCourse(content.courseId, userId);
-      if (!course) {
+      if (content.courseId) {
+        const course = await storage.getCourse(content.courseId, userId);
+        if (!course) {
+          return res.status(404).json({ error: "Content not found" });
+        }
+      } else if (content.userId !== userId) {
         return res.status(404).json({ error: "Content not found" });
       }
 
@@ -1294,9 +1376,12 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         return res.status(404).json({ error: "Content not found" });
       }
 
-      // Verify course ownership before exporting
-      const course = await storage.getCourse(content.courseId, userId);
-      if (!course) {
+      if (content.courseId) {
+        const course = await storage.getCourse(content.courseId, userId);
+        if (!course) {
+          return res.status(404).json({ error: "Content not found" });
+        }
+      } else if (content.userId !== userId) {
         return res.status(404).json({ error: "Content not found" });
       }
       

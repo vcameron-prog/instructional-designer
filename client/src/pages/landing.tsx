@@ -21,7 +21,8 @@ import {
   User,
   Shield,
   Users,
-  Loader2
+  Loader2,
+  Zap
 } from "lucide-react";
 import { SiGoogle } from "react-icons/si";
 import { useAuth } from "@/hooks/use-auth";
@@ -225,7 +226,7 @@ export default function LandingPage() {
           </p>
         </div>
 
-        <div className={`grid gap-6 max-w-4xl mx-auto ${courses.length > 0 ? "md:grid-cols-2" : "max-w-md"}`}>
+        <div className={`grid gap-6 max-w-4xl mx-auto ${courses.length > 0 ? "md:grid-cols-2" : "md:grid-cols-2 max-w-2xl"}`}>
           <Card 
             className="group cursor-pointer transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl bg-card border-0"
             onClick={() => navigate("/new-course")}
@@ -245,6 +246,29 @@ export default function LandingPage() {
               </CardDescription>
               <Button className="mt-6 gap-2" data-testid="button-start-new">
                 Get Started <ArrowRight className="w-4 h-4" />
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card 
+            className="group cursor-pointer transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl bg-card border-0"
+            onClick={() => navigate("/quick-tools")}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate("/quick-tools"); } }}
+            tabIndex={0}
+            role="button"
+            aria-label="Quick Tools"
+            data-testid="card-quick-tools"
+          >
+            <CardContent className="p-8 text-center">
+              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-secondary to-primary flex items-center justify-center mx-auto mb-6 group-hover:scale-105 transition-transform">
+                <Zap className="w-10 h-10 text-white" />
+              </div>
+              <CardTitle className="text-2xl mb-3">Quick Tools</CardTitle>
+              <CardDescription className="text-base">
+                Create a one-off assignment, rubric, or other material without setting up a full course
+              </CardDescription>
+              <Button variant="outline" className="mt-6 gap-2" data-testid="button-quick-tools">
+                Browse Tools <ArrowRight className="w-4 h-4" />
               </Button>
             </CardContent>
           </Card>

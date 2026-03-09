@@ -10,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, Loader2, Sparkles, BookOpen, Calendar, FileText, Layout, CheckCircle, Target, Scale, ShieldCheck, Eye, Bot } from "lucide-react";
-import { TOOLS, BSU_CALENDAR, LOADING_MESSAGES } from "@/lib/constants";
+import { TOOLS, BSU_CALENDAR, LOADING_MESSAGES, COURSE_LEVELS } from "@/lib/constants";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { PoweredByFooter } from "@/components/powered-by-footer";
@@ -263,8 +263,10 @@ export default function ToolForm() {
   const params = useParams();
   const courseId = params.id ? parseInt(params.id) : undefined;
   const toolId = params.toolId;
-  const [, navigate] = useLocation();
+  const [location, navigate] = useLocation();
   const { toast } = useToast();
+
+  const isStandalone = location.startsWith("/quick-tools");
 
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [isGenerating, setIsGenerating] = useState(false);
@@ -282,7 +284,7 @@ export default function ToolForm() {
 
   const { data: course } = useQuery<Course>({
     queryKey: ["/api/courses", courseId],
-    enabled: !!courseId,
+    enabled: !!courseId && !isStandalone,
   });
 
   // Auto-fill schedule dates when semester is known
@@ -299,6 +301,14 @@ export default function ToolForm() {
 
   const generateMutation = useMutation({
     mutationFn: async () => {
+      if (isStandalone) {
+        const response = await apiRequest("POST", "/api/generate-standalone", {
+          toolId,
+          toolName: tool?.name,
+          formData,
+        });
+        return response.json();
+      }
       const response = await apiRequest("POST", `/api/courses/${courseId}/generate`, {
         toolId,
         toolName: tool?.name,
@@ -307,8 +317,12 @@ export default function ToolForm() {
       return response.json();
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId, "content"] });
-      navigate(`/course/${courseId}/result/${data.id}`);
+      if (isStandalone) {
+        navigate(`/quick-tools/result/${data.id}`);
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId, "content"] });
+        navigate(`/course/${courseId}/result/${data.id}`);
+      }
     },
     onError: (error) => {
       toast({ title: "Generation failed", description: error.message, variant: "destructive" });
@@ -362,13 +376,15 @@ export default function ToolForm() {
     generateMutation.mutate();
   };
 
+  const backPath = isStandalone ? "/quick-tools" : `/course/${courseId}/tools`;
+
   if (!tool) {
     return (
       <main id="main-content" tabIndex={-1} className="min-h-screen bg-background flex items-center justify-center">
         <Card className="max-w-md">
           <CardContent className="p-6 text-center">
             <p className="text-muted-foreground">Tool not found</p>
-            <Button className="mt-4" onClick={() => navigate(`/course/${courseId}/tools`)}>
+            <Button className="mt-4" onClick={() => navigate(backPath)}>
               Return to Tools
             </Button>
           </CardContent>
@@ -416,7 +432,7 @@ export default function ToolForm() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => navigate(`/course/${courseId}/tools`)}
+                onClick={() => navigate(backPath)}
                 aria-label="Back to tools"
                 data-testid="button-back-tools"
               >
@@ -439,12 +455,49 @@ export default function ToolForm() {
 
       <div className="container mx-auto px-4 py-8">
         <form onSubmit={handleSubmit} className="max-w-3xl mx-auto space-y-6">
-          {course && (
+          {course && !isStandalone && (
             <Card className="bg-muted/30">
               <CardContent className="p-4">
                 <p className="text-sm text-muted-foreground">
                   Creating for: <span className="font-medium text-foreground">{course.courseName}</span> ({course.courseNumber})
                 </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {isStandalone && (
+            <Card className="bg-muted/30">
+              <CardHeader className="pb-3 pt-4 px-4">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Course Context (Optional)</CardTitle>
+                <CardDescription className="text-xs">Adding subject and level helps generate more tailored content</CardDescription>
+              </CardHeader>
+              <CardContent className="px-4 pb-4 pt-0 grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="standalone-subject" className="text-sm">Subject / Department</Label>
+                  <Input
+                    id="standalone-subject"
+                    placeholder="e.g., Psychology, Biology"
+                    value={formData.subject || ""}
+                    onChange={(e) => handleInputChange("subject", e.target.value)}
+                    data-testid="input-standalone-subject"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="standalone-level" className="text-sm">Course Level</Label>
+                  <Select
+                    value={formData.courseLevel || ""}
+                    onValueChange={(value) => handleInputChange("courseLevel", value)}
+                  >
+                    <SelectTrigger id="standalone-level" data-testid="select-standalone-level">
+                      <SelectValue placeholder="Select level" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {COURSE_LEVELS.map(level => (
+                        <SelectItem key={level} value={level}>{level}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </CardContent>
             </Card>
           )}
@@ -560,7 +613,7 @@ export default function ToolForm() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => navigate(`/course/${courseId}/tools`)}
+              onClick={() => navigate(backPath)}
               data-testid="button-cancel"
             >
               Cancel

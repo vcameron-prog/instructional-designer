@@ -39,12 +39,13 @@ export type Course = typeof courses.$inferSelect;
 // Generated content table
 export const generatedContent = pgTable("generated_content", {
   id: serial("id").primaryKey(),
-  courseId: integer("course_id").notNull().references(() => courses.id, { onDelete: "cascade" }),
-  toolType: text("tool_type").notNull(), // syllabus, schedule, assignment, module, rubric, aipolicy, alignment, airesistant
+  courseId: integer("course_id").references(() => courses.id, { onDelete: "cascade" }),
+  userId: text("user_id"),
+  toolType: text("tool_type").notNull(),
   toolName: text("tool_name").notNull(),
   formData: jsonb("form_data").notNull(),
   content: text("content").notNull(),
-  isApproved: boolean("is_approved").default(false).notNull(), // When true, this content is used as context for other tools
+  isApproved: boolean("is_approved").default(false).notNull(),
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 

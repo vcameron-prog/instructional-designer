@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, isNull } from "drizzle-orm";
 import { 
   courses, 
   generatedContent, 
@@ -31,6 +31,10 @@ export interface IStorage {
   updateContent(id: number, content: string): Promise<GeneratedContent | undefined>;
   toggleContentApproval(id: number, isApproved: boolean): Promise<GeneratedContent | undefined>;
   
+  // Standalone Content (no course)
+  getStandaloneContent(userId: string): Promise<GeneratedContent[]>;
+  getStandaloneContentById(id: number, userId: string): Promise<GeneratedContent | undefined>;
+
   // Content Versions
   createVersion(version: InsertContentVersion): Promise<ContentVersion>;
   getVersionsByContent(contentId: number): Promise<ContentVersion[]>;
@@ -120,6 +124,22 @@ export class DatabaseStorage implements IStorage {
       .where(eq(generatedContent.id, id))
       .returning();
     return updated;
+  }
+
+  async getStandaloneContent(userId: string): Promise<GeneratedContent[]> {
+    return db
+      .select()
+      .from(generatedContent)
+      .where(and(isNull(generatedContent.courseId), eq(generatedContent.userId, userId)))
+      .orderBy(desc(generatedContent.createdAt));
+  }
+
+  async getStandaloneContentById(id: number, userId: string): Promise<GeneratedContent | undefined> {
+    const [content] = await db
+      .select()
+      .from(generatedContent)
+      .where(and(eq(generatedContent.id, id), eq(generatedContent.userId, userId)));
+    return content;
   }
 
   // Content Versions

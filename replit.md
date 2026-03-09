@@ -6,7 +6,16 @@ This is an AI-powered instructional design tool built for Bridgewater State Univ
 
 ## Recent Updates
 
-### ADA Title II / WCAG 2.1 AA Compliance (Latest)
+### Quick Tools (Latest)
+- **Standalone tool usage without course creation**: 6 tools available as "Quick Tools": Assignment Designer, Rubric Builder, Alignment Checker, AI-Resistant Assignment Designer, Accessibility Checker, AI-Powered Activity Designer
+- **Optional context fields**: Subject/Department (text) and Course Level (dropdown) on the tool form for tailored output
+- **Routes**: `/quick-tools` (selection page), `/quick-tools/:toolId` (tool form), `/quick-tools/result/:contentId` (result page)
+- **API**: `POST /api/generate-standalone`, `GET /api/standalone-content`, `GET /api/standalone-content/:id`
+- **Database**: `courseId` is nullable in `generatedContent` table; standalone content stored with `courseId = null`
+- **Landing page**: "Quick Tools" card alongside "Start New Course"
+- **Result page**: Hides "Connect to Course" button in standalone mode; export and refine still work
+
+### ADA Title II / WCAG 2.1 AA Compliance
 - **Skip Navigation**: "Skip to main content" link as first focusable element, visually hidden until focused
 - **Dynamic Page Titles**: Every page sets a unique `document.title` via `usePageTitle` hook (WCAG 2.4.2)
 - **ARIA Live Regions**: Loading states, copy-to-clipboard, and content approval toggle announce to screen readers

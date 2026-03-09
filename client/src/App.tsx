@@ -13,6 +13,7 @@ import ResultPage from "@/pages/result";
 import HelpPage from "@/pages/help";
 import ResearchPage from "@/pages/research";
 import LibraryPage from "@/pages/library";
+import QuickToolsPage from "@/pages/quick-tools";
 import { WelcomeModal } from "@/components/welcome-modal";
 import { ThemeProvider } from "@/components/theme-provider";
 import { FontSizeProvider } from "@/components/font-size-provider";
@@ -53,6 +54,9 @@ function Router() {
       <Route path="/course/:id/tools" component={ToolSelection} />
       <Route path="/course/:id/tool/:toolId" component={ToolForm} />
       <Route path="/course/:id/result/:contentId" component={ResultPage} />
+      <Route path="/quick-tools" component={QuickToolsPage} />
+      <Route path="/quick-tools/:toolId" component={ToolForm} />
+      <Route path="/quick-tools/result/:contentId" component={ResultPage} />
       <Route path="/help" component={HelpPage} />
       <Route path="/research" component={ResearchPage} />
       <Route path="/library" component={LibraryPage} />
