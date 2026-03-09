@@ -6,7 +6,19 @@ This is an AI-powered instructional design tool built for Bridgewater State Univ
 
 ## Recent Updates
 
-### AI-Powered Activity Designer & AI-Powered Student Activities Option (Latest)
+### ADA Title II / WCAG 2.1 AA Compliance (Latest)
+- **Skip Navigation**: "Skip to main content" link as first focusable element, visually hidden until focused
+- **Dynamic Page Titles**: Every page sets a unique `document.title` via `usePageTitle` hook (WCAG 2.4.2)
+- **ARIA Live Regions**: Loading states, copy-to-clipboard, and content approval toggle announce to screen readers
+- **Keyboard Accessibility**: All interactive cards (course cards, tool cards) have `role="button"`, `tabIndex`, and `onKeyDown` handlers; action buttons visible on focus-within
+- **Focus Management**: `FocusManager` component moves focus to `#main-content` on route changes
+- **Form Error Accessibility**: `aria-required` on all required fields, focus-on-first-error on validation failure
+- **Color Contrast**: Muted foreground darkened (40% → 35% lightness) for AA compliance
+- **Landmark Structure**: Every page wrapped in `<main id="main-content" tabIndex={-1}>`; proper `<h1>` hierarchy
+- **Icon Button Labels**: All icon-only buttons have `aria-label` attributes (back, duplicate, delete, etc.)
+- **Approval Toggle**: Uses `aria-pressed` and `aria-live` for state change announcements
+
+### AI-Powered Activity Designer & AI-Powered Student Activities Option
 - **New AI-Powered Activity Designer (11th tool)**: Standalone tool for designing student activities that intentionally use AI as a learning tool
   - Activity types: AI Debate/Socratic Dialogue, AI-Assisted Drafting & Revision, AI as Research Assistant, AI Code Review, AI-Generated Content Analysis, AI Tutoring/Study Partner, AI Data Analysis, Custom
   - Configurable AI tool recommendation (Claude, ChatGPT, Any, Multiple for comparison)

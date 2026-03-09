@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { PoweredByFooter } from "@/components/powered-by-footer";
 import { HeaderControls } from "@/components/header-controls";
+import { usePageTitle } from "@/hooks/use-page-title";
 import { 
   ArrowLeft, 
   Library, 
@@ -83,8 +84,10 @@ export default function LibraryPage() {
     URL.revokeObjectURL(url);
   };
 
+  usePageTitle("Template Library");
+
   return (
-    <div className="min-h-screen bg-background">
+    <main id="main-content" tabIndex={-1} className="min-h-screen bg-background">
       <div className="border-b bg-card">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -93,6 +96,7 @@ export default function LibraryPage() {
                 variant="ghost"
                 size="icon"
                 onClick={handleBack}
+                aria-label="Go back"
                 data-testid="button-back"
               >
                 <ArrowLeft className="w-5 h-5" />
@@ -200,6 +204,6 @@ export default function LibraryPage() {
         )}
       </div>
       <PoweredByFooter />
-    </div>
+    </main>
   );
 }

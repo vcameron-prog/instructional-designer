@@ -2,6 +2,7 @@ import { useLocation } from "wouter";
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { usePageTitle } from "@/hooks/use-page-title";
 import {
   Accordion,
   AccordionContent,
@@ -236,8 +237,10 @@ export default function HelpPage() {
     navigate(fromPath || "/");
   };
 
+  usePageTitle("Help & Resources");
+
   return (
-    <div className="min-h-screen bg-background">
+    <main id="main-content" tabIndex={-1} className="min-h-screen bg-background">
       <div className="border-b bg-card">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -246,6 +249,7 @@ export default function HelpPage() {
                 variant="ghost"
                 size="icon"
                 onClick={handleBack}
+                aria-label="Go back"
                 data-testid="button-back"
               >
                 <ArrowLeft className="w-5 h-5" />
@@ -531,6 +535,6 @@ export default function HelpPage() {
         </section>
       </div>
       <PoweredByFooter />
-    </div>
+    </main>
   );
 }

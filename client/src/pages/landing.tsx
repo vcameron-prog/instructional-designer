@@ -26,6 +26,7 @@ import {
 import { SiGoogle } from "react-icons/si";
 import { useAuth } from "@/hooks/use-auth";
 import { HeaderControls } from "@/components/header-controls";
+import { usePageTitle } from "@/hooks/use-page-title";
 import type { Course, GeneratedContent } from "@shared/schema";
 import { format } from "date-fns";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -60,9 +61,10 @@ const toolIconMap: Record<string, any> = {
 };
 
 function LoginPage() {
+  usePageTitle("Sign In");
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary via-primary/90 to-primary/80 relative overflow-hidden">
-      <div className="absolute inset-0 pattern-dots text-white/10 opacity-50" />
+    <main id="main-content" tabIndex={-1} className="min-h-screen bg-gradient-to-br from-primary via-primary/90 to-primary/80 relative overflow-hidden">
+      <div className="absolute inset-0 pattern-dots text-white/10 opacity-50" aria-hidden="true" />
       
       <div className="absolute top-4 right-4 z-20">
         <HeaderControls variant="dark" showLogout={false} showLibrary={false} />
@@ -133,7 +135,7 @@ function LoginPage() {
           </p>
         </div>
       </div>
-    </div>
+    </main>
   );
 }
 
@@ -171,15 +173,16 @@ export default function LandingPage() {
     },
   });
 
-  // Show loading state
+  usePageTitle("Home");
+
   if (isAuthLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-primary via-primary/90 to-primary/80 flex items-center justify-center">
+      <main id="main-content" tabIndex={-1} className="min-h-screen bg-gradient-to-br from-primary via-primary/90 to-primary/80 flex items-center justify-center" role="status">
         <div className="text-center">
-          <Loader2 className="w-12 h-12 text-white animate-spin mx-auto mb-4" />
+          <Loader2 className="w-12 h-12 text-white animate-spin mx-auto mb-4" aria-hidden="true" />
           <p className="text-white/80">Loading...</p>
         </div>
-      </div>
+      </main>
     );
   }
 
@@ -189,10 +192,10 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary via-primary/90 to-primary/80 relative overflow-hidden">
-      <div className="absolute inset-0 pattern-dots text-white/10 opacity-50" />
+    <main id="main-content" tabIndex={-1} className="min-h-screen bg-gradient-to-br from-primary via-primary/90 to-primary/80 relative overflow-hidden">
+      <div className="absolute inset-0 pattern-dots text-white/10 opacity-50" aria-hidden="true" />
       
-      <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+      <nav aria-label="User menu" className="absolute top-4 right-4 z-20 flex items-center gap-2">
         {user && (
           <div className="flex items-center gap-2 bg-white/10 rounded-lg px-3 py-1.5 mr-1" data-testid="user-info">
             <Avatar className="w-7 h-7">
@@ -207,7 +210,7 @@ export default function LandingPage() {
           </div>
         )}
         <HeaderControls variant="dark" />
-      </div>
+      </nav>
       
       <div className="relative z-10 container mx-auto px-4 py-12 md:py-20">
         <div className="text-center mb-12 animate-fade-in-up">
@@ -226,6 +229,10 @@ export default function LandingPage() {
           <Card 
             className="group cursor-pointer transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl bg-card border-0"
             onClick={() => navigate("/new-course")}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate("/new-course"); } }}
+            tabIndex={0}
+            role="button"
+            aria-label="Start a new course"
             data-testid="card-new-course"
           >
             <CardContent className="p-8 text-center">
@@ -315,7 +322,7 @@ export default function LandingPage() {
           </p>
         </div>
       </div>
-    </div>
+    </main>
   );
 }
 
@@ -380,7 +387,7 @@ function CourseCard({
             </div>
           )}
         </button>
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -388,6 +395,7 @@ function CourseCard({
                 variant="ghost"
                 onClick={(e) => { e.stopPropagation(); onDuplicate(); }}
                 disabled={isDuplicating}
+                aria-label={`Duplicate ${course.courseName}`}
                 data-testid={`button-duplicate-course-${course.id}`}
               >
                 <Copy className="w-4 h-4" />
@@ -402,6 +410,7 @@ function CourseCard({
               <Button
                 size="icon"
                 variant="ghost"
+                aria-label={`Delete ${course.courseName}`}
                 data-testid={`button-delete-course-${course.id}`}
               >
                 <Trash2 className="w-4 h-4 text-destructive" />

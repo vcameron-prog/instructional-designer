@@ -1,4 +1,5 @@
-import { Switch, Route, useParams } from "wouter";
+import { useEffect, useRef } from "react";
+import { Switch, Route, useParams, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -26,6 +27,23 @@ function EditCourseWrapper() {
   return <CourseForm courseId={courseId} />;
 }
 
+function FocusManager() {
+  const [location] = useLocation();
+  const prevLocation = useRef(location);
+
+  useEffect(() => {
+    if (prevLocation.current !== location) {
+      prevLocation.current = location;
+      const main = document.getElementById("main-content");
+      if (main) {
+        main.focus({ preventScroll: false });
+      }
+    }
+  }, [location]);
+
+  return null;
+}
+
 function Router() {
   return (
     <Switch>
@@ -49,8 +67,12 @@ function App() {
       <ThemeProvider>
         <FontSizeProvider>
           <TooltipProvider>
+            <a href="#main-content" className="skip-nav">
+              Skip to main content
+            </a>
             <WelcomeModal />
             <Toaster />
+            <FocusManager />
             <Router />
           </TooltipProvider>
         </FontSizeProvider>

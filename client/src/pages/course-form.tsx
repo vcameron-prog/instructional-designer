@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
+import { usePageTitle } from "@/hooks/use-page-title";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -243,16 +244,19 @@ export default function CourseForm({ courseId }: { courseId?: number }) {
 
   const isPending = createMutation.isPending || updateMutation.isPending;
 
+  usePageTitle(courseId ? "Edit Course" : "New Course");
+
   if (courseId && isLoadingCourse) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
+      <main id="main-content" tabIndex={-1} className="min-h-screen bg-background flex items-center justify-center" role="status">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" aria-hidden="true" />
+        <span className="sr-only">Loading course information</span>
+      </main>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <main id="main-content" tabIndex={-1} className="min-h-screen bg-background">
       <div className="border-b bg-card">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -261,6 +265,7 @@ export default function CourseForm({ courseId }: { courseId?: number }) {
                 variant="ghost"
                 size="icon"
                 onClick={() => navigate("/")}
+                aria-label="Back to home"
                 data-testid="button-back-home"
               >
                 <ArrowLeft className="w-5 h-5" />
@@ -330,7 +335,7 @@ export default function CourseForm({ courseId }: { courseId?: number }) {
                     <FormItem>
                       <FormLabel>Course Name *</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g., Introduction to Psychology" {...field} data-testid="input-course-name" />
+                        <Input placeholder="e.g., Introduction to Psychology" {...field} aria-required="true" data-testid="input-course-name" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -344,7 +349,7 @@ export default function CourseForm({ courseId }: { courseId?: number }) {
                     <FormItem>
                       <FormLabel>Course Number *</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g., PSYC 101" {...field} data-testid="input-course-number" />
+                        <Input placeholder="e.g., PSYC 101" {...field} aria-required="true" data-testid="input-course-number" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -359,7 +364,7 @@ export default function CourseForm({ courseId }: { courseId?: number }) {
                       <FormLabel>Course Level *</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
-                          <SelectTrigger data-testid="select-course-level">
+                          <SelectTrigger data-testid="select-course-level" aria-required="true">
                             <SelectValue placeholder="Select level" />
                           </SelectTrigger>
                         </FormControl>
@@ -382,7 +387,7 @@ export default function CourseForm({ courseId }: { courseId?: number }) {
                       <FormLabel>Credit Hours *</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
-                          <SelectTrigger data-testid="select-credits">
+                          <SelectTrigger data-testid="select-credits" aria-required="true">
                             <SelectValue placeholder="Select credits" />
                           </SelectTrigger>
                         </FormControl>
@@ -405,7 +410,7 @@ export default function CourseForm({ courseId }: { courseId?: number }) {
                       <FormLabel>Semester *</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
-                          <SelectTrigger data-testid="select-semester">
+                          <SelectTrigger data-testid="select-semester" aria-required="true">
                             <SelectValue placeholder="Select semester" />
                           </SelectTrigger>
                         </FormControl>
@@ -427,7 +432,7 @@ export default function CourseForm({ courseId }: { courseId?: number }) {
                     <FormItem>
                       <FormLabel>Instructor Name *</FormLabel>
                       <FormControl>
-                        <Input placeholder="Your name" {...field} data-testid="input-instructor" />
+                        <Input placeholder="Your name" {...field} aria-required="true" data-testid="input-instructor" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -441,7 +446,7 @@ export default function CourseForm({ courseId }: { courseId?: number }) {
                     <FormItem>
                       <FormLabel>Department *</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g., Psychology" {...field} data-testid="input-department" />
+                        <Input placeholder="e.g., Psychology" {...field} aria-required="true" data-testid="input-department" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -481,6 +486,7 @@ export default function CourseForm({ courseId }: { courseId?: number }) {
                           placeholder="Provide a comprehensive description of the course content and goals..."
                           className="min-h-32"
                           {...field}
+                          aria-required="true"
                           data-testid="textarea-description"
                         />
                       </FormControl>
@@ -500,6 +506,7 @@ export default function CourseForm({ courseId }: { courseId?: number }) {
                           placeholder="List the main learning outcomes students should achieve..."
                           className="min-h-32"
                           {...field}
+                          aria-required="true"
                           data-testid="textarea-outcomes"
                         />
                       </FormControl>
@@ -615,6 +622,6 @@ export default function CourseForm({ courseId }: { courseId?: number }) {
         </Form>
       </div>
       <PoweredByFooter />
-    </div>
+    </main>
   );
 }

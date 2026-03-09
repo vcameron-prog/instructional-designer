@@ -6,6 +6,7 @@ import { ArrowLeft, BookOpen, Calendar, FileText, Layout, CheckCircle, Sparkles,
 import { TOOLS } from "@/lib/constants";
 import { PoweredByFooter } from "@/components/powered-by-footer";
 import { HeaderControls } from "@/components/header-controls";
+import { usePageTitle } from "@/hooks/use-page-title";
 import type { Course, GeneratedContent } from "@shared/schema";
 
 const iconMap: Record<string, any> = {
@@ -43,17 +44,22 @@ export default function ToolSelection() {
     enabled: !!courseId,
   });
 
+  usePageTitle(course ? "Design Tools - " + course.courseName : "Design Tools");
+
   if (isLoadingCourse) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
+      <main id="main-content" tabIndex={-1} className="min-h-screen bg-background flex items-center justify-center">
+        <div role="status">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" aria-hidden="true" />
+          <span className="sr-only">Loading course tools</span>
+        </div>
+      </main>
     );
   }
 
   if (!course) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <main id="main-content" tabIndex={-1} className="min-h-screen bg-background flex items-center justify-center">
         <Card className="max-w-md">
           <CardContent className="p-6 text-center">
             <p className="text-muted-foreground">Course not found</p>
@@ -62,7 +68,7 @@ export default function ToolSelection() {
             </Button>
           </CardContent>
         </Card>
-      </div>
+      </main>
     );
   }
 
@@ -71,7 +77,7 @@ export default function ToolSelection() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <main id="main-content" tabIndex={-1} className="min-h-screen bg-background">
       <div className="border-b bg-card">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -80,6 +86,7 @@ export default function ToolSelection() {
                 variant="ghost"
                 size="icon"
                 onClick={() => navigate("/")}
+                aria-label="Back to home"
                 data-testid="button-back-home"
               >
                 <ArrowLeft className="w-5 h-5" />
@@ -130,6 +137,9 @@ export default function ToolSelection() {
                 className="group cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-lg animate-fade-in-up"
                 style={{ animationDelay: `${index * 50}ms` }}
                 onClick={() => navigate(`/course/${courseId}/tool/${tool.id}`)}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate(`/course/${courseId}/tool/${tool.id}`); } }}
+                tabIndex={0}
+                role="button"
                 data-testid={`card-tool-${tool.id}`}
               >
                 <CardHeader className="pb-3">
@@ -153,7 +163,7 @@ export default function ToolSelection() {
                     {tool.description}
                   </CardDescription>
                   <Button variant="ghost" className="mt-4 p-0 h-auto text-primary font-medium group-hover:gap-2 transition-all">
-                    Get Started <ArrowRight className="w-4 h-4 ml-1" />
+                    Get Started <ArrowRight className="w-4 h-4 ml-1" aria-hidden="true" />
                   </Button>
                 </CardContent>
               </Card>
@@ -180,6 +190,9 @@ export default function ToolSelection() {
                     key={content.id}
                     className="cursor-pointer hover-elevate active-elevate-2 border-blue-200 dark:border-blue-800"
                     onClick={() => navigate(`/course/${courseId}/result/${content.id}`)}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate(`/course/${courseId}/result/${content.id}`); } }}
+                    tabIndex={0}
+                    role="button"
                     data-testid={`card-connected-${content.id}`}
                   >
                     <CardContent className="flex items-center gap-4 p-4">
@@ -214,6 +227,9 @@ export default function ToolSelection() {
                     key={content.id}
                     className="cursor-pointer hover-elevate active-elevate-2"
                     onClick={() => navigate(`/course/${courseId}/result/${content.id}`)}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate(`/course/${courseId}/result/${content.id}`); } }}
+                    tabIndex={0}
+                    role="button"
                     data-testid={`card-content-${content.id}`}
                   >
                     <CardContent className="flex items-center gap-4 p-4">
@@ -270,6 +286,6 @@ export default function ToolSelection() {
         </div>
       </div>
       <PoweredByFooter />
-    </div>
+    </main>
   );
 }

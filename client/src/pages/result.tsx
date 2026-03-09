@@ -30,6 +30,7 @@ import { Label } from "@/components/ui/label";
 import { TOOLS, LOADING_MESSAGES } from "@/lib/constants";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { usePageTitle } from "@/hooks/use-page-title";
 import type { Course, GeneratedContent } from "@shared/schema";
 
 interface AccessibilityIssue {
@@ -126,6 +127,8 @@ export default function ResultPage() {
     queryKey: ["/api/content", contentId],
     enabled: !!contentId,
   });
+
+  usePageTitle(content ? content.toolName + " Result" : "Result");
 
   const refineMutation = useMutation({
     mutationFn: async () => {
@@ -264,15 +267,16 @@ export default function ResultPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
+      <main id="main-content" tabIndex={-1} className="min-h-screen bg-background flex items-center justify-center" role="status">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" aria-hidden="true" />
+        <span className="sr-only">Loading generated content</span>
+      </main>
     );
   }
 
   if (!content) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <main id="main-content" tabIndex={-1} className="min-h-screen bg-background flex items-center justify-center">
         <Card className="max-w-md">
           <CardContent className="p-6 text-center">
             <p className="text-muted-foreground">Content not found</p>
@@ -281,26 +285,26 @@ export default function ResultPage() {
             </Button>
           </CardContent>
         </Card>
-      </div>
+      </main>
     );
   }
 
   if (isRefining) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-primary/5 to-accent/5 flex items-center justify-center">
+      <main id="main-content" tabIndex={-1} className="min-h-screen bg-gradient-to-br from-primary/5 to-accent/5 flex items-center justify-center">
         <Card className="max-w-lg w-full mx-4">
-          <CardContent className="p-12 text-center">
+          <CardContent className="p-12 text-center" role="status" aria-live="polite">
             <div className="w-20 h-20 mx-auto mb-8 relative">
-              <div className="absolute inset-0 bg-secondary/20 rounded-full animate-ping" />
+              <div className="absolute inset-0 bg-secondary/20 rounded-full animate-ping" aria-hidden="true" />
               <div className="relative w-full h-full bg-secondary rounded-full flex items-center justify-center">
-                <RefreshCw className="w-10 h-10 text-white animate-spin-slow" />
+                <RefreshCw className="w-10 h-10 text-white animate-spin-slow" aria-hidden="true" />
               </div>
             </div>
             <h2 className="text-2xl font-bold mb-4">Refining Your Content</h2>
             <p className="text-muted-foreground mb-6 animate-pulse-subtle">
               {loadingMessage}
             </p>
-            <div className="flex justify-center gap-1">
+            <div className="flex justify-center gap-1" aria-hidden="true">
               {[0, 1, 2].map(i => (
                 <div
                   key={i}
@@ -311,12 +315,12 @@ export default function ResultPage() {
             </div>
           </CardContent>
         </Card>
-      </div>
+      </main>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <main id="main-content" tabIndex={-1} className="min-h-screen bg-background">
       <div className="border-b bg-card">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -325,6 +329,7 @@ export default function ResultPage() {
                 variant="ghost"
                 size="icon"
                 onClick={() => navigate(`/course/${courseId}/tools`)}
+                aria-label="Back to tools"
                 data-testid="button-back-tools"
               >
                 <ArrowLeft className="w-5 h-5" />
@@ -357,7 +362,7 @@ export default function ResultPage() {
                 data-testid="button-copy"
               >
                 {copied ? <CheckCircle className="w-4 h-4 mr-1.5" /> : <Copy className="w-4 h-4 mr-1.5" />}
-                {copied ? "Copied!" : "Copy"}
+                <span aria-live="polite">{copied ? "Copied!" : "Copy"}</span>
               </Button>
               <Button
                 variant="outline"
@@ -382,19 +387,23 @@ export default function ResultPage() {
                 size="sm"
                 onClick={() => toggleApprovalMutation.mutate()}
                 disabled={toggleApprovalMutation.isPending}
+                aria-pressed={content.isApproved}
+                aria-label={content.isApproved ? "Connected to course. Click to disconnect." : "Not connected. Click to connect to course."}
                 data-testid="button-toggle-approval"
               >
+                <span aria-live="polite">
                 {content.isApproved ? (
                   <>
-                    <Link2 className="w-4 h-4 mr-1.5" />
+                    <Link2 className="w-4 h-4 mr-1.5 inline" />
                     Connected
                   </>
                 ) : (
                   <>
-                    <Link2Off className="w-4 h-4 mr-1.5" />
+                    <Link2Off className="w-4 h-4 mr-1.5 inline" />
                     Connect to Course
                   </>
                 )}
+                </span>
               </Button>
               <Dialog open={saveLibraryOpen} onOpenChange={setSaveLibraryOpen}>
                 <DialogTrigger asChild>
@@ -626,6 +635,6 @@ export default function ResultPage() {
         </div>
       </div>
       <PoweredByFooter />
-    </div>
+    </main>
   );
 }

@@ -18,6 +18,7 @@ import { HeaderControls } from "@/components/header-controls";
 import type { Course } from "@shared/schema";
 import { UdlTips } from "@/components/udl-tips";
 import { AccessibilityTips } from "@/components/accessibility-tips";
+import { usePageTitle } from "@/hooks/use-page-title";
 
 interface ToolFormField {
   name: string;
@@ -271,6 +272,8 @@ export default function ToolForm() {
 
   const tool = TOOLS.find(t => t.id === toolId);
 
+  usePageTitle(tool ? tool.name : "Tool");
+
   // Scroll to top when component mounts
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -349,6 +352,7 @@ export default function ToolForm() {
         const value = formData[field.name];
         if (!value || (Array.isArray(value) && value.length === 0)) {
           toast({ title: `${field.label} is required`, variant: "destructive" });
+          document.getElementById(field.name)?.focus();
           return;
         }
       }
@@ -360,7 +364,7 @@ export default function ToolForm() {
 
   if (!tool) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <main id="main-content" tabIndex={-1} className="min-h-screen bg-background flex items-center justify-center">
         <Card className="max-w-md">
           <CardContent className="p-6 text-center">
             <p className="text-muted-foreground">Tool not found</p>
@@ -369,26 +373,26 @@ export default function ToolForm() {
             </Button>
           </CardContent>
         </Card>
-      </div>
+      </main>
     );
   }
 
   if (isGenerating) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-primary/5 to-accent/5 flex items-center justify-center">
+      <main id="main-content" tabIndex={-1} className="min-h-screen bg-gradient-to-br from-primary/5 to-accent/5 flex items-center justify-center">
         <Card className="max-w-lg w-full mx-4">
-          <CardContent className="p-12 text-center">
+          <CardContent className="p-12 text-center" role="status" aria-live="polite">
             <div className="w-20 h-20 mx-auto mb-8 relative">
               <div className="absolute inset-0 bg-primary/20 rounded-full animate-ping" />
               <div className="relative w-full h-full bg-primary rounded-full flex items-center justify-center">
-                <Sparkles className="w-10 h-10 text-white animate-pulse" />
+                <Sparkles className="w-10 h-10 text-white animate-pulse" aria-hidden="true" />
               </div>
             </div>
             <h2 className="text-2xl font-bold mb-4">Generating Your {tool.name}</h2>
             <p className="text-muted-foreground mb-6 animate-pulse-subtle">
               {loadingMessage}
             </p>
-            <div className="flex justify-center gap-1">
+            <div className="flex justify-center gap-1" aria-hidden="true">
               {[0, 1, 2].map(i => (
                 <div
                   key={i}
@@ -399,12 +403,12 @@ export default function ToolForm() {
             </div>
           </CardContent>
         </Card>
-      </div>
+      </main>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <main id="main-content" tabIndex={-1} className="min-h-screen bg-background">
       <div className="border-b bg-card">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -413,6 +417,7 @@ export default function ToolForm() {
                 variant="ghost"
                 size="icon"
                 onClick={() => navigate(`/course/${courseId}/tools`)}
+                aria-label="Back to tools"
                 data-testid="button-back-tools"
               >
                 <ArrowLeft className="w-5 h-5" />
@@ -466,6 +471,7 @@ export default function ToolForm() {
                       placeholder={field.placeholder}
                       value={formData[field.name] || ""}
                       onChange={(e) => handleInputChange(field.name, e.target.value)}
+                      aria-required={field.required ? "true" : undefined}
                       data-testid={`input-${field.name}`}
                     />
                   )}
@@ -477,6 +483,7 @@ export default function ToolForm() {
                       placeholder={field.placeholder}
                       value={formData[field.name] || ""}
                       onChange={(e) => handleInputChange(field.name, e.target.value)}
+                      aria-required={field.required ? "true" : undefined}
                       data-testid={`input-${field.name}`}
                     />
                   )}
@@ -487,6 +494,7 @@ export default function ToolForm() {
                       type="date"
                       value={formData[field.name] || ""}
                       onChange={(e) => handleInputChange(field.name, e.target.value)}
+                      aria-required={field.required ? "true" : undefined}
                       data-testid={`input-${field.name}`}
                     />
                   )}
@@ -498,6 +506,7 @@ export default function ToolForm() {
                       value={formData[field.name] || ""}
                       onChange={(e) => handleInputChange(field.name, e.target.value)}
                       className="min-h-28"
+                      aria-required={field.required ? "true" : undefined}
                       data-testid={`textarea-${field.name}`}
                     />
                   )}
@@ -507,7 +516,7 @@ export default function ToolForm() {
                       value={formData[field.name] || ""}
                       onValueChange={(value) => handleInputChange(field.name, value)}
                     >
-                      <SelectTrigger data-testid={`select-${field.name}`}>
+                      <SelectTrigger data-testid={`select-${field.name}`} aria-required={field.required ? "true" : undefined}>
                         <SelectValue placeholder={`Select ${field.label.toLowerCase()}`} />
                       </SelectTrigger>
                       <SelectContent>
@@ -564,6 +573,6 @@ export default function ToolForm() {
         </form>
       </div>
       <PoweredByFooter />
-    </div>
+    </main>
   );
 }
