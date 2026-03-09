@@ -27,7 +27,8 @@ import {
   ShieldCheck,
   Link2,
   Library,
-  Eye
+  Eye,
+  Bot
 } from "lucide-react";
 
 const tools = [
@@ -62,7 +63,7 @@ const tools = [
     description: "Creates detailed assignment instructions with optional inclusive design frameworks.",
     tips: [
       "Be specific about learning objectives",
-      "Choose which frameworks to include: UDL, Cultural Relevance, SEL, and/or Accessibility",
+      "Choose which frameworks to include: UDL, Cultural Relevance, SEL, Accessibility, and/or AI-Powered Student Activities",
       "Only selected frameworks will be incorporated into the output",
       "Include any constraints (word count, format requirements)",
     ],
@@ -153,6 +154,19 @@ const tools = [
       "Use suggestions to improve content before sharing with students",
     ],
     exampleOutput: "Overall accessibility rating, barrier identification by category, specific recommendations with high/medium/low priority, revised content samples, and an accessible design checklist.",
+  },
+  {
+    id: "aistudent",
+    name: "AI-Powered Activity Designer",
+    icon: Bot,
+    description: "Designs student activities where AI is intentionally used as a learning tool, grounded in evidence-based AI pedagogy.",
+    tips: [
+      "Choose an activity type that matches your learning goals (debate, drafting, research, etc.)",
+      "Select the appropriate student AI experience level for scaffolded instructions",
+      "Pick critical thinking focus areas to develop specific analytical skills",
+      "Add guardrails like reflection requirements or AI interaction logs to ensure meaningful engagement",
+    ],
+    exampleOutput: "Activity overview with AI literacy objectives, step-by-step student instructions with sample AI prompts, critical thinking checkpoints, reflection component, submission requirements with AI documentation, grading considerations, and ethical guidelines.",
   },
 ];
 
@@ -364,7 +378,7 @@ export default function HelpPage() {
                   </div>
                   <div>
                     <h4 className="font-semibold">Generate Content</h4>
-                    <p className="text-sm text-muted-foreground">Use any of the 10 design tools to create course materials like syllabi, assignments, or rubrics.</p>
+                    <p className="text-sm text-muted-foreground">Use any of the 11 design tools to create course materials like syllabi, assignments, or rubrics.</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">

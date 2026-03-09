@@ -15,7 +15,8 @@ import {
   HelpCircle,
   ShieldCheck,
   Eye,
-  List
+  List,
+  Bot
 } from "lucide-react";
 
 const researchFrameworks = {
@@ -163,6 +164,37 @@ const researchFrameworks = {
       { name: "UNESCO AI & Education", url: "https://www.unesco.org/en/digital-education/artificial-intelligence", description: "Global frameworks for AI in education" },
     ],
   },
+  aipowered: {
+    title: "AI-Powered Pedagogy",
+    icon: Bot,
+    color: "text-primary",
+    bgColor: "bg-primary/10",
+    theory: "AI-Powered Pedagogy is an emerging framework that focuses on the intentional integration of artificial intelligence into student learning activities. Rather than treating AI as a threat to academic integrity, this approach leverages AI as a pedagogical tool to enhance learning through evidence-based strategies. Key principles include applying Bloom's taxonomy to AI interactions (moving students from lower-order tasks like generating content to higher-order tasks like evaluating and synthesizing AI output), embedding metacognitive reflection throughout AI-assisted activities, and developing AI literacy competencies that prepare students for an AI-augmented workforce. Research shows that structured AI integration can deepen critical thinking, improve writing through iterative AI-assisted revision, and help students develop essential skills in prompt engineering, output evaluation, and ethical AI use.",
+    keyResearch: [
+      {
+        citation: "EDUCAUSE Review (2025). AI-Powered Pedagogy: A Guide to Evidence-Based Teaching Tools. EDUCAUSE.",
+        description: "Comprehensive guide to evidence-based approaches for integrating AI tools into teaching and learning in higher education.",
+      },
+      {
+        citation: "Mollick, E.R. & Mollick, L. (2023). Using AI to Implement Effective Teaching Strategies in Classrooms: Five Strategies, Including Prompts. Wharton School Research Paper.",
+        description: "Research from Wharton on practical AI-enhanced teaching strategies including AI-assisted practice, feedback, and Socratic dialogue.",
+      },
+      {
+        citation: "Bowen, J.A. & Watson, C.E. (2024). Teaching with AI: A Practical Guide to a New Era of Human Learning. Johns Hopkins University Press.",
+        description: "Practical framework for educators to thoughtfully integrate AI into course design while maintaining focus on human learning outcomes.",
+      },
+      {
+        citation: "UNESCO (2023). Guidance for Generative AI in Education and Research. United Nations Educational, Scientific and Cultural Organization.",
+        description: "Global framework providing policy guidance on the ethical and pedagogically sound use of generative AI in educational settings.",
+      },
+    ],
+    resources: [
+      { name: "EDUCAUSE AI-Powered Pedagogy", url: "https://er.educause.edu/articles/2025/12/ai-powered-pedagogy-a-guide-to-evidence-based-teaching-tools", description: "Evidence-based teaching tools guide" },
+      { name: "Anthropic Skilljar", url: "https://anthropic.skilljar.com/", description: "AI education and training resources" },
+      { name: "BSU Center for Artificial Intelligence", url: "https://www.bridgew.edu/center/artificial-intelligence", description: "BSU campus AI resources" },
+      { name: "ISTE - AI in Education", url: "https://www.iste.org/areas-of-focus/AI-in-education", description: "Resources for teaching with and about AI" },
+    ],
+  },
   accessibility: {
     title: "Accessibility in Education",
     icon: Eye,
@@ -246,7 +278,7 @@ export default function ResearchPage() {
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="mb-6 flex items-center justify-between gap-4 flex-wrap">
           <p className="text-muted-foreground">
-            This tool incorporates six evidence-based pedagogical frameworks. Here's the research behind why 
+            This tool incorporates seven evidence-based pedagogical frameworks. Here's the research behind why 
             they're included in generated content.
           </p>
           <Button

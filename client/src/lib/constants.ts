@@ -154,6 +154,13 @@ export const TOOLS = [
     description: "Analyze assignments for accessibility barriers and get research-based improvement ideas",
     color: "primary",
   },
+  {
+    id: "aistudent",
+    name: "AI-Powered Activity Designer",
+    icon: "Bot",
+    description: "Design student activities that intentionally use AI as a learning tool",
+    color: "primary",
+  },
 ];
 
 export const LOADING_MESSAGES = [
@@ -165,4 +172,5 @@ export const LOADING_MESSAGES = [
   "Aligning with learning outcomes...",
   "Applying best practices in pedagogy...",
   "Finalizing your materials...",
+  "Designing AI-powered student activities...",
 ];

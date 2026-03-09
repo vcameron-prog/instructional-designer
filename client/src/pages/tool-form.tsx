@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Loader2, Sparkles, BookOpen, Calendar, FileText, Layout, CheckCircle, Target, Scale, ShieldCheck, Eye } from "lucide-react";
+import { ArrowLeft, Loader2, Sparkles, BookOpen, Calendar, FileText, Layout, CheckCircle, Target, Scale, ShieldCheck, Eye, Bot } from "lucide-react";
 import { TOOLS, BSU_CALENDAR, LOADING_MESSAGES } from "@/lib/constants";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -40,6 +40,7 @@ const getFormFields = (toolId: string): ToolFormField[] => {
         "Cultural Relevance & Inclusivity",
         "SEL (Social-Emotional Learning)",
         "Accessibility Features",
+        "AI-Powered Student Activities",
       ], helper: "Select which research-based frameworks to incorporate. Each framework adds specific guidance grounded in educational theory." },
       { name: "additionalContext", label: "Additional Context", type: "textarea", placeholder: "Any specific requirements, constraints, or preferences?" },
     ],
@@ -199,6 +200,45 @@ const getFormFields = (toolId: string): ToolFormField[] => {
       ], helper: "Select specific populations to tailor recommendations" },
       { name: "additionalContext", label: "Additional Context", type: "textarea", placeholder: "Any specific accessibility concerns or accommodations you're already aware of?" },
     ],
+    aistudent: [
+      { name: "activityType", label: "AI Activity Type", type: "select", options: [
+        "AI Debate / Socratic Dialogue",
+        "AI-Assisted Drafting & Revision",
+        "AI as Research Assistant",
+        "AI Code Review / Pair Programming",
+        "AI-Generated Content Analysis",
+        "AI Tutoring / Study Partner",
+        "AI Data Analysis",
+        "Custom AI Activity",
+      ], required: true },
+      { name: "learningObjectives", label: "Key Learning Objectives", type: "textarea", placeholder: "What should students learn from this activity?", required: true },
+      { name: "aiToolRecommendation", label: "Recommended AI Tool", type: "select", options: [
+        "Claude",
+        "ChatGPT",
+        "Any AI Assistant",
+        "Multiple AI Tools (comparison activity)",
+      ], required: true },
+      { name: "studentLevel", label: "Student AI Experience Level", type: "select", options: [
+        "Beginner (first time using AI)",
+        "Intermediate (some AI experience)",
+        "Advanced (regular AI users)",
+      ], required: true },
+      { name: "criticalThinkingFocus", label: "Critical Thinking Focus Areas", type: "checkbox-group", options: [
+        "Evaluating AI output accuracy",
+        "Identifying AI bias and limitations",
+        "Comparing AI vs. human approaches",
+        "Prompt engineering skills",
+        "Ethical considerations of AI use",
+      ], required: true, helper: "Select which critical thinking skills students should develop through this activity." },
+      { name: "guardrails", label: "Activity Guardrails", type: "checkbox-group", options: [
+        "Require AI interaction logs/screenshots",
+        "Reflection component required",
+        "Human revision required after AI use",
+        "Peer review of AI-assisted work",
+        "Citation of AI contributions",
+      ], helper: "Select safeguards to ensure meaningful student engagement with the AI tool." },
+      { name: "additionalContext", label: "Additional Context", type: "textarea", placeholder: "Any specific requirements, constraints, or preferences for the activity?" },
+    ],
   };
 
   return fields[toolId] || [];
@@ -215,6 +255,7 @@ const toolIconMap: Record<string, any> = {
   Scale,
   ShieldCheck,
   Eye,
+  Bot,
 };
 
 export default function ToolForm() {

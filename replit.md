@@ -6,8 +6,24 @@ This is an AI-powered instructional design tool built for Bridgewater State Univ
 
 ## Recent Updates
 
-### Accessibility Checker Tool & Selective Framework Inclusion (Latest)
-- **New Accessibility Checker Tool (10th tool)**: Analyzes course content for accessibility compliance
+### AI-Powered Activity Designer & AI-Powered Student Activities Option (Latest)
+- **New AI-Powered Activity Designer (11th tool)**: Standalone tool for designing student activities that intentionally use AI as a learning tool
+  - Activity types: AI Debate/Socratic Dialogue, AI-Assisted Drafting & Revision, AI as Research Assistant, AI Code Review, AI-Generated Content Analysis, AI Tutoring/Study Partner, AI Data Analysis, Custom
+  - Configurable AI tool recommendation (Claude, ChatGPT, Any, Multiple for comparison)
+  - Student AI experience level selection (Beginner, Intermediate, Advanced)
+  - Critical thinking focus areas (accuracy evaluation, bias identification, human vs AI comparison, prompt engineering, ethics)
+  - Activity guardrails (interaction logs, reflection, human revision, peer review, citation)
+  - Generates 10-section output: overview, learning objectives, preparation, step-by-step instructions with sample AI prompts, critical thinking checkpoints, reflection/metacognition, submission requirements, grading considerations, ethical guidelines, instructor notes
+  - Research-grounded: EDUCAUSE 2025, Mollick & Mollick 2023, Bowen & Watson 2024, UNESCO 2023
+- **"AI-Powered Student Activities" checkbox added to Assignment Designer**:
+  - Fifth option alongside UDL, Cultural Relevance, SEL, and Accessibility
+  - When selected, adds AI interaction points, critical evaluation requirements, documentation expectations, metacognitive reflection, and Bloom's taxonomy integration to the assignment output
+- **New "AI-Powered Pedagogy" section on Research & Theory page**:
+  - EDUCAUSE article citation and related research
+  - Links to Anthropic Skilljar, BSU AI Center, ISTE AI in Education
+
+### Accessibility Checker Tool & Selective Framework Inclusion
+- **Accessibility Checker Tool (10th tool)**: Analyzes course content for accessibility compliance
   - Evaluates content against WCAG 2.1 guidelines, Section 508 standards, cognitive accessibility principles
   - Configurable analysis areas (visual, cognitive, motor, auditory, language)
   - Student population considerations (screen reader users, neurodivergent learners, ESL students, etc.)
@@ -18,8 +34,9 @@ This is an AI-powered instructional design tool built for Bridgewater State Univ
     - Cultural Relevance & Inclusivity
     - SEL (Social-Emotional Learning)
     - Accessibility Features
+    - AI-Powered Student Activities
   - Only selected frameworks are included in the AI prompt (conditional inclusion)
-  - Research-grounded: CAST UDL Guidelines, CASEL SEL Framework, Geneva Gay, Gloria Ladson-Billings, WCAG 2.1
+  - Research-grounded: CAST UDL Guidelines, CASEL SEL Framework, Geneva Gay, Gloria Ladson-Billings, WCAG 2.1, EDUCAUSE AI Pedagogy
 
 ### User Authentication
 - Implemented Replit Auth (OpenID Connect) for secure user authentication
@@ -61,7 +78,7 @@ This is an AI-powered instructional design tool built for Bridgewater State Univ
 - **Course Duplication**: Clone courses with progress dashboard
 - **Sample Courses**: Marked with [SAMPLE] prefix for clarity
 - **Word Document Export**: Professional .docx export with preserved formatting (headings, bullets, numbered lists, bold/italic text) for easy import into Blackboard Ultra
-- **Research & Theory Page**: Dedicated page with academic citations for all four pedagogical frameworks
+- **Research & Theory Page**: Dedicated page with academic citations for all seven pedagogical frameworks (UDL, Cultural Relevance, SEL, Grading for Equity, AI-Resistant Design, Accessibility, AI-Powered Pedagogy)
 
 ## User Preferences
 

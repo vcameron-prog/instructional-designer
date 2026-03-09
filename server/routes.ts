@@ -44,6 +44,7 @@ function generatePrompt(
   const hasCultural = inclusiveOptions.includes("Cultural Relevance & Inclusivity");
   const hasSEL = inclusiveOptions.includes("SEL (Social-Emotional Learning)");
   const hasAccessibility = inclusiveOptions.includes("Accessibility Features");
+  const hasAIPowered = inclusiveOptions.includes("AI-Powered Student Activities");
   const hasAnyInclusive = inclusiveOptions.length > 0;
 
   // Standard base context with all frameworks (for most tools)
@@ -116,6 +117,13 @@ ${hasUDL ? `
 - Multiple format options
 - Assistive technology compatibility
 - Cognitive accessibility considerations
+` : ""}${hasAIPowered ? `
+**AI-POWERED STUDENT ACTIVITIES** - Based on evidence-based AI pedagogy (EDUCAUSE, Mollick & Mollick 2023):
+- Design intentional AI interaction points where students use AI as a learning tool
+- Include critical evaluation requirements for AI-generated content
+- Require documentation of AI use and metacognitive reflection
+- Apply Bloom's taxonomy to AI interactions (moving beyond "generate" to "evaluate" and "create")
+- Build AI literacy skills alongside content knowledge
 ` : ""}
 COURSE INFORMATION:
 Course: ${course.courseName} (${course.courseNumber})
@@ -198,6 +206,18 @@ Department: ${course.department}
 - **Assistive Technology Compatibility**: Ensure materials work with screen readers and other assistive technologies
 - **Cognitive Accessibility**: Use clear, simple language; break complex tasks into steps; provide examples
 - Reference specific accessibility standards being met
+`;
+    }
+    if (hasAIPowered) {
+      inclusiveDesignSection += `
+**AI-Powered Student Activities** - Based on evidence-based AI pedagogy (EDUCAUSE 2025, Mollick & Mollick 2023, Bowen & Watson 2024):
+- **AI Interaction Points**: Identify 2-3 specific moments in the assignment where students should use AI as a learning tool (e.g., brainstorming, drafting, peer simulation, feedback)
+- **Critical Evaluation**: Require students to evaluate, fact-check, or critique AI-generated output rather than accepting it uncritically
+- **Documentation Requirements**: Students should document their AI interactions (prompts used, outputs received, revisions made)
+- **Metacognitive Reflection**: Include reflection prompts about what students learned from the AI interaction, how it changed their thinking, and what the AI got wrong
+- **Bloom's Taxonomy Integration**: Design AI tasks that move beyond lower-order skills (remember, understand) to higher-order skills (analyze, evaluate, create) — students should use AI as a starting point, then apply critical thinking
+- **AI Literacy Development**: Help students understand AI capabilities, limitations, and appropriate use in academic and professional contexts
+- Reference specific AI pedagogy research and best practices
 `;
     }
   }
@@ -838,6 +858,87 @@ Cite the research and standards that inform these recommendations:
 **Key Principle:** Accessible design benefits ALL learners, not just those with documented disabilities. The goal is to proactively design learning experiences that reduce barriers and provide multiple pathways to success.
 
 Format all output clearly with headers and bullet points for easy reading.`,
+
+    aistudent: `${baseContext}
+
+Design a COMPLETE AI-POWERED STUDENT ACTIVITY where students intentionally use AI as a learning tool. This activity should be grounded in evidence-based AI pedagogy research (EDUCAUSE 2025, Mollick & Mollick 2023, Bowen & Watson 2024, UNESCO 2023).
+
+Create a comprehensive, ready-to-implement activity that includes ALL of the following sections:
+
+## 1. ACTIVITY TITLE AND OVERVIEW
+- A clear, engaging title for the activity
+- Brief overview explaining what students will do and why AI is being used as a pedagogical tool
+- Connection to course learning objectives
+
+## 2. LEARNING OBJECTIVES
+- Content-specific learning objectives tied to the course
+- AI Literacy objectives (e.g., understanding AI capabilities/limitations, prompt engineering, critical evaluation of AI output)
+- Metacognitive objectives (e.g., reflecting on one's own learning process compared to AI-generated responses)
+- Reference to Bloom's Taxonomy level(s) targeted
+
+## 3. PREPARATION AND SETUP
+- What students need before starting (accounts, readings, prior knowledge)
+- Recommended AI tool: ${toolData.aiToolRecommendation || "Any AI Assistant"}
+- Brief instructions on how to access and use the AI tool
+- Level-appropriate guidance for ${toolData.studentLevel || "Intermediate"} AI users
+
+## 4. STEP-BY-STEP STUDENT INSTRUCTIONS
+- Clear, numbered instructions for completing the activity
+- Specific AI interaction points clearly marked (e.g., "STEP 3: AI INTERACTION")
+- For each AI interaction, provide:
+  - Purpose of using AI at this point
+  - Sample prompts students can use or adapt
+  - What to look for in the AI response
+  - How to critically evaluate the output
+
+## 5. CRITICAL THINKING CHECKPOINTS
+- Built-in moments where students must pause and evaluate AI output
+- Specific questions to guide critical analysis:
+  - Is the AI output accurate? How can you verify?
+  - What perspectives or information might the AI be missing?
+  - How does the AI response compare to course materials?
+  - What assumptions is the AI making?
+- Encourage students to identify where the AI excels and where it falls short
+
+## 6. REFLECTION AND METACOGNITION COMPONENT
+- Structured reflection prompts about the AI-assisted learning process:
+  - What did you learn from the AI interaction that you wouldn't have learned on your own?
+  - How did working with AI change your understanding of the topic?
+  - What did you find the AI got wrong or presented superficially?
+  - How would you approach this task differently next time using AI?
+- Connection between AI-assisted learning and personal knowledge construction
+
+## 7. SUBMISSION REQUIREMENTS
+- What students need to submit
+- Documentation of AI interactions (screenshots, conversation logs, or prompt records)
+- Format for Blackboard Ultra submission
+- Clear expectations for what constitutes "student work" vs. "AI-generated content"
+
+## 8. GRADING CONSIDERATIONS
+- How to assess the AI-assisted work fairly
+- Emphasis on the student's critical thinking, analysis, and revision — not just the final product
+- Suggested evaluation criteria that value the process of working with AI
+- How to distinguish between effective AI use and over-reliance
+
+## 9. ETHICAL GUIDELINES
+- Clear expectations for responsible AI use in this activity
+- Academic integrity considerations specific to AI-assisted work
+- Privacy and data considerations when using AI tools
+- Acknowledgment and citation of AI contributions
+
+## 10. INSTRUCTOR NOTES
+- Tips for facilitating this activity
+- Common student challenges and how to address them
+- Variations for different class sizes or formats (in-person, online, hybrid)
+- How this activity builds AI literacy skills progressively
+
+Activity Type: ${toolData.activityType}
+Learning Objectives: ${toolData.learningObjectives}
+Recommended AI Tool: ${toolData.aiToolRecommendation || "Any AI Assistant"}
+Student AI Experience Level: ${toolData.studentLevel || "Intermediate"}
+Critical Thinking Focus Areas: ${toolData.criticalThinkingFocus?.join(", ") || "General critical thinking"}
+Activity Guardrails: ${toolData.guardrails?.join(", ") || "Standard guardrails"}
+Additional Context: ${toolData.additionalContext || "None"}`,
   };
 
   return prompts[toolId] || baseContext;
