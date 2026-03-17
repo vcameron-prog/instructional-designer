@@ -274,7 +274,7 @@ export default function LandingPage() {
           </Card>
 
           {courses.length > 0 && (
-            <Card className="bg-card border-0">
+            <Card className="bg-card border-0 md:col-span-2">
               <CardHeader className="pb-3">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
