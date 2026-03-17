@@ -127,14 +127,12 @@ function LoginPage() {
           </div>
         </div>
 
-        <div className="mt-12 text-center">
-          <p className="text-white/70 text-sm">
-            Powered by AI to help Bridgewater State University faculty create accessible, engaging course materials
-          </p>
-          <p className="text-white/50 text-xs mt-2">
-            Your data is not used to train AI models
-          </p>
-        </div>
+        <p className="mt-10 text-center text-white/70 text-sm">
+          Powered by AI to help BSU faculty create accessible, engaging course materials
+        </p>
+        <p className="text-center text-white/50 text-xs mt-2">
+          Your data is not used to train AI models
+        </p>
       </div>
     </main>
   );
@@ -310,7 +308,7 @@ export default function LandingPage() {
           )}
         </div>
 
-        <div className="mt-12 flex justify-center gap-4">
+        <div className="mt-12 flex flex-wrap justify-center gap-3">
           <Button 
             variant="outline" 
             className="bg-white/10 border-white/30 text-white hover:bg-white/20"
@@ -340,11 +338,9 @@ export default function LandingPage() {
           </Button>
         </div>
 
-        <div className="mt-16 text-center">
-          <p className="text-white/70 text-sm">
-            Powered by AI to help Bridgewater State University faculty create accessible, engaging course materials
-          </p>
-        </div>
+        <p className="mt-10 text-center text-white/70 text-sm">
+          Powered by AI to help BSU faculty create accessible, engaging course materials
+        </p>
       </div>
     </main>
   );
