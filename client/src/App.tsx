@@ -14,6 +14,10 @@ import HelpPage from "@/pages/help";
 import ResearchPage from "@/pages/research";
 import LibraryPage from "@/pages/library";
 import QuickToolsPage from "@/pages/quick-tools";
+import PdfUpload from "@/pages/pdf-upload";
+import PdfHistory from "@/pages/pdf-history";
+import PdfConversion from "@/pages/pdf-conversion";
+import PdfFaq from "@/pages/pdf-faq";
 import { WelcomeModal } from "@/components/welcome-modal";
 import { ThemeProvider } from "@/components/theme-provider";
 import { FontSizeProvider } from "@/components/font-size-provider";
@@ -57,6 +61,10 @@ function Router() {
       <Route path="/quick-tools" component={QuickToolsPage} />
       <Route path="/quick-tools/:toolId" component={ToolForm} />
       <Route path="/quick-tools/result/:contentId" component={ResultPage} />
+      <Route path="/pdf-accessibility" component={PdfUpload} />
+      <Route path="/pdf-accessibility/history" component={PdfHistory} />
+      <Route path="/pdf-accessibility/faq" component={PdfFaq} />
+      <Route path="/pdf-accessibility/:id" component={PdfConversion} />
       <Route path="/help" component={HelpPage} />
       <Route path="/research" component={ResearchPage} />
       <Route path="/library" component={LibraryPage} />

@@ -6,7 +6,17 @@ This is an AI-powered instructional design tool built for Bridgewater State Univ
 
 ## Recent Updates
 
-### Quick Tools (Latest)
+### PDF Accessibility Converter (Latest)
+- **Full PDF-to-accessible-HTML pipeline**: Upload PDF → AI extraction → WCAG 2.1 AA compliant HTML → compliance checks → fix/accept issues → download HTML or DOCX
+- **Backend libraries**: `server/lib/pdf-processor.ts` (PDF text extraction), `server/lib/accessibility-engine.ts` (Anthropic Claude-powered AI processing with deterministic checks, AI audit, fix/accept/revert), `server/lib/docx-builder.ts` (HTML→DOCX conversion)
+- **Database**: `conversions` table tracks uploads, status, extracted text, generated HTML, compliance reports, processing errors
+- **API routes**: Upload (`POST /api/conversions/upload`), list (`GET /api/conversions`), get (`GET /api/conversions/:id`), process (`POST /api/conversions/:id/process`), delete (`DELETE /api/conversions/:id`), fix-issue (`POST /api/conversions/:id/fix-issue`), accept-issue (`POST /api/conversions/:id/accept-issue`), revert-issue (`POST /api/conversions/:id/revert-issue`), update-html (`PATCH /api/conversions/:id/html`), download HTML (`GET /api/conversions/:id/download/html`), download DOCX (`GET /api/conversions/:id/download/docx`)
+- **Frontend pages**: `/pdf-accessibility` (upload), `/pdf-accessibility/history` (history), `/pdf-accessibility/:id` (conversion detail with live editor, compliance chart, issue management), `/pdf-accessibility/faq` (FAQ)
+- **AI Integration**: Uses `claude-sonnet-4-20250514` via existing Anthropic integration for HTML generation and accessibility auditing
+- **Compliance checks**: Deterministic WCAG checks (headings, images, tables, links, language, lists) + AI-powered audit; issues can be auto-fixed, manually accepted, or reverted
+- **Landing page**: "PDF Accessibility" card added alongside existing tools
+
+### Quick Tools
 - **Standalone tool usage without course creation**: 6 tools available as "Quick Tools": Assignment Designer, Rubric Builder, Alignment Checker, AI-Resistant Assignment Designer, Accessibility Checker, AI-Powered Activity Designer
 - **Optional context fields**: Subject/Department (text) and Course Level (dropdown) on the tool form for tailored output
 - **Routes**: `/quick-tools` (selection page), `/quick-tools/:toolId` (tool form), `/quick-tools/result/:contentId` (result page)
@@ -133,6 +143,7 @@ Preferred communication style: Simple, everyday language.
   - `generatedContent` - AI-generated materials
   - `contentVersions` - version history for generated content
   - `conversations` / `messages` - chat functionality
+  - `conversions` - PDF accessibility conversion records (status, extracted text, generated HTML, compliance reports)
 
 ### Code Organization
 - **`client/`**: React frontend application

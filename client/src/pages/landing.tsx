@@ -271,6 +271,29 @@ export default function LandingPage() {
             </CardContent>
           </Card>
 
+          <Card 
+            className="group cursor-pointer transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl bg-card border-0"
+            onClick={() => navigate("/pdf-accessibility")}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate("/pdf-accessibility"); } }}
+            tabIndex={0}
+            role="button"
+            aria-label="PDF Accessibility Converter"
+            data-testid="card-pdf-accessibility"
+          >
+            <CardContent className="p-8 text-center">
+              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center mx-auto mb-6 group-hover:scale-105 transition-transform">
+                <Shield className="w-10 h-10 text-white" />
+              </div>
+              <CardTitle className="text-2xl mb-3">PDF Accessibility</CardTitle>
+              <CardDescription className="text-base">
+                Convert PDFs into ADA Title II & WCAG 2.1 AA compliant accessible documents
+              </CardDescription>
+              <Button variant="outline" className="mt-6 gap-2" data-testid="button-pdf-accessibility">
+                Convert PDF <ArrowRight className="w-4 h-4" />
+              </Button>
+            </CardContent>
+          </Card>
+
           {courses.length > 0 && (
             <Card className="bg-card border-0 md:col-span-2">
               <CardHeader className="pb-3">

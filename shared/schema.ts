@@ -92,6 +92,34 @@ export const insertSavedContentSchema = createInsertSchema(savedContent).omit({
 export type InsertSavedContent = z.infer<typeof insertSavedContentSchema>;
 export type SavedContent = typeof savedContent.$inferSelect;
 
+// PDF Accessibility Conversions table
+export const conversions = pgTable("conversions", {
+  id: serial("id").primaryKey(),
+  originalFilename: text("original_filename").notNull(),
+  fileSize: integer("file_size").notNull(),
+  status: text("status").notNull().default("uploaded"),
+  pageCount: integer("page_count"),
+  extractedText: text("extracted_text"),
+  accessibleHtml: text("accessible_html"),
+  complianceReport: jsonb("compliance_report"),
+  originalComplianceReport: jsonb("original_compliance_report"),
+  errorMessage: text("error_message"),
+  pdfData: text("pdf_data"),
+  ocrApplied: boolean("ocr_applied").notNull().default(false),
+  userId: varchar("user_id"),
+  createdAt: timestamp("created_at", { withTimezone: true }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+export const insertConversionSchema = createInsertSchema(conversions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertConversion = z.infer<typeof insertConversionSchema>;
+export type Conversion = typeof conversions.$inferSelect;
+
 // Course templates
 export const COURSE_TEMPLATES = {
   lecture: {

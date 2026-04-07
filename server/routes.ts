@@ -1,11 +1,13 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertCourseSchema, type Course } from "@shared/schema";
+import { insertCourseSchema, type Course, conversions } from "@shared/schema";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import Anthropic from "@anthropic-ai/sdk";
 import multer from "multer";
 import { z } from "zod";
+import { db } from "./db";
+import { eq, and, desc } from "drizzle-orm";
 
 // Helper to get userId from authenticated request
 function getUserId(req: Request): string {
@@ -1599,6 +1601,510 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     } catch (error) {
       console.error("Error exporting to Word:", error);
       res.status(500).json({ error: "Failed to export to Word" });
+    }
+  });
+
+  // =============================================
+  // PDF ACCESSIBILITY CONVERSION ROUTES
+  // =============================================
+
+  const pdfUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 20 * 1024 * 1024 },
+    fileFilter: (_req, file, cb) => {
+      if (file.mimetype === "application/pdf") {
+        cb(null, true);
+      } else {
+        cb(new Error("Only PDF files are allowed"));
+      }
+    },
+  });
+
+  app.get("/api/conversions", isAuthenticated, async (req: Request, res: Response) => {
+    const userId = getUserId(req);
+    const results = await db
+      .select({
+        id: conversions.id,
+        originalFilename: conversions.originalFilename,
+        fileSize: conversions.fileSize,
+        status: conversions.status,
+        pageCount: conversions.pageCount,
+        ocrApplied: conversions.ocrApplied,
+        complianceReport: conversions.complianceReport,
+        createdAt: conversions.createdAt,
+        updatedAt: conversions.updatedAt,
+      })
+      .from(conversions)
+      .where(eq(conversions.userId, userId))
+      .orderBy(desc(conversions.createdAt));
+    res.json(results);
+  });
+
+  app.get("/api/conversions/:id", isAuthenticated, async (req: Request, res: Response) => {
+    const userId = getUserId(req);
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+    const [conversion] = await db
+      .select({
+        id: conversions.id,
+        originalFilename: conversions.originalFilename,
+        fileSize: conversions.fileSize,
+        status: conversions.status,
+        pageCount: conversions.pageCount,
+        extractedText: conversions.extractedText,
+        accessibleHtml: conversions.accessibleHtml,
+        complianceReport: conversions.complianceReport,
+        originalComplianceReport: conversions.originalComplianceReport,
+        errorMessage: conversions.errorMessage,
+        ocrApplied: conversions.ocrApplied,
+        createdAt: conversions.createdAt,
+        updatedAt: conversions.updatedAt,
+      })
+      .from(conversions)
+      .where(and(eq(conversions.id, id), eq(conversions.userId, userId)));
+
+    if (!conversion) { res.status(404).json({ error: "Conversion not found" }); return; }
+    res.json(conversion);
+  });
+
+  app.post("/api/conversions/upload", isAuthenticated, pdfUpload.single("file"), async (req: Request, res: Response) => {
+    const userId = getUserId(req);
+    const file = req.file;
+    if (!file) { res.status(400).json({ error: "No file uploaded" }); return; }
+
+    const pdfBase64 = file.buffer.toString("base64");
+
+    const [created] = await db
+      .insert(conversions)
+      .values({
+        originalFilename: file.originalname,
+        fileSize: file.size,
+        status: "uploaded",
+        pdfData: pdfBase64,
+        userId,
+      })
+      .returning({
+        id: conversions.id,
+        originalFilename: conversions.originalFilename,
+        fileSize: conversions.fileSize,
+        status: conversions.status,
+        createdAt: conversions.createdAt,
+      });
+
+    res.json(created);
+  });
+
+  app.post("/api/conversions/:id/process", isAuthenticated, async (req: Request, res: Response) => {
+    const userId = getUserId(req);
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+    const [conversion] = await db
+      .select()
+      .from(conversions)
+      .where(and(eq(conversions.id, id), eq(conversions.userId, userId)));
+
+    if (!conversion) { res.status(404).json({ error: "Conversion not found" }); return; }
+    if (conversion.status === "processing") { res.status(400).json({ error: "Already processing" }); return; }
+
+    await db
+      .update(conversions)
+      .set({ status: "processing", updatedAt: new Date() })
+      .where(eq(conversions.id, id));
+
+    const { pdfData: _pdfData, ...safeConversion } = conversion;
+    res.json({ ...safeConversion, status: "processing" });
+
+    (async () => {
+      try {
+        const { extractPdfContent, needsOcr } = await import("./lib/pdf-processor");
+        const { generateAccessibleDocument, evaluateOriginalDocument } = await import("./lib/accessibility-engine");
+
+        const pdfBuffer = Buffer.from(conversion.pdfData!, "base64");
+        const extraction = await extractPdfContent(pdfBuffer);
+
+        const ocrApplied = needsOcr(extraction.text, extraction.pageCount);
+
+        let finalText = extraction.text;
+        if (ocrApplied && extraction.images.length > 0) {
+          const ocrTexts: string[] = [];
+          for (const img of extraction.images.slice(0, 5)) {
+            try {
+              const ocrResponse = await anthropic.messages.create({
+                model: "claude-sonnet-4-20250514",
+                max_tokens: 2048,
+                messages: [{
+                  role: "user",
+                  content: [
+                    { type: "image", source: { type: "base64", media_type: "image/png", data: img.dataUrl.split(",")[1] || "" } },
+                    { type: "text", text: "Extract all text from this scanned document page. Maintain the reading order and structure. Output only the extracted text." },
+                  ],
+                }],
+              });
+              const ocrText = ocrResponse.content[0]?.type === "text" ? ocrResponse.content[0].text : "";
+              if (ocrText) ocrTexts.push(ocrText);
+            } catch {
+            }
+          }
+          if (ocrTexts.length > 0) {
+            finalText = ocrTexts.join("\n\n---\n\n");
+          }
+        }
+
+        const originalReport = evaluateOriginalDocument(finalText);
+
+        const result = await generateAccessibleDocument(
+          finalText,
+          conversion.originalFilename,
+          extraction.metadata,
+          extraction.images,
+          extraction.tables
+        );
+
+        await db
+          .update(conversions)
+          .set({
+            status: "completed",
+            pageCount: extraction.pageCount,
+            extractedText: finalText.substring(0, 50000),
+            accessibleHtml: result.accessibleHtml,
+            complianceReport: result.complianceReport,
+            originalComplianceReport: originalReport,
+            ocrApplied,
+            pdfData: null,
+            updatedAt: new Date(),
+          })
+          .where(eq(conversions.id, id));
+      } catch (err: any) {
+        console.error("PDF processing error:", err);
+        await db
+          .update(conversions)
+          .set({
+            status: "failed",
+            errorMessage: err.message || "Processing failed",
+            updatedAt: new Date(),
+          })
+          .where(eq(conversions.id, id));
+      }
+    })();
+  });
+
+  app.delete("/api/conversions/:id", isAuthenticated, async (req: Request, res: Response) => {
+    const userId = getUserId(req);
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+    await db.delete(conversions).where(and(eq(conversions.id, id), eq(conversions.userId, userId)));
+    res.json({ success: true });
+  });
+
+  app.post("/api/conversions/:id/fix-issue", isAuthenticated, async (req: Request, res: Response) => {
+    const userId = getUserId(req);
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+    const { issueIndex } = req.body;
+    if (typeof issueIndex !== "number") { res.status(400).json({ error: "issueIndex required" }); return; }
+
+    const [conversion] = await db
+      .select()
+      .from(conversions)
+      .where(and(eq(conversions.id, id), eq(conversions.userId, userId)));
+
+    if (!conversion) { res.status(404).json({ error: "Conversion not found" }); return; }
+    if (conversion.status !== "completed" || !conversion.accessibleHtml) {
+      res.status(400).json({ error: "Conversion must be completed" }); return;
+    }
+
+    const report = conversion.complianceReport as any;
+    if (!report?.issues?.[issueIndex]) {
+      res.status(400).json({ error: "Issue not found" }); return;
+    }
+
+    try {
+      const { fixComplianceIssue } = await import("./lib/accessibility-engine");
+      const result = await fixComplianceIssue(
+        conversion.accessibleHtml,
+        report.issues[issueIndex],
+        issueIndex,
+        report
+      );
+
+      const [updated] = await db
+        .update(conversions)
+        .set({
+          accessibleHtml: result.accessibleHtml,
+          complianceReport: result.complianceReport,
+          updatedAt: new Date(),
+        })
+        .where(eq(conversions.id, id))
+        .returning({
+          id: conversions.id,
+          originalFilename: conversions.originalFilename,
+          fileSize: conversions.fileSize,
+          status: conversions.status,
+          pageCount: conversions.pageCount,
+          extractedText: conversions.extractedText,
+          accessibleHtml: conversions.accessibleHtml,
+          complianceReport: conversions.complianceReport,
+          originalComplianceReport: conversions.originalComplianceReport,
+          errorMessage: conversions.errorMessage,
+          ocrApplied: conversions.ocrApplied,
+          createdAt: conversions.createdAt,
+          updatedAt: conversions.updatedAt,
+        });
+
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Fix failed" });
+    }
+  });
+
+  app.post("/api/conversions/:id/accept-issue", isAuthenticated, async (req: Request, res: Response) => {
+    const userId = getUserId(req);
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+    const { issueIndex, justification } = req.body;
+    if (typeof issueIndex !== "number") { res.status(400).json({ error: "issueIndex required" }); return; }
+
+    const [conversion] = await db
+      .select()
+      .from(conversions)
+      .where(and(eq(conversions.id, id), eq(conversions.userId, userId)));
+
+    if (!conversion) { res.status(404).json({ error: "Conversion not found" }); return; }
+
+    const report = conversion.complianceReport as any;
+    if (!report?.issues?.[issueIndex]) { res.status(400).json({ error: "Issue not found" }); return; }
+
+    const issue = report.issues[issueIndex];
+    report.issues[issueIndex] = {
+      ...issue,
+      previousStatus: issue.status,
+      status: "accepted",
+      justification: justification || "Accepted by user",
+    };
+
+    const { buildComplianceReport } = await import("./lib/accessibility-engine");
+    const updatedReport = buildComplianceReport(report.issues);
+
+    const [updated] = await db
+      .update(conversions)
+      .set({ complianceReport: updatedReport, updatedAt: new Date() })
+      .where(eq(conversions.id, id))
+      .returning({
+        id: conversions.id,
+        originalFilename: conversions.originalFilename,
+        fileSize: conversions.fileSize,
+        status: conversions.status,
+        pageCount: conversions.pageCount,
+        extractedText: conversions.extractedText,
+        accessibleHtml: conversions.accessibleHtml,
+        complianceReport: conversions.complianceReport,
+        originalComplianceReport: conversions.originalComplianceReport,
+        errorMessage: conversions.errorMessage,
+        ocrApplied: conversions.ocrApplied,
+        createdAt: conversions.createdAt,
+        updatedAt: conversions.updatedAt,
+      });
+
+    res.json(updated);
+  });
+
+  app.post("/api/conversions/:id/revert-issue", isAuthenticated, async (req: Request, res: Response) => {
+    const userId = getUserId(req);
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+    const { issueIndex } = req.body;
+    if (typeof issueIndex !== "number") { res.status(400).json({ error: "issueIndex required" }); return; }
+
+    const [conversion] = await db
+      .select()
+      .from(conversions)
+      .where(and(eq(conversions.id, id), eq(conversions.userId, userId)));
+
+    if (!conversion) { res.status(404).json({ error: "Conversion not found" }); return; }
+
+    const report = conversion.complianceReport as any;
+    if (!report?.issues?.[issueIndex]) { res.status(400).json({ error: "Issue not found" }); return; }
+
+    const issue = report.issues[issueIndex];
+    if (issue.status !== "accepted" || !issue.previousStatus) {
+      res.status(400).json({ error: "Issue is not accepted" }); return;
+    }
+
+    report.issues[issueIndex] = {
+      ...issue,
+      status: issue.previousStatus,
+      previousStatus: undefined,
+      justification: undefined,
+    };
+
+    const { buildComplianceReport } = await import("./lib/accessibility-engine");
+    const updatedReport = buildComplianceReport(report.issues);
+
+    const [updated] = await db
+      .update(conversions)
+      .set({ complianceReport: updatedReport, updatedAt: new Date() })
+      .where(eq(conversions.id, id))
+      .returning({
+        id: conversions.id,
+        originalFilename: conversions.originalFilename,
+        fileSize: conversions.fileSize,
+        status: conversions.status,
+        pageCount: conversions.pageCount,
+        extractedText: conversions.extractedText,
+        accessibleHtml: conversions.accessibleHtml,
+        complianceReport: conversions.complianceReport,
+        originalComplianceReport: conversions.originalComplianceReport,
+        errorMessage: conversions.errorMessage,
+        ocrApplied: conversions.ocrApplied,
+        createdAt: conversions.createdAt,
+        updatedAt: conversions.updatedAt,
+      });
+
+    res.json(updated);
+  });
+
+  app.put("/api/conversions/:id/html", isAuthenticated, async (req: Request, res: Response) => {
+    const userId = getUserId(req);
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+    const { html } = req.body;
+    if (typeof html !== "string") { res.status(400).json({ error: "html required" }); return; }
+
+    const [conversion] = await db
+      .select({ id: conversions.id, status: conversions.status })
+      .from(conversions)
+      .where(and(eq(conversions.id, id), eq(conversions.userId, userId)));
+
+    if (!conversion) { res.status(404).json({ error: "Conversion not found" }); return; }
+    if (conversion.status !== "completed") { res.status(400).json({ error: "Must be completed" }); return; }
+
+    const [updated] = await db
+      .update(conversions)
+      .set({ accessibleHtml: html, updatedAt: new Date() })
+      .where(eq(conversions.id, id))
+      .returning({
+        id: conversions.id,
+        originalFilename: conversions.originalFilename,
+        fileSize: conversions.fileSize,
+        status: conversions.status,
+        pageCount: conversions.pageCount,
+        extractedText: conversions.extractedText,
+        accessibleHtml: conversions.accessibleHtml,
+        complianceReport: conversions.complianceReport,
+        originalComplianceReport: conversions.originalComplianceReport,
+        errorMessage: conversions.errorMessage,
+        ocrApplied: conversions.ocrApplied,
+        createdAt: conversions.createdAt,
+        updatedAt: conversions.updatedAt,
+      });
+
+    res.json(updated);
+  });
+
+  app.get("/api/conversions/:id/download", isAuthenticated, async (req: Request, res: Response) => {
+    const userId = getUserId(req);
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+    const [conversion] = await db
+      .select({
+        accessibleHtml: conversions.accessibleHtml,
+        originalFilename: conversions.originalFilename,
+        status: conversions.status,
+        updatedAt: conversions.updatedAt,
+      })
+      .from(conversions)
+      .where(and(eq(conversions.id, id), eq(conversions.userId, userId)));
+
+    if (!conversion) { res.status(404).json({ error: "Conversion not found" }); return; }
+    if (conversion.status !== "completed" || !conversion.accessibleHtml) {
+      res.status(400).json({ error: "HTML not available" }); return;
+    }
+
+    let html = conversion.accessibleHtml;
+    const updatedDate = conversion.updatedAt ? new Date(conversion.updatedAt) : new Date();
+    const readableDate = updatedDate.toLocaleDateString("en-US", {
+      year: "numeric", month: "long", day: "numeric", hour: "numeric", minute: "2-digit", hour12: true,
+    });
+
+    const metaTag = `<meta name="date" content="${updatedDate.toISOString()}">`;
+    const headCloseIdx = html.indexOf("</head>");
+    if (headCloseIdx !== -1) {
+      html = html.slice(0, headCloseIdx) + `  ${metaTag}\n` + html.slice(headCloseIdx);
+    }
+
+    const timestampFooter = `\n<footer style="margin-top:2rem;padding:1rem 0;border-top:1px solid #e0e0e0;font-size:0.85rem;color:#666;text-align:center;" role="contentinfo" aria-label="Document timestamp">\n  <p>This accessible document was last updated on ${readableDate}</p>\n</footer>`;
+    const bodyCloseIdx = html.lastIndexOf("</body>");
+    if (bodyCloseIdx !== -1) {
+      html = html.slice(0, bodyCloseIdx) + timestampFooter + "\n" + html.slice(bodyCloseIdx);
+    }
+
+    const filename = conversion.originalFilename.replace(/\.pdf$/i, "") + "-accessible.html";
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.send(html);
+  });
+
+  app.get("/api/conversions/:id/download-docx", isAuthenticated, async (req: Request, res: Response) => {
+    const userId = getUserId(req);
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+    const [conversion] = await db
+      .select({
+        accessibleHtml: conversions.accessibleHtml,
+        originalFilename: conversions.originalFilename,
+        status: conversions.status,
+        updatedAt: conversions.updatedAt,
+      })
+      .from(conversions)
+      .where(and(eq(conversions.id, id), eq(conversions.userId, userId)));
+
+    if (!conversion) { res.status(404).json({ error: "Conversion not found" }); return; }
+    if (conversion.status !== "completed" || !conversion.accessibleHtml) {
+      res.status(400).json({ error: "HTML not available" }); return;
+    }
+
+    let html = conversion.accessibleHtml;
+    const updatedDate = conversion.updatedAt ? new Date(conversion.updatedAt) : new Date();
+    const readableDate = updatedDate.toLocaleDateString("en-US", {
+      year: "numeric", month: "long", day: "numeric", hour: "numeric", minute: "2-digit", hour12: true,
+    });
+
+    const timestampFooter = `\n<footer style="margin-top:2rem;padding:1rem 0;border-top:1px solid #e0e0e0;font-size:0.85rem;color:#666;text-align:center;" role="contentinfo" aria-label="Document timestamp">\n  <p>This accessible document was last updated on ${readableDate}</p>\n</footer>`;
+    const bodyCloseIdx = html.lastIndexOf("</body>");
+    if (bodyCloseIdx !== -1) {
+      html = html.slice(0, bodyCloseIdx) + timestampFooter + "\n" + html.slice(bodyCloseIdx);
+    }
+
+    const titleMatch = html.match(/<title[^>]*>(.*?)<\/title>/i);
+    const docTitle = titleMatch ? titleMatch[1] : conversion.originalFilename.replace(/\.pdf$/i, "");
+    const langMatch = html.match(/<html[^>]*\slang=["']([^"']+)["']/i);
+    const docLang = langMatch ? langMatch[1] : "en";
+
+    try {
+      const { buildDocx } = await import("./lib/docx-builder");
+      const docxBuffer = await buildDocx(html, {
+        title: docTitle,
+        filename: conversion.originalFilename,
+        lang: docLang,
+        author: "PDF Accessibility Converter",
+      });
+
+      const filename = conversion.originalFilename.replace(/\.pdf$/i, "") + "-accessible.docx";
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.send(docxBuffer);
+    } catch (err) {
+      console.error("DOCX conversion error:", err);
+      res.status(500).json({ error: "Failed to generate DOCX file" });
     }
   });
 
