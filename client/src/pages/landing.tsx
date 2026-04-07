@@ -79,7 +79,7 @@ function LoginPage() {
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4 tracking-tight">
             BSU Instructional Design Tool
           </h1>
-          <p className="text-lg md:text-xl text-white/90 max-w-2xl mx-auto leading-relaxed mb-8">
+          <p className="text-lg md:text-xl text-white/90 max-w-2xl mx-auto leading-relaxed mb-8" style={{ textWrap: "balance" }}>
             Create comprehensive, UDL-aligned course materials ready for Blackboard Ultra
           </p>
         </div>
@@ -90,7 +90,7 @@ function LoginPage() {
               <User className="w-10 h-10 text-white" />
             </div>
             <CardTitle className="text-2xl mb-3">Welcome, Faculty</CardTitle>
-            <CardDescription className="text-base mb-6">
+            <CardDescription className="text-base mb-6" style={{ textWrap: "balance" }}>
               Sign in to create and manage your course materials. Your work is private and secure.
             </CardDescription>
             <Button 
@@ -113,24 +113,24 @@ function LoginPage() {
           <div className="bg-white/10 rounded-lg p-4 text-center text-white">
             <Sparkles className="w-8 h-8 mx-auto mb-2" />
             <p className="font-medium">AI-Powered</p>
-            <p className="text-sm text-white/70">Generate complete course materials</p>
+            <p className="text-sm text-white/70" style={{ textWrap: "balance" }}>Generate complete course materials</p>
           </div>
           <div className="bg-white/10 rounded-lg p-4 text-center text-white">
             <Users className="w-8 h-8 mx-auto mb-2" />
             <p className="font-medium">UDL-Aligned</p>
-            <p className="text-sm text-white/70">Inclusive design principles</p>
+            <p className="text-sm text-white/70" style={{ textWrap: "balance" }}>Inclusive design principles</p>
           </div>
           <div className="bg-white/10 rounded-lg p-4 text-center text-white">
             <Shield className="w-8 h-8 mx-auto mb-2" />
             <p className="font-medium">Private & Secure</p>
-            <p className="text-sm text-white/70">Your data stays yours</p>
+            <p className="text-sm text-white/70" style={{ textWrap: "balance" }}>Your data stays yours</p>
           </div>
         </div>
 
-        <p className="mt-10 text-center text-white/70 text-sm">
+        <p className="mt-10 text-center text-white/70 text-sm" style={{ textWrap: "balance" }}>
           Powered by AI to help BSU faculty create accessible, engaging course materials
         </p>
-        <p className="text-center text-white/50 text-xs mt-2">
+        <p className="text-center text-white/50 text-xs mt-2" style={{ textWrap: "balance" }}>
           Your data is not used to train AI models
         </p>
       </div>
@@ -219,7 +219,7 @@ export default function LandingPage() {
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4 tracking-tight">
             BSU Instructional Design Tool
           </h1>
-          <p className="text-lg md:text-xl text-white/90 max-w-2xl mx-auto leading-relaxed">
+          <p className="text-lg md:text-xl text-white/90 max-w-2xl mx-auto leading-relaxed" style={{ textWrap: "balance" }}>
             Create comprehensive, UDL-aligned course materials ready for Blackboard Ultra
           </p>
         </div>
@@ -239,7 +239,7 @@ export default function LandingPage() {
                 <Sparkles className="w-10 h-10 text-white" />
               </div>
               <CardTitle className="text-2xl mb-3">Start New Course</CardTitle>
-              <CardDescription className="text-base">
+              <CardDescription className="text-base" style={{ textWrap: "balance" }}>
                 Begin with course information and create materials from scratch
               </CardDescription>
               <Button className="mt-6 gap-2" data-testid="button-start-new">
@@ -262,7 +262,7 @@ export default function LandingPage() {
                 <Zap className="w-10 h-10 text-white" />
               </div>
               <CardTitle className="text-2xl mb-3">Quick Tools</CardTitle>
-              <CardDescription className="text-base">
+              <CardDescription className="text-base" style={{ textWrap: "balance" }}>
                 Create a one-off assignment, rubric, or other material without setting up a full course
               </CardDescription>
               <Button variant="outline" className="mt-6 gap-2" data-testid="button-quick-tools">
@@ -285,7 +285,7 @@ export default function LandingPage() {
                 <Shield className="w-10 h-10 text-white" />
               </div>
               <CardTitle className="text-2xl mb-3">PDF Accessibility</CardTitle>
-              <CardDescription className="text-base">
+              <CardDescription className="text-base" style={{ textWrap: "balance" }}>
                 Convert PDFs into ADA Title II & WCAG 2.1 AA compliant accessible documents
               </CardDescription>
               <Button variant="outline" className="mt-6 gap-2" data-testid="button-pdf-accessibility">
@@ -361,7 +361,7 @@ export default function LandingPage() {
           </Button>
         </div>
 
-        <p className="mt-10 text-center text-white/70 text-sm">
+        <p className="mt-10 text-center text-white/70 text-sm" style={{ textWrap: "balance" }}>
           Powered by AI to help BSU faculty create accessible, engaging course materials
         </p>
       </div>
