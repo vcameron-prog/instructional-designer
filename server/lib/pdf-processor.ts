@@ -1,4 +1,4 @@
-import pdf from "pdf-parse";
+import { PDFParse } from "pdf-parse";
 
 export interface ExtractedImage {
   pageNumber: number;
@@ -27,22 +27,54 @@ export interface PdfExtraction {
 }
 
 export async function extractPdfContent(buffer: Buffer): Promise<PdfExtraction> {
-  const data = await pdf(buffer);
+  const parser = new PDFParse({ data: buffer, verbosity: 0 });
+
+  const textResult = await parser.getText();
+  const fullText = textResult?.text || "";
+  const pageCount = textResult?.total || 1;
 
   const metadata: PdfExtraction["metadata"] = {};
-  if (data.info) {
-    metadata.title = data.info.Title || undefined;
-    metadata.author = data.info.Author || undefined;
-    metadata.subject = data.info.Subject || undefined;
-    metadata.creator = data.info.Creator || undefined;
+  try {
+    const info = await parser.getInfo();
+    if (info) {
+      metadata.title = (info as any).Title || (info as any).title || undefined;
+      metadata.author = (info as any).Author || (info as any).author || undefined;
+      metadata.subject = (info as any).Subject || (info as any).subject || undefined;
+      metadata.creator = (info as any).Creator || (info as any).creator || undefined;
+    }
+  } catch {
+    // metadata not available
   }
 
+  const tables: ExtractedTable[] = [];
+  for (let i = 1; i <= pageCount; i++) {
+    try {
+      const pageTables = await parser.getPageTables(i);
+      if (pageTables && Array.isArray(pageTables)) {
+        for (const table of pageTables) {
+          if (table && table.rows && table.rows.length > 0) {
+            tables.push({
+              pageNumber: i,
+              rows: table.rows.map((row: any[]) =>
+                row.map((cell: any) => String(cell ?? ""))
+              ),
+            });
+          }
+        }
+      }
+    } catch {
+      // tables not available on this page
+    }
+  }
+
+  parser.destroy();
+
   return {
-    text: data.text || "",
-    pageCount: data.numpages || 1,
+    text: fullText.trim(),
+    pageCount,
     metadata,
     images: [],
-    tables: [],
+    tables,
   };
 }
 

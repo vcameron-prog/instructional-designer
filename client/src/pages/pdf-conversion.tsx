@@ -663,7 +663,7 @@ export default function PdfConversion() {
 
                 <div className="space-y-3" data-testid="audit-issues">
                   {report.issues.map((issue: any, i: number) => {
-                    const key = `${issue.criterion}::${issue.title}`;
+                    const key = `${issue.criterion}::${issue.title}::${i}`;
                     const isExpanded = expandedIssues.has(key);
                     const isFixable = issue.status === "fail" || issue.status === "warning";
                     const isFixing = fixingIndex === i;

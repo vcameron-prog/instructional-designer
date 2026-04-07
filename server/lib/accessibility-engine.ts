@@ -377,7 +377,7 @@ export function buildComplianceReport(allIssues: ComplianceIssue[]): ComplianceR
 
 async function runAiAudit(html: string): Promise<ComplianceIssue[]> {
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: "claude-sonnet-4-5",
     max_tokens: 4096,
     system: `You are an accessibility compliance auditor. Analyze the generated HTML for issues that automated checks cannot detect. Focus on readability, usability, and content quality.
 
@@ -453,7 +453,7 @@ export async function fixComplianceIssue(
   const { stripped, uris } = stripDataUris(currentHtml);
 
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: "claude-sonnet-4-5",
     max_tokens: 16384,
     system: `You are an accessibility expert specializing in ADA Title II compliance and WCAG 2.1 Level AA standards.
 
@@ -550,7 +550,7 @@ export async function generateAccessibleDocument(
   const structuralSummary = buildStructuralSummary(images, tables);
 
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: "claude-sonnet-4-5",
     max_tokens: 8192,
     system: `You are an accessibility expert specializing in ADA Title II compliance and WCAG 2.1 Level AA standards.
 

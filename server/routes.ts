@@ -1732,7 +1732,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           for (const img of extraction.images.slice(0, 5)) {
             try {
               const ocrResponse = await anthropic.messages.create({
-                model: "claude-sonnet-4-20250514",
+                model: "claude-sonnet-4-5",
                 max_tokens: 2048,
                 messages: [{
                   role: "user",
