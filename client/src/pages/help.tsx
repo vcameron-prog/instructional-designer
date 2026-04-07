@@ -29,7 +29,13 @@ import {
   Link2,
   Library,
   Eye,
-  Bot
+  Bot,
+  FileCheck2,
+  Upload,
+  Search,
+  Wand2,
+  Download,
+  ArrowRight
 } from "lucide-react";
 
 const tools = [
@@ -203,6 +209,18 @@ const faqs = [
   {
     question: "Is my data private?",
     answer: "Your course information and generated content are stored securely and are not shared with other users. Content generation uses AI services but your data is not used to train AI models.",
+  },
+  {
+    question: "What file types does the PDF converter support?",
+    answer: "The PDF Accessibility Converter accepts standard PDF files up to 20MB. This includes text-based PDFs, scanned documents (OCR is applied automatically), and PDFs with images, tables, and mixed content. The converter outputs accessible HTML or Word (.docx) documents.",
+  },
+  {
+    question: "What accessibility standards does the PDF converter check for?",
+    answer: "The converter checks against WCAG 2.1 Level AA success criteria, which is the standard required for ADA Title II compliance. This includes checks for proper heading structure, image alt text, reading order, color contrast, table headers, language attributes, document structure, and landmark regions. Both automated and AI-powered audits are performed to ensure comprehensive coverage.",
+  },
+  {
+    question: "How long does PDF conversion take?",
+    answer: "Most documents are processed within 1-2 minutes. Larger documents with many pages, complex tables, or numerous images may take longer. The converter uses AI to analyze content, generate alt text for images, restructure tables, and build proper document hierarchy — all of which contribute to a thorough remediation.",
   },
 ];
 
@@ -467,6 +485,197 @@ export default function HelpPage() {
                   <strong>Tip:</strong> Save your best AI policies, rubric frameworks, and module structures 
                   as templates. This way you can quickly apply consistent formats across all your courses.
                 </p>
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+
+        <section className="mb-12">
+          <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+            <FileCheck2 className="w-6 h-6 text-primary" />
+            PDF Accessibility Converter
+          </h2>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-start gap-4 mb-6">
+                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <FileCheck2 className="w-6 h-6 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg mb-1">Convert PDFs to Accessible Documents</h3>
+                  <p className="text-muted-foreground">
+                    The PDF Accessibility Converter transforms standard PDF documents into WCAG 2.1 AA compliant 
+                    accessible formats. Using AI-powered remediation, it analyzes your document's structure, images, 
+                    and tables to produce properly structured HTML or Word documents that work with screen readers 
+                    and other assistive technologies.
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-4 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800 mb-6">
+                <h4 className="font-semibold text-amber-800 dark:text-amber-300 mb-1">Why Accessible PDFs Matter</h4>
+                <p className="text-sm text-amber-700 dark:text-amber-400">
+                  Under ADA Title II, state and local government entities — including public universities — are required 
+                  to ensure their digital content is accessible to people with disabilities. WCAG 2.1 Level AA is the 
+                  recognized standard for meeting this obligation. Inaccessible PDFs can prevent students using screen 
+                  readers, magnification software, or other assistive technologies from accessing course materials.
+                </p>
+              </div>
+
+              <div className="mb-6">
+                <h4 className="font-semibold mb-3">What WCAG 2.1 AA Compliance Means</h4>
+                <p className="text-sm text-muted-foreground mb-4">
+                  WCAG (Web Content Accessibility Guidelines) 2.1 Level AA is a set of success criteria that ensure 
+                  digital content is perceivable, operable, understandable, and robust for all users. The converter 
+                  checks and addresses the following key criteria:
+                </p>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="flex items-start gap-2">
+                    <CheckCircle className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                    <div>
+                      <span className="text-sm font-medium">Proper Heading Structure</span>
+                      <p className="text-xs text-muted-foreground">Logical heading hierarchy (H1–H6) for navigation</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <CheckCircle className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                    <div>
+                      <span className="text-sm font-medium">Image Alt Text</span>
+                      <p className="text-xs text-muted-foreground">Meaningful descriptions for all images</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <CheckCircle className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                    <div>
+                      <span className="text-sm font-medium">Color Contrast</span>
+                      <p className="text-xs text-muted-foreground">Sufficient contrast ratios for text readability</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <CheckCircle className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                    <div>
+                      <span className="text-sm font-medium">Reading Order</span>
+                      <p className="text-xs text-muted-foreground">Logical content sequence for screen readers</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <CheckCircle className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                    <div>
+                      <span className="text-sm font-medium">Accessible Tables</span>
+                      <p className="text-xs text-muted-foreground">Proper headers, captions, and scope attributes</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <CheckCircle className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                    <div>
+                      <span className="text-sm font-medium">Language Attributes</span>
+                      <p className="text-xs text-muted-foreground">Document language declared for correct pronunciation</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <CheckCircle className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                    <div>
+                      <span className="text-sm font-medium">Document Structure</span>
+                      <p className="text-xs text-muted-foreground">Semantic HTML with landmarks and regions</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <CheckCircle className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                    <div>
+                      <span className="text-sm font-medium">Page Title</span>
+                      <p className="text-xs text-muted-foreground">Descriptive title for document identification</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mb-6">
+                <h4 className="font-semibold mb-3">How It Works</h4>
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <Upload className="w-4 h-4 text-primary" />
+                    </div>
+                    <div>
+                      <h5 className="font-medium text-sm">1. Upload Your PDF</h5>
+                      <p className="text-xs text-muted-foreground">Drag and drop or browse to upload a PDF file (up to 20MB). Scanned documents are supported via automatic OCR.</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <Wand2 className="w-4 h-4 text-primary" />
+                    </div>
+                    <div>
+                      <h5 className="font-medium text-sm">2. AI-Powered Remediation</h5>
+                      <p className="text-xs text-muted-foreground">The AI analyzes your document's layout, extracts text and images, generates alt text, restructures tables, and builds a proper heading hierarchy.</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <Search className="w-4 h-4 text-primary" />
+                    </div>
+                    <div>
+                      <h5 className="font-medium text-sm">3. Compliance Audit</h5>
+                      <p className="text-xs text-muted-foreground">Both automated and AI-powered audits check the output against WCAG 2.1 AA criteria, producing a detailed compliance report with a score.</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <ShieldCheck className="w-4 h-4 text-primary" />
+                    </div>
+                    <div>
+                      <h5 className="font-medium text-sm">4. Interactive Issue Fixing</h5>
+                      <p className="text-xs text-muted-foreground">Review flagged issues and use the one-click AI fix to resolve them, or accept limitations with a justification for your records.</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <Download className="w-4 h-4 text-primary" />
+                    </div>
+                    <div>
+                      <h5 className="font-medium text-sm">5. Download Accessible Document</h5>
+                      <p className="text-xs text-muted-foreground">Download your accessible document as a Word (.docx) file or HTML. You can also copy the HTML directly for use in Blackboard or other platforms.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mb-6">
+                <h4 className="font-semibold mb-3">Tips for Best Results</h4>
+                <ul className="space-y-2 text-sm text-muted-foreground">
+                  <li className="flex items-start gap-2">
+                    <Lightbulb className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                    Use text-based PDFs when possible — they produce better results than scanned images
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Lightbulb className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                    Keep documents under 20 pages for fastest processing
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Lightbulb className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                    Review the compliance report carefully and address any flagged issues before distributing
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Lightbulb className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                    Use the Word (.docx) download for Blackboard uploads — it preserves formatting best
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Lightbulb className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                    Always double-check AI-generated alt text for accuracy, especially for charts and diagrams
+                  </li>
+                </ul>
+              </div>
+
+              <div className="pt-4 border-t">
+                <Button
+                  onClick={() => navigate("/pdf-accessibility")}
+                  className="w-full sm:w-auto"
+                  data-testid="button-go-to-pdf-converter"
+                >
+                  <FileCheck2 className="w-4 h-4 mr-2" />
+                  Go to PDF Accessibility Converter
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
               </div>
             </CardContent>
           </Card>
