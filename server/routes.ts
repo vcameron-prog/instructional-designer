@@ -7,7 +7,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import multer from "multer";
 import { z } from "zod";
 import { db } from "./db";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, isNull } from "drizzle-orm";
 
 function getUserId(req: Request): string | null {
   return (req.user as any)?.claims?.sub ?? null;
@@ -1661,6 +1661,13 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     },
   });
 
+  function conversionOwnerFilter(id: number, userId: string | null) {
+    if (userId) {
+      return and(eq(conversions.id, id), eq(conversions.userId, userId));
+    }
+    return and(eq(conversions.id, id), isNull(conversions.userId));
+  }
+
   app.get("/api/conversions", isAuthenticated, async (req: Request, res: Response) => {
     const userId = getUserId(req);
     const results = await db
@@ -1681,7 +1688,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     res.json(results);
   });
 
-  app.get("/api/conversions/:id", isAuthenticated, async (req: Request, res: Response) => {
+  app.get("/api/conversions/:id", optionalAuth, async (req: Request, res: Response) => {
     const userId = getUserId(req);
     const id = parseInt(req.params.id);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -1703,16 +1710,23 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         updatedAt: conversions.updatedAt,
       })
       .from(conversions)
-      .where(and(eq(conversions.id, id), eq(conversions.userId, userId)));
+      .where(conversionOwnerFilter(id, userId));
 
     if (!conversion) { res.status(404).json({ error: "Conversion not found" }); return; }
     res.json(conversion);
   });
 
-  app.post("/api/conversions/upload", isAuthenticated, pdfUpload.single("file"), async (req: Request, res: Response) => {
+  app.post("/api/conversions/upload", optionalAuth, pdfUpload.single("file"), async (req: Request, res: Response) => {
     const userId = getUserId(req);
     const file = req.file;
     if (!file) { res.status(400).json({ error: "No file uploaded" }); return; }
+
+    if (!userId) {
+      const ip = req.ip || req.socket.remoteAddress || "unknown";
+      if (!checkAnonRateLimit(ip)) {
+        return res.status(429).json({ error: "Rate limit exceeded. Please sign in for unlimited access or try again later." });
+      }
+    }
 
     const pdfBase64 = file.buffer.toString("base64");
 
@@ -1723,7 +1737,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         fileSize: file.size,
         status: "uploaded",
         pdfData: pdfBase64,
-        userId,
+        userId: userId || null,
       })
       .returning({
         id: conversions.id,
@@ -1736,7 +1750,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     res.json(created);
   });
 
-  app.post("/api/conversions/:id/process", isAuthenticated, async (req: Request, res: Response) => {
+  app.post("/api/conversions/:id/process", optionalAuth, async (req: Request, res: Response) => {
     const userId = getUserId(req);
     const id = parseInt(req.params.id);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -1744,7 +1758,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     const [conversion] = await db
       .select()
       .from(conversions)
-      .where(and(eq(conversions.id, id), eq(conversions.userId, userId)));
+      .where(conversionOwnerFilter(id, userId));
 
     if (!conversion) { res.status(404).json({ error: "Conversion not found" }); return; }
     if (conversion.status === "processing") { res.status(400).json({ error: "Already processing" }); return; }
@@ -1831,16 +1845,16 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     })();
   });
 
-  app.delete("/api/conversions/:id", isAuthenticated, async (req: Request, res: Response) => {
+  app.delete("/api/conversions/:id", optionalAuth, async (req: Request, res: Response) => {
     const userId = getUserId(req);
     const id = parseInt(req.params.id);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
-    await db.delete(conversions).where(and(eq(conversions.id, id), eq(conversions.userId, userId)));
+    await db.delete(conversions).where(conversionOwnerFilter(id, userId));
     res.json({ success: true });
   });
 
-  app.post("/api/conversions/:id/fix-issue", isAuthenticated, async (req: Request, res: Response) => {
+  app.post("/api/conversions/:id/fix-issue", optionalAuth, async (req: Request, res: Response) => {
     const userId = getUserId(req);
     const id = parseInt(req.params.id);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -1851,7 +1865,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     const [conversion] = await db
       .select()
       .from(conversions)
-      .where(and(eq(conversions.id, id), eq(conversions.userId, userId)));
+      .where(conversionOwnerFilter(id, userId));
 
     if (!conversion) { res.status(404).json({ error: "Conversion not found" }); return; }
     if (conversion.status !== "completed" || !conversion.accessibleHtml) {
@@ -1902,7 +1916,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     }
   });
 
-  app.post("/api/conversions/:id/accept-issue", isAuthenticated, async (req: Request, res: Response) => {
+  app.post("/api/conversions/:id/accept-issue", optionalAuth, async (req: Request, res: Response) => {
     const userId = getUserId(req);
     const id = parseInt(req.params.id);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -1913,7 +1927,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     const [conversion] = await db
       .select()
       .from(conversions)
-      .where(and(eq(conversions.id, id), eq(conversions.userId, userId)));
+      .where(conversionOwnerFilter(id, userId));
 
     if (!conversion) { res.status(404).json({ error: "Conversion not found" }); return; }
 
@@ -1954,7 +1968,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     res.json(updated);
   });
 
-  app.post("/api/conversions/:id/revert-issue", isAuthenticated, async (req: Request, res: Response) => {
+  app.post("/api/conversions/:id/revert-issue", optionalAuth, async (req: Request, res: Response) => {
     const userId = getUserId(req);
     const id = parseInt(req.params.id);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -1965,7 +1979,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     const [conversion] = await db
       .select()
       .from(conversions)
-      .where(and(eq(conversions.id, id), eq(conversions.userId, userId)));
+      .where(conversionOwnerFilter(id, userId));
 
     if (!conversion) { res.status(404).json({ error: "Conversion not found" }); return; }
 
@@ -2010,7 +2024,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     res.json(updated);
   });
 
-  app.put("/api/conversions/:id/html", isAuthenticated, async (req: Request, res: Response) => {
+  app.put("/api/conversions/:id/html", optionalAuth, async (req: Request, res: Response) => {
     const userId = getUserId(req);
     const id = parseInt(req.params.id);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -2021,7 +2035,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     const [conversion] = await db
       .select({ id: conversions.id, status: conversions.status })
       .from(conversions)
-      .where(and(eq(conversions.id, id), eq(conversions.userId, userId)));
+      .where(conversionOwnerFilter(id, userId));
 
     if (!conversion) { res.status(404).json({ error: "Conversion not found" }); return; }
     if (conversion.status !== "completed") { res.status(400).json({ error: "Must be completed" }); return; }
@@ -2049,7 +2063,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     res.json(updated);
   });
 
-  app.get("/api/conversions/:id/download", isAuthenticated, async (req: Request, res: Response) => {
+  app.get("/api/conversions/:id/download", optionalAuth, async (req: Request, res: Response) => {
     const userId = getUserId(req);
     const id = parseInt(req.params.id);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -2062,7 +2076,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         updatedAt: conversions.updatedAt,
       })
       .from(conversions)
-      .where(and(eq(conversions.id, id), eq(conversions.userId, userId)));
+      .where(conversionOwnerFilter(id, userId));
 
     if (!conversion) { res.status(404).json({ error: "Conversion not found" }); return; }
     if (conversion.status !== "completed" || !conversion.accessibleHtml) {
@@ -2093,7 +2107,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     res.send(html);
   });
 
-  app.get("/api/conversions/:id/download-docx", isAuthenticated, async (req: Request, res: Response) => {
+  app.get("/api/conversions/:id/download-docx", optionalAuth, async (req: Request, res: Response) => {
     const userId = getUserId(req);
     const id = parseInt(req.params.id);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -2106,7 +2120,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         updatedAt: conversions.updatedAt,
       })
       .from(conversions)
-      .where(and(eq(conversions.id, id), eq(conversions.userId, userId)));
+      .where(conversionOwnerFilter(id, userId));
 
     if (!conversion) { res.status(404).json({ error: "Conversion not found" }); return; }
     if (conversion.status !== "completed" || !conversion.accessibleHtml) {

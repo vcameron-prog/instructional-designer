@@ -71,7 +71,7 @@ export default function PdfUpload() {
     accept: { "application/pdf": [".pdf"] },
     maxFiles: 1,
     maxSize: 20 * 1024 * 1024,
-    disabled: uploadMutation.isPending || !isAuthenticated,
+    disabled: uploadMutation.isPending,
   });
 
   if (authLoading) {
@@ -134,24 +134,6 @@ export default function PdfUpload() {
           </p>
         </div>
 
-        {!isAuthenticated && (
-          <div className="mb-8 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-4 flex items-center justify-between gap-4 flex-wrap" data-testid="banner-pdf-signin">
-            <div className="flex items-center gap-3">
-              <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
-              <p className="text-sm text-amber-800 dark:text-amber-200 font-medium">
-                PDF conversion requires a sign-in so your document can be processed and saved.
-              </p>
-            </div>
-            <a
-              href="/api/login"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-bold shadow-sm hover:-translate-y-0.5 transition-all flex-shrink-0"
-              data-testid="button-pdf-login"
-            >
-              Sign In to Upload
-            </a>
-          </div>
-        )}
-
         <div className="w-full max-w-2xl mx-auto mb-12">
           <div
             {...getRootProps()}
@@ -160,7 +142,7 @@ export default function PdfUpload() {
               isDragActive
                 ? "border-primary bg-primary/5 scale-[1.02]"
                 : "border-border hover:border-primary/50 hover:bg-secondary/50 bg-card",
-              (uploadMutation.isPending || !isAuthenticated) && "opacity-50 cursor-not-allowed pointer-events-none"
+              uploadMutation.isPending && "opacity-50 cursor-not-allowed pointer-events-none"
             )}
             data-testid="dropzone-upload"
           >

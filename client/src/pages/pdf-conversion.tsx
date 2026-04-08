@@ -89,7 +89,7 @@ export default function PdfConversion() {
 
   const { data: conversion, isLoading, isError } = useQuery<any>({
     queryKey: ["/api/conversions", numericId],
-    enabled: isAuthenticated && numericId > 0,
+    enabled: numericId > 0,
     refetchInterval: (query) => {
       const data = query.state.data;
       return data?.status === "processing" || data?.status === "uploaded" ? 3000 : false;

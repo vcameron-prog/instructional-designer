@@ -14,7 +14,7 @@ This is an AI-powered instructional design tool built for Bridgewater State Univ
 - **Anonymous Quick Tools flow**: Generated content cached in React Query client memory (not persisted to DB); result page hides Refine, Save-as-Template, and .docx export for anonymous users
 - **Rate limiting**: Anonymous AI generation limited to 10 requests per hour per IP via in-memory rate limiter
 - **Middleware**: `optionalAuth` middleware in `replitAuth.ts` passes through without auth but attaches user info if available; `getUserId` returns `string | null`
-- **PDF converter**: Requires sign-in (upload dropzone disabled for anonymous users) because the conversion pipeline requires DB persistence
+- **PDF converter**: Fully available to anonymous users; conversions stored in DB with null userId for pipeline mechanics; anonymous conversions accessible by ID; history page remains auth-only
 
 ### PDF Accessibility Converter
 - **Full PDF-to-accessible-HTML pipeline**: Upload PDF → AI extraction → WCAG 2.1 AA compliant HTML → compliance checks → fix/accept issues → download HTML or DOCX
