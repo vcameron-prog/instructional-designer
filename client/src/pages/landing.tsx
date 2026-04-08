@@ -178,18 +178,13 @@ export default function LandingPage() {
 
   if (isAuthLoading) {
     return (
-      <main id="main-content" tabIndex={-1} className="min-h-screen bg-gradient-to-br from-primary via-primary/90 to-primary/80 flex items-center justify-center" role="status">
+      <main id="main-content" tabIndex={-1} className="min-h-screen bg-background flex items-center justify-center" role="status">
         <div className="text-center">
-          <Loader2 className="w-12 h-12 text-white animate-spin mx-auto mb-4" aria-hidden="true" />
-          <p className="text-white/80">Loading...</p>
+          <Loader2 className="w-12 h-12 text-primary animate-spin mx-auto mb-4" aria-hidden="true" />
+          <p className="text-muted-foreground">Loading...</p>
         </div>
       </main>
     );
-  }
-
-  // Show login page if not authenticated
-  if (!isAuthenticated) {
-    return <LoginPage />;
   }
 
   return (
@@ -208,7 +203,19 @@ export default function LandingPage() {
             </span>
           </div>
         )}
-        <HeaderControls />
+        {!isAuthenticated && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={() => window.location.href = "/api/login"}
+            data-testid="button-login-header"
+          >
+            <SiGoogle size={14} />
+            Sign In
+          </Button>
+        )}
+        <HeaderControls showLogout={isAuthenticated} />
       </nav>
       
       <div className="relative z-10 container mx-auto px-4 py-12 md:py-20">
@@ -224,8 +231,28 @@ export default function LandingPage() {
           </p>
         </div>
 
-        <div className={`grid gap-6 max-w-4xl mx-auto ${courses.length > 0 ? "md:grid-cols-2" : "md:grid-cols-2 max-w-2xl"}`}>
-          <Card 
+        {!isAuthenticated && (
+          <div className="mb-8 max-w-4xl mx-auto bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-xl p-4 flex items-center justify-between gap-4 flex-wrap" data-testid="banner-sign-in">
+            <div className="flex items-center gap-3">
+              <Shield className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+              <p className="text-sm text-blue-800 dark:text-blue-200 font-medium" style={{ textWrap: "balance" }}>
+                You're using the tool as a guest. Sign in to save your courses, access history, and use all features.
+              </p>
+            </div>
+            <Button
+              size="sm"
+              className="gap-2 flex-shrink-0"
+              onClick={() => window.location.href = "/api/login"}
+              data-testid="button-login-banner"
+            >
+              <SiGoogle size={14} />
+              Sign In with Google
+            </Button>
+          </div>
+        )}
+
+        <div className={`grid gap-6 max-w-4xl mx-auto ${isAuthenticated && courses.length > 0 ? "md:grid-cols-2" : "md:grid-cols-2 max-w-2xl"}`}>
+          {isAuthenticated && <Card 
             className="group cursor-pointer transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl bg-card border-0"
             onClick={() => navigate("/new-course")}
             onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate("/new-course"); } }}
@@ -246,7 +273,7 @@ export default function LandingPage() {
                 Get Started <ArrowRight className="w-4 h-4" />
               </Button>
             </CardContent>
-          </Card>
+          </Card>}
 
           <Card 
             className="group cursor-pointer transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl bg-card border-0"
@@ -294,7 +321,7 @@ export default function LandingPage() {
             </CardContent>
           </Card>
 
-          {courses.length > 0 && (
+          {isAuthenticated && courses.length > 0 && (
             <Card className="bg-card border-0 md:col-span-2">
               <CardHeader className="pb-3">
                 <div className="flex items-center gap-3">
@@ -348,14 +375,14 @@ export default function LandingPage() {
             <FlaskConical className="w-4 h-4 mr-2" />
             Research & Theory
           </Button>
-          <Button 
+          {isAuthenticated && <Button 
             variant="outline" 
             onClick={() => navigate("/library")}
             data-testid="button-library-footer"
           >
             <Library className="w-4 h-4 mr-2" />
             Template Library
-          </Button>
+          </Button>}
         </div>
 
         <div className="mt-10 flex flex-col items-center gap-4">

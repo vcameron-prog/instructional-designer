@@ -2,16 +2,15 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertCourseSchema, type Course, conversions } from "@shared/schema";
-import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
+import { setupAuth, registerAuthRoutes, isAuthenticated, optionalAuth } from "./replit_integrations/auth";
 import Anthropic from "@anthropic-ai/sdk";
 import multer from "multer";
 import { z } from "zod";
 import { db } from "./db";
 import { eq, and, desc } from "drizzle-orm";
 
-// Helper to get userId from authenticated request
-function getUserId(req: Request): string {
-  return (req.user as any)?.claims?.sub;
+function getUserId(req: Request): string | null {
+  return (req.user as any)?.claims?.sub ?? null;
 }
 import {
   Document,
@@ -29,6 +28,29 @@ const anthropic = new Anthropic({
 });
 
 const upload = multer({ storage: multer.memoryStorage() });
+
+const anonRateLimits = new Map<string, { count: number; resetAt: number }>();
+const ANON_RATE_LIMIT = 10;
+const ANON_RATE_WINDOW_MS = 60 * 60 * 1000;
+
+function checkAnonRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = anonRateLimits.get(ip);
+  if (!entry || now > entry.resetAt) {
+    anonRateLimits.set(ip, { count: 1, resetAt: now + ANON_RATE_WINDOW_MS });
+    return true;
+  }
+  if (entry.count >= ANON_RATE_LIMIT) return false;
+  entry.count++;
+  return true;
+}
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, entry] of anonRateLimits) {
+    if (now > entry.resetAt) anonRateLimits.delete(ip);
+  }
+}, 10 * 60 * 1000);
 
 // Generate prompt based on tool and course info
 function generatePrompt(
@@ -1151,11 +1173,17 @@ export async function registerRoutes(
     }
   });
 
-  // Standalone generate (no course required)
-  app.post("/api/generate-standalone", isAuthenticated, async (req: Request, res: Response) => {
+  app.post("/api/generate-standalone", optionalAuth, async (req: Request, res: Response) => {
     try {
-      const userId = getUserId(req) as string;
+      const userId = getUserId(req);
       const { toolId, toolName, formData } = req.body;
+
+      if (!userId) {
+        const ip = req.ip || req.socket.remoteAddress || "unknown";
+        if (!checkAnonRateLimit(ip)) {
+          return res.status(429).json({ error: "Rate limit exceeded. Please sign in for unlimited access or try again later." });
+        }
+      }
 
       const allowedTools = ["assignment", "rubric", "alignment", "airesistant", "accessibility", "aistudent"];
       if (!allowedTools.includes(toolId)) {
@@ -1175,16 +1203,29 @@ export async function registerRoutes(
         .map((item) => item.text)
         .join("\n\n");
 
-      const content = await storage.createContent({
+      if (userId) {
+        const content = await storage.createContent({
+          courseId: null,
+          userId,
+          toolType: toolId,
+          toolName,
+          formData,
+          content: generatedText,
+        });
+        return res.status(201).json(content);
+      }
+
+      res.status(201).json({
+        id: null,
         courseId: null,
-        userId,
+        userId: null,
         toolType: toolId,
         toolName,
         formData,
         content: generatedText,
+        isApproved: false,
+        createdAt: new Date().toISOString(),
       });
-
-      res.status(201).json(content);
     } catch (error) {
       console.error("Error generating standalone content:", error);
       res.status(500).json({ error: "Failed to generate content" });

@@ -4,6 +4,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useTheme } from "@/components/theme-provider";
 import { useFontSize } from "@/components/font-size-provider";
 import { useLocation } from "wouter";
+import { useAuth } from "@/hooks/use-auth";
 
 interface HeaderControlsProps {
   variant?: "light" | "dark";
@@ -20,6 +21,7 @@ export function HeaderControls({
   showHelp = true,
   showLogout = true,
 }: HeaderControlsProps) {
+  const { isAuthenticated } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { fontSize, increaseFontSize, decreaseFontSize } = useFontSize();
   const [, navigate] = useLocation();
@@ -107,7 +109,7 @@ export function HeaderControls({
         </Tooltip>
       )}
 
-      {showLibrary && (
+      {showLibrary && isAuthenticated && (
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
@@ -143,7 +145,7 @@ export function HeaderControls({
         </Tooltip>
       )}
 
-      {showLogout && (
+      {showLogout && isAuthenticated && (
         <Tooltip>
           <TooltipTrigger asChild>
             <Button

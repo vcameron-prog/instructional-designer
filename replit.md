@@ -6,7 +6,17 @@ This is an AI-powered instructional design tool built for Bridgewater State Univ
 
 ## Recent Updates
 
-### PDF Accessibility Converter (Latest)
+### Optional Sign-In / Anonymous Access (Latest)
+- **Anonymous access**: Users can use Quick Tools and view the landing page without signing in
+- **Auth-gated features**: Start New Course, Template Library, PDF upload, course history, and content refining/saving require authentication
+- **Sign-in banners**: Blue banner on landing page and amber banner on PDF page prompt anonymous users to sign in
+- **HeaderControls**: Automatically hides Library and Logout buttons for anonymous users via `useAuth` hook
+- **Anonymous Quick Tools flow**: Generated content cached in React Query client memory (not persisted to DB); result page hides Refine, Save-as-Template, and .docx export for anonymous users
+- **Rate limiting**: Anonymous AI generation limited to 10 requests per hour per IP via in-memory rate limiter
+- **Middleware**: `optionalAuth` middleware in `replitAuth.ts` passes through without auth but attaches user info if available; `getUserId` returns `string | null`
+- **PDF converter**: Requires sign-in (upload dropzone disabled for anonymous users) because the conversion pipeline requires DB persistence
+
+### PDF Accessibility Converter
 - **Full PDF-to-accessible-HTML pipeline**: Upload PDF → AI extraction → WCAG 2.1 AA compliant HTML → compliance checks → fix/accept issues → download HTML or DOCX
 - **Backend libraries**: `server/lib/pdf-processor.ts` (PDF text extraction), `server/lib/accessibility-engine.ts` (Anthropic Claude-powered AI processing with deterministic checks, AI audit, fix/accept/revert), `server/lib/docx-builder.ts` (HTML→DOCX conversion)
 - **Database**: `conversions` table tracks uploads, status, extracted text, generated HTML, compliance reports, processing errors

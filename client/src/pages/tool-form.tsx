@@ -318,7 +318,12 @@ export default function ToolForm() {
     },
     onSuccess: (data) => {
       if (isStandalone) {
-        navigate(`/quick-tools/result/${data.id}`);
+        if (data.id) {
+          navigate(`/quick-tools/result/${data.id}`);
+        } else {
+          queryClient.setQueryData(["/api/standalone-content", "anon"], data);
+          navigate(`/quick-tools/result/anon`);
+        }
       } else {
         queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId, "content"] });
         navigate(`/course/${courseId}/result/${data.id}`);

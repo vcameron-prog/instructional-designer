@@ -31,6 +31,7 @@ import { TOOLS, LOADING_MESSAGES } from "@/lib/constants";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { usePageTitle } from "@/hooks/use-page-title";
+import { useAuth } from "@/hooks/use-auth";
 import type { Course, GeneratedContent } from "@shared/schema";
 
 interface AccessibilityIssue {
@@ -98,9 +99,11 @@ const checkAccessibility = (content: string): AccessibilityIssue[] => {
 export default function ResultPage() {
   const params = useParams();
   const courseId = params.id ? parseInt(params.id) : undefined;
-  const contentId = params.contentId ? parseInt(params.contentId) : undefined;
+  const isAnon = params.contentId === "anon";
+  const contentId = isAnon ? undefined : (params.contentId ? parseInt(params.contentId) : undefined);
   const [location, navigate] = useLocation();
   const { toast } = useToast();
+  const { isAuthenticated } = useAuth();
 
   const isStandalone = location.startsWith("/quick-tools");
   const backPath = isStandalone ? "/quick-tools" : `/course/${courseId}/tools`;
@@ -119,17 +122,21 @@ export default function ResultPage() {
     requestAnimationFrame(() => {
       window.scrollTo({ top: 0, left: 0, behavior: "instant" });
     });
-  }, [contentId]);
+  }, [contentId, isAnon]);
 
   const { data: course } = useQuery<Course>({
     queryKey: ["/api/courses", courseId],
     enabled: !!courseId && !isStandalone,
   });
 
-  const { data: content, isLoading } = useQuery<GeneratedContent>({
+  const anonData = isAnon ? queryClient.getQueryData<GeneratedContent>(["/api/standalone-content", "anon"]) : undefined;
+
+  const { data: fetchedContent, isLoading } = useQuery<GeneratedContent>({
     queryKey: isStandalone ? ["/api/standalone-content", contentId] : ["/api/content", contentId],
-    enabled: !!contentId,
+    enabled: !!contentId && !isAnon,
   });
+
+  const content = isAnon ? (anonData as GeneratedContent | undefined) : fetchedContent;
 
   usePageTitle(content ? content.toolName + " Result" : "Result");
 
@@ -380,7 +387,7 @@ export default function ResultPage() {
                 <Download className="w-4 h-4 mr-1.5" />
                 .txt
               </Button>
-              <Button
+              {!isAnon && <Button
                 variant="outline"
                 size="sm"
                 onClick={handleDownloadWord}
@@ -388,7 +395,7 @@ export default function ResultPage() {
               >
                 <FileText className="w-4 h-4 mr-1.5" />
                 .docx
-              </Button>
+              </Button>}
               {!isStandalone && (
               <Button
                 variant={content.isApproved ? "default" : "outline"}
@@ -414,7 +421,7 @@ export default function ResultPage() {
                 </span>
               </Button>
               )}
-              <Dialog open={saveLibraryOpen} onOpenChange={setSaveLibraryOpen}>
+              {isAuthenticated && <Dialog open={saveLibraryOpen} onOpenChange={setSaveLibraryOpen}>
                 <DialogTrigger asChild>
                   <Button
                     variant="outline"
@@ -467,7 +474,7 @@ export default function ResultPage() {
                     </Button>
                   </DialogFooter>
                 </DialogContent>
-              </Dialog>
+              </Dialog>}
             </div>
           </CardContent>
         </Card>
@@ -536,7 +543,7 @@ export default function ResultPage() {
                 {new Date(content.createdAt).toLocaleTimeString()}
               </CardDescription>
             </div>
-            <Dialog open={refinementOpen} onOpenChange={setRefinementOpen}>
+            {isAuthenticated && !isAnon && <Dialog open={refinementOpen} onOpenChange={setRefinementOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline" className="gap-2" data-testid="button-refine">
                   <RefreshCw className="w-4 h-4" />
@@ -567,7 +574,7 @@ export default function ResultPage() {
                   </Button>
                 </DialogFooter>
               </DialogContent>
-            </Dialog>
+            </Dialog>}
           </CardHeader>
           <CardContent>
             <ScrollArea className="h-[600px] pr-4">

@@ -9,6 +9,7 @@ import { TOOLS } from "@/lib/constants";
 import { PoweredByFooter } from "@/components/powered-by-footer";
 import { HeaderControls } from "@/components/header-controls";
 import { usePageTitle } from "@/hooks/use-page-title";
+import { useAuth } from "@/hooks/use-auth";
 import { format } from "date-fns";
 import type { GeneratedContent } from "@shared/schema";
 
@@ -34,6 +35,7 @@ const toolIconByType: Record<string, any> = {
 
 export default function QuickTools() {
   const [, navigate] = useLocation();
+  const { isAuthenticated } = useAuth();
 
   usePageTitle("Quick Tools");
 
@@ -41,9 +43,10 @@ export default function QuickTools() {
 
   const { data: history, isLoading: historyLoading, isError: historyError } = useQuery<GeneratedContent[]>({
     queryKey: ["/api/standalone-content"],
+    enabled: isAuthenticated,
   });
 
-  const filteredHistory = history?.filter(item => QUICK_TOOL_IDS.includes(item.toolType));
+  const filteredHistory = isAuthenticated ? history?.filter(item => QUICK_TOOL_IDS.includes(item.toolType)) : undefined;
 
   return (
     <main id="main-content" tabIndex={-1} className="min-h-screen bg-background">

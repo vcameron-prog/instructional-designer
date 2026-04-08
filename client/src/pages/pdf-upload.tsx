@@ -71,7 +71,7 @@ export default function PdfUpload() {
     accept: { "application/pdf": [".pdf"] },
     maxFiles: 1,
     maxSize: 20 * 1024 * 1024,
-    disabled: uploadMutation.isPending,
+    disabled: uploadMutation.isPending || !isAuthenticated,
   });
 
   if (authLoading) {
@@ -82,29 +82,7 @@ export default function PdfUpload() {
     );
   }
 
-  if (!isAuthenticated) {
-    return (
-      <main id="main-content" tabIndex={-1} className="min-h-screen bg-gradient-to-br from-primary via-primary/90 to-primary/80 flex items-center justify-center">
-        <div className="absolute top-4 right-4 z-20">
-          <HeaderControls variant="dark" showLogout={false} showLibrary={false} />
-        </div>
-        <div className="text-center text-white p-8">
-          <UploadCloud className="w-16 h-16 mx-auto mb-4 opacity-80" />
-          <h1 className="text-3xl font-bold mb-2">PDF Accessibility Converter</h1>
-          <p className="text-white/80 mb-6">Sign in to convert your PDFs into accessible documents.</p>
-          <a
-            href="/api/login"
-            className="inline-flex items-center gap-2 px-6 py-3 bg-white text-primary rounded-xl font-bold shadow-lg hover:-translate-y-0.5 transition-all"
-            data-testid="button-login"
-          >
-            Sign in to get started
-          </a>
-        </div>
-      </main>
-    );
-  }
-
-  const recent = recentConversions?.slice(0, 5) || [];
+  const recent = isAuthenticated ? (recentConversions?.slice(0, 5) || []) : [];
 
   return (
     <main id="main-content" tabIndex={-1} className="min-h-screen bg-background">
@@ -120,14 +98,14 @@ export default function PdfUpload() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button
+            {isAuthenticated && <button
               onClick={() => navigate("/pdf-accessibility/history")}
               className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
               data-testid="link-history"
             >
               <History className="w-4 h-4" />
               History
-            </button>
+            </button>}
             <button
               onClick={() => navigate("/pdf-accessibility/faq")}
               className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
@@ -156,6 +134,24 @@ export default function PdfUpload() {
           </p>
         </div>
 
+        {!isAuthenticated && (
+          <div className="mb-8 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-4 flex items-center justify-between gap-4 flex-wrap" data-testid="banner-pdf-signin">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+              <p className="text-sm text-amber-800 dark:text-amber-200 font-medium">
+                PDF conversion requires a sign-in so your document can be processed and saved.
+              </p>
+            </div>
+            <a
+              href="/api/login"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-bold shadow-sm hover:-translate-y-0.5 transition-all flex-shrink-0"
+              data-testid="button-pdf-login"
+            >
+              Sign In to Upload
+            </a>
+          </div>
+        )}
+
         <div className="w-full max-w-2xl mx-auto mb-12">
           <div
             {...getRootProps()}
@@ -164,7 +160,7 @@ export default function PdfUpload() {
               isDragActive
                 ? "border-primary bg-primary/5 scale-[1.02]"
                 : "border-border hover:border-primary/50 hover:bg-secondary/50 bg-card",
-              uploadMutation.isPending && "opacity-50 cursor-not-allowed pointer-events-none"
+              (uploadMutation.isPending || !isAuthenticated) && "opacity-50 cursor-not-allowed pointer-events-none"
             )}
             data-testid="dropzone-upload"
           >
