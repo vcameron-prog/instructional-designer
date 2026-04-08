@@ -1,4 +1,4 @@
-import { Moon, Sun, Minus, Plus, Type, Library, HelpCircle, LogOut, Home } from "lucide-react";
+import { Moon, Sun, Minus, Plus, Type, Library, HelpCircle, LogOut, Home, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTheme } from "@/components/theme-provider";
@@ -160,6 +160,25 @@ export function HeaderControls({
             </Button>
           </TooltipTrigger>
           <TooltipContent><p>Sign out</p></TooltipContent>
+        </Tooltip>
+      )}
+
+      {!isAuthenticated && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant={btnVariant}
+              size="sm"
+              className={`${btnClass} gap-1.5`}
+              onClick={() => window.location.href = "/api/login"}
+              data-testid="button-header-login"
+              aria-label="Sign in"
+            >
+              <LogIn className="w-4 h-4" />
+              Sign In
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent><p>Sign in with Google</p></TooltipContent>
         </Tooltip>
       )}
     </div>

@@ -181,6 +181,7 @@ export const optionalAuth: RequestHandler = async (req, _res, next) => {
       const tokenResponse = await client.refreshTokenGrant(config, refreshToken);
       updateUserSession(user, tokenResponse);
     } catch {
+      req.logout(() => {});
     }
   }
   return next();
