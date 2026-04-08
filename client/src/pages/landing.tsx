@@ -65,27 +65,25 @@ const toolIconMap: Record<string, any> = {
 function LoginPage() {
   usePageTitle("Sign In");
   return (
-    <main id="main-content" tabIndex={-1} className="min-h-screen bg-gradient-to-br from-primary via-primary/90 to-primary/80 relative overflow-hidden">
-      <div className="absolute inset-0 pattern-dots text-white/10 opacity-50" aria-hidden="true" />
-      
+    <main id="main-content" tabIndex={-1} className="min-h-screen bg-background relative overflow-hidden">
       <div className="absolute top-4 right-4 z-20">
-        <HeaderControls variant="dark" showLogout={false} showLibrary={false} />
+        <HeaderControls showLogout={false} showLibrary={false} />
       </div>
 
       <div className="relative z-10 container mx-auto px-4 py-12 md:py-20 flex flex-col items-center justify-center min-h-screen">
         <div className="text-center mb-12 animate-fade-in-up">
-          <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-primary to-accent rounded-3xl mb-8 shadow-2xl border-4 border-white/20">
+          <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-primary to-accent rounded-3xl mb-8 shadow-2xl">
             <GraduationCap className="w-14 h-14 text-white" />
           </div>
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4 tracking-tight">
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground mb-4 tracking-tight">
             BSU Instructional Design Tool
           </h1>
-          <p className="text-lg md:text-xl text-white/90 max-w-2xl mx-auto leading-relaxed mb-8" style={{ textWrap: "balance" }}>
+          <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed mb-8" style={{ textWrap: "balance" }}>
             Create comprehensive, UDL-aligned course materials ready for Blackboard Ultra
           </p>
         </div>
 
-        <Card className="max-w-md w-full bg-card border-0 shadow-2xl">
+        <Card className="max-w-md w-full bg-card border shadow-2xl">
           <CardContent className="p-8 text-center">
             <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center mx-auto mb-6">
               <User className="w-10 h-10 text-white" />
@@ -111,29 +109,29 @@ function LoginPage() {
         </Card>
 
         <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4 max-w-3xl">
-          <div className="bg-white/10 rounded-lg p-4 text-center text-white">
-            <Sparkles className="w-8 h-8 mx-auto mb-2" />
-            <p className="font-medium">AI-Powered</p>
-            <p className="text-sm text-white/70" style={{ textWrap: "balance" }}>Generate complete course materials</p>
+          <div className="bg-card rounded-lg p-4 text-center border shadow-sm">
+            <Sparkles className="w-8 h-8 mx-auto mb-2 text-primary" />
+            <p className="font-medium text-foreground">AI-Powered</p>
+            <p className="text-sm text-muted-foreground" style={{ textWrap: "balance" }}>Generate complete course materials</p>
           </div>
-          <div className="bg-white/10 rounded-lg p-4 text-center text-white">
-            <Users className="w-8 h-8 mx-auto mb-2" />
-            <p className="font-medium">UDL-Aligned</p>
-            <p className="text-sm text-white/70" style={{ textWrap: "balance" }}>Inclusive design principles</p>
+          <div className="bg-card rounded-lg p-4 text-center border shadow-sm">
+            <Users className="w-8 h-8 mx-auto mb-2 text-primary" />
+            <p className="font-medium text-foreground">UDL-Aligned</p>
+            <p className="text-sm text-muted-foreground" style={{ textWrap: "balance" }}>Inclusive design principles</p>
           </div>
-          <div className="bg-white/10 rounded-lg p-4 text-center text-white">
-            <Shield className="w-8 h-8 mx-auto mb-2" />
-            <p className="font-medium">Private & Secure</p>
-            <p className="text-sm text-white/70" style={{ textWrap: "balance" }}>Your data stays yours</p>
+          <div className="bg-card rounded-lg p-4 text-center border shadow-sm">
+            <Shield className="w-8 h-8 mx-auto mb-2 text-primary" />
+            <p className="font-medium text-foreground">Private & Secure</p>
+            <p className="text-sm text-muted-foreground" style={{ textWrap: "balance" }}>Your data stays yours</p>
           </div>
         </div>
 
         <div className="mt-10 flex flex-col items-center gap-4">
-          <img src={bsuAiLogo} alt="BSU Center for Artificial Intelligence" className="h-12" data-testid="img-bsu-ai-logo" />
-          <p className="text-center text-white/70 text-sm" style={{ textWrap: "balance" }}>
+          <img src={bsuAiLogo} alt="BSU Center for Artificial Intelligence" className="h-12 brightness-0 dark:brightness-100" data-testid="img-bsu-ai-logo" />
+          <p className="text-center text-muted-foreground text-sm" style={{ textWrap: "balance" }}>
             Powered by AI to help BSU faculty create accessible, engaging course materials
           </p>
-          <p className="text-center text-white/50 text-xs" style={{ textWrap: "balance" }}>
+          <p className="text-center text-muted-foreground/70 text-xs" style={{ textWrap: "balance" }}>
             Your data is not used to train AI models
           </p>
         </div>
@@ -195,35 +193,33 @@ export default function LandingPage() {
   }
 
   return (
-    <main id="main-content" tabIndex={-1} className="min-h-screen bg-gradient-to-br from-primary via-primary/90 to-primary/80 relative overflow-hidden">
-      <div className="absolute inset-0 pattern-dots text-white/10 opacity-50" aria-hidden="true" />
-      
+    <main id="main-content" tabIndex={-1} className="min-h-screen bg-background relative overflow-hidden">
       <nav aria-label="User menu" className="absolute top-4 right-4 z-20 flex items-center gap-2">
         {user && (
-          <div className="flex items-center gap-2 bg-white/10 rounded-lg px-3 py-1.5 mr-1" data-testid="user-info">
+          <div className="flex items-center gap-2 bg-muted rounded-lg px-3 py-1.5 mr-1" data-testid="user-info">
             <Avatar className="w-7 h-7">
               <AvatarImage src={user.profileImageUrl || undefined} alt={user.firstName || "User"} />
-              <AvatarFallback className="text-xs bg-white/20 text-white">
+              <AvatarFallback className="text-xs bg-primary/10 text-primary">
                 {user.firstName?.[0] || user.email?.[0]?.toUpperCase() || "U"}
               </AvatarFallback>
             </Avatar>
-            <span className="text-white text-sm hidden md:inline" data-testid="text-user-name">
+            <span className="text-foreground text-sm hidden md:inline" data-testid="text-user-name">
               {user.firstName || user.email?.split("@")[0] || "User"}
             </span>
           </div>
         )}
-        <HeaderControls variant="dark" />
+        <HeaderControls />
       </nav>
       
       <div className="relative z-10 container mx-auto px-4 py-12 md:py-20">
         <div className="text-center mb-12 animate-fade-in-up">
-          <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-primary to-accent rounded-3xl mb-8 shadow-2xl border-4 border-white/20">
+          <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-primary to-accent rounded-3xl mb-8 shadow-2xl">
             <GraduationCap className="w-14 h-14 text-white" />
           </div>
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4 tracking-tight">
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground mb-4 tracking-tight">
             BSU Instructional Design Tool
           </h1>
-          <p className="text-lg md:text-xl text-white/90 max-w-2xl mx-auto leading-relaxed" style={{ textWrap: "balance" }}>
+          <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed" style={{ textWrap: "balance" }}>
             Create comprehensive, UDL-aligned course materials ready for Blackboard Ultra
           </p>
         </div>
@@ -338,7 +334,6 @@ export default function LandingPage() {
         <div className="mt-12 flex flex-wrap justify-center gap-3">
           <Button 
             variant="outline" 
-            className="bg-white/10 border-white/30 text-white hover:bg-white/20"
             onClick={() => navigate("/help")}
             data-testid="button-help-footer"
           >
@@ -347,7 +342,6 @@ export default function LandingPage() {
           </Button>
           <Button 
             variant="outline" 
-            className="bg-white/10 border-white/30 text-white hover:bg-white/20"
             onClick={() => navigate("/research")}
             data-testid="button-research-footer"
           >
@@ -356,7 +350,6 @@ export default function LandingPage() {
           </Button>
           <Button 
             variant="outline" 
-            className="bg-white/10 border-white/30 text-white hover:bg-white/20"
             onClick={() => navigate("/library")}
             data-testid="button-library-footer"
           >
@@ -366,8 +359,8 @@ export default function LandingPage() {
         </div>
 
         <div className="mt-10 flex flex-col items-center gap-4">
-          <img src={bsuAiLogo} alt="BSU Center for Artificial Intelligence" className="h-12" data-testid="img-bsu-ai-logo-auth" />
-          <p className="text-center text-white/70 text-sm" style={{ textWrap: "balance" }}>
+          <img src={bsuAiLogo} alt="BSU Center for Artificial Intelligence" className="h-12 brightness-0 dark:brightness-100" data-testid="img-bsu-ai-logo-auth" />
+          <p className="text-center text-muted-foreground text-sm" style={{ textWrap: "balance" }}>
             Powered by AI to help BSU faculty create accessible, engaging course materials
           </p>
         </div>
