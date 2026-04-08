@@ -4,6 +4,7 @@ import { ChevronDown, ChevronRight, ArrowLeft, FileText, HelpCircle } from "luci
 import { HeaderControls } from "@/components/header-controls";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { cn } from "@/lib/utils";
+import { PoweredByFooter } from "@/components/powered-by-footer";
 
 interface FAQItem {
   question: string;
@@ -125,6 +126,7 @@ export default function PdfFaq() {
           </p>
         </div>
       </div>
+      <PoweredByFooter />
     </main>
   );
 }

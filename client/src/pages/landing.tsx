@@ -25,6 +25,7 @@ import {
   Zap
 } from "lucide-react";
 import { SiGoogle } from "react-icons/si";
+import bsuAiLogo from "@assets/Center_for_AI_Apparel_&_Promotional_Items-WHITE_(1)_1775653892158.png";
 import { useAuth } from "@/hooks/use-auth";
 import { HeaderControls } from "@/components/header-controls";
 import { usePageTitle } from "@/hooks/use-page-title";
@@ -127,12 +128,15 @@ function LoginPage() {
           </div>
         </div>
 
-        <p className="mt-10 text-center text-white/70 text-sm" style={{ textWrap: "balance" }}>
-          Powered by AI to help BSU faculty create accessible, engaging course materials
-        </p>
-        <p className="text-center text-white/50 text-xs mt-2" style={{ textWrap: "balance" }}>
-          Your data is not used to train AI models
-        </p>
+        <div className="mt-10 flex flex-col items-center gap-4">
+          <img src={bsuAiLogo} alt="BSU Center for Artificial Intelligence" className="h-12" data-testid="img-bsu-ai-logo" />
+          <p className="text-center text-white/70 text-sm" style={{ textWrap: "balance" }}>
+            Powered by AI to help BSU faculty create accessible, engaging course materials
+          </p>
+          <p className="text-center text-white/50 text-xs" style={{ textWrap: "balance" }}>
+            Your data is not used to train AI models
+          </p>
+        </div>
       </div>
     </main>
   );
@@ -361,9 +365,12 @@ export default function LandingPage() {
           </Button>
         </div>
 
-        <p className="mt-10 text-center text-white/70 text-sm" style={{ textWrap: "balance" }}>
-          Powered by AI to help BSU faculty create accessible, engaging course materials
-        </p>
+        <div className="mt-10 flex flex-col items-center gap-4">
+          <img src={bsuAiLogo} alt="BSU Center for Artificial Intelligence" className="h-12" data-testid="img-bsu-ai-logo-auth" />
+          <p className="text-center text-white/70 text-sm" style={{ textWrap: "balance" }}>
+            Powered by AI to help BSU faculty create accessible, engaging course materials
+          </p>
+        </div>
       </div>
     </main>
   );

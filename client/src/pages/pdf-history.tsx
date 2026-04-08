@@ -6,6 +6,7 @@ import { HeaderControls } from "@/components/header-controls";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
+import { PoweredByFooter } from "@/components/powered-by-footer";
 import { format } from "date-fns";
 
 function formatBytes(bytes: number): string {
@@ -153,6 +154,7 @@ export default function PdfHistory() {
           </div>
         )}
       </div>
+      <PoweredByFooter />
     </main>
   );
 }
