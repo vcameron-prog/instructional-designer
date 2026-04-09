@@ -79,18 +79,20 @@ function buildStructuralSummary(
 
   if (tables.length > 0) {
     parts.push(`\n--- EXTRACTED TABLES (${tables.length} found) ---`);
-    for (let i = 0; i < Math.min(tables.length, 10); i++) {
+    parts.push(
+      "CRITICAL: You MUST reproduce EVERY table below with ALL rows and ALL cell content. " +
+      "Do NOT summarize, truncate, or skip any rows or cells. Include every single piece of data."
+    );
+    for (let i = 0; i < tables.length; i++) {
       const table = tables[i];
-      parts.push(`Table on page ${table.pageNumber} (${table.rows.length} rows):`);
-      for (const row of table.rows.slice(0, 5)) {
+      parts.push(`\nTable ${i + 1} on page ${table.pageNumber} (${table.rows.length} rows):`);
+      for (const row of table.rows) {
         parts.push(`  | ${row.join(" | ")} |`);
-      }
-      if (table.rows.length > 5) {
-        parts.push(`  ... (${table.rows.length - 5} more rows)`);
       }
     }
     parts.push(
-      "For each table above, generate proper HTML <table> with <thead>/<tbody>, <th> with scope attributes, and <caption>."
+      "\nFor EVERY table above, generate proper HTML <table> with <thead>/<tbody>, <th> with scope attributes, and <caption>. " +
+      "Include ALL rows — do NOT omit any data."
     );
   }
 
@@ -607,7 +609,7 @@ function filterTablesForChunk(tables: ExtractedTable[], startPage: number, endPa
 }
 
 function tableContentSignature(rows: string[][]): string {
-  return rows.map((r) => r.join("|")).join("||");
+  return rows.map((r) => r.map((c) => c.trim().toLowerCase().replace(/\s+/g, " ")).join("|")).join("||");
 }
 
 function ensureMissingTables(html: string, tables: ExtractedTable[]): string {
@@ -629,7 +631,9 @@ function ensureMissingTables(html: string, tables: ExtractedTable[]): string {
       }
       if (cells.length > 0) rows.push(cells);
     }
-    if (rows.length > 0) existingSignatures.add(tableContentSignature(rows));
+    if (rows.length > 0) {
+      existingSignatures.add(tableContentSignature(rows));
+    }
   }
 
   const missingTables = tables.filter((t) => !existingSignatures.has(tableContentSignature(t.rows)));
@@ -734,7 +738,7 @@ Your task is to convert extracted PDF content into a fully accessible HTML docum
 1. DOCUMENT STRUCTURE: Use proper HTML5 semantic elements (header, nav, main, article, section, aside, footer)
 2. HEADINGS: Create a logical heading hierarchy (h1-h6) based on the content structure. Never skip heading levels.
 3. LISTS: Convert any list-like content into proper <ul>, <ol>, or <dl> elements
-4. TABLES: If tabular data is provided in the structural data below, use proper <table> with <thead>, <tbody>, <th> (with scope="col" or scope="row"), and <caption>
+4. TABLES: If tabular data is provided in the structural data below, you MUST reproduce EVERY table with ALL rows and ALL cell data — do NOT summarize, skip, or truncate any rows. Use proper <table> with <thead>, <tbody>, <th> (with scope="col" or scope="row"), and <caption>. Even if a cell appears empty in the source, include it as an empty <td>
 5. LANGUAGE: Include lang="en" attribute on the html element
 6. LINKS: Ensure all links have descriptive text (no "click here")
 7. IMAGES: You MUST include an <img> tag for EVERY image listed in the structural data. EVERY <img> tag MUST have a non-empty alt attribute with descriptive text. Set the src attribute to exactly the image name. NEVER omit the alt attribute.
@@ -756,6 +760,7 @@ Follow the same WCAG 2.1 Level AA rules:
 - Proper semantic HTML5 elements
 - Logical heading hierarchy (continue from where the previous chunk left off)
 - Proper lists, tables with headers, image alt text
+- TABLES: Reproduce EVERY table with ALL rows and ALL cell data — do NOT skip or summarize any rows
 - No absolute positioning
 
 Output ONLY the HTML content for this chunk (no <!DOCTYPE>, no <html>, no <head>). 
