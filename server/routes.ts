@@ -1778,9 +1778,18 @@ Please generate an IMPROVED version that incorporates the requested changes whil
       return res.status(400).json({ error: "A Google Docs URL is required." });
     }
 
-    const docIdMatch = url.match(/\/document\/d\/([a-zA-Z0-9_-]+)/);
-    if (!docIdMatch) {
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(url);
+    } catch {
+      return res.status(400).json({ error: "Invalid URL format. Please paste a Google Docs link." });
+    }
+    if (parsedUrl.hostname !== "docs.google.com" || !parsedUrl.pathname.startsWith("/document/d/")) {
       return res.status(400).json({ error: "Invalid Google Docs URL. Please paste a link like https://docs.google.com/document/d/..." });
+    }
+    const docIdMatch = parsedUrl.pathname.match(/\/document\/d\/([a-zA-Z0-9_-]+)/);
+    if (!docIdMatch) {
+      return res.status(400).json({ error: "Could not extract document ID from URL." });
     }
     const docId = docIdMatch[1];
 

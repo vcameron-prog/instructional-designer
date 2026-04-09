@@ -4,7 +4,6 @@ import { useDropzone } from "react-dropzone";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { UploadCloud, Loader2, AlertCircle, File, FileText, History, ArrowRight, HelpCircle } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
-import { useToast } from "@/hooks/use-toast";
 import { HeaderControls } from "@/components/header-controls";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { cn } from "@/lib/utils";
@@ -26,7 +25,6 @@ export default function PdfUpload() {
   const [, navigate] = useLocation();
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [googleDocUrl, setGoogleDocUrl] = useState("");
-  const { toast } = useToast();
 
   const { data: recentConversions } = useQuery<any[]>({
     queryKey: ["/api/conversions"],
