@@ -1763,6 +1763,113 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     res.json(created);
   });
 
+  app.post("/api/conversions/import-google-doc", optionalAuth, async (req: Request, res: Response) => {
+    const userId = getUserId(req);
+
+    if (!userId) {
+      const ip = req.ip || req.socket.remoteAddress || "unknown";
+      if (!checkAnonRateLimit(ip)) {
+        return res.status(429).json({ error: "Rate limit exceeded. Please sign in for unlimited access or try again later." });
+      }
+    }
+
+    const { url } = req.body;
+    if (!url || typeof url !== "string") {
+      return res.status(400).json({ error: "A Google Docs URL is required." });
+    }
+
+    const docIdMatch = url.match(/\/document\/d\/([a-zA-Z0-9_-]+)/);
+    if (!docIdMatch) {
+      return res.status(400).json({ error: "Invalid Google Docs URL. Please paste a link like https://docs.google.com/document/d/..." });
+    }
+    const docId = docIdMatch[1];
+
+    try {
+      const exportUrl = `https://docs.google.com/document/d/${docId}/export?format=docx`;
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 30000);
+
+      let response: globalThis.Response;
+      try {
+        response = await fetch(exportUrl, {
+          signal: controller.signal,
+          redirect: "follow",
+          headers: { "User-Agent": "Mozilla/5.0" },
+        });
+      } finally {
+        clearTimeout(timeout);
+      }
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          return res.status(404).json({ error: "Document not found. Check that the URL is correct." });
+        }
+        if (response.status === 403 || response.status === 401) {
+          return res.status(403).json({ error: "This document is not publicly shared. Set sharing to \"Anyone with the link\" in Google Docs, then try again." });
+        }
+        return res.status(502).json({ error: `Google returned an error (${response.status}). The document may not be publicly shared.` });
+      }
+
+      const contentLength = response.headers.get("content-length");
+      if (contentLength && parseInt(contentLength, 10) > 20 * 1024 * 1024) {
+        return res.status(413).json({ error: "Document is too large (max 20 MB)." });
+      }
+
+      const arrayBuffer = await response.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+
+      if (buffer.length > 20 * 1024 * 1024) {
+        return res.status(413).json({ error: "Document is too large (max 20 MB)." });
+      }
+      if (buffer.length < 100) {
+        return res.status(502).json({ error: "Downloaded file appears empty. The document may not be publicly shared." });
+      }
+
+      const zipSignature = buffer.slice(0, 4).toString("hex");
+      if (zipSignature !== "504b0304") {
+        return res.status(502).json({ error: "The downloaded file is not a valid document. The Google Doc may not be publicly shared." });
+      }
+
+      const titleHeader = response.headers.get("content-disposition");
+      let filename = "Google Doc.docx";
+      if (titleHeader) {
+        const filenameMatch = titleHeader.match(/filename\*?=(?:UTF-8''|"?)([^";]+)/i);
+        if (filenameMatch) {
+          filename = decodeURIComponent(filenameMatch[1].replace(/"/g, ""));
+          if (!filename.endsWith(".docx")) filename += ".docx";
+        }
+      }
+
+      const fileBase64 = buffer.toString("base64");
+      const [created] = await db
+        .insert(conversions)
+        .values({
+          originalFilename: filename,
+          fileSize: buffer.length,
+          sourceType: "google-doc",
+          status: "uploaded",
+          pdfData: fileBase64,
+          userId: userId || null,
+        })
+        .returning({
+          id: conversions.id,
+          originalFilename: conversions.originalFilename,
+          fileSize: conversions.fileSize,
+          sourceType: conversions.sourceType,
+          status: conversions.status,
+          createdAt: conversions.createdAt,
+        });
+
+      res.json(created);
+    } catch (err: any) {
+      if (err.name === "AbortError") {
+        return res.status(504).json({ error: "Download timed out. The document may be too large or Google is not responding." });
+      }
+      console.error("Google Doc import error:", err);
+      res.status(500).json({ error: "Failed to import the Google Doc. Please check the URL and try again." });
+    }
+  });
+
   app.post("/api/conversions/:id/process", optionalAuth, async (req: Request, res: Response) => {
     const userId = getUserId(req);
     const id = parseInt(req.params.id);
@@ -1804,8 +1911,8 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         let extraction: import("./lib/pdf-processor").PdfExtraction;
         let ocrApplied = false;
 
-        if (srcType === "docx") {
-          await updateStatusMessage("Extracting Word document content…");
+        if (srcType === "docx" || srcType === "google-doc") {
+          await updateStatusMessage(srcType === "google-doc" ? "Extracting Google Doc content…" : "Extracting Word document content…");
           const { extractDocxContent } = await import("./lib/docx-extractor");
           extraction = await extractDocxContent(fileBuffer);
         } else {

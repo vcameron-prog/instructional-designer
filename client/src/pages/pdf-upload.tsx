@@ -25,6 +25,7 @@ export default function PdfUpload() {
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
   const [, navigate] = useLocation();
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [googleDocUrl, setGoogleDocUrl] = useState("");
   const { toast } = useToast();
 
   const { data: recentConversions } = useQuery<any[]>({
@@ -54,6 +55,43 @@ export default function PdfUpload() {
       setUploadError(err.message || "Upload failed. Please try again.");
     },
   });
+
+  const googleDocMutation = useMutation({
+    mutationFn: async (docUrl: string) => {
+      const res = await fetch("/api/conversions/import-google-doc", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: docUrl }),
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({ error: "Import failed" }));
+        throw new Error(data.error || "Import failed");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setGoogleDocUrl("");
+      navigate(`/pdf-accessibility/${data.id}`);
+    },
+    onError: (err: Error) => {
+      setUploadError(err.message || "Failed to import Google Doc.");
+    },
+  });
+
+  const handleGoogleDocImport = () => {
+    setUploadError(null);
+    const trimmed = googleDocUrl.trim();
+    if (!trimmed) {
+      setUploadError("Please paste a Google Docs URL.");
+      return;
+    }
+    if (!trimmed.match(/docs\.google\.com\/document\/d\//)) {
+      setUploadError("Invalid Google Docs URL. Please paste a link like https://docs.google.com/document/d/...");
+      return;
+    }
+    googleDocMutation.mutate(trimmed);
+  };
 
   const onDrop = useCallback(
     (acceptedFiles: File[], rejectedFiles: any[]) => {
@@ -198,24 +236,41 @@ export default function PdfUpload() {
 
           <div className="flex items-center gap-4 mt-6">
             <div className="flex-1 border-t border-border" />
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">or</span>
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">or import from Google Docs</span>
             <div className="flex-1 border-t border-border" />
           </div>
 
-          <button
-            onClick={() => {
-              toast({
-                title: "Google Drive Integration",
-                description: "Google Drive integration needs to be configured by the administrator. Please contact support to enable this feature.",
-                variant: "default",
-              });
-            }}
-            className="mt-4 w-full flex items-center justify-center gap-3 px-6 py-4 border-2 border-dashed border-border rounded-2xl text-muted-foreground hover:text-foreground hover:border-primary/40 hover:bg-secondary/50 transition-all"
-            data-testid="button-google-drive-import"
-          >
-            <SiGoogledrive className="w-5 h-5" aria-hidden="true" />
-            <span className="font-semibold">Import from Google Drive</span>
-          </button>
+          <div className="mt-4 flex gap-2" data-testid="google-doc-import-section">
+            <div className="relative flex-1">
+              <SiGoogledrive className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
+              <input
+                type="url"
+                value={googleDocUrl}
+                onChange={(e) => setGoogleDocUrl(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") handleGoogleDocImport(); }}
+                placeholder="Paste Google Docs link here..."
+                className="w-full pl-10 pr-3 py-3 border border-border rounded-xl bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all"
+                disabled={googleDocMutation.isPending}
+                data-testid="input-google-doc-url"
+              />
+            </div>
+            <button
+              onClick={handleGoogleDocImport}
+              disabled={googleDocMutation.isPending || !googleDocUrl.trim()}
+              className="inline-flex items-center gap-2 px-5 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl text-sm font-semibold shadow-sm hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:transform-none"
+              data-testid="button-google-doc-import"
+            >
+              {googleDocMutation.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+              ) : (
+                <ArrowRight className="w-4 h-4" aria-hidden="true" />
+              )}
+              {googleDocMutation.isPending ? "Importing…" : "Import"}
+            </button>
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground text-center" data-testid="text-google-doc-hint">
+            The document must be shared as "Anyone with the link"
+          </p>
 
           {uploadError && (
             <div
