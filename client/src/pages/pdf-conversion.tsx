@@ -9,6 +9,7 @@ import {
   GraduationCap, Share2, Globe, ExternalLink
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
 import { HeaderControls } from "@/components/header-controls";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -85,6 +86,7 @@ export default function PdfConversion() {
   const numericId = parseInt(params.id || "0", 10);
   const [, navigate] = useLocation();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { toast } = useToast();
   usePageTitle("Conversion Details");
 
   const { data: conversion, isLoading, isError } = useQuery<any>({
@@ -148,6 +150,7 @@ export default function PdfConversion() {
 
   const [isDownloading, setIsDownloading] = useState(false);
   const [isDownloadingDocx, setIsDownloadingDocx] = useState(false);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [expandedIssues, setExpandedIssues] = useState<Set<string>>(new Set());
   const [fixingIndex, setFixingIndex] = useState<number | null>(null);
   const [fixError, setFixError] = useState<string | null>(null);
@@ -270,6 +273,31 @@ export default function PdfConversion() {
     }
   };
 
+  const handleDownloadPdf = async () => {
+    setIsDownloadingPdf(true);
+    try {
+      const resp = await fetch(`/api/conversions/${numericId}/download-pdf`, { credentials: "include" });
+      if (!resp.ok) {
+        const errData = await resp.json().catch(() => ({ error: "PDF generation failed" }));
+        toast({ title: "Download failed", description: errData.error || "Could not generate PDF", variant: "destructive" });
+        return;
+      }
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = conversion.originalFilename.replace(/\.pdf$/i, "") + "-accessible.pdf";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      toast({ title: "Download failed", description: "An unexpected error occurred generating the PDF", variant: "destructive" });
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
+
   const handleCopyHtml = async () => {
     if (!conversion?.accessibleHtml) return;
     setCopyState("copying");
@@ -370,6 +398,10 @@ export default function PdfConversion() {
                     {isDownloadingDocx ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
                     Download Word
                   </button>
+                  <button onClick={handleDownloadPdf} disabled={isDownloadingPdf} className="inline-flex items-center gap-2 px-4 py-2 bg-red-700 hover:bg-red-800 text-white rounded-xl text-sm font-bold shadow-sm shadow-red-700/20 hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:transform-none" data-testid="button-download-pdf">
+                    {isDownloadingPdf ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <FileCheck2 className="w-4 h-4" aria-hidden="true" />}
+                    Download PDF
+                  </button>
                   <button onClick={handleDownload} disabled={isDownloading} className="inline-flex items-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground rounded-xl text-sm font-bold shadow-sm hover:-translate-y-0.5 transition-all disabled:opacity-50" data-testid="button-download-html">
                     {isDownloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
                     Download HTML
@@ -458,7 +490,7 @@ export default function PdfConversion() {
               <div className="space-y-3 text-sm text-muted-foreground">
                 <p className="font-semibold text-foreground text-xs uppercase">Method 1: Upload Word Document (Recommended)</p>
                 <ol className="space-y-2 ml-4 list-decimal">
-                  <li>Click the green "Download Word (.docx)" button to save the file.</li>
+                  <li>Click the green "Download Word (.docx)" button or the red "Download PDF" button to save the file.</li>
                   <li>Log in to Blackboard and open your course.</li>
                   <li>In Course Content, click the + button, then Upload the .docx file.</li>
                   <li>Click Save and make the file visible to students.</li>

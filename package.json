@@ -76,6 +76,7 @@
     "pdf-parse": "^2.4.5",
     "pg": "^8.16.3",
     "picomatch": "^4.0.4",
+    "puppeteer-core": "^24.40.0",
     "react": "^18.3.1",
     "react-day-picker": "^8.10.1",
     "react-dom": "^18.3.1",

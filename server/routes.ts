@@ -2164,6 +2164,72 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     }
   });
 
+  app.get("/api/conversions/:id/download-pdf", optionalAuth, async (req: Request, res: Response) => {
+    const userId = getUserId(req);
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+    const [conversion] = await db
+      .select({
+        accessibleHtml: conversions.accessibleHtml,
+        originalFilename: conversions.originalFilename,
+        status: conversions.status,
+        updatedAt: conversions.updatedAt,
+      })
+      .from(conversions)
+      .where(conversionOwnerFilter(id, userId));
+
+    if (!conversion) { res.status(404).json({ error: "Conversion not found" }); return; }
+    if (conversion.status !== "completed" || !conversion.accessibleHtml) {
+      res.status(400).json({ error: "Accessible HTML is not yet available" }); return;
+    }
+
+    let html = conversion.accessibleHtml;
+    const updatedDate = conversion.updatedAt ? new Date(conversion.updatedAt) : new Date();
+    const isoDate = updatedDate.toISOString();
+    const readableDate = updatedDate.toLocaleDateString("en-US", {
+      year: "numeric", month: "long", day: "numeric", hour: "numeric", minute: "2-digit", hour12: true,
+    });
+
+    const metaTag = `<meta name="date" content="${isoDate}">`;
+    const headCloseIdx = html.indexOf("</head>");
+    if (headCloseIdx !== -1) {
+      html = html.slice(0, headCloseIdx) + `  ${metaTag}\n` + html.slice(headCloseIdx);
+    }
+
+    const timestampFooter = `\n<footer style="margin-top:2rem;padding:1rem 0;border-top:1px solid #e0e0e0;font-size:0.85rem;color:#666;text-align:center;" role="contentinfo" aria-label="Document timestamp">\n  <p>This accessible document was last updated on ${readableDate}</p>\n</footer>`;
+    const bodyCloseIdx = html.lastIndexOf("</body>");
+    if (bodyCloseIdx !== -1) {
+      html = html.slice(0, bodyCloseIdx) + timestampFooter + "\n" + html.slice(bodyCloseIdx);
+    }
+
+    const titleMatch = html.match(/<title[^>]*>(.*?)<\/title>/i);
+    const docTitle = titleMatch ? titleMatch[1] : conversion.originalFilename.replace(/\.pdf$/i, "");
+    const langMatch = html.match(/<html[^>]*\slang=["']([^"']+)["']/i);
+    const docLang = langMatch ? langMatch[1] : "en";
+    const authorMatch = html.match(/<meta\s+name=["']author["']\s+content=["']([^"']+)["']/i)
+      || html.match(/<meta\s+content=["']([^"']+)["']\s+name=["']author["']/i);
+    const docAuthor = authorMatch ? authorMatch[1] : "PDF Accessibility Converter";
+
+    try {
+      const { buildPdf } = await import("./lib/pdf-builder");
+      const pdfBuffer = await buildPdf(html, {
+        title: docTitle,
+        lang: docLang,
+        author: docAuthor,
+      });
+
+      const filename = conversion.originalFilename.replace(/\.pdf$/i, "").replace(/[^\w\s.-]/g, "_") + "-accessible.pdf";
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.setHeader("Content-Length", pdfBuffer.length);
+      res.end(pdfBuffer);
+    } catch (err) {
+      console.error("PDF conversion error:", err);
+      res.status(500).json({ error: "Failed to generate PDF file" });
+    }
+  });
+
   return httpServer;
 }
 
