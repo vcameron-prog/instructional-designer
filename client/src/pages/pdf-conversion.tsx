@@ -713,7 +713,7 @@ export default function PdfConversion() {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
                               <h3 className="font-bold text-foreground text-sm">{issue.title}</h3>
-                              <span className="text-xs font-mono bg-secondary px-2 py-0.5 rounded font-bold">WCAG {issue.criterion} ({issue.level})</span>
+                              <span className="text-xs font-mono bg-secondary text-secondary-foreground px-2 py-0.5 rounded font-bold">WCAG {issue.criterion} ({issue.level})</span>
                             </div>
                           </div>
                           <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform", isExpanded && "rotate-180")} />
@@ -756,7 +756,7 @@ export default function PdfConversion() {
                               </div>
                             )}
                             {issue.status === "accepted" && (
-                              <button onClick={() => handleRevertIssue(i)} disabled={revertingIndex !== null} className="inline-flex items-center gap-2 px-4 py-2 bg-secondary border rounded-lg text-sm font-bold disabled:opacity-50" data-testid={`button-revert-${i}`}>
+                              <button onClick={() => handleRevertIssue(i)} disabled={revertingIndex !== null} className="inline-flex items-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground border rounded-lg text-sm font-bold disabled:opacity-50" data-testid={`button-revert-${i}`}>
                                 {revertingIndex === i ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                                 {revertingIndex === i ? "Reverting..." : "Undo Acceptance"}
                               </button>
