@@ -54,30 +54,7 @@ export default function PdfUpload() {
     },
   });
 
-  const googleDocMutation = useMutation({
-    mutationFn: async (docUrl: string) => {
-      const res = await fetch("/api/conversions/import-google-doc", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: docUrl }),
-        credentials: "include",
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({ error: "Import failed" }));
-        throw new Error(data.error || "Import failed");
-      }
-      return res.json();
-    },
-    onSuccess: (data) => {
-      setGoogleDocUrl("");
-      navigate(`/pdf-accessibility/${data.id}`);
-    },
-    onError: (err: Error) => {
-      setUploadError(err.message || "Failed to import Google Doc.");
-    },
-  });
-
-  const handleGoogleDocImport = () => {
+  const handleGoogleDocDownload = () => {
     setUploadError(null);
     const trimmed = googleDocUrl.trim();
     if (!trimmed) {
@@ -88,7 +65,15 @@ export default function PdfUpload() {
       setUploadError("Invalid Google Docs URL. Please paste a link like https://docs.google.com/document/d/...");
       return;
     }
-    googleDocMutation.mutate(trimmed);
+    const docIdMatch = trimmed.match(/\/document\/d\/([a-zA-Z0-9_-]+)/);
+    if (!docIdMatch) {
+      setUploadError("Could not extract document ID from URL.");
+      return;
+    }
+    const docId = docIdMatch[1];
+    window.open(`https://docs.google.com/document/d/${docId}/export?format=docx`, "_blank");
+    setGoogleDocUrl("");
+    setUploadError(null);
   };
 
   const onDrop = useCallback(
@@ -245,29 +230,24 @@ export default function PdfUpload() {
                 type="url"
                 value={googleDocUrl}
                 onChange={(e) => setGoogleDocUrl(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") handleGoogleDocImport(); }}
+                onKeyDown={(e) => { if (e.key === "Enter") handleGoogleDocDownload(); }}
                 placeholder="Paste Google Docs link here..."
                 className="w-full pl-10 pr-3 py-3 border border-border rounded-xl bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all"
-                disabled={googleDocMutation.isPending}
                 data-testid="input-google-doc-url"
               />
             </div>
             <button
-              onClick={handleGoogleDocImport}
-              disabled={googleDocMutation.isPending || !googleDocUrl.trim()}
+              onClick={handleGoogleDocDownload}
+              disabled={!googleDocUrl.trim()}
               className="inline-flex items-center gap-2 px-5 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl text-sm font-semibold shadow-sm hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:transform-none"
               data-testid="button-google-doc-import"
             >
-              {googleDocMutation.isPending ? (
-                <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
-              ) : (
-                <ArrowRight className="w-4 h-4" aria-hidden="true" />
-              )}
-              {googleDocMutation.isPending ? "Importing…" : "Import"}
+              <ArrowRight className="w-4 h-4" aria-hidden="true" />
+              Download
             </button>
           </div>
           <p className="mt-2 text-xs text-muted-foreground text-center" data-testid="text-google-doc-hint">
-            The document must be shared as "Anyone with the link"
+            Downloads your Google Doc as a Word file — then upload it above
           </p>
 
           {uploadError && (

@@ -1737,9 +1737,12 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     }
 
     const fileBase64 = file.buffer.toString("base64");
-    const sourceType = file.mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-      ? "docx"
-      : "pdf";
+    const explicitSourceType = req.body?.sourceType;
+    const sourceType = explicitSourceType === "google-doc"
+      ? "google-doc"
+      : file.mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        ? "docx"
+        : "pdf";
 
     const [created] = await db
       .insert(conversions)
@@ -1794,29 +1797,46 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     const docId = docIdMatch[1];
 
     try {
-      const exportUrl = `https://docs.google.com/document/d/${docId}/export?format=docx`;
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 30000);
+      const exportUrls = [
+        `https://docs.google.com/document/d/${docId}/export?format=docx`,
+        `https://drive.google.com/uc?export=download&id=${docId}`,
+      ];
 
-      let response: globalThis.Response;
-      try {
-        response = await fetch(exportUrl, {
-          signal: controller.signal,
-          redirect: "follow",
-          headers: { "User-Agent": "Mozilla/5.0" },
-        });
-      } finally {
-        clearTimeout(timeout);
+      let response: globalThis.Response | null = null;
+      let lastStatus = 0;
+
+      for (const exportUrl of exportUrls) {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 30000);
+
+        try {
+          const attempt = await fetch(exportUrl, {
+            signal: controller.signal,
+            redirect: "follow",
+            headers: { "User-Agent": "Mozilla/5.0" },
+          });
+          lastStatus = attempt.status;
+          if (attempt.ok) {
+            response = attempt;
+            break;
+          }
+        } catch (fetchErr: any) {
+          if (fetchErr.name === "AbortError") {
+            return res.status(504).json({ error: "Download timed out. The document may be too large or Google is not responding." });
+          }
+        } finally {
+          clearTimeout(timeout);
+        }
       }
 
-      if (!response.ok) {
-        if (response.status === 404) {
-          return res.status(404).json({ error: "Document not found. Check that the URL is correct." });
-        }
-        if (response.status === 403 || response.status === 401) {
+      if (!response) {
+        if (lastStatus === 403 || lastStatus === 401) {
           return res.status(403).json({ error: "This document is not publicly shared. Set sharing to \"Anyone with the link\" in Google Docs, then try again." });
         }
-        return res.status(502).json({ error: `Google returned an error (${response.status}). The document may not be publicly shared.` });
+        if (lastStatus === 404) {
+          return res.status(404).json({ error: "Document not found. Check that the URL is correct." });
+        }
+        return res.status(502).json({ error: `Could not download the document (status ${lastStatus}). The document may not be publicly shared.` });
       }
 
       const contentLength = response.headers.get("content-length");
