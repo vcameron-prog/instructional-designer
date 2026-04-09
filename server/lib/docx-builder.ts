@@ -31,6 +31,14 @@ const HEADING_MAP: Record<string, (typeof HeadingLevel)[keyof typeof HeadingLeve
 const LIST_TAGS = new Set(["ul", "ol"]);
 const SKIP_IN_TEXT_EXTRACTION = new Set(["ul", "ol", "table", "img", "figure"]);
 
+function sanitizeXmlText(text: string): string {
+  return text
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "")
+    .replace(/[\uFFFE\uFFFF]/g, "")
+    .replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/g, "")
+    .replace(/(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, "");
+}
+
 interface TextStyle {
   bold?: boolean;
   italics?: boolean;
@@ -51,7 +59,7 @@ function decodeBase64Image(dataUrl: string): { data: Buffer; width: number; heig
 
 function extractInlineChildren(node: HTMLElement | TextNode, style: TextStyle = {}): InlineChild[] {
   if (node.nodeType === NodeType.TEXT_NODE) {
-    const text = (node as TextNode).rawText;
+    const text = sanitizeXmlText((node as TextNode).rawText);
     const normalizedText = text.replace(/\s+/g, " ");
     if (!normalizedText.trim()) return [];
     return [
@@ -78,7 +86,7 @@ function extractInlineChildren(node: HTMLElement | TextNode, style: TextStyle = 
 
   if (tag === "a") {
     const href = el.getAttribute("href") || "";
-    const linkText = el.textContent || href;
+    const linkText = sanitizeXmlText(el.textContent || href);
     if (href && linkText) {
       return [
         new ExternalHyperlink({
@@ -131,26 +139,29 @@ function processImage(el: HTMLElement): Paragraph | null {
 function processTable(el: HTMLElement): Table | null {
   const rows: TableRow[] = [];
   const tableRows = el.querySelectorAll("tr");
-
   if (tableRows.length === 0) return null;
-
-  let colCount = 0;
+  let gridColCount = 0;
   for (const tr of tableRows) {
     const cells = tr.querySelectorAll("th, td");
-    if (cells.length > colCount) colCount = cells.length;
+    let rowSpan = 0;
+    for (const cell of cells) {
+      rowSpan += parseInt(cell.getAttribute("colspan") || "1", 10) || 1;
+    }
+    if (rowSpan > gridColCount) gridColCount = rowSpan;
   }
-
-  if (colCount === 0) return null;
-
+  if (gridColCount === 0) return null;
   for (const tr of tableRows) {
     const cells = tr.querySelectorAll("th, td");
     const tableCells: TableCell[] = [];
-
-    for (let i = 0; i < colCount; i++) {
-      const cell = cells[i];
-      const isHeader = cell?.tagName?.toLowerCase() === "th";
-      const inlineChildren = cell ? extractInlineChildren(cell) : [new TextRun({ text: "" })];
-
+    let usedCols = 0;
+    for (const cell of cells) {
+      if (usedCols >= gridColCount) break;
+      const isHeader = cell.tagName?.toLowerCase() === "th";
+      const colSpan = Math.min(
+        parseInt(cell.getAttribute("colspan") || "1", 10) || 1,
+        gridColCount - usedCols
+      );
+      const inlineChildren = extractInlineChildren(cell);
       tableCells.push(
         new TableCell({
           children: [
@@ -159,14 +170,22 @@ function processTable(el: HTMLElement): Table | null {
             }),
           ],
           shading: isHeader ? { fill: "E8E8E8" } : undefined,
+          columnSpan: colSpan > 1 ? colSpan : undefined,
         })
       );
+      usedCols += colSpan;
     }
-
+    while (usedCols < gridColCount) {
+      tableCells.push(
+        new TableCell({
+          children: [new Paragraph({ children: [new TextRun({ text: "" })] })],
+        })
+      );
+      usedCols++;
+    }
     const hasHeaderCells = cells[0]?.tagName?.toLowerCase() === "th";
     rows.push(new TableRow({ children: tableCells, tableHeader: hasHeaderCells || undefined }));
   }
-
   return new Table({
     rows,
     width: { size: 100, type: WidthType.PERCENTAGE },
@@ -212,7 +231,7 @@ function processElement(el: HTMLElement): (Paragraph | Table)[] {
 
   if (!tag) {
     if (el.nodeType === NodeType.TEXT_NODE) {
-      const text = (el as unknown as TextNode).rawText?.trim();
+      const text = sanitizeXmlText((el as unknown as TextNode).rawText?.trim() || "");
       if (text) {
         results.push(new Paragraph({ children: [new TextRun({ text })] }));
       }
@@ -296,7 +315,7 @@ function processElement(el: HTMLElement): (Paragraph | Table)[] {
 
   if (tag === "a") {
     const href = el.getAttribute("href") || "";
-    const linkText = el.textContent || href;
+    const linkText = sanitizeXmlText(el.textContent || href);
     if (href && linkText) {
       results.push(
         new Paragraph({
@@ -343,7 +362,7 @@ function processElement(el: HTMLElement): (Paragraph | Table)[] {
   }
 
   if (tag === "pre") {
-    const text = el.textContent || "";
+    const text = sanitizeXmlText(el.textContent || "");
     if (text.trim()) {
       const lines = text.split("\n");
       const runs: TextRun[] = [];
@@ -362,7 +381,7 @@ function processElement(el: HTMLElement): (Paragraph | Table)[] {
   }
 
   if (tag === "code") {
-    const text = el.textContent || "";
+    const text = sanitizeXmlText(el.textContent || "");
     if (text.trim()) {
       results.push(
         new Paragraph({
@@ -439,7 +458,7 @@ export async function buildDocx(
   }
 
   if (docChildren.length === 0) {
-    const textContent = contentRoot.textContent?.trim();
+    const textContent = sanitizeXmlText(contentRoot.textContent?.trim() || "");
     if (textContent) {
       docChildren.push(new Paragraph({ children: [new TextRun({ text: textContent })] }));
     }

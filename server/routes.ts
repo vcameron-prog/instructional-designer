@@ -2153,10 +2153,11 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         author: "PDF Accessibility Converter",
       });
 
-      const filename = conversion.originalFilename.replace(/\.pdf$/i, "") + "-accessible.docx";
+      const filename = conversion.originalFilename.replace(/\.pdf$/i, "").replace(/[^\w\s.-]/g, "_") + "-accessible.docx";
       res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
       res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-      res.send(docxBuffer);
+      res.setHeader("Content-Length", docxBuffer.length);
+      res.end(docxBuffer);
     } catch (err) {
       console.error("DOCX conversion error:", err);
       res.status(500).json({ error: "Failed to generate DOCX file" });
