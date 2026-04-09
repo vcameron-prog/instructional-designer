@@ -1646,17 +1646,22 @@ Please generate an IMPROVED version that incorporates the requested changes whil
   });
 
   // =============================================
-  // PDF ACCESSIBILITY CONVERSION ROUTES
+  // DOCUMENT ACCESSIBILITY CONVERSION ROUTES
   // =============================================
 
-  const pdfUpload = multer({
+  const ACCEPTED_MIMES = new Set([
+    "application/pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ]);
+
+  const docUpload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: 20 * 1024 * 1024 },
     fileFilter: (_req, file, cb) => {
-      if (file.mimetype === "application/pdf") {
+      if (ACCEPTED_MIMES.has(file.mimetype)) {
         cb(null, true);
       } else {
-        cb(new Error("Only PDF files are allowed"));
+        cb(new Error("Only PDF and Word (.docx) files are allowed"));
       }
     },
   });
@@ -1675,6 +1680,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         id: conversions.id,
         originalFilename: conversions.originalFilename,
         fileSize: conversions.fileSize,
+        sourceType: conversions.sourceType,
         status: conversions.status,
         pageCount: conversions.pageCount,
         ocrApplied: conversions.ocrApplied,
@@ -1698,6 +1704,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         id: conversions.id,
         originalFilename: conversions.originalFilename,
         fileSize: conversions.fileSize,
+        sourceType: conversions.sourceType,
         status: conversions.status,
         pageCount: conversions.pageCount,
         extractedText: conversions.extractedText,
@@ -1717,7 +1724,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     res.json(conversion);
   });
 
-  app.post("/api/conversions/upload", optionalAuth, pdfUpload.single("file"), async (req: Request, res: Response) => {
+  app.post("/api/conversions/upload", optionalAuth, docUpload.single("file"), async (req: Request, res: Response) => {
     const userId = getUserId(req);
     const file = req.file;
     if (!file) { res.status(400).json({ error: "No file uploaded" }); return; }
@@ -1729,21 +1736,26 @@ Please generate an IMPROVED version that incorporates the requested changes whil
       }
     }
 
-    const pdfBase64 = file.buffer.toString("base64");
+    const fileBase64 = file.buffer.toString("base64");
+    const sourceType = file.mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      ? "docx"
+      : "pdf";
 
     const [created] = await db
       .insert(conversions)
       .values({
         originalFilename: file.originalname,
         fileSize: file.size,
+        sourceType,
         status: "uploaded",
-        pdfData: pdfBase64,
+        pdfData: fileBase64,
         userId: userId || null,
       })
       .returning({
         id: conversions.id,
         originalFilename: conversions.originalFilename,
         fileSize: conversions.fileSize,
+        sourceType: conversions.sourceType,
         status: conversions.status,
         createdAt: conversions.createdAt,
       });
@@ -1785,14 +1797,23 @@ Please generate an IMPROVED version that incorporates the requested changes whil
 
     (async () => {
       try {
-        const { extractPdfContent, needsOcr } = await import("./lib/pdf-processor");
         const { generateAccessibleDocument, evaluateOriginalDocument } = await import("./lib/accessibility-engine");
+        const fileBuffer = Buffer.from(conversion.pdfData!, "base64");
+        const srcType = conversion.sourceType || "pdf";
 
-        await updateStatusMessage("Extracting PDF content…");
-        const pdfBuffer = Buffer.from(conversion.pdfData!, "base64");
-        const extraction = await extractPdfContent(pdfBuffer);
+        let extraction: import("./lib/pdf-processor").PdfExtraction;
+        let ocrApplied = false;
 
-        const ocrApplied = needsOcr(extraction.text, extraction.pageCount);
+        if (srcType === "docx") {
+          await updateStatusMessage("Extracting Word document content…");
+          const { extractDocxContent } = await import("./lib/docx-extractor");
+          extraction = await extractDocxContent(fileBuffer);
+        } else {
+          await updateStatusMessage("Extracting PDF content…");
+          const { extractPdfContent, needsOcr } = await import("./lib/pdf-processor");
+          extraction = await extractPdfContent(fileBuffer);
+          ocrApplied = needsOcr(extraction.text, extraction.pageCount);
+        }
 
         let finalText = extraction.text;
         if (ocrApplied && extraction.images.length > 0) {
@@ -1850,7 +1871,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           })
           .where(eq(conversions.id, id));
       } catch (err: any) {
-        console.error("PDF processing error:", err);
+        console.error("Document processing error:", err);
         await db
           .update(conversions)
           .set({

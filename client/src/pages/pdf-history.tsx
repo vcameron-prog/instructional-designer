@@ -80,14 +80,14 @@ export default function PdfHistory() {
           <div className="text-center py-16">
             <FileText className="w-12 h-12 mx-auto text-muted-foreground mb-4 opacity-50" />
             <h2 className="text-xl font-bold text-foreground mb-2">No conversions yet</h2>
-            <p className="text-muted-foreground mb-6">Upload a PDF to get started with accessibility remediation.</p>
+            <p className="text-muted-foreground mb-6">Upload a document to get started with accessibility remediation.</p>
             <button
               onClick={() => navigate("/pdf-accessibility")}
               className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-xl font-bold shadow-md hover:-translate-y-0.5 transition-all"
               data-testid="button-upload-first"
             >
               <Upload className="w-5 h-5" />
-              Upload PDF
+              Upload Document
             </button>
           </div>
         ) : (
@@ -107,6 +107,9 @@ export default function PdfHistory() {
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-foreground truncate">{conv.originalFilename}</p>
                     <p className="text-xs text-muted-foreground">
+                      {conv.sourceType && (
+                        <span className="uppercase font-semibold mr-1">{conv.sourceType}</span>
+                      )}
                       {formatBytes(conv.fileSize)}
                       {conv.pageCount && ` · ${conv.pageCount} pages`}
                       {" · "}

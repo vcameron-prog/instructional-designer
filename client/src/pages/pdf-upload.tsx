@@ -4,11 +4,13 @@ import { useDropzone } from "react-dropzone";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { UploadCloud, Loader2, AlertCircle, File, FileText, History, ArrowRight, HelpCircle } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
 import { HeaderControls } from "@/components/header-controls";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { cn } from "@/lib/utils";
 import { PoweredByFooter } from "@/components/powered-by-footer";
 import { format } from "date-fns";
+import { SiGoogledrive } from "react-icons/si";
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 B";
@@ -19,10 +21,11 @@ function formatBytes(bytes: number): string {
 }
 
 export default function PdfUpload() {
-  usePageTitle("PDF Accessibility Converter");
+  usePageTitle("Document Accessibility Converter");
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
   const [, navigate] = useLocation();
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const { data: recentConversions } = useQuery<any[]>({
     queryKey: ["/api/conversions"],
@@ -56,7 +59,7 @@ export default function PdfUpload() {
     (acceptedFiles: File[], rejectedFiles: any[]) => {
       setUploadError(null);
       if (rejectedFiles.length > 0) {
-        setUploadError("Please upload a valid PDF document under 20MB.");
+        setUploadError("Please upload a valid PDF or Word (.docx) document under 20MB.");
         return;
       }
       if (acceptedFiles.length > 0) {
@@ -68,7 +71,10 @@ export default function PdfUpload() {
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: { "application/pdf": [".pdf"] },
+    accept: {
+      "application/pdf": [".pdf"],
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
+    },
     maxFiles: 1,
     maxSize: 20 * 1024 * 1024,
     disabled: uploadMutation.isPending,
@@ -93,7 +99,7 @@ export default function PdfUpload() {
               <FileText className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="font-bold text-foreground text-lg" data-testid="text-page-title">PDF Accessibility Converter</h1>
+              <h1 className="font-bold text-foreground text-lg" data-testid="text-page-title">Document Accessibility Converter</h1>
               <p className="text-xs text-muted-foreground">ADA Title II & WCAG 2.1 AA Compliance</p>
             </div>
           </div>
@@ -128,9 +134,9 @@ export default function PdfUpload() {
 
       <div className="container mx-auto px-4 py-12 max-w-4xl">
         <div className="text-center mb-10">
-          <h2 className="text-3xl font-bold text-foreground mb-3">Convert PDFs to Accessible Documents</h2>
+          <h2 className="text-3xl font-bold text-foreground mb-3">Convert Documents to Accessible Formats</h2>
           <p className="text-muted-foreground max-w-xl mx-auto">
-            Upload a PDF and our AI will generate a WCAG 2.1 AA compliant accessible version. Download as Word (.docx) or HTML.
+            Upload a PDF or Word document and our AI will generate a WCAG 2.1 AA compliant accessible version. Download as Word (.docx) or HTML.
           </p>
         </div>
 
@@ -146,7 +152,7 @@ export default function PdfUpload() {
             )}
             data-testid="dropzone-upload"
           >
-            <input {...getInputProps()} aria-label="PDF File Upload" data-testid="input-file-upload" />
+            <input {...getInputProps()} aria-label="Document File Upload" data-testid="input-file-upload" />
             <div className="flex flex-col items-center justify-center space-y-6">
               <div
                 className={cn(
@@ -169,26 +175,47 @@ export default function PdfUpload() {
                   {uploadMutation.isPending
                     ? "Uploading & processing..."
                     : isDragActive
-                      ? "Drop PDF here"
-                      : "Select a PDF to remediate"}
+                      ? "Drop document here"
+                      : "Select a document to remediate"}
                 </h3>
                 <p className="text-muted-foreground font-medium max-w-sm mx-auto">
                   {uploadMutation.isPending
                     ? "Your document is being uploaded and prepared for accessibility remediation."
-                    : "Drag and drop your document here, or click to browse. We will automatically generate an accessible WCAG 2.1 AA compliant version."}
+                    : "Drag and drop your PDF or Word document here, or click to browse. We will automatically generate an accessible WCAG 2.1 AA compliant version."}
                 </p>
               </div>
               {!uploadMutation.isPending && (
                 <div className="flex items-center gap-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   <span className="flex items-center gap-2 bg-background px-4 py-2 rounded-full border shadow-sm">
                     <File className="w-4 h-4" aria-hidden="true" />
-                    PDF up to 20MB
+                    PDF or DOCX up to 20MB
                   </span>
                   <span className="bg-background px-4 py-2 rounded-full border shadow-sm">One document at a time</span>
                 </div>
               )}
             </div>
           </div>
+
+          <div className="flex items-center gap-4 mt-6">
+            <div className="flex-1 border-t border-border" />
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">or</span>
+            <div className="flex-1 border-t border-border" />
+          </div>
+
+          <button
+            onClick={() => {
+              toast({
+                title: "Google Drive Integration",
+                description: "Google Drive integration needs to be configured by the administrator. Please contact support to enable this feature.",
+                variant: "default",
+              });
+            }}
+            className="mt-4 w-full flex items-center justify-center gap-3 px-6 py-4 border-2 border-dashed border-border rounded-2xl text-muted-foreground hover:text-foreground hover:border-primary/40 hover:bg-secondary/50 transition-all"
+            data-testid="button-google-drive-import"
+          >
+            <SiGoogledrive className="w-5 h-5" aria-hidden="true" />
+            <span className="font-semibold">Import from Google Drive</span>
+          </button>
 
           {uploadError && (
             <div
@@ -222,10 +249,14 @@ export default function PdfUpload() {
                   className="w-full flex items-center gap-4 p-4 bg-card border rounded-xl hover:border-primary/30 transition-all text-left"
                   data-testid={`card-conversion-${conv.id}`}
                 >
+
                   <FileText className="w-5 h-5 text-primary flex-shrink-0" aria-hidden="true" />
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-foreground truncate">{conv.originalFilename}</p>
                     <p className="text-xs text-muted-foreground">
+                      {conv.sourceType && conv.sourceType !== "pdf" && (
+                        <span className="uppercase font-semibold mr-1">{conv.sourceType}</span>
+                      )}
                       {formatBytes(conv.fileSize)} · {format(new Date(conv.createdAt), "MMM d, yyyy")}
                     </p>
                   </div>
