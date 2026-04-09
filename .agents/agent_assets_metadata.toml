@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "_QnzlVSKeXzq5KayWb_de"
+uri = "file://attached_assets/CHANGES_FOR_OTHER_REPLIT.md"
+type = "text"
+title = "Code Changes Reference for Other Replit"
