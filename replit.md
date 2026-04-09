@@ -17,7 +17,9 @@ This is an AI-powered instructional design tool built for Bridgewater State Univ
 - **PDF converter**: Fully available to anonymous users; conversions stored in DB with null userId for pipeline mechanics; anonymous conversions accessible by ID; history page remains auth-only
 
 ### PDF Accessibility Converter
-- **Full PDF-to-accessible-HTML pipeline**: Upload PDF → AI extraction → WCAG 2.1 AA compliant HTML → compliance checks → fix/accept issues → download HTML or DOCX
+- **Full PDF-to-accessible-HTML pipeline**: Upload PDF → AI extraction → WCAG 2.1 AA compliant HTML → compliance checks → fix/accept issues → download HTML, DOCX, or PDF
+- **Document chunking**: Large documents are automatically split by page breaks and processed in chunks, then merged into a single document; progress messages shown in real-time via `statusMessage` column
+- **Status messages**: `statusMessage` column on conversions table tracks real-time progress (extracting, OCR, converting pages X–Y, compliance checks) displayed in frontend during processing
 - **Backend libraries**: `server/lib/pdf-processor.ts` (PDF text extraction), `server/lib/accessibility-engine.ts` (Anthropic Claude-powered AI processing with deterministic checks, AI audit, fix/accept/revert), `server/lib/docx-builder.ts` (HTML→DOCX conversion)
 - **Database**: `conversions` table tracks uploads, status, extracted text, generated HTML, compliance reports, processing errors
 - **API routes**: Upload (`POST /api/conversions/upload`), list (`GET /api/conversions`), get (`GET /api/conversions/:id`), process (`POST /api/conversions/:id/process`), delete (`DELETE /api/conversions/:id`), fix-issue (`POST /api/conversions/:id/fix-issue`), accept-issue (`POST /api/conversions/:id/accept-issue`), revert-issue (`POST /api/conversions/:id/revert-issue`), update-html (`PATCH /api/conversions/:id/html`), download HTML (`GET /api/conversions/:id/download/html`), download DOCX (`GET /api/conversions/:id/download/docx`), download PDF (`GET /api/conversions/:id/download-pdf`)

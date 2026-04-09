@@ -1704,6 +1704,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         accessibleHtml: conversions.accessibleHtml,
         complianceReport: conversions.complianceReport,
         originalComplianceReport: conversions.originalComplianceReport,
+        statusMessage: conversions.statusMessage,
         errorMessage: conversions.errorMessage,
         ocrApplied: conversions.ocrApplied,
         createdAt: conversions.createdAt,
@@ -1765,17 +1766,29 @@ Please generate an IMPROVED version that incorporates the requested changes whil
 
     await db
       .update(conversions)
-      .set({ status: "processing", updatedAt: new Date() })
+      .set({ status: "processing", statusMessage: "Starting conversion…", updatedAt: new Date() })
       .where(eq(conversions.id, id));
 
     const { pdfData: _pdfData, ...safeConversion } = conversion;
-    res.json({ ...safeConversion, status: "processing" });
+    res.json({ ...safeConversion, status: "processing", statusMessage: "Starting conversion…" });
+
+    const updateStatusMessage = async (message: string) => {
+      try {
+        await db
+          .update(conversions)
+          .set({ statusMessage: message, updatedAt: new Date() })
+          .where(eq(conversions.id, id));
+      } catch (e) {
+        console.error("Failed to update status message:", e);
+      }
+    };
 
     (async () => {
       try {
         const { extractPdfContent, needsOcr } = await import("./lib/pdf-processor");
         const { generateAccessibleDocument, evaluateOriginalDocument } = await import("./lib/accessibility-engine");
 
+        await updateStatusMessage("Extracting PDF content…");
         const pdfBuffer = Buffer.from(conversion.pdfData!, "base64");
         const extraction = await extractPdfContent(pdfBuffer);
 
@@ -1783,6 +1796,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
 
         let finalText = extraction.text;
         if (ocrApplied && extraction.images.length > 0) {
+          await updateStatusMessage("Running OCR on scanned pages…");
           const ocrTexts: string[] = [];
           for (const img of extraction.images.slice(0, 5)) {
             try {
@@ -1807,6 +1821,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           }
         }
 
+        await updateStatusMessage("Evaluating original document…");
         const originalReport = evaluateOriginalDocument(finalText);
 
         const result = await generateAccessibleDocument(
@@ -1814,13 +1829,16 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           conversion.originalFilename,
           extraction.metadata,
           extraction.images,
-          extraction.tables
+          extraction.tables,
+          extraction.pageCount,
+          updateStatusMessage
         );
 
         await db
           .update(conversions)
           .set({
             status: "completed",
+            statusMessage: null,
             pageCount: extraction.pageCount,
             extractedText: finalText.substring(0, 50000),
             accessibleHtml: result.accessibleHtml,
@@ -1837,6 +1855,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           .update(conversions)
           .set({
             status: "failed",
+            statusMessage: null,
             errorMessage: err.message || "Processing failed",
             updatedAt: new Date(),
           })

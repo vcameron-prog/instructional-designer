@@ -430,7 +430,12 @@ export default function PdfConversion() {
               <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
                 <div className="h-full bg-primary rounded-full animate-pulse w-1/3" />
               </div>
-              <p className="mt-3 text-sm text-muted-foreground text-center">
+              {conversion.statusMessage && (
+                <p className="mt-3 text-sm font-medium text-primary text-center" data-testid="text-status-message" aria-live="polite">
+                  {conversion.statusMessage}
+                </p>
+              )}
+              <p className="mt-2 text-sm text-muted-foreground text-center">
                 {conversion.status === "uploaded"
                   ? "Your document is being prepared for AI remediation."
                   : "Analyzing layout, extracting text, generating alt text, and restructuring into WCAG 2.1 AA HTML. This may take a minute for large documents."}

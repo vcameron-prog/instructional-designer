@@ -376,6 +376,9 @@ export function buildComplianceReport(allIssues: ComplianceIssue[]): ComplianceR
 }
 
 async function runAiAudit(html: string): Promise<ComplianceIssue[]> {
+  const AI_AUDIT_CHUNK_SIZE = 15000;
+  const htmlToAudit = html.length > AI_AUDIT_CHUNK_SIZE ? html.substring(0, AI_AUDIT_CHUNK_SIZE) : html;
+
   const response = await anthropic.messages.create({
     model: "claude-sonnet-4-5",
     max_tokens: 4096,
@@ -394,7 +397,7 @@ Output ONLY the JSON array.`,
     messages: [
       {
         role: "user",
-        content: `Analyze this accessible HTML for additional WCAG compliance:\n${html.substring(0, 6000)}`,
+        content: `Analyze this accessible HTML for additional WCAG compliance:\n${htmlToAudit}`,
       },
     ],
   });
@@ -537,22 +540,194 @@ ${stripped}`,
   };
 }
 
+export type ProgressCallback = (message: string) => Promise<void>;
+
+interface PageChunk {
+  text: string;
+  startPage: number;
+  endPage: number;
+}
+
+function splitTextByPages(text: string, maxChunkSize: number = 8000): PageChunk[] {
+  const pageBreakRegex = /(?:^|\n)(?:[-=]{3,}|Page\s+\d+|---\s*Page\s*\d+\s*---|\f)/gi;
+  const parts: { pageNum: number; text: string }[] = [];
+  let lastIdx = 0;
+  let currentPage = 1;
+  let match: RegExpExecArray | null;
+
+  const regex = new RegExp(pageBreakRegex.source, "gi");
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIdx) {
+      parts.push({ pageNum: currentPage, text: text.slice(lastIdx, match.index) });
+    }
+    currentPage++;
+    lastIdx = regex.lastIndex;
+  }
+  if (lastIdx < text.length) {
+    parts.push({ pageNum: currentPage, text: text.slice(lastIdx) });
+  }
+  if (parts.length === 0) {
+    parts.push({ pageNum: 1, text });
+  }
+
+  const chunks: PageChunk[] = [];
+  let currentChunk = "";
+  let chunkStartPage = parts[0]?.pageNum ?? 1;
+
+  for (const part of parts) {
+    if (currentChunk.length + part.text.length > maxChunkSize && currentChunk.length > 0) {
+      chunks.push({
+        text: currentChunk.trim(),
+        startPage: chunkStartPage,
+        endPage: part.pageNum - 1,
+      });
+      currentChunk = part.text;
+      chunkStartPage = part.pageNum;
+    } else {
+      currentChunk += (currentChunk ? "\n" : "") + part.text;
+    }
+  }
+  if (currentChunk.trim()) {
+    chunks.push({
+      text: currentChunk.trim(),
+      startPage: chunkStartPage,
+      endPage: parts[parts.length - 1]?.pageNum ?? 1,
+    });
+  }
+
+  return chunks;
+}
+
+function filterImagesForChunk(images: ExtractedImage[], startPage: number, endPage: number): ExtractedImage[] {
+  return images.filter((img) => img.pageNumber >= startPage && img.pageNumber <= endPage);
+}
+
+function filterTablesForChunk(tables: ExtractedTable[], startPage: number, endPage: number): ExtractedTable[] {
+  return tables.filter((t) => t.pageNumber >= startPage && t.pageNumber <= endPage);
+}
+
+function tableContentSignature(rows: string[][]): string {
+  return rows.map((r) => r.join("|")).join("||");
+}
+
+function ensureMissingTables(html: string, tables: ExtractedTable[]): string {
+  if (tables.length === 0) return html;
+
+  const existingTableRegex = /<table[\s\S]*?<\/table>/gi;
+  const existingTables = html.match(existingTableRegex) || [];
+  const existingSignatures = new Set<string>();
+
+  for (const tHtml of existingTables) {
+    const rowMatches = tHtml.match(/<tr[\s\S]*?<\/tr>/gi) || [];
+    const rows: string[][] = [];
+    for (const rowHtml of rowMatches) {
+      const cells: string[] = [];
+      const cellRegex = /<(?:td|th)[^>]*>([\s\S]*?)<\/(?:td|th)>/gi;
+      let cellMatch;
+      while ((cellMatch = cellRegex.exec(rowHtml)) !== null) {
+        cells.push(cellMatch[1].replace(/<[^>]*>/g, "").trim());
+      }
+      if (cells.length > 0) rows.push(cells);
+    }
+    if (rows.length > 0) existingSignatures.add(tableContentSignature(rows));
+  }
+
+  const missingTables = tables.filter((t) => !existingSignatures.has(tableContentSignature(t.rows)));
+  if (missingTables.length === 0) return html;
+
+  const tableSections = missingTables
+    .map((t, i) => {
+      const headerRow = t.rows[0] || [];
+      const bodyRows = t.rows.slice(1);
+      const thead = `<thead><tr>${headerRow.map((c) => `<th scope="col">${escapeHtmlText(c)}</th>`).join("")}</tr></thead>`;
+      const tbody = bodyRows.length > 0
+        ? `<tbody>${bodyRows.map((r) => `<tr>${r.map((c) => `<td>${escapeHtmlText(c)}</td>`).join("")}</tr>`).join("")}</tbody>`
+        : "";
+      return `<table><caption>Table from page ${t.pageNumber}</caption>${thead}${tbody}</table>`;
+    })
+    .join("\n");
+
+  const sectionHtml = `\n<section aria-label="Additional tables">\n<h2>Additional Tables</h2>\n${tableSections}\n</section>`;
+
+  const bodyCloseIdx = html.lastIndexOf("</body>");
+  if (bodyCloseIdx !== -1) {
+    return html.slice(0, bodyCloseIdx) + sectionHtml + "\n" + html.slice(bodyCloseIdx);
+  }
+  const mainCloseIdx = html.lastIndexOf("</main>");
+  if (mainCloseIdx !== -1) {
+    return html.slice(0, mainCloseIdx) + sectionHtml + "\n" + html.slice(mainCloseIdx);
+  }
+  return html + sectionHtml;
+}
+
+function mergeChunksIntoDocument(
+  chunks: string[],
+  metadata: { title?: string; author?: string; subject?: string }
+): string {
+  if (chunks.length === 1) return chunks[0];
+
+  const bodyContents: string[] = [];
+  let headContent = "";
+  let lang = "en";
+
+  for (const chunk of chunks) {
+    const langMatch = chunk.match(/<html[^>]*\slang=["']([^"']+)["']/i);
+    if (langMatch) lang = langMatch[1];
+
+    const headMatch = chunk.match(/<head[^>]*>([\s\S]*?)<\/head>/i);
+    if (headMatch && !headContent) headContent = headMatch[1];
+
+    const bodyMatch = chunk.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+    if (bodyMatch) {
+      bodyContents.push(bodyMatch[1]);
+    } else {
+      const cleaned = chunk
+        .replace(/<!DOCTYPE[^>]*>/i, "")
+        .replace(/<html[^>]*>/i, "")
+        .replace(/<\/html>/i, "")
+        .replace(/<head[^>]*>[\s\S]*?<\/head>/i, "")
+        .replace(/<body[^>]*>/i, "")
+        .replace(/<\/body>/i, "")
+        .trim();
+      if (cleaned) bodyContents.push(cleaned);
+    }
+  }
+
+  const documentTitle = metadata.title || "Accessible Document";
+  if (!headContent) {
+    headContent = `<meta charset="utf-8"><title>${escapeHtmlText(documentTitle)}</title>`;
+  }
+
+  return `<!DOCTYPE html>
+<html lang="${lang}">
+<head>
+${headContent}
+</head>
+<body>
+<main id="main-content">
+${bodyContents.join("\n\n<hr aria-hidden=\"true\">\n\n")}
+</main>
+</body>
+</html>`;
+}
+
 export async function generateAccessibleDocument(
   extractedText: string,
   originalFilename: string,
   metadata: { title?: string; author?: string; subject?: string },
   images: ExtractedImage[] = [],
-  tables: ExtractedTable[] = []
+  tables: ExtractedTable[] = [],
+  pageCount?: number,
+  onProgress?: ProgressCallback
 ): Promise<AccessibilityResult> {
   const documentTitle =
     metadata.title || originalFilename.replace(/\.pdf$/i, "");
 
-  const structuralSummary = buildStructuralSummary(images, tables);
+  const CHUNK_THRESHOLD = 8000;
+  const chunks = splitTextByPages(extractedText, CHUNK_THRESHOLD);
+  const needsChunking = chunks.length > 1;
 
-  const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-5",
-    max_tokens: 8192,
-    system: `You are an accessibility expert specializing in ADA Title II compliance and WCAG 2.1 Level AA standards.
+  const systemPrompt = `You are an accessibility expert specializing in ADA Title II compliance and WCAG 2.1 Level AA standards.
 
 Your task is to convert extracted PDF content into a fully accessible HTML document. Follow these rules:
 
@@ -570,27 +745,88 @@ Your task is to convert extracted PDF content into a fully accessible HTML docum
 12. PAGE TITLE: Include a descriptive <title> element
 
 Output ONLY the complete HTML document, no markdown, no code fences. Start with <!DOCTYPE html>.
-Include inline CSS for basic readable styling that meets contrast requirements.`,
-    messages: [
-      {
-        role: "user",
-        content: `Convert this extracted PDF content into an accessible HTML document.
+Include inline CSS for basic readable styling that meets contrast requirements.`;
+
+  const continuationSystemPrompt = `You are an accessibility expert continuing the conversion of a multi-page PDF document into accessible HTML.
+
+You are receiving a CONTINUATION chunk of the same document. The previous chunks have already been converted.
+Your task is to convert THIS chunk into accessible HTML content that can be merged with the previous chunks.
+
+Follow the same WCAG 2.1 Level AA rules:
+- Proper semantic HTML5 elements
+- Logical heading hierarchy (continue from where the previous chunk left off)
+- Proper lists, tables with headers, image alt text
+- No absolute positioning
+
+Output ONLY the HTML content for this chunk (no <!DOCTYPE>, no <html>, no <head>). 
+Just output the <body> content that will be merged into the full document.
+Do NOT repeat any content from previous chunks.`;
+
+  const chunkHtmlParts: string[] = [];
+
+  for (let i = 0; i < chunks.length; i++) {
+    const chunk = chunks[i];
+    const chunkImages = filterImagesForChunk(images, chunk.startPage, chunk.endPage);
+    const chunkTables = filterTablesForChunk(tables, chunk.startPage, chunk.endPage);
+    const structuralSummary = buildStructuralSummary(chunkImages, chunkTables);
+
+    const totalPages = pageCount || chunks[chunks.length - 1].endPage;
+    const progressMsg = needsChunking
+      ? `Converting pages ${chunk.startPage}–${chunk.endPage} of ${totalPages} (chunk ${i + 1}/${chunks.length})…`
+      : `Converting ${totalPages} page document…`;
+
+    if (onProgress) {
+      await onProgress(progressMsg);
+    }
+
+    const isFirst = i === 0;
+
+    const response = await anthropic.messages.create({
+      model: "claude-sonnet-4-5",
+      max_tokens: 16384,
+      system: isFirst ? systemPrompt : continuationSystemPrompt,
+      messages: [
+        {
+          role: "user",
+          content: isFirst
+            ? `Convert this extracted PDF content into an accessible HTML document.
 
 Document title: ${documentTitle}
 Author: ${metadata.author || "Unknown"}
 Subject: ${metadata.subject || "Not specified"}
+${needsChunking ? `\nThis is chunk ${i + 1} of ${chunks.length} (pages ${chunk.startPage}–${chunk.endPage}).` : ""}
 
 --- EXTRACTED TEXT ---
-${extractedText.substring(0, 10000)}
-${structuralSummary}`,
-      },
-    ],
-  });
+${chunk.text}
+${structuralSummary}`
+            : `Continue converting this PDF document.
 
-  const rawHtml = response.content[0]?.type === "text" ? response.content[0].text : "";
-  let accessibleHtml = injectImageData(rawHtml, images);
-  accessibleHtml = ensureMissingImages(accessibleHtml, images);
-  accessibleHtml = ensureAltText(accessibleHtml, images);
+Document title: ${documentTitle}
+This is chunk ${i + 1} of ${chunks.length} (pages ${chunk.startPage}–${chunk.endPage}).
+
+--- EXTRACTED TEXT (CONTINUATION) ---
+${chunk.text}
+${structuralSummary}`,
+        },
+      ],
+    });
+
+    const rawHtml = response.content[0]?.type === "text" ? response.content[0].text : "";
+    let chunkHtml = injectImageData(rawHtml, chunkImages);
+    chunkHtml = ensureMissingImages(chunkHtml, chunkImages);
+    chunkHtml = ensureAltText(chunkHtml, chunkImages);
+    chunkHtml = ensureMissingTables(chunkHtml, chunkTables);
+
+    chunkHtmlParts.push(chunkHtml);
+  }
+
+  if (onProgress) {
+    await onProgress("Running compliance checks…");
+  }
+
+  const accessibleHtml = needsChunking
+    ? mergeChunksIntoDocument(chunkHtmlParts, metadata)
+    : chunkHtmlParts[0];
 
   const deterministicIssues = runDeterministicChecks(accessibleHtml);
   const aiIssues = await runAiAudit(accessibleHtml);

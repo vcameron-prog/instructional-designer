@@ -103,6 +103,7 @@ export const conversions = pgTable("conversions", {
   accessibleHtml: text("accessible_html"),
   complianceReport: jsonb("compliance_report"),
   originalComplianceReport: jsonb("original_compliance_report"),
+  statusMessage: text("status_message"),
   errorMessage: text("error_message"),
   pdfData: text("pdf_data"),
   ocrApplied: boolean("ocr_applied").notNull().default(false),

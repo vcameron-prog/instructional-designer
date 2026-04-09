@@ -16,6 +16,8 @@ import {
   PageNumber,
   UnderlineType,
   LevelFormat,
+  VerticalMergeType,
+  ShadingType,
 } from "docx";
 import { parse, HTMLElement, TextNode, NodeType } from "node-html-parser";
 
@@ -136,32 +138,88 @@ function processImage(el: HTMLElement): Paragraph | null {
   });
 }
 
+function safePlainText(el: HTMLElement): string {
+  try {
+    return sanitizeXmlText(el.textContent || "");
+  } catch {
+    return "";
+  }
+}
+
 function processTable(el: HTMLElement): Table | null {
   const rows: TableRow[] = [];
   const tableRows = el.querySelectorAll("tr");
   if (tableRows.length === 0) return null;
+
   let gridColCount = 0;
   for (const tr of tableRows) {
     const cells = tr.querySelectorAll("th, td");
-    let rowSpan = 0;
+    let rowCols = 0;
     for (const cell of cells) {
-      rowSpan += parseInt(cell.getAttribute("colspan") || "1", 10) || 1;
+      rowCols += parseInt(cell.getAttribute("colspan") || "1", 10) || 1;
     }
-    if (rowSpan > gridColCount) gridColCount = rowSpan;
+    if (rowCols > gridColCount) gridColCount = rowCols;
   }
   if (gridColCount === 0) return null;
-  for (const tr of tableRows) {
+
+  const grid: (boolean)[][] = [];
+  for (let r = 0; r < tableRows.length; r++) {
+    grid[r] = new Array(gridColCount).fill(false);
+  }
+
+  for (let rowIdx = 0; rowIdx < tableRows.length; rowIdx++) {
+    const tr = tableRows[rowIdx];
     const cells = tr.querySelectorAll("th, td");
     const tableCells: TableCell[] = [];
-    let usedCols = 0;
-    for (const cell of cells) {
-      if (usedCols >= gridColCount) break;
+    let cellIdx = 0;
+    let colPos = 0;
+
+    while (colPos < gridColCount) {
+      if (grid[rowIdx][colPos]) {
+        tableCells.push(
+          new TableCell({
+            children: [new Paragraph({ children: [new TextRun({ text: "" })] })],
+            verticalMerge: VerticalMergeType.CONTINUE,
+          })
+        );
+        colPos++;
+        continue;
+      }
+
+      if (cellIdx >= cells.length) {
+        tableCells.push(
+          new TableCell({
+            children: [new Paragraph({ children: [new TextRun({ text: "" })] })],
+          })
+        );
+        colPos++;
+        continue;
+      }
+
+      const cell = cells[cellIdx];
       const isHeader = cell.tagName?.toLowerCase() === "th";
       const colSpan = Math.min(
         parseInt(cell.getAttribute("colspan") || "1", 10) || 1,
-        gridColCount - usedCols
+        gridColCount - colPos
       );
-      const inlineChildren = extractInlineChildren(cell);
+      const rowSpan = parseInt(cell.getAttribute("rowspan") || "1", 10) || 1;
+
+      if (rowSpan > 1) {
+        for (let dr = 1; dr < rowSpan && rowIdx + dr < tableRows.length; dr++) {
+          for (let dc = 0; dc < colSpan && colPos + dc < gridColCount; dc++) {
+            grid[rowIdx + dr][colPos + dc] = true;
+          }
+        }
+      }
+
+      let inlineChildren: InlineChild[];
+      try {
+        inlineChildren = extractInlineChildren(cell);
+      } catch {
+        const fallback = safePlainText(cell);
+        inlineChildren = fallback ? [new TextRun({ text: fallback })] : [];
+      }
+
       tableCells.push(
         new TableCell({
           children: [
@@ -169,23 +227,22 @@ function processTable(el: HTMLElement): Table | null {
               children: inlineChildren.length > 0 ? inlineChildren : [new TextRun({ text: "" })],
             }),
           ],
-          shading: isHeader ? { fill: "E8E8E8" } : undefined,
+          shading: isHeader
+            ? { type: ShadingType.SOLID, fill: "E8E8E8", color: "E8E8E8" }
+            : undefined,
           columnSpan: colSpan > 1 ? colSpan : undefined,
+          verticalMerge: rowSpan > 1 ? VerticalMergeType.RESTART : undefined,
         })
       );
-      usedCols += colSpan;
+
+      colPos += colSpan;
+      cellIdx++;
     }
-    while (usedCols < gridColCount) {
-      tableCells.push(
-        new TableCell({
-          children: [new Paragraph({ children: [new TextRun({ text: "" })] })],
-        })
-      );
-      usedCols++;
-    }
+
     const hasHeaderCells = cells[0]?.tagName?.toLowerCase() === "th";
     rows.push(new TableRow({ children: tableCells, tableHeader: hasHeaderCells || undefined }));
   }
+
   return new Table({
     rows,
     width: { size: 100, type: WidthType.PERCENTAGE },
@@ -226,6 +283,18 @@ function processListItems(el: HTMLElement, ordered: boolean, level: number = 0):
 }
 
 function processElement(el: HTMLElement): (Paragraph | Table)[] {
+  try {
+    return processElementInner(el);
+  } catch {
+    const fallback = safePlainText(el);
+    if (fallback) {
+      return [new Paragraph({ children: [new TextRun({ text: fallback })] })];
+    }
+    return [];
+  }
+}
+
+function processElementInner(el: HTMLElement): (Paragraph | Table)[] {
   const tag = el.tagName?.toLowerCase();
   const results: (Paragraph | Table)[] = [];
 
