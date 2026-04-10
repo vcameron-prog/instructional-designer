@@ -71,6 +71,21 @@ function generatePrompt(
   const hasAIPowered = inclusiveOptions.includes("AI-Powered Student Activities");
   const hasAnyInclusive = inclusiveOptions.length > 0;
 
+  const wcagRequirements = `
+**ADA TITLE II / WCAG 2.1 AA COMPLIANCE — MANDATORY FOR ALL OUTPUT:**
+All generated content MUST meet WCAG 2.1 Level AA accessibility standards:
+- HEADINGS: Use a logical heading hierarchy (h1 → h2 → h3). Never skip heading levels (e.g., h1 directly to h3).
+- SEMANTIC HTML: Use proper semantic elements — <ul>/<ol> for lists, <strong> for emphasis, <em> for italic meaning, <blockquote> for quotations.
+- TABLES: Every table MUST include <caption>, <thead> with <th scope="col">, and use <th scope="row"> for row headers. Never use tables for layout.
+- LINKS: All links must have descriptive text. Never use "click here" or "read more" as link text.
+- CONTRAST: When specifying colors in inline styles, ensure at least 4.5:1 contrast ratio for normal text and 3:1 for large text.
+- READING ORDER: Content must follow a logical linear reading order in the DOM. Do not use absolute positioning or visual-only ordering.
+- LANGUAGE: If outputting a full HTML document, include lang="en" on the <html> element.
+- IMAGES: Every <img> must have a meaningful, descriptive alt attribute. Use alt="" only for purely decorative images.
+- LANDMARKS: Use ARIA landmarks or HTML5 semantic containers (<main>, <nav>, <header>, <footer>, <section>, <article>) for document structure.
+- CLEAR LANGUAGE: Use plain, direct language. Define jargon and acronyms on first use.
+`;
+
   // Standard base context with all frameworks (for most tools)
   const baseContext = `You are an expert instructional designer creating materials for Bridgewater State University faculty. Create comprehensive, ready-to-implement content that incorporates THREE KEY PEDAGOGICAL FRAMEWORKS:
 
@@ -109,6 +124,7 @@ Additional Context: ${course.additionalContext || "None provided"}${syllabusCont
 ${toolData.courseLevel ? `Level: ${toolData.courseLevel}` : ""}
 Note: This is a standalone quick tool usage without full course context. Generate high-quality, broadly applicable content based on the provided information.`}
 
+${wcagRequirements}
 **CRITICAL FORMATTING RULES - FOLLOW EXACTLY:**
 - DO NOT use markdown table syntax (no |---|---| or | column | column | formats)
 - Instead of tables, use clear formatted lists with labels
@@ -168,6 +184,7 @@ Additional Context: ${course.additionalContext || "None provided"}${syllabusCont
 ${toolData.courseLevel ? `Level: ${toolData.courseLevel}` : ""}
 Note: This is a standalone quick tool usage without full course context. Generate high-quality, broadly applicable content based on the provided information.`}
 
+${wcagRequirements}
 **CRITICAL FORMATTING RULES - FOLLOW EXACTLY:**
 - DO NOT use markdown table syntax (no |---|---| or | column | column | formats)
 - Instead of tables, use clear formatted lists with labels
@@ -184,6 +201,7 @@ Level: ${course.courseLevel}
 Department: ${course.department}` : `${toolData.subject ? `Subject/Department: ${toolData.subject}` : ""}
 ${toolData.courseLevel ? `Level: ${toolData.courseLevel}` : ""}`}
 
+${wcagRequirements}
 **CRITICAL FORMATTING RULES - FOLLOW EXACTLY:**
 - DO NOT use markdown table syntax (no |---|---| or | column | column | formats)
 - Instead of tables, use clear formatted lists with labels
@@ -325,9 +343,9 @@ REVISION GOALS:
 ${toolData.revisionGoals?.map((goal: string) => `- ${goal}`).join("\n") || "General enhancement"}
 
 CURRENT SYLLABUS CONTENT:
-${course.existingSyllabus || ""}
+${course?.existingSyllabus || ""}
 ${toolData.currentSyllabusText || ""}
-${!course.existingSyllabus && !toolData.currentSyllabusText ? "No existing syllabus provided - create a new syllabus based on the course information above." : ""}
+${!course?.existingSyllabus && !toolData.currentSyllabusText ? "No existing syllabus provided - create a new syllabus based on the course information above." : ""}
 
 SPECIFIC CONCERNS:
 ${toolData.specificConcerns || "None specified"}
