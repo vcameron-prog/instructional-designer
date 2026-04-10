@@ -127,7 +127,8 @@ Note: This is a standalone quick tool usage without full course context. Generat
 ${wcagRequirements}
 **CRITICAL FORMATTING RULES - FOLLOW EXACTLY:**
 - DO NOT use markdown table syntax (no |---|---| or | column | column | formats)
-- Instead of tables, use clear formatted lists with labels
+- For non-tabular data, use clear formatted lists with bold labels
+- If data is truly tabular, use accessible HTML tables (with caption, thead, th scope) per the WCAG rules above
 - Use **bold labels** followed by content on the same line or as sub-bullets
 - For schedules and matrices, use numbered sections with clear headings
 - Keep output clean and readable without complex formatting symbols`;
@@ -187,7 +188,8 @@ Note: This is a standalone quick tool usage without full course context. Generat
 ${wcagRequirements}
 **CRITICAL FORMATTING RULES - FOLLOW EXACTLY:**
 - DO NOT use markdown table syntax (no |---|---| or | column | column | formats)
-- Instead of tables, use clear formatted lists with labels
+- For non-tabular data, use clear formatted lists with bold labels
+- If data is truly tabular, use accessible HTML tables (with caption, thead, th scope) per the WCAG rules above
 - Use **bold labels** followed by content on the same line or as sub-bullets
 - For schedules and matrices, use numbered sections with clear headings
 - Keep output clean and readable without complex formatting symbols`;
@@ -204,7 +206,8 @@ ${toolData.courseLevel ? `Level: ${toolData.courseLevel}` : ""}`}
 ${wcagRequirements}
 **CRITICAL FORMATTING RULES - FOLLOW EXACTLY:**
 - DO NOT use markdown table syntax (no |---|---| or | column | column | formats)
-- Instead of tables, use clear formatted lists with labels
+- For non-tabular data, use clear formatted lists with bold labels
+- If data is truly tabular, use accessible HTML tables (with caption, thead, th scope) per the WCAG rules above
 - Use **bold labels** followed by content on the same line or as sub-bullets
 - Keep output clean and readable without complex formatting symbols`;
 
