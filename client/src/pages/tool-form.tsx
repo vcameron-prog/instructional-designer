@@ -35,7 +35,7 @@ const getFormFields = (toolId: string): ToolFormField[] => {
     assignment: [
       { name: "assignmentType", label: "Assignment Type", type: "select", options: ["Essay/Paper", "Research Project", "Problem Set", "Lab Report", "Presentation", "Discussion", "Creative Project", "Case Study"], required: true },
       { name: "learningObjectives", label: "Key Learning Objectives", type: "textarea", placeholder: "What should students learn from this assignment?", required: true },
-      { name: "duration", label: "Time to Complete", type: "text", placeholder: "e.g., 2 weeks, 1 week" },
+      { name: "duration", label: "Estimated Time to Complete", type: "select", options: ["1 hour (single class activity)", "2 hours", "3 hours", "4 hours", "5 hours", "1 week", "2 weeks", "3 weeks", "4 weeks", "Semester-long project"], required: true },
       { name: "inclusiveDesignOptions", label: "Inclusive Design Frameworks to Include", type: "checkbox-group", options: [
         "UDL (Universal Design for Learning)",
         "Cultural Relevance & Inclusivity",

@@ -272,9 +272,22 @@ ${wcagRequirements}
     }
   }
 
+  const duration = toolData.duration || "Flexible";
+  const isShortDuration = /^[1-5]\s*hour/i.test(duration) || /single class/i.test(duration);
+  const durationGuidance = isShortDuration
+    ? `\n**DURATION GUIDANCE — THIS IS A SHORT ACTIVITY (${duration}):**
+- Keep the assignment concise and focused — it must be completable within ${duration}
+- Limit to 2-3 clear learning objectives, not an exhaustive list
+- Instructions should be brief and actionable — no multi-phase or multi-day workflows
+- Grading criteria should be simple and focused (3-5 criteria max)
+- Do NOT include extensive timelines, milestones, or multi-session breakdowns
+- Resources section should list only 2-3 essential items, not a comprehensive bibliography
+- Overall output should be SHORT and practical — a busy instructor should be able to read it in under 2 minutes\n`
+    : "";
+
   const prompts: Record<string, string> = {
     assignment: `${assignmentBaseContext}
-
+${durationGuidance}
 Create a COMPLETE assignment that includes:
 1. Clear title and overview
 2. Detailed learning objectives
@@ -282,11 +295,11 @@ Create a COMPLETE assignment that includes:
 4. Submission requirements for Blackboard Ultra
 5. Grading criteria overview
 6. Resources and support materials
-7. Timeline and milestones
+${!isShortDuration ? "7. Timeline and milestones" : ""}
 ${inclusiveDesignSection}
 Assignment Type: ${toolData.assignmentType}
 Learning Objectives: ${toolData.learningObjectives}
-Duration: ${toolData.duration || "Flexible"}
+Duration: ${duration}
 ${hasAnyInclusive ? `Selected Inclusive Design Frameworks: ${inclusiveOptions.join(", ")}` : ""}
 Additional Context: ${toolData.additionalContext || "None"}`,
 

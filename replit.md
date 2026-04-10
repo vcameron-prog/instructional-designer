@@ -51,6 +51,8 @@ Preferred communication style: Simple, everyday language.
 - **ADA/WCAG Compliance**: Implemented features like skip navigation, dynamic page titles, ARIA live regions, keyboard accessibility, focus management, form error accessibility, enhanced color contrast, proper landmark structure, and icon button labels.
 - **AI-Powered Activity Designer**: Tool for designing student activities that intentionally leverage AI, offering various activity types and configurable recommendations.
 - **Selective Framework Inclusion**: Faculty can choose specific pedagogical frameworks (UDL, Cultural Relevance, SEL, Accessibility, AI-Powered Student Activities) for content generation.
+- **Duration-Aware Assignments**: Assignment duration uses hour-based select dropdown (1-5 hours, 1-4 weeks, semester-long). Short durations (≤5 hours) trigger concise, focused content generation.
+- **Collapsible Result Sections**: Generated content is split by ## headings on the result page. Overview, objectives, and instructions are always expanded. Supplementary sections (submission requirements, grading criteria, resources, UDL/SEL/AI research) are collapsed behind clickable dropdowns. Copy/download still includes all content.
 - **Connected Course Materials**: Generated content can be marked as "connected" to a course, informing other tools and tracked via an `isApproved` status.
 - **BSU Template Integration**: Syllabus generation adheres to BSU's official template; AI Policy generation uses BSU's 4-level framework.
 - **Inclusive Design**: All generated content incorporates UDL, Cultural Relevance & Inclusivity, and SEL frameworks.

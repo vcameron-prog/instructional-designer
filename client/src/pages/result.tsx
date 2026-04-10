@@ -34,6 +34,63 @@ import { usePageTitle } from "@/hooks/use-page-title";
 import { useAuth } from "@/hooks/use-auth";
 import type { Course, GeneratedContent } from "@shared/schema";
 
+const COLLAPSED_HEADING_PATTERNS = [
+  /submission/i, /blackboard/i, /grading/i, /rubric/i, /criteria/i,
+  /resource/i, /support material/i, /reference/i, /bibliography/i,
+  /udl/i, /universal design/i, /cultural/i, /sel\b/i, /social.?emotional/i,
+  /ai.?powered/i, /inclusive design/i, /accessibility/i,
+  /research/i, /reasoning/i, /framework/i, /pedagog/i, /timeline/i, /milestone/i,
+];
+
+function isCollapsedSection(heading: string): boolean {
+  return COLLAPSED_HEADING_PATTERNS.some((p) => p.test(heading));
+}
+
+interface ContentSection {
+  heading: string;
+  body: string;
+  collapsed: boolean;
+}
+
+function splitContentIntoSections(markdown: string): ContentSection[] {
+  const lines = markdown.split("\n");
+  const sections: ContentSection[] = [];
+  let currentHeading = "";
+  let currentLines: string[] = [];
+  let insideCodeFence = false;
+
+  for (const line of lines) {
+    if (/^```/.test(line)) {
+      insideCodeFence = !insideCodeFence;
+    }
+
+    const h2Match = !insideCodeFence && line.match(/^##\s+(.+)$/);
+    if (h2Match) {
+      if (currentHeading || currentLines.length > 0) {
+        sections.push({
+          heading: currentHeading,
+          body: currentLines.join("\n").trim(),
+          collapsed: currentHeading ? isCollapsedSection(currentHeading) : false,
+        });
+      }
+      currentHeading = h2Match[1].replace(/\*\*/g, "").trim();
+      currentLines = [];
+    } else {
+      currentLines.push(line);
+    }
+  }
+
+  if (currentHeading || currentLines.length > 0) {
+    sections.push({
+      heading: currentHeading,
+      body: currentLines.join("\n").trim(),
+      collapsed: currentHeading ? isCollapsedSection(currentHeading) : false,
+    });
+  }
+
+  return sections;
+}
+
 interface AccessibilityIssue {
   type: string;
   severity: "warning" | "suggestion";
@@ -117,6 +174,11 @@ export default function ResultPage() {
   const [saveLibraryOpen, setSaveLibraryOpen] = useState(false);
   const [libraryTitle, setLibraryTitle] = useState("");
   const [libraryDescription, setLibraryDescription] = useState("");
+  const [expandedSections, setExpandedSections] = useState<Record<number, boolean>>({});
+  const contentId = content?.id;
+  useEffect(() => {
+    setExpandedSections({});
+  }, [contentId]);
 
   useEffect(() => {
     requestAnimationFrame(() => {
@@ -579,60 +641,109 @@ export default function ResultPage() {
           <CardContent>
             <ScrollArea className="h-[600px] pr-4">
               <div className="prose prose-sm max-w-none dark:prose-invert prose-headings:text-primary prose-headings:font-bold prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-p:text-foreground prose-li:text-foreground prose-strong:text-foreground prose-table:text-sm">
-                <ReactMarkdown 
-                  remarkPlugins={[remarkGfm]}
-                  components={{
-                    table: ({ children }) => (
+                {(() => {
+                  const sections = splitContentIntoSections(content.content);
+                  const markdownComponents = {
+                    table: ({ children }: any) => (
                       <div className="overflow-x-auto my-4">
                         <table className="min-w-full border-collapse border border-border">
                           {children}
                         </table>
                       </div>
                     ),
-                    thead: ({ children }) => (
+                    thead: ({ children }: any) => (
                       <thead className="bg-muted">{children}</thead>
                     ),
-                    th: ({ children }) => (
+                    th: ({ children }: any) => (
                       <th className="border border-border px-3 py-2 text-left font-semibold text-foreground">
                         {children}
                       </th>
                     ),
-                    td: ({ children }) => (
+                    td: ({ children }: any) => (
                       <td className="border border-border px-3 py-2 text-foreground">
                         {children}
                       </td>
                     ),
-                    h1: ({ children }) => (
+                    h1: ({ children }: any) => (
                       <h1 className="text-2xl font-bold text-primary mt-6 mb-3">{children}</h1>
                     ),
-                    h2: ({ children }) => (
+                    h2: ({ children }: any) => (
                       <h2 className="text-xl font-bold text-primary mt-5 mb-2">{children}</h2>
                     ),
-                    h3: ({ children }) => (
+                    h3: ({ children }: any) => (
                       <h3 className="text-lg font-semibold text-primary mt-4 mb-2">{children}</h3>
                     ),
-                    ul: ({ children }) => (
+                    ul: ({ children }: any) => (
                       <ul className="list-disc pl-6 my-2 space-y-1">{children}</ul>
                     ),
-                    ol: ({ children }) => (
+                    ol: ({ children }: any) => (
                       <ol className="list-decimal pl-6 my-2 space-y-1">{children}</ol>
                     ),
-                    li: ({ children }) => (
+                    li: ({ children }: any) => (
                       <li className="text-foreground">{children}</li>
                     ),
-                    p: ({ children }) => (
+                    p: ({ children }: any) => (
                       <p className="my-2 text-foreground leading-relaxed">{children}</p>
                     ),
-                    strong: ({ children }) => (
+                    strong: ({ children }: any) => (
                       <strong className="font-semibold text-foreground">{children}</strong>
                     ),
                     hr: () => (
                       <hr className="my-4 border-border" />
                     ),
-                  }}
-                >
-                  {content.content}
-                </ReactMarkdown>
+                  };
+
+                  if (sections.length <= 1) {
+                    return (
+                      <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                        {content.content}
+                      </ReactMarkdown>
+                    );
+                  }
+
+                  return sections.map((section, idx) => {
+                    if (!section.heading) {
+                      return (
+                        <div key={idx}>
+                          <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                            {section.body}
+                          </ReactMarkdown>
+                        </div>
+                      );
+                    }
+
+                    if (!section.collapsed) {
+                      return (
+                        <div key={idx}>
+                          <h2 className="text-xl font-bold text-primary mt-5 mb-2">{section.heading}</h2>
+                          <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                            {section.body}
+                          </ReactMarkdown>
+                        </div>
+                      );
+                    }
+
+                    const isOpen = expandedSections[idx] ?? false;
+                    return (
+                      <Collapsible key={idx} open={isOpen} onOpenChange={(open) => setExpandedSections(prev => ({ ...prev, [idx]: open }))}>
+                        <CollapsibleTrigger asChild>
+                          <button
+                            className="w-full flex items-center justify-between gap-2 py-3 px-4 mt-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors text-left group"
+                            data-testid={`toggle-section-${idx}`}
+                          >
+                            <span className="text-lg font-bold text-primary">{section.heading}</span>
+                            <ChevronDown className={`w-5 h-5 text-muted-foreground transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                          </button>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="px-1">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                            {section.body}
+                          </ReactMarkdown>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    );
+                  });
+                })()}
               </div>
             </ScrollArea>
           </CardContent>
