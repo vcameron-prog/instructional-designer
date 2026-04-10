@@ -1467,8 +1467,9 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         return res.status(404).json({ error: "Content not found" });
       }
 
+      let course: any = null;
       if (content.courseId) {
-        const course = await storage.getCourse(content.courseId, userId);
+        course = await storage.getCourse(content.courseId, userId);
         if (!course) {
           return res.status(404).json({ error: "Content not found" });
         }
