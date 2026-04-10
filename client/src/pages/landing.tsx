@@ -287,7 +287,7 @@ export default function LandingPage() {
             data-testid="card-quick-tools"
           >
             <CardContent className="p-8 text-center">
-              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-secondary to-primary flex items-center justify-center mx-auto mb-6 group-hover:scale-105 transition-transform">
+              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-amber-500 to-yellow-400 flex items-center justify-center mx-auto mb-6 group-hover:scale-105 transition-transform">
                 <Zap className="w-10 h-10 text-white" />
               </div>
               <CardTitle className="text-2xl mb-3">Quick Tools</CardTitle>
