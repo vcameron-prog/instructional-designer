@@ -247,7 +247,7 @@ export default function ResultPage() {
       setSaveLibraryOpen(false);
       setLibraryTitle("");
       setLibraryDescription("");
-      toast({ title: "Saved as template!", description: "You can access this template from the Content Template Library to use in any course." });
+      toast({ title: "Saved as template!", description: "You can access this template from the Content Library to use in any course." });
     },
     onError: (error) => {
       toast({ title: "Failed to save", description: error.message, variant: "destructive" });

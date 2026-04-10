@@ -86,7 +86,7 @@ export default function LibraryPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/library"] });
-      toast({ title: "Removed from template library" });
+      toast({ title: "Removed from library" });
     },
   });
 
@@ -144,7 +144,7 @@ export default function LibraryPage() {
     URL.revokeObjectURL(url);
   };
 
-  usePageTitle("Template Library");
+  usePageTitle("Content Library");
 
   return (
     <main id="main-content" tabIndex={-1} className="min-h-screen bg-background">
@@ -166,7 +166,7 @@ export default function LibraryPage() {
                   <Library className="w-5 h-5 text-primary" />
                 </div>
                 <div>
-                  <h1 className="text-xl font-bold">Content Template Library</h1>
+                  <h1 className="text-xl font-bold">Content Library</h1>
                   <p className="text-sm text-muted-foreground">Saved templates you can reuse across any course</p>
                 </div>
               </div>
@@ -323,7 +323,7 @@ export default function LibraryPage() {
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <Library className="w-12 h-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Your template library is empty</h3>
+              <h3 className="text-lg font-semibold mb-2">Your content library is empty</h3>
               <p className="text-muted-foreground text-center max-w-md">
                 Save generated content as templates to reuse across any course. 
                 Look for the "Save as Template" button on any generated content.

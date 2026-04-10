@@ -349,7 +349,7 @@ export default function LandingPage() {
             data-testid="button-library-footer"
           >
             <Library className="w-4 h-4 mr-2" />
-            Template Library
+            Content Library
           </Button>}
         </div>
 

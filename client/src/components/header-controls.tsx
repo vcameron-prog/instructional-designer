@@ -118,12 +118,12 @@ export function HeaderControls({
               className={btnClass}
               onClick={() => navigate("/library")}
               data-testid="button-library"
-              aria-label="Template library"
+              aria-label="Content library"
             >
               <Library className="w-5 h-5" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent><p>Template Library</p></TooltipContent>
+          <TooltipContent><p>Content Library</p></TooltipContent>
         </Tooltip>
       )}
 

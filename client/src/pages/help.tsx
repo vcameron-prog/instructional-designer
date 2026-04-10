@@ -200,7 +200,7 @@ const faqs = [
   },
   {
     question: "Can I reuse content across courses?",
-    answer: "Yes! Use the 'Save as Template' button to save content to your Template Library for use across any course. You can also duplicate a course to use it as a starting point for a new course.",
+    answer: "Yes! Use the 'Save as Template' button to save content to your Content Library for use across any course. You can also duplicate a course to use it as a starting point for a new course.",
   },
   {
     question: "What if I don't like the generated content?",
@@ -435,12 +435,12 @@ export default function HelpPage() {
         <section className="mb-12">
           <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
             <Library className="w-6 h-6 text-primary" />
-            Content Template Library
+            Content Library
           </h2>
           <Card>
             <CardContent className="pt-6">
               <p className="mb-4 text-muted-foreground">
-                The Content Template Library allows you to save your best content as reusable templates 
+                The Content Library allows you to save your best content as reusable templates 
                 that can be applied to any course. Unlike Connected Course Materials (which are 
                 course-specific), templates are available across all your courses.
               </p>
@@ -467,7 +467,7 @@ export default function HelpPage() {
                   <ul className="text-sm text-muted-foreground space-y-2">
                     <li className="flex items-start gap-2">
                       <CheckCircle className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                      Access templates from the Template Library button
+                      Access templates from the Content Library button
                     </li>
                     <li className="flex items-start gap-2">
                       <CheckCircle className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
