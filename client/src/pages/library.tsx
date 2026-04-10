@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { PoweredByFooter } from "@/components/powered-by-footer";
 import { HeaderControls } from "@/components/header-controls";
 import { usePageTitle } from "@/hooks/use-page-title";
+import { useAuth } from "@/hooks/use-auth";
+import { CourseCard } from "@/components/course-card";
 import { 
   ArrowLeft, 
   Library, 
@@ -18,9 +20,10 @@ import {
   Target,
   Trash2,
   Copy,
-  Download
+  Download,
+  FolderOpen
 } from "lucide-react";
-import type { SavedContent } from "@shared/schema";
+import type { SavedContent, Course } from "@shared/schema";
 import { format } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -49,6 +52,7 @@ const iconMap: Record<string, any> = {
 export default function LibraryPage() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
+  const { isAuthenticated } = useAuth();
   useEffect(() => { window.scrollTo(0, 0); }, []);
   const searchParams = new URLSearchParams(window.location.search);
   const fromPath = searchParams.get("from");
@@ -61,6 +65,11 @@ export default function LibraryPage() {
     queryKey: ["/api/library"],
   });
 
+  const { data: courses = [], isLoading: isCoursesLoading } = useQuery<Course[]>({
+    queryKey: ["/api/courses"],
+    enabled: isAuthenticated,
+  });
+
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
       await apiRequest("DELETE", `/api/library/${id}`);
@@ -68,6 +77,30 @@ export default function LibraryPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/library"] });
       toast({ title: "Removed from template library" });
+    },
+  });
+
+  const deleteCourseMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/courses/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
+      toast({ title: "Course deleted" });
+    },
+  });
+
+  const duplicateCourseMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiRequest("POST", `/api/courses/${id}/duplicate`);
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
+      toast({ title: "Course duplicated", description: `Created "${data.courseName}"` });
+    },
+    onError: () => {
+      toast({ title: "Failed to duplicate course", variant: "destructive" });
     },
   });
 
@@ -119,6 +152,42 @@ export default function LibraryPage() {
       </div>
 
       <div className="container mx-auto px-4 py-8 max-w-4xl">
+        {isAuthenticated && (isCoursesLoading || courses.length > 0) && (
+          <Card className="bg-card border mb-8" data-testid="section-your-courses">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <FolderOpen className="w-6 h-6 text-primary" />
+                </div>
+                <div>
+                  <CardTitle className="text-xl">Your Courses</CardTitle>
+                  <CardDescription>Resume or duplicate existing courses</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-2 max-h-96 overflow-y-auto">
+              {isCoursesLoading ? (
+                <div className="space-y-2">
+                  {[1, 2].map(i => (
+                    <div key={i} className="h-20 bg-muted animate-pulse rounded-lg" />
+                  ))}
+                </div>
+              ) : (
+                courses.map((course) => (
+                  <CourseCard
+                    key={course.id}
+                    course={course}
+                    onNavigate={() => navigate(`/course/${course.id}/tools`)}
+                    onDuplicate={() => duplicateCourseMutation.mutate(course.id)}
+                    onDelete={() => deleteCourseMutation.mutate(course.id)}
+                    isDuplicating={duplicateCourseMutation.isPending}
+                  />
+                ))
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         {isLoading ? (
           <div className="space-y-4">
             {[1, 2, 3].map((i) => (
