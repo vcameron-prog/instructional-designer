@@ -764,7 +764,7 @@ export default function ResultPage() {
           <Button
             variant="outline"
             size="lg"
-            onClick={() => navigate(`/course/${courseId}/tool/${content.toolType}`)}
+            onClick={() => navigate(isStandalone ? `/quick-tools/${content.toolType}` : `/course/${courseId}/tool/${content.toolType}`)}
             className="gap-2"
             data-testid="button-create-another"
           >

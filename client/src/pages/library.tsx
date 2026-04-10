@@ -88,6 +88,9 @@ export default function LibraryPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/library"] });
       toast({ title: "Removed from library" });
     },
+    onError: () => {
+      toast({ title: "Failed to remove from library", variant: "destructive" });
+    },
   });
 
   const { data: conversions = [], isLoading: isConversionsLoading } = useQuery<Conversion[]>({
@@ -103,6 +106,9 @@ export default function LibraryPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/conversions"] });
       toast({ title: "Conversion deleted" });
     },
+    onError: () => {
+      toast({ title: "Failed to delete conversion", variant: "destructive" });
+    },
   });
 
   const deleteCourseMutation = useMutation({
@@ -112,6 +118,9 @@ export default function LibraryPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
       toast({ title: "Course deleted" });
+    },
+    onError: () => {
+      toast({ title: "Failed to delete course", variant: "destructive" });
     },
   });
 
