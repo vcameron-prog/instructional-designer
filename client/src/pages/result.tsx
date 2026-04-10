@@ -650,7 +650,8 @@ export default function ResultPage() {
           <CardContent>
             <ScrollArea className="h-[600px] pr-4">
               <div className="prose prose-sm max-w-none dark:prose-invert prose-headings:text-primary prose-headings:font-bold prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-p:text-foreground prose-li:text-foreground prose-strong:text-foreground prose-table:text-sm">
-                {contentSections.map((section, idx) => {
+                {(() => {
+                  const sections = splitContentIntoSections(content.content);
                   const markdownComponents: Components = {
                     table: ({ children }) => (
                       <div className="overflow-x-auto my-4">
