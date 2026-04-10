@@ -1,9 +1,12 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { AlertCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { AlertCircle, Home } from "lucide-react";
 import { usePageTitle } from "@/hooks/use-page-title";
+import { useLocation } from "wouter";
 
 export default function NotFound() {
   usePageTitle("Page Not Found");
+  const [, navigate] = useLocation();
   return (
     <main id="main-content" tabIndex={-1} className="min-h-screen w-full flex items-center justify-center bg-background">
       <Card className="w-full max-w-md mx-4">
@@ -16,6 +19,15 @@ export default function NotFound() {
           <p className="mt-4 text-sm text-muted-foreground">
             The page you're looking for doesn't exist or has been moved.
           </p>
+
+          <Button
+            className="mt-6 gap-2"
+            onClick={() => navigate("/")}
+            data-testid="button-home"
+          >
+            <Home className="w-4 h-4" />
+            Go Home
+          </Button>
         </CardContent>
       </Card>
     </main>

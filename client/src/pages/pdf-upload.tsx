@@ -142,14 +142,7 @@ export default function PdfUpload() {
               <HelpCircle className="w-4 h-4" />
               FAQ
             </button>
-            <button
-              onClick={() => navigate("/")}
-              className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-              data-testid="link-home"
-            >
-              Back to Tools
-            </button>
-            <HeaderControls showHome={false} showLibrary={false} showHelp={false} />
+            <HeaderControls showHome={true} showLibrary={false} showHelp={false} />
           </div>
         </div>
       </header>
