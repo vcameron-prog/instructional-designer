@@ -209,7 +209,8 @@ ${wcagRequirements}
 - For non-tabular data, use clear formatted lists with bold labels
 - If data is truly tabular, use accessible HTML tables (with caption, thead, th scope) per the WCAG rules above
 - Use **bold labels** followed by content on the same line or as sub-bullets
-- Keep output clean and readable without complex formatting symbols`;
+- Keep output clean and readable without complex formatting symbols
+- Do NOT include sentences like "If you find you are spending significantly more time, please reach out for support." — avoid any meta-commentary about estimated completion time or encouragement to seek help if the task takes longer than expected`;
 
   let inclusiveDesignSection = "";
   if (hasAnyInclusive) {
@@ -296,7 +297,8 @@ The instructor specified a SHORT duration ("${duration}"). You MUST scope the as
 - Do NOT include extensive timelines, milestones, or multi-session breakdowns
 - Resources section should list only 2-3 essential items, not a comprehensive bibliography
 - Keep supplementary sections (resources, grading criteria) brief and proportional
-- Overall output should be SHORT and practical — a busy instructor should be able to read it in under 2 minutes\n`
+- Overall output should be SHORT and practical — a busy instructor should be able to read it in under 2 minutes
+- Do NOT include sentences like "If you find you are spending significantly more time, please reach out for support." — avoid any meta-commentary about estimated completion time or encouragement to seek help if the task takes longer than expected\n`
     : "";
 
   const prompts: Record<string, string> = {
