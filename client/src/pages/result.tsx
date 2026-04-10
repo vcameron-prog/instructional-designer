@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation, useParams } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/collapsible";
 import { PoweredByFooter } from "@/components/powered-by-footer";
 import { HeaderControls } from "@/components/header-controls";
-import { ArrowLeft, Copy, Download, FileText, RefreshCw, CheckCircle, AlertTriangle, Lightbulb, ChevronDown, Loader2, Library, Link2, Link2Off } from "lucide-react";
+import { ArrowLeft, Copy, Download, FileText, RefreshCw, CheckCircle, AlertTriangle, Lightbulb, ChevronDown, ChevronRight, Loader2, Library, Link2, Link2Off } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TOOLS, LOADING_MESSAGES } from "@/lib/constants";
@@ -34,13 +34,22 @@ import { usePageTitle } from "@/hooks/use-page-title";
 import { useAuth } from "@/hooks/use-auth";
 import type { Course, GeneratedContent } from "@shared/schema";
 
-const COLLAPSED_HEADING_PATTERNS = [
-  /submission/i, /blackboard/i, /grading/i, /rubric/i, /criteria/i,
-  /resource/i, /support material/i, /reference/i, /bibliography/i,
-  /udl/i, /universal design/i, /cultural/i, /sel\b/i, /social.?emotional/i,
-  /ai.?powered/i, /inclusive design/i, /accessibility/i,
-  /research/i, /reasoning/i, /framework/i, /pedagog/i, /timeline/i, /milestone/i,
-];
+  const COLLAPSED_HEADING_PATTERNS = [
+    /submission\s*(requirements|guidelines)?/i,
+    /blackboard/i,
+    /grading\s*(criteria|rubric|overview)?/i,
+    /resources?\s*(and\s*support|&\s*support|materials)?/i,
+    /support\s*materials/i,
+    /reference/i, /bibliography/i,
+    /\budl\b/i, /universal\s*design\s*for\s*learning/i,
+    /cultural\s*(relevance|responsiveness|inclusivity)/i,
+    /\bsel\b/i, /social[- ]emotional\s*learning/i,
+    /ai[- ]powered/i, /inclusive\s*design/i, /accessibility\s*(features|check)?/i,
+    /research\s*(reasoning|basis|citations?|references?|framework|pedagog)?/i,
+    /timeline\s*(and\s*milestones)?/i,
+    /citation/i, /rubric\s*criteria/i,
+    /milestone/i,
+  ];
 
 function isCollapsedSection(heading: string): boolean {
   return COLLAPSED_HEADING_PATTERNS.some((p) => p.test(heading));
@@ -175,7 +184,7 @@ export default function ResultPage() {
   const [libraryTitle, setLibraryTitle] = useState("");
   const [libraryDescription, setLibraryDescription] = useState("");
   const [expandedSections, setExpandedSections] = useState<Record<number, boolean>>({});
-  const contentId = content?.id;
+
   useEffect(() => {
     setExpandedSections({});
   }, [contentId]);
@@ -641,51 +650,50 @@ export default function ResultPage() {
           <CardContent>
             <ScrollArea className="h-[600px] pr-4">
               <div className="prose prose-sm max-w-none dark:prose-invert prose-headings:text-primary prose-headings:font-bold prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-p:text-foreground prose-li:text-foreground prose-strong:text-foreground prose-table:text-sm">
-                {(() => {
-                  const sections = splitContentIntoSections(content.content);
-                  const markdownComponents = {
-                    table: ({ children }: any) => (
+                {contentSections.map((section, idx) => {
+                  const markdownComponents: Components = {
+                    table: ({ children }) => (
                       <div className="overflow-x-auto my-4">
                         <table className="min-w-full border-collapse border border-border">
                           {children}
                         </table>
                       </div>
                     ),
-                    thead: ({ children }: any) => (
+                    thead: ({ children }) => (
                       <thead className="bg-muted">{children}</thead>
                     ),
-                    th: ({ children }: any) => (
+                    th: ({ children }) => (
                       <th className="border border-border px-3 py-2 text-left font-semibold text-foreground">
                         {children}
                       </th>
                     ),
-                    td: ({ children }: any) => (
+                    td: ({ children }) => (
                       <td className="border border-border px-3 py-2 text-foreground">
                         {children}
                       </td>
                     ),
-                    h1: ({ children }: any) => (
+                    h1: ({ children }) => (
                       <h1 className="text-2xl font-bold text-primary mt-6 mb-3">{children}</h1>
                     ),
-                    h2: ({ children }: any) => (
+                    h2: ({ children }) => (
                       <h2 className="text-xl font-bold text-primary mt-5 mb-2">{children}</h2>
                     ),
-                    h3: ({ children }: any) => (
+                    h3: ({ children }) => (
                       <h3 className="text-lg font-semibold text-primary mt-4 mb-2">{children}</h3>
                     ),
-                    ul: ({ children }: any) => (
+                    ul: ({ children }) => (
                       <ul className="list-disc pl-6 my-2 space-y-1">{children}</ul>
                     ),
-                    ol: ({ children }: any) => (
+                    ol: ({ children }) => (
                       <ol className="list-decimal pl-6 my-2 space-y-1">{children}</ol>
                     ),
-                    li: ({ children }: any) => (
+                    li: ({ children }) => (
                       <li className="text-foreground">{children}</li>
                     ),
-                    p: ({ children }: any) => (
+                    p: ({ children }) => (
                       <p className="my-2 text-foreground leading-relaxed">{children}</p>
                     ),
-                    strong: ({ children }: any) => (
+                    strong: ({ children }) => (
                       <strong className="font-semibold text-foreground">{children}</strong>
                     ),
                     hr: () => (
@@ -704,7 +712,7 @@ export default function ResultPage() {
                   return sections.map((section, idx) => {
                     if (!section.heading) {
                       return (
-                        <div key={idx}>
+                        <div key={idx} data-testid={`section-intro-${idx}`}>
                           <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
                             {section.body}
                           </ReactMarkdown>
@@ -714,7 +722,7 @@ export default function ResultPage() {
 
                     if (!section.collapsed) {
                       return (
-                        <div key={idx}>
+                        <div key={idx} data-testid={`section-expanded-${idx}`}>
                           <h2 className="text-xl font-bold text-primary mt-5 mb-2">{section.heading}</h2>
                           <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
                             {section.body}
@@ -728,17 +736,19 @@ export default function ResultPage() {
                       <Collapsible key={idx} open={isOpen} onOpenChange={(open) => setExpandedSections(prev => ({ ...prev, [idx]: open }))}>
                         <CollapsibleTrigger asChild>
                           <button
-                            className="w-full flex items-center justify-between gap-2 py-3 px-4 mt-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors text-left group"
-                            data-testid={`toggle-section-${idx}`}
+                            className="flex items-center gap-2 w-full text-left group mt-5 mb-2 cursor-pointer hover:bg-muted/50 rounded-md px-2 py-1 -mx-2 transition-colors"
+                            data-testid={`collapsible-trigger-${idx}`}
                           >
-                            <span className="text-lg font-bold text-primary">{section.heading}</span>
-                            <ChevronDown className={`w-5 h-5 text-muted-foreground transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                            <ChevronRight className={`w-4 h-4 text-primary transition-transform shrink-0 ${isOpen ? "rotate-90" : ""}`} />
+                            <h2 className="text-xl font-bold text-primary">{section.heading}</h2>
                           </button>
                         </CollapsibleTrigger>
-                        <CollapsibleContent className="px-1">
-                          <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-                            {section.body}
-                          </ReactMarkdown>
+                        <CollapsibleContent>
+                          <div data-testid={`collapsible-content-${idx}`}>
+                            <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                              {section.body}
+                            </ReactMarkdown>
+                          </div>
                         </CollapsibleContent>
                       </Collapsible>
                     );

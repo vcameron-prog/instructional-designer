@@ -273,15 +273,29 @@ ${wcagRequirements}
   }
 
   const duration = toolData.duration || "Flexible";
-  const isShortDuration = /^[1-5]\s*hour/i.test(duration) || /single class/i.test(duration);
+  const durLower = duration.toLowerCase();
+  const isShortDuration = 
+    /^[1-5]\s*hour/i.test(duration) || 
+    /\b(1\s*(class|day|session|period|hour)|single\s*(class|session|period|day)|one\s*(class|session|period|day|hour))\b/.test(durLower) ||
+    (() => {
+      const minMatch = durLower.match(/(\d{1,3})\s*(min|mins|minutes|minute)/);
+      return minMatch ? parseInt(minMatch[1]) <= 90 : false;
+    })();
+
   const durationGuidance = isShortDuration
-    ? `\n**DURATION GUIDANCE — THIS IS A SHORT ACTIVITY (${duration}):**
-- Keep the assignment concise and focused — it must be completable within ${duration}
+    ? `\n**DURATION-AWARE SCOPING — CRITICAL:**
+The instructor specified a SHORT duration ("${duration}"). You MUST scope the assignment to fit this timeframe:
+- Keep the assignment focused and concise — a single, well-defined task rather than a multi-part project (completable within ${duration})
 - Limit to 2-3 clear learning objectives, not an exhaustive list
 - Instructions should be brief and actionable — no multi-phase or multi-day workflows
+- Limit instructions to what can realistically be completed in one class session (approximately 50-75 minutes)
+- Do NOT generate multi-hour or multi-day content for a single-session assignment
+- Reduce the number of steps, deliverables, and resources to match the short timeframe
+- Focus on depth over breadth — one clear activity rather than many shallow ones
 - Grading criteria should be simple and focused (3-5 criteria max)
 - Do NOT include extensive timelines, milestones, or multi-session breakdowns
 - Resources section should list only 2-3 essential items, not a comprehensive bibliography
+- Keep supplementary sections (resources, grading criteria) brief and proportional
 - Overall output should be SHORT and practical — a busy instructor should be able to read it in under 2 minutes\n`
     : "";
 

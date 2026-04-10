@@ -56,6 +56,8 @@ Preferred communication style: Simple, everyday language.
 - **Connected Course Materials**: Generated content can be marked as "connected" to a course, informing other tools and tracked via an `isApproved` status.
 - **BSU Template Integration**: Syllabus generation adheres to BSU's official template; AI Policy generation uses BSU's 4-level framework.
 - **Inclusive Design**: All generated content incorporates UDL, Cultural Relevance & Inclusivity, and SEL frameworks.
+- **Collapsible Result Sections**: Generated content on result pages is parsed into sections by `##` headings. Key sections (overview, objectives, instructions) are always expanded; supplementary sections (submission requirements, grading criteria, resources, UDL/SEL/AI research reasoning) are collapsed behind expandable toggles. Copy and download actions include all content regardless of collapse state.
+- **Duration-Aware Assignments**: Short-duration assignments (1 class session, single day, ≤90 minutes) trigger scoping instructions that keep generated content concise and appropriately sized.
 - **Content Template Library**: Ability to save generated content as reusable templates.
 - **Course Management**: Course duplication and pre-filled course templates (Lecture, Seminar, Lab, etc.).
 - **Export**: Professional .docx export for easy integration with LMS (e.g., Blackboard Ultra).
