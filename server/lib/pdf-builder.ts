@@ -9,7 +9,7 @@ function findChromiumPath(): string {
     return execSync("which chromium", { encoding: "utf-8" }).trim();
   } catch {
     throw new Error(
-      "Chromium not found. Install chromium or set the CHROMIUM_PATH environment variable."
+      "Chromium not found. Install chromium or set the CHROMIUM_PATH environment variable.",
     );
   }
 }
@@ -18,7 +18,7 @@ const CHROMIUM_PATH = findChromiumPath();
 
 export async function buildPdf(
   html: string,
-  metadata: { title: string; lang: string; author?: string }
+  metadata: { title: string; lang: string; author?: string },
 ): Promise<Buffer> {
   let browser;
   try {
@@ -53,7 +53,10 @@ export async function buildPdf(
     await page.setJavaScriptEnabled(false);
 
     const styledHtml = injectPrintStyles(html, metadata);
-    await page.setContent(styledHtml, { waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.setContent(styledHtml, {
+      waitUntil: "domcontentloaded",
+      timeout: 30000,
+    });
 
     const pdfBuffer = await page.pdf({
       format: "Letter",
@@ -65,7 +68,12 @@ export async function buildPdf(
           <span class="pageNumber"></span> / <span class="totalPages"></span>
         </div>
       `,
-      margin: { top: "0.75in", bottom: "0.75in", left: "0.75in", right: "0.75in" },
+      margin: {
+        top: "0.75in",
+        bottom: "0.75in",
+        left: "0.75in",
+        right: "0.75in",
+      },
       tagged: true,
     });
 
@@ -79,7 +87,7 @@ export async function buildPdf(
 
 function injectPrintStyles(
   html: string,
-  metadata: { title: string; lang: string; author?: string }
+  metadata: { title: string; lang: string; author?: string },
 ): string {
   const printCss = `
     <style>
@@ -108,7 +116,9 @@ function injectPrintStyles(
   `;
 
   const escapedTitle = escapeHtml(metadata.title);
-  const escapedAuthor = escapeHtml(metadata.author || "Accessibility Converter");
+  const escapedAuthor = escapeHtml(
+    metadata.author || "Accessibility Converter",
+  );
   const escapedLang = escapeHtml(metadata.lang);
 
   const titleTag = `<title>${escapedTitle}</title>`;
@@ -132,9 +142,18 @@ function injectPrintStyles(
     const headClose = result.indexOf("</head>");
     if (headClose !== -1) {
       if (!/<title[^>]*>/i.test(result)) {
-        result = result.slice(0, headClose) + titleTag + metaTags + printCss + result.slice(headClose);
+        result =
+          result.slice(0, headClose) +
+          titleTag +
+          metaTags +
+          printCss +
+          result.slice(headClose);
       } else {
-        result = result.slice(0, headClose) + metaTags + printCss + result.slice(headClose);
+        result =
+          result.slice(0, headClose) +
+          metaTags +
+          printCss +
+          result.slice(headClose);
       }
     }
   }

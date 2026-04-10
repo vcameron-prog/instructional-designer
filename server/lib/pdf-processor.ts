@@ -26,7 +26,9 @@ export interface PdfExtraction {
   tables: ExtractedTable[];
 }
 
-export async function extractPdfContent(buffer: Buffer): Promise<PdfExtraction> {
+export async function extractPdfContent(
+  buffer: Buffer,
+): Promise<PdfExtraction> {
   const parser = new PDFParse({ data: buffer, verbosity: 0 });
 
   const textResult = await parser.getText();
@@ -38,9 +40,12 @@ export async function extractPdfContent(buffer: Buffer): Promise<PdfExtraction> 
     const info = await parser.getInfo();
     if (info) {
       metadata.title = (info as any).Title || (info as any).title || undefined;
-      metadata.author = (info as any).Author || (info as any).author || undefined;
-      metadata.subject = (info as any).Subject || (info as any).subject || undefined;
-      metadata.creator = (info as any).Creator || (info as any).creator || undefined;
+      metadata.author =
+        (info as any).Author || (info as any).author || undefined;
+      metadata.subject =
+        (info as any).Subject || (info as any).subject || undefined;
+      metadata.creator =
+        (info as any).Creator || (info as any).creator || undefined;
     }
   } catch {
     // metadata not available
@@ -56,7 +61,7 @@ export async function extractPdfContent(buffer: Buffer): Promise<PdfExtraction> 
             tables.push({
               pageNumber: i,
               rows: table.rows.map((row: any[]) =>
-                row.map((cell: any) => String(cell ?? ""))
+                row.map((cell: any) => String(cell ?? "")),
               ),
             });
           }

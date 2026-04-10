@@ -2,7 +2,12 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertCourseSchema, type Course, conversions } from "@shared/schema";
-import { setupAuth, registerAuthRoutes, isAuthenticated, optionalAuth } from "./replit_integrations/auth";
+import {
+  setupAuth,
+  registerAuthRoutes,
+  isAuthenticated,
+  optionalAuth,
+} from "./replit_integrations/auth";
 import Anthropic from "@anthropic-ai/sdk";
 import multer from "multer";
 import { z } from "zod";
@@ -45,18 +50,21 @@ function checkAnonRateLimit(ip: string): boolean {
   return true;
 }
 
-setInterval(() => {
-  const now = Date.now();
-  for (const [ip, entry] of anonRateLimits) {
-    if (now > entry.resetAt) anonRateLimits.delete(ip);
-  }
-}, 10 * 60 * 1000);
+setInterval(
+  () => {
+    const now = Date.now();
+    for (const [ip, entry] of anonRateLimits) {
+      if (now > entry.resetAt) anonRateLimits.delete(ip);
+    }
+  },
+  10 * 60 * 1000,
+);
 
 // Generate prompt based on tool and course info
 function generatePrompt(
   toolId: string,
   toolData: Record<string, any>,
-  course: Course | null
+  course: Course | null,
 ): string {
   const syllabusContext = course?.existingSyllabus
     ? `\n\nEXISTING SYLLABUS CONTENT (use this to maintain consistency with the course's established structure, topics, assessments, and terminology):\n${course.existingSyllabus}`
@@ -64,11 +72,17 @@ function generatePrompt(
 
   // Build inclusive design sections based on user selections (for assignment tool)
   const inclusiveOptions = toolData.inclusiveDesignOptions || [];
-  const hasUDL = inclusiveOptions.includes("UDL (Universal Design for Learning)");
-  const hasCultural = inclusiveOptions.includes("Cultural Relevance & Inclusivity");
+  const hasUDL = inclusiveOptions.includes(
+    "UDL (Universal Design for Learning)",
+  );
+  const hasCultural = inclusiveOptions.includes(
+    "Cultural Relevance & Inclusivity",
+  );
   const hasSEL = inclusiveOptions.includes("SEL (Social-Emotional Learning)");
   const hasAccessibility = inclusiveOptions.includes("Accessibility Features");
-  const hasAIPowered = inclusiveOptions.includes("AI-Powered Student Activities");
+  const hasAIPowered = inclusiveOptions.includes(
+    "AI-Powered Student Activities",
+  );
   const hasAnyInclusive = inclusiveOptions.length > 0;
 
   const wcagRequirements = `
@@ -108,7 +122,9 @@ All generated content MUST meet WCAG 2.1 Level AA accessibility standards:
    - Attention to student wellbeing
 
 COURSE INFORMATION:
-${course ? `Course: ${course.courseName} (${course.courseNumber})
+${
+  course
+    ? `Course: ${course.courseName} (${course.courseNumber})
 Level: ${course.courseLevel}
 Credits: ${course.credits}
 Semester: ${course.semester}
@@ -120,9 +136,11 @@ Course Description: ${course.courseDescription}
 
 Primary Learning Outcomes: ${course.learningOutcomes}
 
-Additional Context: ${course.additionalContext || "None provided"}${syllabusContext}` : `${toolData.subject ? `Subject/Department: ${toolData.subject}` : ""}
+Additional Context: ${course.additionalContext || "None provided"}${syllabusContext}`
+    : `${toolData.subject ? `Subject/Department: ${toolData.subject}` : ""}
 ${toolData.courseLevel ? `Level: ${toolData.courseLevel}` : ""}
-Note: This is a standalone quick tool usage without full course context. Generate high-quality, broadly applicable content based on the provided information.`}
+Note: This is a standalone quick tool usage without full course context. Generate high-quality, broadly applicable content based on the provided information.`
+}
 
 ${wcagRequirements}
 **CRITICAL FORMATTING RULES - FOLLOW EXACTLY:**
@@ -136,40 +154,62 @@ ${wcagRequirements}
   // Conditional base context for assignment tool (only include selected frameworks)
   const assignmentBaseContext = `You are an expert instructional designer creating materials for Bridgewater State University faculty. Create comprehensive, ready-to-implement content.
 ${hasAnyInclusive ? "\nIncorporate the following pedagogical framework(s) selected by the instructor:" : ""}
-${hasUDL ? `
+${
+  hasUDL
+    ? `
 **UNIVERSAL DESIGN FOR LEARNING (UDL)** - Based on CAST's UDL Guidelines (cast.org):
 - Engagement: Multiple ways to motivate and engage learners (Guidelines 7-9)
 - Representation: Multiple ways to present information (Guidelines 1-3)
 - Action & Expression: Multiple ways for students to demonstrate learning (Guidelines 4-6)
-` : ""}${hasCultural ? `
+`
+    : ""
+}${
+    hasCultural
+      ? `
 **CULTURAL RELEVANCE & INCLUSIVITY** - Based on Geneva Gay's Culturally Responsive Teaching:
 - Include diverse perspectives, authors, and examples
 - Honor student identities and backgrounds
 - Use inclusive language and avoid assumptions
 - Consider diverse ways of knowing and demonstrating competence
-` : ""}${hasSEL ? `
+`
+      : ""
+  }${
+    hasSEL
+      ? `
 **SOCIAL-EMOTIONAL LEARNING (SEL)** - Based on CASEL's SEL Framework (casel.org):
 - Self-awareness and reflection opportunities
 - Relationship and collaboration skills
 - Responsible decision-making
 - Supportive, growth-oriented framing
 - Attention to student wellbeing
-` : ""}${hasAccessibility ? `
+`
+      : ""
+  }${
+    hasAccessibility
+      ? `
 **ACCESSIBILITY** - Based on WCAG 2.1 and Section 508 Standards:
 - Document structure and readability
 - Multiple format options
 - Assistive technology compatibility
 - Cognitive accessibility considerations
-` : ""}${hasAIPowered ? `
+`
+      : ""
+  }${
+    hasAIPowered
+      ? `
 **AI-POWERED STUDENT ACTIVITIES** - Based on evidence-based AI pedagogy (EDUCAUSE, Mollick & Mollick 2023):
 - Design intentional AI interaction points where students use AI as a learning tool
 - Include critical evaluation requirements for AI-generated content
 - Require documentation of AI use and metacognitive reflection
 - Apply Bloom's taxonomy to AI interactions (moving beyond "generate" to "evaluate" and "create")
 - Build AI literacy skills alongside content knowledge
-` : ""}
+`
+      : ""
+  }
 COURSE INFORMATION:
-${course ? `Course: ${course.courseName} (${course.courseNumber})
+${
+  course
+    ? `Course: ${course.courseName} (${course.courseNumber})
 Level: ${course.courseLevel}
 Credits: ${course.credits}
 Semester: ${course.semester}
@@ -181,9 +221,11 @@ Course Description: ${course.courseDescription}
 
 Primary Learning Outcomes: ${course.learningOutcomes}
 
-Additional Context: ${course.additionalContext || "None provided"}${syllabusContext}` : `${toolData.subject ? `Subject/Department: ${toolData.subject}` : ""}
+Additional Context: ${course.additionalContext || "None provided"}${syllabusContext}`
+    : `${toolData.subject ? `Subject/Department: ${toolData.subject}` : ""}
 ${toolData.courseLevel ? `Level: ${toolData.courseLevel}` : ""}
-Note: This is a standalone quick tool usage without full course context. Generate high-quality, broadly applicable content based on the provided information.`}
+Note: This is a standalone quick tool usage without full course context. Generate high-quality, broadly applicable content based on the provided information.`
+}
 
 ${wcagRequirements}
 **CRITICAL FORMATTING RULES - FOLLOW EXACTLY:**
@@ -198,10 +240,14 @@ ${wcagRequirements}
   const accessibilityBaseContext = `You are an expert in accessible design, Universal Design for Learning (UDL), and inclusive education. Analyze course content for accessibility barriers and provide research-based recommendations.
 
 COURSE INFORMATION:
-${course ? `Course: ${course.courseName} (${course.courseNumber})
+${
+  course
+    ? `Course: ${course.courseName} (${course.courseNumber})
 Level: ${course.courseLevel}
-Department: ${course.department}` : `${toolData.subject ? `Subject/Department: ${toolData.subject}` : ""}
-${toolData.courseLevel ? `Level: ${toolData.courseLevel}` : ""}`}
+Department: ${course.department}`
+    : `${toolData.subject ? `Subject/Department: ${toolData.subject}` : ""}
+${toolData.courseLevel ? `Level: ${toolData.courseLevel}` : ""}`
+}
 
 ${wcagRequirements}
 **CRITICAL FORMATTING RULES - FOLLOW EXACTLY:**
@@ -275,9 +321,11 @@ ${wcagRequirements}
 
   const duration = toolData.duration || "Flexible";
   const durLower = duration.toLowerCase();
-  const isShortDuration = 
-    /^[1-5]\s*hour/i.test(duration) || 
-    /\b(1\s*(class|day|session|period|hour)|single\s*(class|session|period|day)|one\s*(class|session|period|day|hour))\b/.test(durLower) ||
+  const isShortDuration =
+    /^[1-5]\s*hour/i.test(duration) ||
+    /\b(1\s*(class|day|session|period|hour)|single\s*(class|session|period|day)|one\s*(class|session|period|day|hour))\b/.test(
+      durLower,
+    ) ||
     (() => {
       const minMatch = durLower.match(/(\d{1,3})\s*(min|mins|minutes|minute)/);
       return minMatch ? parseInt(minMatch[1]) <= 90 : false;
@@ -1025,320 +1073,385 @@ Additional Context: ${toolData.additionalContext || "None"}`,
 
 export async function registerRoutes(
   httpServer: Server,
-  app: Express
+  app: Express,
 ): Promise<Server> {
   // Setup authentication (before other routes)
   await setupAuth(app);
   registerAuthRoutes(app);
 
   // Courses API (protected)
-  app.get("/api/courses", isAuthenticated, async (req: Request, res: Response) => {
-    try {
-      const userId = getUserId(req) as string;
-      const courses = await storage.getAllCourses(userId);
-      res.json(courses);
-    } catch (error) {
-      console.error("Error fetching courses:", error);
-      res.status(500).json({ error: "Failed to fetch courses" });
-    }
-  });
-
-  app.get("/api/courses/:id", isAuthenticated, async (req: Request, res: Response) => {
-    try {
-      const userId = getUserId(req) as string;
-      const id = parseInt(req.params.id);
-      const course = await storage.getCourse(id, userId);
-      if (!course) {
-        return res.status(404).json({ error: "Course not found" });
+  app.get(
+    "/api/courses",
+    isAuthenticated,
+    async (req: Request, res: Response) => {
+      try {
+        const userId = getUserId(req) as string;
+        const courses = await storage.getAllCourses(userId);
+        res.json(courses);
+      } catch (error) {
+        console.error("Error fetching courses:", error);
+        res.status(500).json({ error: "Failed to fetch courses" });
       }
-      res.json(course);
-    } catch (error) {
-      console.error("Error fetching course:", error);
-      res.status(500).json({ error: "Failed to fetch course" });
-    }
-  });
+    },
+  );
 
-  app.post("/api/courses", isAuthenticated, async (req: Request, res: Response) => {
-    try {
-      const userId = getUserId(req) as string;
-      const parsed = insertCourseSchema.safeParse(req.body);
-      if (!parsed.success) {
-        return res.status(400).json({ error: parsed.error.message });
+  app.get(
+    "/api/courses/:id",
+    isAuthenticated,
+    async (req: Request, res: Response) => {
+      try {
+        const userId = getUserId(req) as string;
+        const id = parseInt(req.params.id);
+        const course = await storage.getCourse(id, userId);
+        if (!course) {
+          return res.status(404).json({ error: "Course not found" });
+        }
+        res.json(course);
+      } catch (error) {
+        console.error("Error fetching course:", error);
+        res.status(500).json({ error: "Failed to fetch course" });
       }
-      const course = await storage.createCourse(parsed.data, userId);
-      res.status(201).json(course);
-    } catch (error) {
-      console.error("Error creating course:", error);
-      res.status(500).json({ error: "Failed to create course" });
-    }
-  });
+    },
+  );
 
-  app.patch("/api/courses/:id", isAuthenticated, async (req: Request, res: Response) => {
-    try {
-      const userId = getUserId(req) as string;
-      const id = parseInt(req.params.id);
-      // Validate partial course data
-      const partialSchema = insertCourseSchema.partial();
-      const parsed = partialSchema.safeParse(req.body);
-      if (!parsed.success) {
-        return res.status(400).json({ error: parsed.error.message });
+  app.post(
+    "/api/courses",
+    isAuthenticated,
+    async (req: Request, res: Response) => {
+      try {
+        const userId = getUserId(req) as string;
+        const parsed = insertCourseSchema.safeParse(req.body);
+        if (!parsed.success) {
+          return res.status(400).json({ error: parsed.error.message });
+        }
+        const course = await storage.createCourse(parsed.data, userId);
+        res.status(201).json(course);
+      } catch (error) {
+        console.error("Error creating course:", error);
+        res.status(500).json({ error: "Failed to create course" });
       }
-      const course = await storage.updateCourse(id, parsed.data, userId);
-      if (!course) {
-        return res.status(404).json({ error: "Course not found" });
-      }
-      res.json(course);
-    } catch (error) {
-      console.error("Error updating course:", error);
-      res.status(500).json({ error: "Failed to update course" });
-    }
-  });
+    },
+  );
 
-  app.delete("/api/courses/:id", isAuthenticated, async (req: Request, res: Response) => {
-    try {
-      const userId = getUserId(req) as string;
-      const id = parseInt(req.params.id);
-      await storage.deleteCourse(id, userId);
-      res.status(204).send();
-    } catch (error) {
-      console.error("Error deleting course:", error);
-      res.status(500).json({ error: "Failed to delete course" });
-    }
-  });
+  app.patch(
+    "/api/courses/:id",
+    isAuthenticated,
+    async (req: Request, res: Response) => {
+      try {
+        const userId = getUserId(req) as string;
+        const id = parseInt(req.params.id);
+        // Validate partial course data
+        const partialSchema = insertCourseSchema.partial();
+        const parsed = partialSchema.safeParse(req.body);
+        if (!parsed.success) {
+          return res.status(400).json({ error: parsed.error.message });
+        }
+        const course = await storage.updateCourse(id, parsed.data, userId);
+        if (!course) {
+          return res.status(404).json({ error: "Course not found" });
+        }
+        res.json(course);
+      } catch (error) {
+        console.error("Error updating course:", error);
+        res.status(500).json({ error: "Failed to update course" });
+      }
+    },
+  );
+
+  app.delete(
+    "/api/courses/:id",
+    isAuthenticated,
+    async (req: Request, res: Response) => {
+      try {
+        const userId = getUserId(req) as string;
+        const id = parseInt(req.params.id);
+        await storage.deleteCourse(id, userId);
+        res.status(204).send();
+      } catch (error) {
+        console.error("Error deleting course:", error);
+        res.status(500).json({ error: "Failed to delete course" });
+      }
+    },
+  );
 
   // Generated Content API (protected with ownership verification)
-  app.get("/api/courses/:id/content", isAuthenticated, async (req: Request, res: Response) => {
-    try {
-      const userId = getUserId(req) as string;
-      const courseId = parseInt(req.params.id);
-      
-      // Verify course ownership
-      const course = await storage.getCourse(courseId, userId);
-      if (!course) {
-        return res.status(404).json({ error: "Course not found" });
-      }
-      
-      const content = await storage.getContentByCourse(courseId);
-      res.json(content);
-    } catch (error) {
-      console.error("Error fetching content:", error);
-      res.status(500).json({ error: "Failed to fetch content" });
-    }
-  });
+  app.get(
+    "/api/courses/:id/content",
+    isAuthenticated,
+    async (req: Request, res: Response) => {
+      try {
+        const userId = getUserId(req) as string;
+        const courseId = parseInt(req.params.id);
 
-  app.get("/api/content/:id", isAuthenticated, async (req: Request, res: Response) => {
-    try {
-      const userId = getUserId(req) as string;
-      const id = parseInt(req.params.id);
-      const content = await storage.getContent(id);
-      if (!content) {
-        return res.status(404).json({ error: "Content not found" });
-      }
-      
-      if (content.courseId) {
-        const course = await storage.getCourse(content.courseId, userId);
+        // Verify course ownership
+        const course = await storage.getCourse(courseId, userId);
         if (!course) {
+          return res.status(404).json({ error: "Course not found" });
+        }
+
+        const content = await storage.getContentByCourse(courseId);
+        res.json(content);
+      } catch (error) {
+        console.error("Error fetching content:", error);
+        res.status(500).json({ error: "Failed to fetch content" });
+      }
+    },
+  );
+
+  app.get(
+    "/api/content/:id",
+    isAuthenticated,
+    async (req: Request, res: Response) => {
+      try {
+        const userId = getUserId(req) as string;
+        const id = parseInt(req.params.id);
+        const content = await storage.getContent(id);
+        if (!content) {
           return res.status(404).json({ error: "Content not found" });
         }
-      } else if (content.userId !== userId) {
-        return res.status(404).json({ error: "Content not found" });
+
+        if (content.courseId) {
+          const course = await storage.getCourse(content.courseId, userId);
+          if (!course) {
+            return res.status(404).json({ error: "Content not found" });
+          }
+        } else if (content.userId !== userId) {
+          return res.status(404).json({ error: "Content not found" });
+        }
+
+        res.json(content);
+      } catch (error) {
+        console.error("Error fetching content:", error);
+        res.status(500).json({ error: "Failed to fetch content" });
       }
-      
-      res.json(content);
-    } catch (error) {
-      console.error("Error fetching content:", error);
-      res.status(500).json({ error: "Failed to fetch content" });
-    }
-  });
+    },
+  );
 
   // Toggle content approval for connected materials
-  app.patch("/api/content/:id/approval", isAuthenticated, async (req: Request, res: Response) => {
-    try {
-      const userId = getUserId(req) as string;
-      const id = parseInt(req.params.id);
-      const { isApproved } = req.body;
-      
-      if (typeof isApproved !== "boolean") {
-        return res.status(400).json({ error: "isApproved must be a boolean" });
-      }
-      
-      const content = await storage.getContent(id);
-      if (!content) {
-        return res.status(404).json({ error: "Content not found" });
-      }
-      if (content.courseId) {
-        const course = await storage.getCourse(content.courseId, userId);
-        if (!course) {
+  app.patch(
+    "/api/content/:id/approval",
+    isAuthenticated,
+    async (req: Request, res: Response) => {
+      try {
+        const userId = getUserId(req) as string;
+        const id = parseInt(req.params.id);
+        const { isApproved } = req.body;
+
+        if (typeof isApproved !== "boolean") {
+          return res
+            .status(400)
+            .json({ error: "isApproved must be a boolean" });
+        }
+
+        const content = await storage.getContent(id);
+        if (!content) {
           return res.status(404).json({ error: "Content not found" });
         }
-      } else if (content.userId !== userId) {
-        return res.status(404).json({ error: "Content not found" });
+        if (content.courseId) {
+          const course = await storage.getCourse(content.courseId, userId);
+          if (!course) {
+            return res.status(404).json({ error: "Content not found" });
+          }
+        } else if (content.userId !== userId) {
+          return res.status(404).json({ error: "Content not found" });
+        }
+
+        const updated = await storage.toggleContentApproval(id, isApproved);
+        res.json(updated);
+      } catch (error) {
+        console.error("Error toggling content approval:", error);
+        res.status(500).json({ error: "Failed to toggle approval" });
       }
-      
-      const updated = await storage.toggleContentApproval(id, isApproved);
-      res.json(updated);
-    } catch (error) {
-      console.error("Error toggling content approval:", error);
-      res.status(500).json({ error: "Failed to toggle approval" });
-    }
-  });
+    },
+  );
 
   // Generate content using AI
-  app.post("/api/courses/:id/generate", isAuthenticated, async (req: Request, res: Response) => {
-    try {
-      const userId = getUserId(req) as string;
-      const courseId = parseInt(req.params.id);
-      const { toolId, toolName, formData } = req.body;
+  app.post(
+    "/api/courses/:id/generate",
+    isAuthenticated,
+    async (req: Request, res: Response) => {
+      try {
+        const userId = getUserId(req) as string;
+        const courseId = parseInt(req.params.id);
+        const { toolId, toolName, formData } = req.body;
 
-      const course = await storage.getCourse(courseId, userId);
-      if (!course) {
-        return res.status(404).json({ error: "Course not found" });
-      }
-
-      const prompt = generatePrompt(toolId, formData, course);
-
-      const message = await anthropic.messages.create({
-        model: "claude-sonnet-4-5",
-        max_tokens: 8192,
-        messages: [{ role: "user", content: prompt }],
-      });
-
-      const generatedText = message.content
-        .filter((item): item is Anthropic.TextBlock => item.type === "text")
-        .map((item) => item.text)
-        .join("\n\n");
-
-      const content = await storage.createContent({
-        courseId,
-        toolType: toolId,
-        toolName,
-        formData,
-        content: generatedText,
-      });
-
-      res.status(201).json(content);
-    } catch (error) {
-      console.error("Error generating content:", error);
-      res.status(500).json({ error: "Failed to generate content" });
-    }
-  });
-
-  app.post("/api/generate-standalone", optionalAuth, async (req: Request, res: Response) => {
-    try {
-      const userId = getUserId(req);
-      const { toolId, toolName, formData } = req.body;
-
-      if (!userId) {
-        const ip = req.ip || req.socket.remoteAddress || "unknown";
-        if (!checkAnonRateLimit(ip)) {
-          return res.status(429).json({ error: "Rate limit exceeded. Please sign in for unlimited access or try again later." });
+        const course = await storage.getCourse(courseId, userId);
+        if (!course) {
+          return res.status(404).json({ error: "Course not found" });
         }
-      }
 
-      const allowedTools = ["assignment", "rubric", "alignment", "airesistant", "accessibility", "aistudent"];
-      if (!allowedTools.includes(toolId)) {
-        return res.status(400).json({ error: "This tool requires a course" });
-      }
+        const prompt = generatePrompt(toolId, formData, course);
 
-      const prompt = generatePrompt(toolId, formData, null);
+        const message = await anthropic.messages.create({
+          model: "claude-sonnet-4-5",
+          max_tokens: 8192,
+          messages: [{ role: "user", content: prompt }],
+        });
 
-      const message = await anthropic.messages.create({
-        model: "claude-sonnet-4-5",
-        max_tokens: 8192,
-        messages: [{ role: "user", content: prompt }],
-      });
+        const generatedText = message.content
+          .filter((item): item is Anthropic.TextBlock => item.type === "text")
+          .map((item) => item.text)
+          .join("\n\n");
 
-      const generatedText = message.content
-        .filter((item): item is Anthropic.TextBlock => item.type === "text")
-        .map((item) => item.text)
-        .join("\n\n");
-
-      if (userId) {
         const content = await storage.createContent({
-          courseId: null,
-          userId,
+          courseId,
           toolType: toolId,
           toolName,
           formData,
           content: generatedText,
         });
-        return res.status(201).json(content);
-      }
 
-      res.status(201).json({
-        id: null,
-        courseId: null,
-        userId: null,
-        toolType: toolId,
-        toolName,
-        formData,
-        content: generatedText,
-        isApproved: false,
-        createdAt: new Date().toISOString(),
-      });
-    } catch (error) {
-      console.error("Error generating standalone content:", error);
-      res.status(500).json({ error: "Failed to generate content" });
-    }
-  });
+        res.status(201).json(content);
+      } catch (error) {
+        console.error("Error generating content:", error);
+        res.status(500).json({ error: "Failed to generate content" });
+      }
+    },
+  );
+
+  app.post(
+    "/api/generate-standalone",
+    optionalAuth,
+    async (req: Request, res: Response) => {
+      try {
+        const userId = getUserId(req);
+        const { toolId, toolName, formData } = req.body;
+
+        if (!userId) {
+          const ip = req.ip || req.socket.remoteAddress || "unknown";
+          if (!checkAnonRateLimit(ip)) {
+            return res
+              .status(429)
+              .json({
+                error:
+                  "Rate limit exceeded. Please sign in for unlimited access or try again later.",
+              });
+          }
+        }
+
+        const allowedTools = [
+          "assignment",
+          "rubric",
+          "alignment",
+          "airesistant",
+          "accessibility",
+          "aistudent",
+        ];
+        if (!allowedTools.includes(toolId)) {
+          return res.status(400).json({ error: "This tool requires a course" });
+        }
+
+        const prompt = generatePrompt(toolId, formData, null);
+
+        const message = await anthropic.messages.create({
+          model: "claude-sonnet-4-5",
+          max_tokens: 8192,
+          messages: [{ role: "user", content: prompt }],
+        });
+
+        const generatedText = message.content
+          .filter((item): item is Anthropic.TextBlock => item.type === "text")
+          .map((item) => item.text)
+          .join("\n\n");
+
+        if (userId) {
+          const content = await storage.createContent({
+            courseId: null,
+            userId,
+            toolType: toolId,
+            toolName,
+            formData,
+            content: generatedText,
+          });
+          return res.status(201).json(content);
+        }
+
+        res.status(201).json({
+          id: null,
+          courseId: null,
+          userId: null,
+          toolType: toolId,
+          toolName,
+          formData,
+          content: generatedText,
+          isApproved: false,
+          createdAt: new Date().toISOString(),
+        });
+      } catch (error) {
+        console.error("Error generating standalone content:", error);
+        res.status(500).json({ error: "Failed to generate content" });
+      }
+    },
+  );
 
   // Get standalone content for user
-  app.get("/api/standalone-content", isAuthenticated, async (req: Request, res: Response) => {
-    try {
-      const userId = getUserId(req) as string;
-      const content = await storage.getStandaloneContent(userId);
-      res.json(content);
-    } catch (error) {
-      console.error("Error fetching standalone content:", error);
-      res.status(500).json({ error: "Failed to fetch content" });
-    }
-  });
+  app.get(
+    "/api/standalone-content",
+    isAuthenticated,
+    async (req: Request, res: Response) => {
+      try {
+        const userId = getUserId(req) as string;
+        const content = await storage.getStandaloneContent(userId);
+        res.json(content);
+      } catch (error) {
+        console.error("Error fetching standalone content:", error);
+        res.status(500).json({ error: "Failed to fetch content" });
+      }
+    },
+  );
 
   // Get single standalone content item
-  app.get("/api/standalone-content/:id", isAuthenticated, async (req: Request, res: Response) => {
-    try {
-      const userId = getUserId(req) as string;
-      const id = parseInt(req.params.id);
-      const content = await storage.getStandaloneContentById(id, userId);
-      if (!content) {
-        return res.status(404).json({ error: "Content not found" });
-      }
-      res.json(content);
-    } catch (error) {
-      console.error("Error fetching standalone content:", error);
-      res.status(500).json({ error: "Failed to fetch content" });
-    }
-  });
-
-  // Refine content
-  app.post("/api/content/:id/refine", isAuthenticated, async (req: Request, res: Response) => {
-    try {
-      const userId = getUserId(req) as string;
-      const id = parseInt(req.params.id);
-      const { refinementRequest } = req.body;
-
-      const content = await storage.getContent(id);
-      if (!content) {
-        return res.status(404).json({ error: "Content not found" });
-      }
-      
-      if (content.courseId) {
-        const course = await storage.getCourse(content.courseId, userId);
-        if (!course) {
+  app.get(
+    "/api/standalone-content/:id",
+    isAuthenticated,
+    async (req: Request, res: Response) => {
+      try {
+        const userId = getUserId(req) as string;
+        const id = parseInt(req.params.id);
+        const content = await storage.getStandaloneContentById(id, userId);
+        if (!content) {
           return res.status(404).json({ error: "Content not found" });
         }
-      } else if (content.userId !== userId) {
-        return res.status(404).json({ error: "Content not found" });
+        res.json(content);
+      } catch (error) {
+        console.error("Error fetching standalone content:", error);
+        res.status(500).json({ error: "Failed to fetch content" });
       }
+    },
+  );
 
-      // Save current version
-      await storage.createVersion({
-        generatedContentId: id,
-        content: content.content,
-        refinementRequest: "Previous version",
-      });
+  // Refine content
+  app.post(
+    "/api/content/:id/refine",
+    isAuthenticated,
+    async (req: Request, res: Response) => {
+      try {
+        const userId = getUserId(req) as string;
+        const id = parseInt(req.params.id);
+        const { refinementRequest } = req.body;
 
-      const refinementPrompt = `You previously generated the following ${content.toolName} content:
+        const content = await storage.getContent(id);
+        if (!content) {
+          return res.status(404).json({ error: "Content not found" });
+        }
+
+        if (content.courseId) {
+          const course = await storage.getCourse(content.courseId, userId);
+          if (!course) {
+            return res.status(404).json({ error: "Content not found" });
+          }
+        } else if (content.userId !== userId) {
+          return res.status(404).json({ error: "Content not found" });
+        }
+
+        // Save current version
+        await storage.createVersion({
+          generatedContentId: id,
+          content: content.content,
+          refinementRequest: "Previous version",
+        });
+
+        const refinementPrompt = `You previously generated the following ${content.toolName} content:
 
 PREVIOUS VERSION:
 ${content.content}
@@ -1348,353 +1461,388 @@ ${refinementRequest}
 
 Please generate an IMPROVED version that incorporates the requested changes while maintaining quality and comprehensiveness.`;
 
-      const message = await anthropic.messages.create({
-        model: "claude-sonnet-4-5",
-        max_tokens: 8192,
-        messages: [{ role: "user", content: refinementPrompt }],
-      });
+        const message = await anthropic.messages.create({
+          model: "claude-sonnet-4-5",
+          max_tokens: 8192,
+          messages: [{ role: "user", content: refinementPrompt }],
+        });
 
-      const refinedText = message.content
-        .filter((item): item is Anthropic.TextBlock => item.type === "text")
-        .map((item) => item.text)
-        .join("\n\n");
+        const refinedText = message.content
+          .filter((item): item is Anthropic.TextBlock => item.type === "text")
+          .map((item) => item.text)
+          .join("\n\n");
 
-      const updated = await storage.updateContent(id, refinedText);
-      res.json(updated);
-    } catch (error) {
-      console.error("Error refining content:", error);
-      res.status(500).json({ error: "Failed to refine content" });
-    }
-  });
+        const updated = await storage.updateContent(id, refinedText);
+        res.json(updated);
+      } catch (error) {
+        console.error("Error refining content:", error);
+        res.status(500).json({ error: "Failed to refine content" });
+      }
+    },
+  );
 
   // File upload for syllabus
-  app.post("/api/upload-syllabus", upload.single("file"), async (req: Request, res: Response) => {
-    try {
-      const file = req.file;
-      if (!file) {
-        return res.status(400).json({ error: "No file uploaded" });
+  app.post(
+    "/api/upload-syllabus",
+    upload.single("file"),
+    async (req: Request, res: Response) => {
+      try {
+        const file = req.file;
+        if (!file) {
+          return res.status(400).json({ error: "No file uploaded" });
+        }
+
+        let content = "";
+        const mimeType = file.mimetype;
+        const fileName = file.originalname.toLowerCase();
+
+        if (mimeType === "text/plain" || fileName.endsWith(".txt")) {
+          content = file.buffer.toString("utf-8");
+        } else if (
+          mimeType === "application/pdf" ||
+          fileName.endsWith(".pdf")
+        ) {
+          // For PDFs, we'll extract text using a simple approach
+          // In production, you might want to use a library like pdf-parse
+          content = `[PDF content from ${file.originalname}] - For full extraction, please paste the text content directly.`;
+        } else if (
+          fileName.endsWith(".doc") ||
+          fileName.endsWith(".docx") ||
+          mimeType.includes("word")
+        ) {
+          content = `[Word document content from ${file.originalname}] - For full extraction, please paste the text content directly.`;
+        } else {
+          return res.status(400).json({
+            error:
+              "Unsupported file type. Please upload a PDF, Word document, or text file.",
+          });
+        }
+
+        res.json({ content, fileName: file.originalname });
+      } catch (error) {
+        console.error("Error uploading file:", error);
+        res.status(500).json({ error: "Failed to process file" });
       }
-
-      let content = "";
-      const mimeType = file.mimetype;
-      const fileName = file.originalname.toLowerCase();
-
-      if (mimeType === "text/plain" || fileName.endsWith(".txt")) {
-        content = file.buffer.toString("utf-8");
-      } else if (mimeType === "application/pdf" || fileName.endsWith(".pdf")) {
-        // For PDFs, we'll extract text using a simple approach
-        // In production, you might want to use a library like pdf-parse
-        content = `[PDF content from ${file.originalname}] - For full extraction, please paste the text content directly.`;
-      } else if (
-        fileName.endsWith(".doc") ||
-        fileName.endsWith(".docx") ||
-        mimeType.includes("word")
-      ) {
-        content = `[Word document content from ${file.originalname}] - For full extraction, please paste the text content directly.`;
-      } else {
-        return res.status(400).json({ 
-          error: "Unsupported file type. Please upload a PDF, Word document, or text file." 
-        });
-      }
-
-      res.json({ content, fileName: file.originalname });
-    } catch (error) {
-      console.error("Error uploading file:", error);
-      res.status(500).json({ error: "Failed to process file" });
-    }
-  });
+    },
+  );
 
   // Course duplication
-  app.post("/api/courses/:id/duplicate", isAuthenticated, async (req: Request, res: Response) => {
-    try {
-      const userId = getUserId(req) as string;
-      const id = parseInt(req.params.id);
-      const duplicated = await storage.duplicateCourse(id, userId);
-      if (!duplicated) {
-        return res.status(404).json({ error: "Course not found" });
+  app.post(
+    "/api/courses/:id/duplicate",
+    isAuthenticated,
+    async (req: Request, res: Response) => {
+      try {
+        const userId = getUserId(req) as string;
+        const id = parseInt(req.params.id);
+        const duplicated = await storage.duplicateCourse(id, userId);
+        if (!duplicated) {
+          return res.status(404).json({ error: "Course not found" });
+        }
+        res.status(201).json(duplicated);
+      } catch (error) {
+        console.error("Error duplicating course:", error);
+        res.status(500).json({ error: "Failed to duplicate course" });
       }
-      res.status(201).json(duplicated);
-    } catch (error) {
-      console.error("Error duplicating course:", error);
-      res.status(500).json({ error: "Failed to duplicate course" });
-    }
-  });
+    },
+  );
 
   // Saved Content Library API (protected)
-  app.get("/api/library", isAuthenticated, async (req: Request, res: Response) => {
-    try {
-      const savedContent = await storage.getAllSavedContent();
-      res.json(savedContent);
-    } catch (error) {
-      console.error("Error fetching library:", error);
-      res.status(500).json({ error: "Failed to fetch library" });
-    }
-  });
+  app.get(
+    "/api/library",
+    isAuthenticated,
+    async (req: Request, res: Response) => {
+      try {
+        const savedContent = await storage.getAllSavedContent();
+        res.json(savedContent);
+      } catch (error) {
+        console.error("Error fetching library:", error);
+        res.status(500).json({ error: "Failed to fetch library" });
+      }
+    },
+  );
 
-  app.post("/api/library", isAuthenticated, async (req: Request, res: Response) => {
-    try {
-      const { title, toolType, content, description } = req.body;
-      const saved = await storage.createSavedContent({
-        title,
-        toolType,
-        content,
-        description,
-      });
-      res.status(201).json(saved);
-    } catch (error) {
-      console.error("Error saving to library:", error);
-      res.status(500).json({ error: "Failed to save to library" });
-    }
-  });
+  app.post(
+    "/api/library",
+    isAuthenticated,
+    async (req: Request, res: Response) => {
+      try {
+        const { title, toolType, content, description } = req.body;
+        const saved = await storage.createSavedContent({
+          title,
+          toolType,
+          content,
+          description,
+        });
+        res.status(201).json(saved);
+      } catch (error) {
+        console.error("Error saving to library:", error);
+        res.status(500).json({ error: "Failed to save to library" });
+      }
+    },
+  );
 
-  app.delete("/api/library/:id", isAuthenticated, async (req: Request, res: Response) => {
-    try {
-      const id = parseInt(req.params.id);
-      await storage.deleteSavedContent(id);
-      res.status(204).send();
-    } catch (error) {
-      console.error("Error deleting from library:", error);
-      res.status(500).json({ error: "Failed to delete from library" });
-    }
-  });
+  app.delete(
+    "/api/library/:id",
+    isAuthenticated,
+    async (req: Request, res: Response) => {
+      try {
+        const id = parseInt(req.params.id);
+        await storage.deleteSavedContent(id);
+        res.status(204).send();
+      } catch (error) {
+        console.error("Error deleting from library:", error);
+        res.status(500).json({ error: "Failed to delete from library" });
+      }
+    },
+  );
 
   // Word Document Export
-  app.get("/api/content/:id/export-docx", isAuthenticated, async (req: Request, res: Response) => {
-    try {
-      const userId = getUserId(req) as string;
-      const id = parseInt(req.params.id);
-      const content = await storage.getContent(id);
-      
-      if (!content) {
-        return res.status(404).json({ error: "Content not found" });
-      }
+  app.get(
+    "/api/content/:id/export-docx",
+    isAuthenticated,
+    async (req: Request, res: Response) => {
+      try {
+        const userId = getUserId(req) as string;
+        const id = parseInt(req.params.id);
+        const content = await storage.getContent(id);
 
-      let course: any = null;
-      if (content.courseId) {
-        course = await storage.getCourse(content.courseId, userId);
-        if (!course) {
+        if (!content) {
           return res.status(404).json({ error: "Content not found" });
         }
-      } else if (content.userId !== userId) {
-        return res.status(404).json({ error: "Content not found" });
-      }
-      
-      const children: Paragraph[] = [];
-      
-      children.push(
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: content.toolName,
-              bold: true,
-              size: 36,
-              color: "7C1D32",
-            }),
-          ],
-          heading: HeadingLevel.TITLE,
-          spacing: { after: 200 },
-        })
-      );
 
-      if (course) {
+        let course: any = null;
+        if (content.courseId) {
+          course = await storage.getCourse(content.courseId, userId);
+          if (!course) {
+            return res.status(404).json({ error: "Content not found" });
+          }
+        } else if (content.userId !== userId) {
+          return res.status(404).json({ error: "Content not found" });
+        }
+
+        const children: Paragraph[] = [];
+
         children.push(
           new Paragraph({
             children: [
               new TextRun({
-                text: `${course.courseName} (${course.courseNumber})`,
-                size: 24,
-                color: "666666",
+                text: content.toolName,
+                bold: true,
+                size: 36,
+                color: "7C1D32",
               }),
             ],
-            spacing: { after: 100 },
+            heading: HeadingLevel.TITLE,
+            spacing: { after: 200 },
+          }),
+        );
+
+        if (course) {
+          children.push(
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: `${course.courseName} (${course.courseNumber})`,
+                  size: 24,
+                  color: "666666",
+                }),
+              ],
+              spacing: { after: 100 },
+            }),
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: `Instructor: ${course.instructor} | Semester: ${course.semester}`,
+                  size: 20,
+                  color: "666666",
+                }),
+              ],
+              spacing: { after: 400 },
+            }),
+          );
+        }
+
+        children.push(
+          new Paragraph({
+            children: [],
+            border: {
+              bottom: { color: "CCCCCC", style: BorderStyle.SINGLE, size: 6 },
+            },
+            spacing: { after: 400 },
+          }),
+        );
+
+        const lines = content.content.split("\n");
+
+        for (const line of lines) {
+          if (!line.trim()) {
+            children.push(new Paragraph({ children: [] }));
+            continue;
+          }
+
+          if (line.startsWith("# ")) {
+            children.push(
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: line.replace(/^# /, ""),
+                    bold: true,
+                    size: 32,
+                    color: "7C1D32",
+                  }),
+                ],
+                heading: HeadingLevel.HEADING_1,
+                spacing: { before: 400, after: 200 },
+              }),
+            );
+          } else if (line.startsWith("## ")) {
+            children.push(
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: line.replace(/^## /, ""),
+                    bold: true,
+                    size: 28,
+                    color: "333333",
+                  }),
+                ],
+                heading: HeadingLevel.HEADING_2,
+                spacing: { before: 300, after: 150 },
+              }),
+            );
+          } else if (line.startsWith("### ")) {
+            children.push(
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: line.replace(/^### /, ""),
+                    bold: true,
+                    size: 24,
+                  }),
+                ],
+                heading: HeadingLevel.HEADING_3,
+                spacing: { before: 200, after: 100 },
+              }),
+            );
+          } else if (line.match(/^[-*] /)) {
+            const textContent = line.replace(/^[-*] /, "");
+            const textRuns = parseInlineFormatting(textContent);
+            children.push(
+              new Paragraph({
+                children: textRuns,
+                bullet: { level: 0 },
+                spacing: { after: 80 },
+              }),
+            );
+          } else if (line.match(/^\d+\. /)) {
+            const textContent = line.replace(/^\d+\. /, "");
+            const textRuns = parseInlineFormatting(textContent);
+            children.push(
+              new Paragraph({
+                children: textRuns,
+                numbering: { reference: "numbering", level: 0 },
+                spacing: { after: 80 },
+              }),
+            );
+          } else if (line.startsWith("   - ") || line.startsWith("   * ")) {
+            const textContent = line.replace(/^   [-*] /, "");
+            const textRuns = parseInlineFormatting(textContent);
+            children.push(
+              new Paragraph({
+                children: textRuns,
+                bullet: { level: 1 },
+                spacing: { after: 60 },
+              }),
+            );
+          } else {
+            const textRuns = parseInlineFormatting(line);
+            children.push(
+              new Paragraph({
+                children: textRuns,
+                spacing: { after: 120 },
+              }),
+            );
+          }
+        }
+
+        children.push(
+          new Paragraph({ children: [], spacing: { before: 600 } }),
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: "Generated by BSU Instructional Design Tool",
+                size: 18,
+                color: "999999",
+                italics: true,
+              }),
+            ],
+            alignment: AlignmentType.CENTER,
           }),
           new Paragraph({
             children: [
               new TextRun({
-                text: `Instructor: ${course.instructor} | Semester: ${course.semester}`,
-                size: 20,
-                color: "666666",
+                text: `Created on ${new Date(content.createdAt).toLocaleDateString()}`,
+                size: 18,
+                color: "999999",
+                italics: true,
               }),
             ],
-            spacing: { after: 400 },
-          })
+            alignment: AlignmentType.CENTER,
+          }),
         );
-      }
 
-      children.push(
-        new Paragraph({
-          children: [],
-          border: {
-            bottom: { color: "CCCCCC", style: BorderStyle.SINGLE, size: 6 },
+        const doc = new Document({
+          numbering: {
+            config: [
+              {
+                reference: "numbering",
+                levels: [
+                  {
+                    level: 0,
+                    format: "decimal",
+                    text: "%1.",
+                    alignment: AlignmentType.START,
+                  },
+                ],
+              },
+            ],
           },
-          spacing: { after: 400 },
-        })
-      );
-
-      const lines = content.content.split("\n");
-      
-      for (const line of lines) {
-        if (!line.trim()) {
-          children.push(new Paragraph({ children: [] }));
-          continue;
-        }
-
-        if (line.startsWith("# ")) {
-          children.push(
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: line.replace(/^# /, ""),
-                  bold: true,
-                  size: 32,
-                  color: "7C1D32",
-                }),
-              ],
-              heading: HeadingLevel.HEADING_1,
-              spacing: { before: 400, after: 200 },
-            })
-          );
-        } else if (line.startsWith("## ")) {
-          children.push(
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: line.replace(/^## /, ""),
-                  bold: true,
-                  size: 28,
-                  color: "333333",
-                }),
-              ],
-              heading: HeadingLevel.HEADING_2,
-              spacing: { before: 300, after: 150 },
-            })
-          );
-        } else if (line.startsWith("### ")) {
-          children.push(
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: line.replace(/^### /, ""),
-                  bold: true,
-                  size: 24,
-                }),
-              ],
-              heading: HeadingLevel.HEADING_3,
-              spacing: { before: 200, after: 100 },
-            })
-          );
-        } else if (line.match(/^[-*] /)) {
-          const textContent = line.replace(/^[-*] /, "");
-          const textRuns = parseInlineFormatting(textContent);
-          children.push(
-            new Paragraph({
-              children: textRuns,
-              bullet: { level: 0 },
-              spacing: { after: 80 },
-            })
-          );
-        } else if (line.match(/^\d+\. /)) {
-          const textContent = line.replace(/^\d+\. /, "");
-          const textRuns = parseInlineFormatting(textContent);
-          children.push(
-            new Paragraph({
-              children: textRuns,
-              numbering: { reference: "numbering", level: 0 },
-              spacing: { after: 80 },
-            })
-          );
-        } else if (line.startsWith("   - ") || line.startsWith("   * ")) {
-          const textContent = line.replace(/^   [-*] /, "");
-          const textRuns = parseInlineFormatting(textContent);
-          children.push(
-            new Paragraph({
-              children: textRuns,
-              bullet: { level: 1 },
-              spacing: { after: 60 },
-            })
-          );
-        } else {
-          const textRuns = parseInlineFormatting(line);
-          children.push(
-            new Paragraph({
-              children: textRuns,
-              spacing: { after: 120 },
-            })
-          );
-        }
-      }
-
-      children.push(
-        new Paragraph({ children: [], spacing: { before: 600 } }),
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: "Generated by BSU Instructional Design Tool",
-              size: 18,
-              color: "999999",
-              italics: true,
-            }),
-          ],
-          alignment: AlignmentType.CENTER,
-        }),
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: `Created on ${new Date(content.createdAt).toLocaleDateString()}`,
-              size: 18,
-              color: "999999",
-              italics: true,
-            }),
-          ],
-          alignment: AlignmentType.CENTER,
-        })
-      );
-
-      const doc = new Document({
-        numbering: {
-          config: [
+          sections: [
             {
-              reference: "numbering",
-              levels: [
-                {
-                  level: 0,
-                  format: "decimal",
-                  text: "%1.",
-                  alignment: AlignmentType.START,
-                },
-              ],
-            },
-          ],
-        },
-        sections: [
-          {
-            properties: {
-              page: {
-                margin: {
-                  top: 1440,
-                  right: 1440,
-                  bottom: 1440,
-                  left: 1440,
+              properties: {
+                page: {
+                  margin: {
+                    top: 1440,
+                    right: 1440,
+                    bottom: 1440,
+                    left: 1440,
+                  },
                 },
               },
+              children,
             },
-            children,
-          },
-        ],
-      });
+          ],
+        });
 
-      const buffer = await Packer.toBuffer(doc);
-      
-      const filename = `${content.toolName.replace(/\s+/g, "_")}_${course?.courseNumber || "export"}.docx`;
-      
-      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
-      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-      res.send(buffer);
-    } catch (error) {
-      console.error("Error exporting to Word:", error);
-      res.status(500).json({ error: "Failed to export to Word" });
-    }
-  });
+        const buffer = await Packer.toBuffer(doc);
+
+        const filename = `${content.toolName.replace(/\s+/g, "_")}_${course?.courseNumber || "export"}.docx`;
+
+        res.setHeader(
+          "Content-Type",
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        );
+        res.setHeader(
+          "Content-Disposition",
+          `attachment; filename="${filename}"`,
+        );
+        res.send(buffer);
+      } catch (error) {
+        console.error("Error exporting to Word:", error);
+        res.status(500).json({ error: "Failed to export to Word" });
+      }
+    },
+  );
 
   // =============================================
   // DOCUMENT ACCESSIBILITY CONVERSION ROUTES
@@ -1724,209 +1872,111 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     return and(eq(conversions.id, id), isNull(conversions.userId));
   }
 
-  app.get("/api/conversions", isAuthenticated, async (req: Request, res: Response) => {
-    const userId = getUserId(req);
-    const results = await db
-      .select({
-        id: conversions.id,
-        originalFilename: conversions.originalFilename,
-        fileSize: conversions.fileSize,
-        sourceType: conversions.sourceType,
-        status: conversions.status,
-        pageCount: conversions.pageCount,
-        ocrApplied: conversions.ocrApplied,
-        complianceReport: conversions.complianceReport,
-        createdAt: conversions.createdAt,
-        updatedAt: conversions.updatedAt,
-      })
-      .from(conversions)
-      .where(eq(conversions.userId, userId))
-      .orderBy(desc(conversions.createdAt));
-    res.json(results);
-  });
+  app.get(
+    "/api/conversions",
+    isAuthenticated,
+    async (req: Request, res: Response) => {
+      const userId = getUserId(req);
+      const results = await db
+        .select({
+          id: conversions.id,
+          originalFilename: conversions.originalFilename,
+          fileSize: conversions.fileSize,
+          sourceType: conversions.sourceType,
+          status: conversions.status,
+          pageCount: conversions.pageCount,
+          ocrApplied: conversions.ocrApplied,
+          complianceReport: conversions.complianceReport,
+          createdAt: conversions.createdAt,
+          updatedAt: conversions.updatedAt,
+        })
+        .from(conversions)
+        .where(eq(conversions.userId, userId))
+        .orderBy(desc(conversions.createdAt));
+      res.json(results);
+    },
+  );
 
-  app.get("/api/conversions/:id", optionalAuth, async (req: Request, res: Response) => {
-    const userId = getUserId(req);
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
-
-    const [conversion] = await db
-      .select({
-        id: conversions.id,
-        originalFilename: conversions.originalFilename,
-        fileSize: conversions.fileSize,
-        sourceType: conversions.sourceType,
-        status: conversions.status,
-        pageCount: conversions.pageCount,
-        extractedText: conversions.extractedText,
-        accessibleHtml: conversions.accessibleHtml,
-        complianceReport: conversions.complianceReport,
-        originalComplianceReport: conversions.originalComplianceReport,
-        statusMessage: conversions.statusMessage,
-        errorMessage: conversions.errorMessage,
-        ocrApplied: conversions.ocrApplied,
-        createdAt: conversions.createdAt,
-        updatedAt: conversions.updatedAt,
-      })
-      .from(conversions)
-      .where(conversionOwnerFilter(id, userId));
-
-    if (!conversion) { res.status(404).json({ error: "Conversion not found" }); return; }
-    res.json(conversion);
-  });
-
-  app.post("/api/conversions/upload", optionalAuth, docUpload.single("file"), async (req: Request, res: Response) => {
-    const userId = getUserId(req);
-    const file = req.file;
-    if (!file) { res.status(400).json({ error: "No file uploaded" }); return; }
-
-    if (!userId) {
-      const ip = req.ip || req.socket.remoteAddress || "unknown";
-      if (!checkAnonRateLimit(ip)) {
-        return res.status(429).json({ error: "Rate limit exceeded. Please sign in for unlimited access or try again later." });
+  app.get(
+    "/api/conversions/:id",
+    optionalAuth,
+    async (req: Request, res: Response) => {
+      const userId = getUserId(req);
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid ID" });
+        return;
       }
-    }
 
-    const fileBase64 = file.buffer.toString("base64");
-    const explicitSourceType = req.body?.sourceType;
-    const sourceType = explicitSourceType === "google-doc"
-      ? "google-doc"
-      : file.mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        ? "docx"
-        : "pdf";
+      const [conversion] = await db
+        .select({
+          id: conversions.id,
+          originalFilename: conversions.originalFilename,
+          fileSize: conversions.fileSize,
+          sourceType: conversions.sourceType,
+          status: conversions.status,
+          pageCount: conversions.pageCount,
+          extractedText: conversions.extractedText,
+          accessibleHtml: conversions.accessibleHtml,
+          complianceReport: conversions.complianceReport,
+          originalComplianceReport: conversions.originalComplianceReport,
+          statusMessage: conversions.statusMessage,
+          errorMessage: conversions.errorMessage,
+          ocrApplied: conversions.ocrApplied,
+          createdAt: conversions.createdAt,
+          updatedAt: conversions.updatedAt,
+        })
+        .from(conversions)
+        .where(conversionOwnerFilter(id, userId));
 
-    const [created] = await db
-      .insert(conversions)
-      .values({
-        originalFilename: file.originalname,
-        fileSize: file.size,
-        sourceType,
-        status: "uploaded",
-        pdfData: fileBase64,
-        userId: userId || null,
-      })
-      .returning({
-        id: conversions.id,
-        originalFilename: conversions.originalFilename,
-        fileSize: conversions.fileSize,
-        sourceType: conversions.sourceType,
-        status: conversions.status,
-        createdAt: conversions.createdAt,
-      });
-
-    res.json(created);
-  });
-
-  app.post("/api/conversions/import-google-doc", optionalAuth, async (req: Request, res: Response) => {
-    const userId = getUserId(req);
-
-    if (!userId) {
-      const ip = req.ip || req.socket.remoteAddress || "unknown";
-      if (!checkAnonRateLimit(ip)) {
-        return res.status(429).json({ error: "Rate limit exceeded. Please sign in for unlimited access or try again later." });
+      if (!conversion) {
+        res.status(404).json({ error: "Conversion not found" });
+        return;
       }
-    }
+      res.json(conversion);
+    },
+  );
 
-    const { url } = req.body;
-    if (!url || typeof url !== "string") {
-      return res.status(400).json({ error: "A Google Docs URL is required." });
-    }
+  app.post(
+    "/api/conversions/upload",
+    optionalAuth,
+    docUpload.single("file"),
+    async (req: Request, res: Response) => {
+      const userId = getUserId(req);
+      const file = req.file;
+      if (!file) {
+        res.status(400).json({ error: "No file uploaded" });
+        return;
+      }
 
-    let parsedUrl: URL;
-    try {
-      parsedUrl = new URL(url);
-    } catch {
-      return res.status(400).json({ error: "Invalid URL format. Please paste a Google Docs link." });
-    }
-    if (parsedUrl.hostname !== "docs.google.com" || !parsedUrl.pathname.startsWith("/document/d/")) {
-      return res.status(400).json({ error: "Invalid Google Docs URL. Please paste a link like https://docs.google.com/document/d/..." });
-    }
-    const docIdMatch = parsedUrl.pathname.match(/\/document\/d\/([a-zA-Z0-9_-]+)/);
-    if (!docIdMatch) {
-      return res.status(400).json({ error: "Could not extract document ID from URL." });
-    }
-    const docId = docIdMatch[1];
-
-    try {
-      const exportUrls = [
-        `https://docs.google.com/document/d/${docId}/export?format=docx`,
-        `https://drive.google.com/uc?export=download&id=${docId}`,
-      ];
-
-      let response: globalThis.Response | null = null;
-      let lastStatus = 0;
-
-      for (const exportUrl of exportUrls) {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 30000);
-
-        try {
-          const attempt = await fetch(exportUrl, {
-            signal: controller.signal,
-            redirect: "follow",
-            headers: { "User-Agent": "Mozilla/5.0" },
-          });
-          lastStatus = attempt.status;
-          if (attempt.ok) {
-            response = attempt;
-            break;
-          }
-        } catch (fetchErr: any) {
-          if (fetchErr.name === "AbortError") {
-            return res.status(504).json({ error: "Download timed out. The document may be too large or Google is not responding." });
-          }
-        } finally {
-          clearTimeout(timeout);
+      if (!userId) {
+        const ip = req.ip || req.socket.remoteAddress || "unknown";
+        if (!checkAnonRateLimit(ip)) {
+          return res
+            .status(429)
+            .json({
+              error:
+                "Rate limit exceeded. Please sign in for unlimited access or try again later.",
+            });
         }
       }
 
-      if (!response) {
-        if (lastStatus === 403 || lastStatus === 401) {
-          return res.status(403).json({ error: "This document is not publicly shared. Set sharing to \"Anyone with the link\" in Google Docs, then try again." });
-        }
-        if (lastStatus === 404) {
-          return res.status(404).json({ error: "Document not found. Check that the URL is correct." });
-        }
-        return res.status(502).json({ error: `Could not download the document (status ${lastStatus}). The document may not be publicly shared.` });
-      }
+      const fileBase64 = file.buffer.toString("base64");
+      const explicitSourceType = req.body?.sourceType;
+      const sourceType =
+        explicitSourceType === "google-doc"
+          ? "google-doc"
+          : file.mimetype ===
+              "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            ? "docx"
+            : "pdf";
 
-      const contentLength = response.headers.get("content-length");
-      if (contentLength && parseInt(contentLength, 10) > 20 * 1024 * 1024) {
-        return res.status(413).json({ error: "Document is too large (max 20 MB)." });
-      }
-
-      const arrayBuffer = await response.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-
-      if (buffer.length > 20 * 1024 * 1024) {
-        return res.status(413).json({ error: "Document is too large (max 20 MB)." });
-      }
-      if (buffer.length < 100) {
-        return res.status(502).json({ error: "Downloaded file appears empty. The document may not be publicly shared." });
-      }
-
-      const zipSignature = buffer.slice(0, 4).toString("hex");
-      if (zipSignature !== "504b0304") {
-        return res.status(502).json({ error: "The downloaded file is not a valid document. The Google Doc may not be publicly shared." });
-      }
-
-      const titleHeader = response.headers.get("content-disposition");
-      let filename = "Google Doc.docx";
-      if (titleHeader) {
-        const filenameMatch = titleHeader.match(/filename\*?=(?:UTF-8''|"?)([^";]+)/i);
-        if (filenameMatch) {
-          filename = decodeURIComponent(filenameMatch[1].replace(/"/g, ""));
-          if (!filename.endsWith(".docx")) filename += ".docx";
-        }
-      }
-
-      const fileBase64 = buffer.toString("base64");
       const [created] = await db
         .insert(conversions)
         .values({
-          originalFilename: filename,
-          fileSize: buffer.length,
-          sourceType: "google-doc",
+          originalFilename: file.originalname,
+          fileSize: file.size,
+          sourceType,
           status: "uploaded",
           pdfData: fileBase64,
           userId: userId || null,
@@ -1941,185 +1991,521 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         });
 
       res.json(created);
-    } catch (err: any) {
-      if (err.name === "AbortError") {
-        return res.status(504).json({ error: "Download timed out. The document may be too large or Google is not responding." });
+    },
+  );
+
+  app.post(
+    "/api/conversions/import-google-doc",
+    optionalAuth,
+    async (req: Request, res: Response) => {
+      const userId = getUserId(req);
+
+      if (!userId) {
+        const ip = req.ip || req.socket.remoteAddress || "unknown";
+        if (!checkAnonRateLimit(ip)) {
+          return res
+            .status(429)
+            .json({
+              error:
+                "Rate limit exceeded. Please sign in for unlimited access or try again later.",
+            });
+        }
       }
-      console.error("Google Doc import error:", err);
-      res.status(500).json({ error: "Failed to import the Google Doc. Please check the URL and try again." });
-    }
-  });
 
-  app.post("/api/conversions/:id/process", optionalAuth, async (req: Request, res: Response) => {
-    const userId = getUserId(req);
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
-
-    const [conversion] = await db
-      .select()
-      .from(conversions)
-      .where(conversionOwnerFilter(id, userId));
-
-    if (!conversion) { res.status(404).json({ error: "Conversion not found" }); return; }
-    if (conversion.status === "processing") { res.status(400).json({ error: "Already processing" }); return; }
-
-    await db
-      .update(conversions)
-      .set({ status: "processing", statusMessage: "Starting conversion…", updatedAt: new Date() })
-      .where(eq(conversions.id, id));
-
-    const { pdfData: _pdfData, ...safeConversion } = conversion;
-    res.json({ ...safeConversion, status: "processing", statusMessage: "Starting conversion…" });
-
-    const updateStatusMessage = async (message: string) => {
-      try {
-        await db
-          .update(conversions)
-          .set({ statusMessage: message, updatedAt: new Date() })
-          .where(eq(conversions.id, id));
-      } catch (e) {
-        console.error("Failed to update status message:", e);
+      const { url } = req.body;
+      if (!url || typeof url !== "string") {
+        return res
+          .status(400)
+          .json({ error: "A Google Docs URL is required." });
       }
-    };
 
-    (async () => {
+      let parsedUrl: URL;
       try {
-        const { generateAccessibleDocument, evaluateOriginalDocument } = await import("./lib/accessibility-engine");
-        const fileBuffer = Buffer.from(conversion.pdfData!, "base64");
-        const srcType = conversion.sourceType || "pdf";
+        parsedUrl = new URL(url);
+      } catch {
+        return res
+          .status(400)
+          .json({
+            error: "Invalid URL format. Please paste a Google Docs link.",
+          });
+      }
+      if (
+        parsedUrl.hostname !== "docs.google.com" ||
+        !parsedUrl.pathname.startsWith("/document/d/")
+      ) {
+        return res
+          .status(400)
+          .json({
+            error:
+              "Invalid Google Docs URL. Please paste a link like https://docs.google.com/document/d/...",
+          });
+      }
+      const docIdMatch = parsedUrl.pathname.match(
+        /\/document\/d\/([a-zA-Z0-9_-]+)/,
+      );
+      if (!docIdMatch) {
+        return res
+          .status(400)
+          .json({ error: "Could not extract document ID from URL." });
+      }
+      const docId = docIdMatch[1];
 
-        let extraction: import("./lib/pdf-processor").PdfExtraction;
-        let ocrApplied = false;
+      try {
+        const exportUrls = [
+          `https://docs.google.com/document/d/${docId}/export?format=docx`,
+          `https://drive.google.com/uc?export=download&id=${docId}`,
+        ];
 
-        if (srcType === "docx" || srcType === "google-doc") {
-          await updateStatusMessage(srcType === "google-doc" ? "Extracting Google Doc content…" : "Extracting Word document content…");
-          const { extractDocxContent } = await import("./lib/docx-extractor");
-          extraction = await extractDocxContent(fileBuffer);
-        } else {
-          await updateStatusMessage("Extracting PDF content…");
-          const { extractPdfContent, needsOcr } = await import("./lib/pdf-processor");
-          extraction = await extractPdfContent(fileBuffer);
-          ocrApplied = needsOcr(extraction.text, extraction.pageCount);
+        let response: globalThis.Response | null = null;
+        let lastStatus = 0;
+
+        for (const exportUrl of exportUrls) {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 30000);
+
+          try {
+            const attempt = await fetch(exportUrl, {
+              signal: controller.signal,
+              redirect: "follow",
+              headers: { "User-Agent": "Mozilla/5.0" },
+            });
+            lastStatus = attempt.status;
+            if (attempt.ok) {
+              response = attempt;
+              break;
+            }
+          } catch (fetchErr: any) {
+            if (fetchErr.name === "AbortError") {
+              return res
+                .status(504)
+                .json({
+                  error:
+                    "Download timed out. The document may be too large or Google is not responding.",
+                });
+            }
+          } finally {
+            clearTimeout(timeout);
+          }
         }
 
-        let finalText = extraction.text;
-        if (ocrApplied && extraction.images.length > 0) {
-          await updateStatusMessage("Running OCR on scanned pages…");
-          const ocrTexts: string[] = [];
-          for (const img of extraction.images.slice(0, 5)) {
-            try {
-              const ocrResponse = await anthropic.messages.create({
-                model: "claude-sonnet-4-5",
-                max_tokens: 2048,
-                messages: [{
-                  role: "user",
-                  content: [
-                    { type: "image", source: { type: "base64", media_type: "image/png", data: img.dataUrl.split(",")[1] || "" } },
-                    { type: "text", text: "Extract all text from this scanned document page. Maintain the reading order and structure. Output only the extracted text." },
-                  ],
-                }],
+        if (!response) {
+          if (lastStatus === 403 || lastStatus === 401) {
+            return res
+              .status(403)
+              .json({
+                error:
+                  'This document is not publicly shared. Set sharing to "Anyone with the link" in Google Docs, then try again.',
               });
-              const ocrText = ocrResponse.content[0]?.type === "text" ? ocrResponse.content[0].text : "";
-              if (ocrText) ocrTexts.push(ocrText);
-            } catch {
+          }
+          if (lastStatus === 404) {
+            return res
+              .status(404)
+              .json({
+                error: "Document not found. Check that the URL is correct.",
+              });
+          }
+          return res
+            .status(502)
+            .json({
+              error: `Could not download the document (status ${lastStatus}). The document may not be publicly shared.`,
+            });
+        }
+
+        const contentLength = response.headers.get("content-length");
+        if (contentLength && parseInt(contentLength, 10) > 20 * 1024 * 1024) {
+          return res
+            .status(413)
+            .json({ error: "Document is too large (max 20 MB)." });
+        }
+
+        const arrayBuffer = await response.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+
+        if (buffer.length > 20 * 1024 * 1024) {
+          return res
+            .status(413)
+            .json({ error: "Document is too large (max 20 MB)." });
+        }
+        if (buffer.length < 100) {
+          return res
+            .status(502)
+            .json({
+              error:
+                "Downloaded file appears empty. The document may not be publicly shared.",
+            });
+        }
+
+        const zipSignature = buffer.slice(0, 4).toString("hex");
+        if (zipSignature !== "504b0304") {
+          return res
+            .status(502)
+            .json({
+              error:
+                "The downloaded file is not a valid document. The Google Doc may not be publicly shared.",
+            });
+        }
+
+        const titleHeader = response.headers.get("content-disposition");
+        let filename = "Google Doc.docx";
+        if (titleHeader) {
+          const filenameMatch = titleHeader.match(
+            /filename\*?=(?:UTF-8''|"?)([^";]+)/i,
+          );
+          if (filenameMatch) {
+            filename = decodeURIComponent(filenameMatch[1].replace(/"/g, ""));
+            if (!filename.endsWith(".docx")) filename += ".docx";
+          }
+        }
+
+        const fileBase64 = buffer.toString("base64");
+        const [created] = await db
+          .insert(conversions)
+          .values({
+            originalFilename: filename,
+            fileSize: buffer.length,
+            sourceType: "google-doc",
+            status: "uploaded",
+            pdfData: fileBase64,
+            userId: userId || null,
+          })
+          .returning({
+            id: conversions.id,
+            originalFilename: conversions.originalFilename,
+            fileSize: conversions.fileSize,
+            sourceType: conversions.sourceType,
+            status: conversions.status,
+            createdAt: conversions.createdAt,
+          });
+
+        res.json(created);
+      } catch (err: any) {
+        if (err.name === "AbortError") {
+          return res
+            .status(504)
+            .json({
+              error:
+                "Download timed out. The document may be too large or Google is not responding.",
+            });
+        }
+        console.error("Google Doc import error:", err);
+        res
+          .status(500)
+          .json({
+            error:
+              "Failed to import the Google Doc. Please check the URL and try again.",
+          });
+      }
+    },
+  );
+
+  app.post(
+    "/api/conversions/:id/process",
+    optionalAuth,
+    async (req: Request, res: Response) => {
+      const userId = getUserId(req);
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid ID" });
+        return;
+      }
+
+      const [conversion] = await db
+        .select()
+        .from(conversions)
+        .where(conversionOwnerFilter(id, userId));
+
+      if (!conversion) {
+        res.status(404).json({ error: "Conversion not found" });
+        return;
+      }
+      if (conversion.status === "processing") {
+        res.status(400).json({ error: "Already processing" });
+        return;
+      }
+
+      await db
+        .update(conversions)
+        .set({
+          status: "processing",
+          statusMessage: "Starting conversion…",
+          updatedAt: new Date(),
+        })
+        .where(eq(conversions.id, id));
+
+      const { pdfData: _pdfData, ...safeConversion } = conversion;
+      res.json({
+        ...safeConversion,
+        status: "processing",
+        statusMessage: "Starting conversion…",
+      });
+
+      const updateStatusMessage = async (message: string) => {
+        try {
+          await db
+            .update(conversions)
+            .set({ statusMessage: message, updatedAt: new Date() })
+            .where(eq(conversions.id, id));
+        } catch (e) {
+          console.error("Failed to update status message:", e);
+        }
+      };
+
+      (async () => {
+        try {
+          const { generateAccessibleDocument, evaluateOriginalDocument } =
+            await import("./lib/accessibility-engine");
+          const fileBuffer = Buffer.from(conversion.pdfData!, "base64");
+          const srcType = conversion.sourceType || "pdf";
+
+          let extraction: import("./lib/pdf-processor").PdfExtraction;
+          let ocrApplied = false;
+
+          if (srcType === "docx" || srcType === "google-doc") {
+            await updateStatusMessage(
+              srcType === "google-doc"
+                ? "Extracting Google Doc content…"
+                : "Extracting Word document content…",
+            );
+            const { extractDocxContent } = await import("./lib/docx-extractor");
+            extraction = await extractDocxContent(fileBuffer);
+          } else {
+            await updateStatusMessage("Extracting PDF content…");
+            const { extractPdfContent, needsOcr } = await import(
+              "./lib/pdf-processor"
+            );
+            extraction = await extractPdfContent(fileBuffer);
+            ocrApplied = needsOcr(extraction.text, extraction.pageCount);
+          }
+
+          let finalText = extraction.text;
+          if (ocrApplied && extraction.images.length > 0) {
+            await updateStatusMessage("Running OCR on scanned pages…");
+            const ocrTexts: string[] = [];
+            for (const img of extraction.images.slice(0, 5)) {
+              try {
+                const ocrResponse = await anthropic.messages.create({
+                  model: "claude-sonnet-4-5",
+                  max_tokens: 2048,
+                  messages: [
+                    {
+                      role: "user",
+                      content: [
+                        {
+                          type: "image",
+                          source: {
+                            type: "base64",
+                            media_type: "image/png",
+                            data: img.dataUrl.split(",")[1] || "",
+                          },
+                        },
+                        {
+                          type: "text",
+                          text: "Extract all text from this scanned document page. Maintain the reading order and structure. Output only the extracted text.",
+                        },
+                      ],
+                    },
+                  ],
+                });
+                const ocrText =
+                  ocrResponse.content[0]?.type === "text"
+                    ? ocrResponse.content[0].text
+                    : "";
+                if (ocrText) ocrTexts.push(ocrText);
+              } catch {}
+            }
+            if (ocrTexts.length > 0) {
+              finalText = ocrTexts.join("\n\n---\n\n");
             }
           }
-          if (ocrTexts.length > 0) {
-            finalText = ocrTexts.join("\n\n---\n\n");
-          }
+
+          await updateStatusMessage("Evaluating original document…");
+          const originalReport = evaluateOriginalDocument(finalText);
+
+          const result = await generateAccessibleDocument(
+            finalText,
+            conversion.originalFilename,
+            extraction.metadata,
+            extraction.images,
+            extraction.tables,
+            extraction.pageCount,
+            updateStatusMessage,
+          );
+
+          await db
+            .update(conversions)
+            .set({
+              status: "completed",
+              statusMessage: null,
+              pageCount: extraction.pageCount,
+              extractedText: finalText.substring(0, 50000),
+              accessibleHtml: result.accessibleHtml,
+              complianceReport: result.complianceReport,
+              originalComplianceReport: originalReport,
+              ocrApplied,
+              pdfData: null,
+              updatedAt: new Date(),
+            })
+            .where(eq(conversions.id, id));
+        } catch (err: any) {
+          console.error("Document processing error:", err);
+          await db
+            .update(conversions)
+            .set({
+              status: "failed",
+              statusMessage: null,
+              errorMessage: err.message || "Processing failed",
+              updatedAt: new Date(),
+            })
+            .where(eq(conversions.id, id));
         }
+      })();
+    },
+  );
 
-        await updateStatusMessage("Evaluating original document…");
-        const originalReport = evaluateOriginalDocument(finalText);
+  app.delete(
+    "/api/conversions/:id",
+    optionalAuth,
+    async (req: Request, res: Response) => {
+      const userId = getUserId(req);
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid ID" });
+        return;
+      }
 
-        const result = await generateAccessibleDocument(
-          finalText,
-          conversion.originalFilename,
-          extraction.metadata,
-          extraction.images,
-          extraction.tables,
-          extraction.pageCount,
-          updateStatusMessage
+      await db.delete(conversions).where(conversionOwnerFilter(id, userId));
+      res.json({ success: true });
+    },
+  );
+
+  app.post(
+    "/api/conversions/:id/fix-issue",
+    optionalAuth,
+    async (req: Request, res: Response) => {
+      const userId = getUserId(req);
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid ID" });
+        return;
+      }
+
+      const { issueIndex } = req.body;
+      if (typeof issueIndex !== "number") {
+        res.status(400).json({ error: "issueIndex required" });
+        return;
+      }
+
+      const [conversion] = await db
+        .select()
+        .from(conversions)
+        .where(conversionOwnerFilter(id, userId));
+
+      if (!conversion) {
+        res.status(404).json({ error: "Conversion not found" });
+        return;
+      }
+      if (conversion.status !== "completed" || !conversion.accessibleHtml) {
+        res.status(400).json({ error: "Conversion must be completed" });
+        return;
+      }
+
+      const report = conversion.complianceReport as any;
+      if (!report?.issues?.[issueIndex]) {
+        res.status(400).json({ error: "Issue not found" });
+        return;
+      }
+
+      try {
+        const { fixComplianceIssue } = await import(
+          "./lib/accessibility-engine"
+        );
+        const result = await fixComplianceIssue(
+          conversion.accessibleHtml,
+          report.issues[issueIndex],
+          issueIndex,
+          report,
         );
 
-        await db
+        const [updated] = await db
           .update(conversions)
           .set({
-            status: "completed",
-            statusMessage: null,
-            pageCount: extraction.pageCount,
-            extractedText: finalText.substring(0, 50000),
             accessibleHtml: result.accessibleHtml,
             complianceReport: result.complianceReport,
-            originalComplianceReport: originalReport,
-            ocrApplied,
-            pdfData: null,
             updatedAt: new Date(),
           })
-          .where(eq(conversions.id, id));
+          .where(eq(conversions.id, id))
+          .returning({
+            id: conversions.id,
+            originalFilename: conversions.originalFilename,
+            fileSize: conversions.fileSize,
+            status: conversions.status,
+            pageCount: conversions.pageCount,
+            extractedText: conversions.extractedText,
+            accessibleHtml: conversions.accessibleHtml,
+            complianceReport: conversions.complianceReport,
+            originalComplianceReport: conversions.originalComplianceReport,
+            errorMessage: conversions.errorMessage,
+            ocrApplied: conversions.ocrApplied,
+            createdAt: conversions.createdAt,
+            updatedAt: conversions.updatedAt,
+          });
+
+        res.json(updated);
       } catch (err: any) {
-        console.error("Document processing error:", err);
-        await db
-          .update(conversions)
-          .set({
-            status: "failed",
-            statusMessage: null,
-            errorMessage: err.message || "Processing failed",
-            updatedAt: new Date(),
-          })
-          .where(eq(conversions.id, id));
+        res.status(500).json({ error: err.message || "Fix failed" });
       }
-    })();
-  });
+    },
+  );
 
-  app.delete("/api/conversions/:id", optionalAuth, async (req: Request, res: Response) => {
-    const userId = getUserId(req);
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  app.post(
+    "/api/conversions/:id/accept-issue",
+    optionalAuth,
+    async (req: Request, res: Response) => {
+      const userId = getUserId(req);
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid ID" });
+        return;
+      }
 
-    await db.delete(conversions).where(conversionOwnerFilter(id, userId));
-    res.json({ success: true });
-  });
+      const { issueIndex, justification } = req.body;
+      if (typeof issueIndex !== "number") {
+        res.status(400).json({ error: "issueIndex required" });
+        return;
+      }
 
-  app.post("/api/conversions/:id/fix-issue", optionalAuth, async (req: Request, res: Response) => {
-    const userId = getUserId(req);
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
+      const [conversion] = await db
+        .select()
+        .from(conversions)
+        .where(conversionOwnerFilter(id, userId));
 
-    const { issueIndex } = req.body;
-    if (typeof issueIndex !== "number") { res.status(400).json({ error: "issueIndex required" }); return; }
+      if (!conversion) {
+        res.status(404).json({ error: "Conversion not found" });
+        return;
+      }
 
-    const [conversion] = await db
-      .select()
-      .from(conversions)
-      .where(conversionOwnerFilter(id, userId));
+      const report = conversion.complianceReport as any;
+      if (!report?.issues?.[issueIndex]) {
+        res.status(400).json({ error: "Issue not found" });
+        return;
+      }
 
-    if (!conversion) { res.status(404).json({ error: "Conversion not found" }); return; }
-    if (conversion.status !== "completed" || !conversion.accessibleHtml) {
-      res.status(400).json({ error: "Conversion must be completed" }); return;
-    }
+      const issue = report.issues[issueIndex];
+      report.issues[issueIndex] = {
+        ...issue,
+        previousStatus: issue.status,
+        status: "accepted",
+        justification: justification || "Accepted by user",
+      };
 
-    const report = conversion.complianceReport as any;
-    if (!report?.issues?.[issueIndex]) {
-      res.status(400).json({ error: "Issue not found" }); return;
-    }
-
-    try {
-      const { fixComplianceIssue } = await import("./lib/accessibility-engine");
-      const result = await fixComplianceIssue(
-        conversion.accessibleHtml,
-        report.issues[issueIndex],
-        issueIndex,
-        report
+      const { buildComplianceReport } = await import(
+        "./lib/accessibility-engine"
       );
+      const updatedReport = buildComplianceReport(report.issues);
 
       const [updated] = await db
         .update(conversions)
-        .set({
-          accessibleHtml: result.accessibleHtml,
-          complianceReport: result.complianceReport,
-          updatedAt: new Date(),
-        })
+        .set({ complianceReport: updatedReport, updatedAt: new Date() })
         .where(eq(conversions.id, id))
         .returning({
           id: conversions.id,
@@ -2138,324 +2524,403 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         });
 
       res.json(updated);
-    } catch (err: any) {
-      res.status(500).json({ error: err.message || "Fix failed" });
-    }
-  });
+    },
+  );
 
-  app.post("/api/conversions/:id/accept-issue", optionalAuth, async (req: Request, res: Response) => {
-    const userId = getUserId(req);
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  app.post(
+    "/api/conversions/:id/revert-issue",
+    optionalAuth,
+    async (req: Request, res: Response) => {
+      const userId = getUserId(req);
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid ID" });
+        return;
+      }
 
-    const { issueIndex, justification } = req.body;
-    if (typeof issueIndex !== "number") { res.status(400).json({ error: "issueIndex required" }); return; }
+      const { issueIndex } = req.body;
+      if (typeof issueIndex !== "number") {
+        res.status(400).json({ error: "issueIndex required" });
+        return;
+      }
 
-    const [conversion] = await db
-      .select()
-      .from(conversions)
-      .where(conversionOwnerFilter(id, userId));
+      const [conversion] = await db
+        .select()
+        .from(conversions)
+        .where(conversionOwnerFilter(id, userId));
 
-    if (!conversion) { res.status(404).json({ error: "Conversion not found" }); return; }
+      if (!conversion) {
+        res.status(404).json({ error: "Conversion not found" });
+        return;
+      }
 
-    const report = conversion.complianceReport as any;
-    if (!report?.issues?.[issueIndex]) { res.status(400).json({ error: "Issue not found" }); return; }
+      const report = conversion.complianceReport as any;
+      if (!report?.issues?.[issueIndex]) {
+        res.status(400).json({ error: "Issue not found" });
+        return;
+      }
 
-    const issue = report.issues[issueIndex];
-    report.issues[issueIndex] = {
-      ...issue,
-      previousStatus: issue.status,
-      status: "accepted",
-      justification: justification || "Accepted by user",
-    };
+      const issue = report.issues[issueIndex];
+      if (issue.status !== "accepted" || !issue.previousStatus) {
+        res.status(400).json({ error: "Issue is not accepted" });
+        return;
+      }
 
-    const { buildComplianceReport } = await import("./lib/accessibility-engine");
-    const updatedReport = buildComplianceReport(report.issues);
+      report.issues[issueIndex] = {
+        ...issue,
+        status: issue.previousStatus,
+        previousStatus: undefined,
+        justification: undefined,
+      };
 
-    const [updated] = await db
-      .update(conversions)
-      .set({ complianceReport: updatedReport, updatedAt: new Date() })
-      .where(eq(conversions.id, id))
-      .returning({
-        id: conversions.id,
-        originalFilename: conversions.originalFilename,
-        fileSize: conversions.fileSize,
-        status: conversions.status,
-        pageCount: conversions.pageCount,
-        extractedText: conversions.extractedText,
-        accessibleHtml: conversions.accessibleHtml,
-        complianceReport: conversions.complianceReport,
-        originalComplianceReport: conversions.originalComplianceReport,
-        errorMessage: conversions.errorMessage,
-        ocrApplied: conversions.ocrApplied,
-        createdAt: conversions.createdAt,
-        updatedAt: conversions.updatedAt,
+      const { buildComplianceReport } = await import(
+        "./lib/accessibility-engine"
+      );
+      const updatedReport = buildComplianceReport(report.issues);
+
+      const [updated] = await db
+        .update(conversions)
+        .set({ complianceReport: updatedReport, updatedAt: new Date() })
+        .where(eq(conversions.id, id))
+        .returning({
+          id: conversions.id,
+          originalFilename: conversions.originalFilename,
+          fileSize: conversions.fileSize,
+          status: conversions.status,
+          pageCount: conversions.pageCount,
+          extractedText: conversions.extractedText,
+          accessibleHtml: conversions.accessibleHtml,
+          complianceReport: conversions.complianceReport,
+          originalComplianceReport: conversions.originalComplianceReport,
+          errorMessage: conversions.errorMessage,
+          ocrApplied: conversions.ocrApplied,
+          createdAt: conversions.createdAt,
+          updatedAt: conversions.updatedAt,
+        });
+
+      res.json(updated);
+    },
+  );
+
+  app.put(
+    "/api/conversions/:id/html",
+    optionalAuth,
+    async (req: Request, res: Response) => {
+      const userId = getUserId(req);
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid ID" });
+        return;
+      }
+
+      const { html } = req.body;
+      if (typeof html !== "string") {
+        res.status(400).json({ error: "html required" });
+        return;
+      }
+
+      const [conversion] = await db
+        .select({ id: conversions.id, status: conversions.status })
+        .from(conversions)
+        .where(conversionOwnerFilter(id, userId));
+
+      if (!conversion) {
+        res.status(404).json({ error: "Conversion not found" });
+        return;
+      }
+      if (conversion.status !== "completed") {
+        res.status(400).json({ error: "Must be completed" });
+        return;
+      }
+
+      const [updated] = await db
+        .update(conversions)
+        .set({ accessibleHtml: html, updatedAt: new Date() })
+        .where(eq(conversions.id, id))
+        .returning({
+          id: conversions.id,
+          originalFilename: conversions.originalFilename,
+          fileSize: conversions.fileSize,
+          status: conversions.status,
+          pageCount: conversions.pageCount,
+          extractedText: conversions.extractedText,
+          accessibleHtml: conversions.accessibleHtml,
+          complianceReport: conversions.complianceReport,
+          originalComplianceReport: conversions.originalComplianceReport,
+          errorMessage: conversions.errorMessage,
+          ocrApplied: conversions.ocrApplied,
+          createdAt: conversions.createdAt,
+          updatedAt: conversions.updatedAt,
+        });
+
+      res.json(updated);
+    },
+  );
+
+  app.get(
+    "/api/conversions/:id/download",
+    optionalAuth,
+    async (req: Request, res: Response) => {
+      const userId = getUserId(req);
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid ID" });
+        return;
+      }
+
+      const [conversion] = await db
+        .select({
+          accessibleHtml: conversions.accessibleHtml,
+          originalFilename: conversions.originalFilename,
+          status: conversions.status,
+          updatedAt: conversions.updatedAt,
+        })
+        .from(conversions)
+        .where(conversionOwnerFilter(id, userId));
+
+      if (!conversion) {
+        res.status(404).json({ error: "Conversion not found" });
+        return;
+      }
+      if (conversion.status !== "completed" || !conversion.accessibleHtml) {
+        res.status(400).json({ error: "HTML not available" });
+        return;
+      }
+
+      let html = conversion.accessibleHtml;
+      const updatedDate = conversion.updatedAt
+        ? new Date(conversion.updatedAt)
+        : new Date();
+      const readableDate = updatedDate.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
       });
 
-    res.json(updated);
-  });
+      const metaTag = `<meta name="date" content="${updatedDate.toISOString()}">`;
+      const headCloseIdx = html.indexOf("</head>");
+      if (headCloseIdx !== -1) {
+        html =
+          html.slice(0, headCloseIdx) +
+          `  ${metaTag}\n` +
+          html.slice(headCloseIdx);
+      }
 
-  app.post("/api/conversions/:id/revert-issue", optionalAuth, async (req: Request, res: Response) => {
-    const userId = getUserId(req);
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
+      const timestampFooter = `\n<footer style="margin-top:2rem;padding:1rem 0;border-top:1px solid #e0e0e0;font-size:0.85rem;color:#666;text-align:center;" role="contentinfo" aria-label="Document timestamp">\n  <p>This accessible document was last updated on ${readableDate}</p>\n</footer>`;
+      const bodyCloseIdx = html.lastIndexOf("</body>");
+      if (bodyCloseIdx !== -1) {
+        html =
+          html.slice(0, bodyCloseIdx) +
+          timestampFooter +
+          "\n" +
+          html.slice(bodyCloseIdx);
+      }
 
-    const { issueIndex } = req.body;
-    if (typeof issueIndex !== "number") { res.status(400).json({ error: "issueIndex required" }); return; }
+      const filename =
+        conversion.originalFilename.replace(/\.pdf$/i, "") + "-accessible.html";
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${filename}"`,
+      );
+      res.send(html);
+    },
+  );
 
-    const [conversion] = await db
-      .select()
-      .from(conversions)
-      .where(conversionOwnerFilter(id, userId));
+  app.get(
+    "/api/conversions/:id/download-docx",
+    optionalAuth,
+    async (req: Request, res: Response) => {
+      const userId = getUserId(req);
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid ID" });
+        return;
+      }
 
-    if (!conversion) { res.status(404).json({ error: "Conversion not found" }); return; }
+      const [conversion] = await db
+        .select({
+          accessibleHtml: conversions.accessibleHtml,
+          originalFilename: conversions.originalFilename,
+          status: conversions.status,
+          updatedAt: conversions.updatedAt,
+        })
+        .from(conversions)
+        .where(conversionOwnerFilter(id, userId));
 
-    const report = conversion.complianceReport as any;
-    if (!report?.issues?.[issueIndex]) { res.status(400).json({ error: "Issue not found" }); return; }
+      if (!conversion) {
+        res.status(404).json({ error: "Conversion not found" });
+        return;
+      }
+      if (conversion.status !== "completed" || !conversion.accessibleHtml) {
+        res.status(400).json({ error: "HTML not available" });
+        return;
+      }
 
-    const issue = report.issues[issueIndex];
-    if (issue.status !== "accepted" || !issue.previousStatus) {
-      res.status(400).json({ error: "Issue is not accepted" }); return;
-    }
-
-    report.issues[issueIndex] = {
-      ...issue,
-      status: issue.previousStatus,
-      previousStatus: undefined,
-      justification: undefined,
-    };
-
-    const { buildComplianceReport } = await import("./lib/accessibility-engine");
-    const updatedReport = buildComplianceReport(report.issues);
-
-    const [updated] = await db
-      .update(conversions)
-      .set({ complianceReport: updatedReport, updatedAt: new Date() })
-      .where(eq(conversions.id, id))
-      .returning({
-        id: conversions.id,
-        originalFilename: conversions.originalFilename,
-        fileSize: conversions.fileSize,
-        status: conversions.status,
-        pageCount: conversions.pageCount,
-        extractedText: conversions.extractedText,
-        accessibleHtml: conversions.accessibleHtml,
-        complianceReport: conversions.complianceReport,
-        originalComplianceReport: conversions.originalComplianceReport,
-        errorMessage: conversions.errorMessage,
-        ocrApplied: conversions.ocrApplied,
-        createdAt: conversions.createdAt,
-        updatedAt: conversions.updatedAt,
+      let html = conversion.accessibleHtml;
+      const updatedDate = conversion.updatedAt
+        ? new Date(conversion.updatedAt)
+        : new Date();
+      const readableDate = updatedDate.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
       });
 
-    res.json(updated);
-  });
+      const timestampFooter = `\n<footer style="margin-top:2rem;padding:1rem 0;border-top:1px solid #e0e0e0;font-size:0.85rem;color:#666;text-align:center;" role="contentinfo" aria-label="Document timestamp">\n  <p>This accessible document was last updated on ${readableDate}</p>\n</footer>`;
+      const bodyCloseIdx = html.lastIndexOf("</body>");
+      if (bodyCloseIdx !== -1) {
+        html =
+          html.slice(0, bodyCloseIdx) +
+          timestampFooter +
+          "\n" +
+          html.slice(bodyCloseIdx);
+      }
 
-  app.put("/api/conversions/:id/html", optionalAuth, async (req: Request, res: Response) => {
-    const userId = getUserId(req);
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
+      const titleMatch = html.match(/<title[^>]*>(.*?)<\/title>/i);
+      const docTitle = titleMatch
+        ? titleMatch[1]
+        : conversion.originalFilename.replace(/\.pdf$/i, "");
+      const langMatch = html.match(/<html[^>]*\slang=["']([^"']+)["']/i);
+      const docLang = langMatch ? langMatch[1] : "en";
 
-    const { html } = req.body;
-    if (typeof html !== "string") { res.status(400).json({ error: "html required" }); return; }
+      try {
+        const { buildDocx } = await import("./lib/docx-builder");
+        const docxBuffer = await buildDocx(html, {
+          title: docTitle,
+          filename: conversion.originalFilename,
+          lang: docLang,
+          author: "Accessibility Converter",
+        });
 
-    const [conversion] = await db
-      .select({ id: conversions.id, status: conversions.status })
-      .from(conversions)
-      .where(conversionOwnerFilter(id, userId));
+        const filename =
+          conversion.originalFilename
+            .replace(/\.pdf$/i, "")
+            .replace(/[^\w\s.-]/g, "_") + "-accessible.docx";
+        res.setHeader(
+          "Content-Type",
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        );
+        res.setHeader(
+          "Content-Disposition",
+          `attachment; filename="${filename}"`,
+        );
+        res.setHeader("Content-Length", docxBuffer.length);
+        res.end(docxBuffer);
+      } catch (err) {
+        console.error("DOCX conversion error:", err);
+        res.status(500).json({ error: "Failed to generate DOCX file" });
+      }
+    },
+  );
 
-    if (!conversion) { res.status(404).json({ error: "Conversion not found" }); return; }
-    if (conversion.status !== "completed") { res.status(400).json({ error: "Must be completed" }); return; }
+  app.get(
+    "/api/conversions/:id/download-pdf",
+    optionalAuth,
+    async (req: Request, res: Response) => {
+      const userId = getUserId(req);
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid ID" });
+        return;
+      }
 
-    const [updated] = await db
-      .update(conversions)
-      .set({ accessibleHtml: html, updatedAt: new Date() })
-      .where(eq(conversions.id, id))
-      .returning({
-        id: conversions.id,
-        originalFilename: conversions.originalFilename,
-        fileSize: conversions.fileSize,
-        status: conversions.status,
-        pageCount: conversions.pageCount,
-        extractedText: conversions.extractedText,
-        accessibleHtml: conversions.accessibleHtml,
-        complianceReport: conversions.complianceReport,
-        originalComplianceReport: conversions.originalComplianceReport,
-        errorMessage: conversions.errorMessage,
-        ocrApplied: conversions.ocrApplied,
-        createdAt: conversions.createdAt,
-        updatedAt: conversions.updatedAt,
+      const [conversion] = await db
+        .select({
+          accessibleHtml: conversions.accessibleHtml,
+          originalFilename: conversions.originalFilename,
+          status: conversions.status,
+          updatedAt: conversions.updatedAt,
+        })
+        .from(conversions)
+        .where(conversionOwnerFilter(id, userId));
+
+      if (!conversion) {
+        res.status(404).json({ error: "Conversion not found" });
+        return;
+      }
+      if (conversion.status !== "completed" || !conversion.accessibleHtml) {
+        res.status(400).json({ error: "Accessible HTML is not yet available" });
+        return;
+      }
+
+      let html = conversion.accessibleHtml;
+      const updatedDate = conversion.updatedAt
+        ? new Date(conversion.updatedAt)
+        : new Date();
+      const isoDate = updatedDate.toISOString();
+      const readableDate = updatedDate.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
       });
 
-    res.json(updated);
-  });
+      const metaTag = `<meta name="date" content="${isoDate}">`;
+      const headCloseIdx = html.indexOf("</head>");
+      if (headCloseIdx !== -1) {
+        html =
+          html.slice(0, headCloseIdx) +
+          `  ${metaTag}\n` +
+          html.slice(headCloseIdx);
+      }
 
-  app.get("/api/conversions/:id/download", optionalAuth, async (req: Request, res: Response) => {
-    const userId = getUserId(req);
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
+      const timestampFooter = `\n<footer style="margin-top:2rem;padding:1rem 0;border-top:1px solid #e0e0e0;font-size:0.85rem;color:#666;text-align:center;" role="contentinfo" aria-label="Document timestamp">\n  <p>This accessible document was last updated on ${readableDate}</p>\n</footer>`;
+      const bodyCloseIdx = html.lastIndexOf("</body>");
+      if (bodyCloseIdx !== -1) {
+        html =
+          html.slice(0, bodyCloseIdx) +
+          timestampFooter +
+          "\n" +
+          html.slice(bodyCloseIdx);
+      }
 
-    const [conversion] = await db
-      .select({
-        accessibleHtml: conversions.accessibleHtml,
-        originalFilename: conversions.originalFilename,
-        status: conversions.status,
-        updatedAt: conversions.updatedAt,
-      })
-      .from(conversions)
-      .where(conversionOwnerFilter(id, userId));
+      const titleMatch = html.match(/<title[^>]*>(.*?)<\/title>/i);
+      const docTitle = titleMatch
+        ? titleMatch[1]
+        : conversion.originalFilename.replace(/\.pdf$/i, "");
+      const langMatch = html.match(/<html[^>]*\slang=["']([^"']+)["']/i);
+      const docLang = langMatch ? langMatch[1] : "en";
+      const authorMatch =
+        html.match(/<meta\s+name=["']author["']\s+content=["']([^"']+)["']/i) ||
+        html.match(/<meta\s+content=["']([^"']+)["']\s+name=["']author["']/i);
+      const docAuthor = authorMatch
+        ? authorMatch[1]
+        : "Accessibility Converter";
 
-    if (!conversion) { res.status(404).json({ error: "Conversion not found" }); return; }
-    if (conversion.status !== "completed" || !conversion.accessibleHtml) {
-      res.status(400).json({ error: "HTML not available" }); return;
-    }
+      try {
+        const { buildPdf } = await import("./lib/pdf-builder");
+        const pdfBuffer = await buildPdf(html, {
+          title: docTitle,
+          lang: docLang,
+          author: docAuthor,
+        });
 
-    let html = conversion.accessibleHtml;
-    const updatedDate = conversion.updatedAt ? new Date(conversion.updatedAt) : new Date();
-    const readableDate = updatedDate.toLocaleDateString("en-US", {
-      year: "numeric", month: "long", day: "numeric", hour: "numeric", minute: "2-digit", hour12: true,
-    });
-
-    const metaTag = `<meta name="date" content="${updatedDate.toISOString()}">`;
-    const headCloseIdx = html.indexOf("</head>");
-    if (headCloseIdx !== -1) {
-      html = html.slice(0, headCloseIdx) + `  ${metaTag}\n` + html.slice(headCloseIdx);
-    }
-
-    const timestampFooter = `\n<footer style="margin-top:2rem;padding:1rem 0;border-top:1px solid #e0e0e0;font-size:0.85rem;color:#666;text-align:center;" role="contentinfo" aria-label="Document timestamp">\n  <p>This accessible document was last updated on ${readableDate}</p>\n</footer>`;
-    const bodyCloseIdx = html.lastIndexOf("</body>");
-    if (bodyCloseIdx !== -1) {
-      html = html.slice(0, bodyCloseIdx) + timestampFooter + "\n" + html.slice(bodyCloseIdx);
-    }
-
-    const filename = conversion.originalFilename.replace(/\.pdf$/i, "") + "-accessible.html";
-    res.setHeader("Content-Type", "text/html; charset=utf-8");
-    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-    res.send(html);
-  });
-
-  app.get("/api/conversions/:id/download-docx", optionalAuth, async (req: Request, res: Response) => {
-    const userId = getUserId(req);
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
-
-    const [conversion] = await db
-      .select({
-        accessibleHtml: conversions.accessibleHtml,
-        originalFilename: conversions.originalFilename,
-        status: conversions.status,
-        updatedAt: conversions.updatedAt,
-      })
-      .from(conversions)
-      .where(conversionOwnerFilter(id, userId));
-
-    if (!conversion) { res.status(404).json({ error: "Conversion not found" }); return; }
-    if (conversion.status !== "completed" || !conversion.accessibleHtml) {
-      res.status(400).json({ error: "HTML not available" }); return;
-    }
-
-    let html = conversion.accessibleHtml;
-    const updatedDate = conversion.updatedAt ? new Date(conversion.updatedAt) : new Date();
-    const readableDate = updatedDate.toLocaleDateString("en-US", {
-      year: "numeric", month: "long", day: "numeric", hour: "numeric", minute: "2-digit", hour12: true,
-    });
-
-    const timestampFooter = `\n<footer style="margin-top:2rem;padding:1rem 0;border-top:1px solid #e0e0e0;font-size:0.85rem;color:#666;text-align:center;" role="contentinfo" aria-label="Document timestamp">\n  <p>This accessible document was last updated on ${readableDate}</p>\n</footer>`;
-    const bodyCloseIdx = html.lastIndexOf("</body>");
-    if (bodyCloseIdx !== -1) {
-      html = html.slice(0, bodyCloseIdx) + timestampFooter + "\n" + html.slice(bodyCloseIdx);
-    }
-
-    const titleMatch = html.match(/<title[^>]*>(.*?)<\/title>/i);
-    const docTitle = titleMatch ? titleMatch[1] : conversion.originalFilename.replace(/\.pdf$/i, "");
-    const langMatch = html.match(/<html[^>]*\slang=["']([^"']+)["']/i);
-    const docLang = langMatch ? langMatch[1] : "en";
-
-    try {
-      const { buildDocx } = await import("./lib/docx-builder");
-      const docxBuffer = await buildDocx(html, {
-        title: docTitle,
-        filename: conversion.originalFilename,
-        lang: docLang,
-        author: "Accessibility Converter",
-      });
-
-      const filename = conversion.originalFilename.replace(/\.pdf$/i, "").replace(/[^\w\s.-]/g, "_") + "-accessible.docx";
-      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
-      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-      res.setHeader("Content-Length", docxBuffer.length);
-      res.end(docxBuffer);
-    } catch (err) {
-      console.error("DOCX conversion error:", err);
-      res.status(500).json({ error: "Failed to generate DOCX file" });
-    }
-  });
-
-  app.get("/api/conversions/:id/download-pdf", optionalAuth, async (req: Request, res: Response) => {
-    const userId = getUserId(req);
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
-
-    const [conversion] = await db
-      .select({
-        accessibleHtml: conversions.accessibleHtml,
-        originalFilename: conversions.originalFilename,
-        status: conversions.status,
-        updatedAt: conversions.updatedAt,
-      })
-      .from(conversions)
-      .where(conversionOwnerFilter(id, userId));
-
-    if (!conversion) { res.status(404).json({ error: "Conversion not found" }); return; }
-    if (conversion.status !== "completed" || !conversion.accessibleHtml) {
-      res.status(400).json({ error: "Accessible HTML is not yet available" }); return;
-    }
-
-    let html = conversion.accessibleHtml;
-    const updatedDate = conversion.updatedAt ? new Date(conversion.updatedAt) : new Date();
-    const isoDate = updatedDate.toISOString();
-    const readableDate = updatedDate.toLocaleDateString("en-US", {
-      year: "numeric", month: "long", day: "numeric", hour: "numeric", minute: "2-digit", hour12: true,
-    });
-
-    const metaTag = `<meta name="date" content="${isoDate}">`;
-    const headCloseIdx = html.indexOf("</head>");
-    if (headCloseIdx !== -1) {
-      html = html.slice(0, headCloseIdx) + `  ${metaTag}\n` + html.slice(headCloseIdx);
-    }
-
-    const timestampFooter = `\n<footer style="margin-top:2rem;padding:1rem 0;border-top:1px solid #e0e0e0;font-size:0.85rem;color:#666;text-align:center;" role="contentinfo" aria-label="Document timestamp">\n  <p>This accessible document was last updated on ${readableDate}</p>\n</footer>`;
-    const bodyCloseIdx = html.lastIndexOf("</body>");
-    if (bodyCloseIdx !== -1) {
-      html = html.slice(0, bodyCloseIdx) + timestampFooter + "\n" + html.slice(bodyCloseIdx);
-    }
-
-    const titleMatch = html.match(/<title[^>]*>(.*?)<\/title>/i);
-    const docTitle = titleMatch ? titleMatch[1] : conversion.originalFilename.replace(/\.pdf$/i, "");
-    const langMatch = html.match(/<html[^>]*\slang=["']([^"']+)["']/i);
-    const docLang = langMatch ? langMatch[1] : "en";
-    const authorMatch = html.match(/<meta\s+name=["']author["']\s+content=["']([^"']+)["']/i)
-      || html.match(/<meta\s+content=["']([^"']+)["']\s+name=["']author["']/i);
-    const docAuthor = authorMatch ? authorMatch[1] : "Accessibility Converter";
-
-    try {
-      const { buildPdf } = await import("./lib/pdf-builder");
-      const pdfBuffer = await buildPdf(html, {
-        title: docTitle,
-        lang: docLang,
-        author: docAuthor,
-      });
-
-      const filename = conversion.originalFilename.replace(/\.pdf$/i, "").replace(/[^\w\s.-]/g, "_") + "-accessible.pdf";
-      res.setHeader("Content-Type", "application/pdf");
-      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-      res.setHeader("Content-Length", pdfBuffer.length);
-      res.end(pdfBuffer);
-    } catch (err) {
-      console.error("PDF conversion error:", err);
-      res.status(500).json({ error: "Failed to generate PDF file" });
-    }
-  });
+        const filename =
+          conversion.originalFilename
+            .replace(/\.pdf$/i, "")
+            .replace(/[^\w\s.-]/g, "_") + "-accessible.pdf";
+        res.setHeader("Content-Type", "application/pdf");
+        res.setHeader(
+          "Content-Disposition",
+          `attachment; filename="${filename}"`,
+        );
+        res.setHeader("Content-Length", pdfBuffer.length);
+        res.end(pdfBuffer);
+      } catch (err) {
+        console.error("PDF conversion error:", err);
+        res.status(500).json({ error: "Failed to generate PDF file" });
+      }
+    },
+  );
 
   return httpServer;
 }
@@ -2463,16 +2928,18 @@ Please generate an IMPROVED version that incorporates the requested changes whil
 function parseInlineFormatting(text: string): TextRun[] {
   const runs: TextRun[] = [];
   let currentText = text;
-  
+
   const regex = /(\*\*([^*]+)\*\*|\*([^*]+)\*|__([^_]+)__|_([^_]+)_)/g;
   let lastIndex = 0;
   let match;
-  
+
   while ((match = regex.exec(text)) !== null) {
     if (match.index > lastIndex) {
-      runs.push(new TextRun({ text: text.slice(lastIndex, match.index), size: 22 }));
+      runs.push(
+        new TextRun({ text: text.slice(lastIndex, match.index), size: 22 }),
+      );
     }
-    
+
     if (match[2]) {
       runs.push(new TextRun({ text: match[2], bold: true, size: 22 }));
     } else if (match[3]) {
@@ -2482,17 +2949,17 @@ function parseInlineFormatting(text: string): TextRun[] {
     } else if (match[5]) {
       runs.push(new TextRun({ text: match[5], italics: true, size: 22 }));
     }
-    
+
     lastIndex = match.index + match[0].length;
   }
-  
+
   if (lastIndex < text.length) {
     runs.push(new TextRun({ text: text.slice(lastIndex), size: 22 }));
   }
-  
+
   if (runs.length === 0) {
     runs.push(new TextRun({ text, size: 22 }));
   }
-  
+
   return runs;
 }

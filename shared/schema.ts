@@ -1,5 +1,14 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, serial, integer, timestamp, jsonb, boolean } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  varchar,
+  serial,
+  integer,
+  timestamp,
+  jsonb,
+  boolean,
+} from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -22,8 +31,12 @@ export const courses = pgTable("courses", {
   prerequisites: text("prerequisites"),
   existingSyllabus: text("existing_syllabus"),
   additionalContext: text("additional_context"),
-  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
-  updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+  createdAt: timestamp("created_at")
+    .default(sql`CURRENT_TIMESTAMP`)
+    .notNull(),
+  updatedAt: timestamp("updated_at")
+    .default(sql`CURRENT_TIMESTAMP`)
+    .notNull(),
 });
 
 export const insertCourseSchema = createInsertSchema(courses).omit({
@@ -39,34 +52,48 @@ export type Course = typeof courses.$inferSelect;
 // Generated content table
 export const generatedContent = pgTable("generated_content", {
   id: serial("id").primaryKey(),
-  courseId: integer("course_id").references(() => courses.id, { onDelete: "cascade" }),
+  courseId: integer("course_id").references(() => courses.id, {
+    onDelete: "cascade",
+  }),
   userId: text("user_id"),
   toolType: text("tool_type").notNull(),
   toolName: text("tool_name").notNull(),
   formData: jsonb("form_data").notNull(),
   content: text("content").notNull(),
   isApproved: boolean("is_approved").default(false).notNull(),
-  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+  createdAt: timestamp("created_at")
+    .default(sql`CURRENT_TIMESTAMP`)
+    .notNull(),
 });
 
-export const insertGeneratedContentSchema = createInsertSchema(generatedContent).omit({
+export const insertGeneratedContentSchema = createInsertSchema(
+  generatedContent,
+).omit({
   id: true,
   createdAt: true,
 });
 
-export type InsertGeneratedContent = z.infer<typeof insertGeneratedContentSchema>;
+export type InsertGeneratedContent = z.infer<
+  typeof insertGeneratedContentSchema
+>;
 export type GeneratedContent = typeof generatedContent.$inferSelect;
 
 // Version history for refinements
 export const contentVersions = pgTable("content_versions", {
   id: serial("id").primaryKey(),
-  generatedContentId: integer("generated_content_id").notNull().references(() => generatedContent.id, { onDelete: "cascade" }),
+  generatedContentId: integer("generated_content_id")
+    .notNull()
+    .references(() => generatedContent.id, { onDelete: "cascade" }),
   content: text("content").notNull(),
   refinementRequest: text("refinement_request"),
-  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+  createdAt: timestamp("created_at")
+    .default(sql`CURRENT_TIMESTAMP`)
+    .notNull(),
 });
 
-export const insertContentVersionSchema = createInsertSchema(contentVersions).omit({
+export const insertContentVersionSchema = createInsertSchema(
+  contentVersions,
+).omit({
   id: true,
   createdAt: true,
 });
@@ -81,7 +108,9 @@ export const savedContent = pgTable("saved_content", {
   toolType: text("tool_type").notNull(),
   content: text("content").notNull(),
   description: text("description"),
-  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+  createdAt: timestamp("created_at")
+    .default(sql`CURRENT_TIMESTAMP`)
+    .notNull(),
 });
 
 export const insertSavedContentSchema = createInsertSchema(savedContent).omit({
@@ -109,8 +138,12 @@ export const conversions = pgTable("conversions", {
   pdfData: text("pdf_data"),
   ocrApplied: boolean("ocr_applied").notNull().default(false),
   userId: varchar("user_id"),
-  createdAt: timestamp("created_at", { withTimezone: true }).default(sql`CURRENT_TIMESTAMP`).notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .default(sql`CURRENT_TIMESTAMP`)
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .default(sql`CURRENT_TIMESTAMP`)
+    .notNull(),
 });
 
 export const insertConversionSchema = createInsertSchema(conversions).omit({
@@ -128,43 +161,49 @@ export const COURSE_TEMPLATES = {
     name: "Traditional Lecture",
     description: "Standard lecture-based course with exams and assignments",
     defaults: {
-      additionalContext: "This is a traditional lecture course. Students attend scheduled lectures, complete readings, and are assessed through exams and written assignments. Consider incorporating active learning strategies and discussion opportunities.",
-    }
+      additionalContext:
+        "This is a traditional lecture course. Students attend scheduled lectures, complete readings, and are assessed through exams and written assignments. Consider incorporating active learning strategies and discussion opportunities.",
+    },
   },
   lab: {
     name: "Laboratory Course",
     description: "Hands-on lab with practical experiments and reports",
     defaults: {
-      additionalContext: "This is a laboratory course with hands-on components. Students work in lab settings conducting experiments or practical exercises. Assessment includes lab reports, practical exams, and safety compliance. Equipment and material preparation is required.",
-    }
+      additionalContext:
+        "This is a laboratory course with hands-on components. Students work in lab settings conducting experiments or practical exercises. Assessment includes lab reports, practical exams, and safety compliance. Equipment and material preparation is required.",
+    },
   },
   online: {
     name: "Fully Online",
     description: "Asynchronous online course with flexible scheduling",
     defaults: {
-      additionalContext: "This is a fully online asynchronous course. All content is delivered through Blackboard Ultra. Students work at their own pace within weekly deadlines. Include video lectures, discussion forums, and varied assessment types for engagement.",
-    }
+      additionalContext:
+        "This is a fully online asynchronous course. All content is delivered through Blackboard Ultra. Students work at their own pace within weekly deadlines. Include video lectures, discussion forums, and varied assessment types for engagement.",
+    },
   },
   hybrid: {
     name: "Hybrid/Blended",
     description: "Mix of in-person and online components",
     defaults: {
-      additionalContext: "This is a hybrid course combining in-person and online components. Some sessions meet face-to-face while others are completed online. Clear communication about which sessions are in-person vs. online is essential.",
-    }
+      additionalContext:
+        "This is a hybrid course combining in-person and online components. Some sessions meet face-to-face while others are completed online. Clear communication about which sessions are in-person vs. online is essential.",
+    },
   },
   seminar: {
     name: "Seminar/Discussion",
     description: "Discussion-based course with student presentations",
     defaults: {
-      additionalContext: "This is a seminar-style course emphasizing discussion, critical analysis, and student presentations. Students are expected to actively participate, lead discussions, and engage with peer work. Assessment focuses on participation, presentations, and written analysis.",
-    }
+      additionalContext:
+        "This is a seminar-style course emphasizing discussion, critical analysis, and student presentations. Students are expected to actively participate, lead discussions, and engage with peer work. Assessment focuses on participation, presentations, and written analysis.",
+    },
   },
   studio: {
     name: "Studio/Workshop",
     description: "Creative or skill-based hands-on course",
     defaults: {
-      additionalContext: "This is a studio/workshop course focused on developing practical skills through hands-on work. Students create projects, receive critique, and iterate on their work. Assessment includes portfolio work, progress demonstrations, and final projects.",
-    }
+      additionalContext:
+        "This is a studio/workshop course focused on developing practical skills through hands-on work. Students create projects, receive critique, and iterate on their work. Assessment includes portfolio work, progress demonstrations, and final projects.",
+    },
   },
 } as const;
 

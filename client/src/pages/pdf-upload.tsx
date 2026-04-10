@@ -2,7 +2,16 @@ import { useCallback, useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useDropzone } from "react-dropzone";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { UploadCloud, Loader2, AlertCircle, File, FileText, History, ArrowRight, HelpCircle } from "lucide-react";
+import {
+  UploadCloud,
+  Loader2,
+  AlertCircle,
+  File,
+  FileText,
+  History,
+  ArrowRight,
+  HelpCircle,
+} from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { HeaderControls } from "@/components/header-controls";
 import { usePageTitle } from "@/hooks/use-page-title";
@@ -21,7 +30,9 @@ function formatBytes(bytes: number): string {
 
 export default function PdfUpload() {
   usePageTitle("Accessibility Converter");
-  useEffect(() => { window.scrollTo(0, 0); }, []);
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
   const [, navigate] = useLocation();
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -63,7 +74,9 @@ export default function PdfUpload() {
       return;
     }
     if (!trimmed.match(/docs\.google\.com\/document\/d\//)) {
-      setUploadError("Invalid Google Docs URL. Please paste a link like https://docs.google.com/document/d/...");
+      setUploadError(
+        "Invalid Google Docs URL. Please paste a link like https://docs.google.com/document/d/...",
+      );
       return;
     }
     const docIdMatch = trimmed.match(/\/document\/d\/([a-zA-Z0-9_-]+)/);
@@ -72,7 +85,10 @@ export default function PdfUpload() {
       return;
     }
     const docId = docIdMatch[1];
-    window.open(`https://docs.google.com/document/d/${docId}/export?format=docx`, "_blank");
+    window.open(
+      `https://docs.google.com/document/d/${docId}/export?format=docx`,
+      "_blank",
+    );
     setGoogleDocUrl("");
     setUploadError(null);
   };
@@ -81,21 +97,24 @@ export default function PdfUpload() {
     (acceptedFiles: File[], rejectedFiles: any[]) => {
       setUploadError(null);
       if (rejectedFiles.length > 0) {
-        setUploadError("Please upload a valid PDF or Word (.docx) document under 20MB.");
+        setUploadError(
+          "Please upload a valid PDF or Word (.docx) document under 20MB.",
+        );
         return;
       }
       if (acceptedFiles.length > 0) {
         uploadMutation.mutate(acceptedFiles[0]);
       }
     },
-    [uploadMutation]
+    [uploadMutation],
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
       "application/pdf": [".pdf"],
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+        [".docx"],
     },
     maxFiles: 1,
     maxSize: 20 * 1024 * 1024,
@@ -104,16 +123,24 @@ export default function PdfUpload() {
 
   if (authLoading) {
     return (
-      <main id="main-content" tabIndex={-1} className="min-h-screen flex items-center justify-center bg-background">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="min-h-screen flex items-center justify-center bg-background"
+      >
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </main>
     );
   }
 
-  const recent = isAuthenticated ? (recentConversions?.slice(0, 5) || []) : [];
+  const recent = isAuthenticated ? recentConversions?.slice(0, 5) || [] : [];
 
   return (
-    <main id="main-content" tabIndex={-1} className="min-h-screen bg-background">
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className="min-h-screen bg-background"
+    >
       <header className="border-b bg-card">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -121,19 +148,28 @@ export default function PdfUpload() {
               <FileText className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="font-bold text-foreground text-lg" data-testid="text-page-title">Accessibility Converter</h1>
-              <p className="text-xs text-muted-foreground">ADA Title II & WCAG 2.1 AA Compliance</p>
+              <h1
+                className="font-bold text-foreground text-lg"
+                data-testid="text-page-title"
+              >
+                Accessibility Converter
+              </h1>
+              <p className="text-xs text-muted-foreground">
+                ADA Title II & WCAG 2.1 AA Compliance
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {isAuthenticated && <button
-              onClick={() => navigate("/pdf-accessibility/history")}
-              className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-              data-testid="link-history"
-            >
-              <History className="w-4 h-4" />
-              History
-            </button>}
+            {isAuthenticated && (
+              <button
+                onClick={() => navigate("/pdf-accessibility/history")}
+                className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                data-testid="link-history"
+              >
+                <History className="w-4 h-4" />
+                History
+              </button>
+            )}
             <button
               onClick={() => navigate("/pdf-accessibility/faq")}
               className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
@@ -142,16 +178,23 @@ export default function PdfUpload() {
               <HelpCircle className="w-4 h-4" />
               FAQ
             </button>
-            <HeaderControls showHome={true} showLibrary={false} showHelp={false} />
+            <HeaderControls
+              showHome={true}
+              showLibrary={false}
+              showHelp={false}
+            />
           </div>
         </div>
       </header>
 
       <div className="container mx-auto px-4 py-12 max-w-4xl">
         <div className="text-center mb-10">
-          <h2 className="text-3xl font-bold text-foreground mb-3">Convert Documents to Accessible Formats</h2>
+          <h2 className="text-3xl font-bold text-foreground mb-3">
+            Convert Documents to Accessible Formats
+          </h2>
           <p className="text-muted-foreground max-w-xl mx-auto">
-            Upload a PDF or Word document and our AI will generate a WCAG 2.1 AA compliant accessible version. Download as Word (.docx) or HTML.
+            Upload a PDF or Word document and our AI will generate a WCAG 2.1 AA
+            compliant accessible version. Download as Word (.docx) or HTML.
           </p>
         </div>
 
@@ -172,8 +215,15 @@ export default function PdfUpload() {
               <UploadCloud className="w-5 h-5" aria-hidden="true" />
             </div>
             <div>
-              <h3 className="font-bold text-foreground text-lg" data-testid="heading-upload-section">Upload a PDF or Word Document</h3>
-              <p className="text-sm text-muted-foreground">Drag and drop or click to browse your files</p>
+              <h3
+                className="font-bold text-foreground text-lg"
+                data-testid="heading-upload-section"
+              >
+                Upload a PDF or Word Document
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                Drag and drop or click to browse your files
+              </p>
             </div>
           </div>
           <div className="p-6">
@@ -184,11 +234,16 @@ export default function PdfUpload() {
                 isDragActive
                   ? "border-primary bg-primary/5 scale-[1.01]"
                   : "border-border hover:border-primary/50 hover:bg-secondary/50 bg-background",
-                uploadMutation.isPending && "opacity-50 cursor-not-allowed pointer-events-none"
+                uploadMutation.isPending &&
+                  "opacity-50 cursor-not-allowed pointer-events-none",
               )}
               data-testid="dropzone-upload"
             >
-              <input {...getInputProps()} aria-label="Document File Upload" data-testid="input-file-upload" />
+              <input
+                {...getInputProps()}
+                aria-label="Document File Upload"
+                data-testid="input-file-upload"
+              />
               <div className="flex flex-col items-center justify-center space-y-4">
                 <div
                   className={cn(
@@ -197,11 +252,14 @@ export default function PdfUpload() {
                       ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25"
                       : isDragActive
                         ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25"
-                        : "bg-secondary text-primary group-hover:bg-primary group-hover:text-primary-foreground"
+                        : "bg-secondary text-primary group-hover:bg-primary group-hover:text-primary-foreground",
                   )}
                 >
                   {uploadMutation.isPending ? (
-                    <Loader2 className="w-8 h-8 animate-spin" aria-hidden="true" />
+                    <Loader2
+                      className="w-8 h-8 animate-spin"
+                      aria-hidden="true"
+                    />
                   ) : (
                     <UploadCloud className="w-8 h-8" aria-hidden="true" />
                   )}
@@ -239,24 +297,40 @@ export default function PdfUpload() {
               <SiGoogledrive className="w-5 h-5" aria-hidden="true" />
             </div>
             <div>
-              <h3 className="font-bold text-foreground text-lg" data-testid="heading-google-section">Import from Google Docs</h3>
-              <p className="text-sm text-muted-foreground">Convert a shared Google Doc to an accessible format</p>
+              <h3
+                className="font-bold text-foreground text-lg"
+                data-testid="heading-google-section"
+              >
+                Import from Google Docs
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                Convert a shared Google Doc to an accessible format
+              </p>
             </div>
           </div>
           <div className="p-6" data-testid="google-doc-import-section">
             <div className="space-y-4">
               <div className="flex items-start gap-4">
-                <div className="flex-shrink-0 w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold mt-1">1</div>
+                <div className="flex-shrink-0 w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold mt-1">
+                  1
+                </div>
                 <div className="flex-1">
-                  <p className="text-sm font-semibold text-foreground mb-2">Paste your Google Docs link and click Download</p>
+                  <p className="text-sm font-semibold text-foreground mb-2">
+                    Paste your Google Docs link and click Download
+                  </p>
                   <div className="flex gap-2">
                     <div className="relative flex-1">
-                      <SiGoogledrive className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
+                      <SiGoogledrive
+                        className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"
+                        aria-hidden="true"
+                      />
                       <input
                         type="url"
                         value={googleDocUrl}
                         onChange={(e) => setGoogleDocUrl(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === "Enter") handleGoogleDocDownload(); }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleGoogleDocDownload();
+                        }}
                         placeholder="https://docs.google.com/document/d/..."
                         className="w-full pl-10 pr-3 py-2.5 border border-border rounded-xl bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all"
                         data-testid="input-google-doc-url"
@@ -275,11 +349,21 @@ export default function PdfUpload() {
                 </div>
               </div>
               <div className="flex items-start gap-4">
-                <div className="flex-shrink-0 w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold mt-0.5">2</div>
-                <p className="text-sm font-semibold text-foreground mt-1">Upload the downloaded Word file using the upload area above</p>
+                <div className="flex-shrink-0 w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold mt-0.5">
+                  2
+                </div>
+                <p className="text-sm font-semibold text-foreground mt-1">
+                  Upload the downloaded Word file using the upload area above
+                </p>
               </div>
             </div>
-            <p className="mt-4 text-xs text-muted-foreground" data-testid="text-google-doc-hint">The document must be shared as "Anyone with the link" for the download to work.</p>
+            <p
+              className="mt-4 text-xs text-muted-foreground"
+              data-testid="text-google-doc-hint"
+            >
+              The document must be shared as "Anyone with the link" for the
+              download to work.
+            </p>
           </div>
         </div>
 
@@ -303,15 +387,22 @@ export default function PdfUpload() {
                   className="w-full flex items-center gap-4 p-4 bg-card border rounded-xl hover:border-primary/30 transition-all text-left"
                   data-testid={`card-conversion-${conv.id}`}
                 >
-
-                  <FileText className="w-5 h-5 text-primary flex-shrink-0" aria-hidden="true" />
+                  <FileText
+                    className="w-5 h-5 text-primary flex-shrink-0"
+                    aria-hidden="true"
+                  />
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-foreground truncate">{conv.originalFilename}</p>
+                    <p className="font-medium text-foreground truncate">
+                      {conv.originalFilename}
+                    </p>
                     <p className="text-xs text-muted-foreground">
                       {conv.sourceType && conv.sourceType !== "pdf" && (
-                        <span className="uppercase font-semibold mr-1">{conv.sourceType}</span>
+                        <span className="uppercase font-semibold mr-1">
+                          {conv.sourceType}
+                        </span>
                       )}
-                      {formatBytes(conv.fileSize)} · {format(new Date(conv.createdAt), "MMM d, yyyy")}
+                      {formatBytes(conv.fileSize)} ·{" "}
+                      {format(new Date(conv.createdAt), "MMM d, yyyy")}
                     </p>
                   </div>
                   <span
@@ -323,12 +414,21 @@ export default function PdfUpload() {
                           ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
                           : conv.status === "failed"
                             ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                            : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+                            : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
                     )}
                   >
-                    {conv.status === "completed" ? "Accessible" : conv.status === "processing" ? "Processing" : conv.status === "failed" ? "Failed" : "Uploaded"}
+                    {conv.status === "completed"
+                      ? "Accessible"
+                      : conv.status === "processing"
+                        ? "Processing"
+                        : conv.status === "failed"
+                          ? "Failed"
+                          : "Uploaded"}
                   </span>
-                  <ArrowRight className="w-4 h-4 text-muted-foreground" aria-hidden="true" />
+                  <ArrowRight
+                    className="w-4 h-4 text-muted-foreground"
+                    aria-hidden="true"
+                  />
                 </button>
               ))}
             </div>

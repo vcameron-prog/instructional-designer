@@ -1,7 +1,14 @@
 import { useEffect } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { FileText, Trash2, ArrowLeft, Loader2, Upload, ArrowRight } from "lucide-react";
+import {
+  FileText,
+  Trash2,
+  ArrowLeft,
+  Loader2,
+  Upload,
+  ArrowRight,
+} from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { HeaderControls } from "@/components/header-controls";
 import { usePageTitle } from "@/hooks/use-page-title";
@@ -20,7 +27,9 @@ function formatBytes(bytes: number): string {
 
 export default function PdfHistory() {
   usePageTitle("Conversion History");
-  useEffect(() => { window.scrollTo(0, 0); }, []);
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [, navigate] = useLocation();
 
@@ -40,14 +49,22 @@ export default function PdfHistory() {
 
   if (authLoading || isLoading) {
     return (
-      <main id="main-content" tabIndex={-1} className="min-h-screen flex items-center justify-center bg-background">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="min-h-screen flex items-center justify-center bg-background"
+      >
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </main>
     );
   }
 
   return (
-    <main id="main-content" tabIndex={-1} className="min-h-screen bg-background">
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className="min-h-screen bg-background"
+    >
       <header className="border-b bg-card">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -59,8 +76,15 @@ export default function PdfHistory() {
               <ArrowLeft className="w-5 h-5" />
             </button>
             <div>
-              <h1 className="font-bold text-foreground text-lg" data-testid="text-page-title">Conversion History</h1>
-              <p className="text-xs text-muted-foreground">{conversions?.length || 0} documents converted</p>
+              <h1
+                className="font-bold text-foreground text-lg"
+                data-testid="text-page-title"
+              >
+                Conversion History
+              </h1>
+              <p className="text-xs text-muted-foreground">
+                {conversions?.length || 0} documents converted
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -72,7 +96,11 @@ export default function PdfHistory() {
               <Upload className="w-4 h-4" />
               New Conversion
             </button>
-            <HeaderControls showHome={true} showLibrary={false} showHelp={false} />
+            <HeaderControls
+              showHome={true}
+              showLibrary={false}
+              showHelp={false}
+            />
           </div>
         </div>
       </header>
@@ -81,8 +109,12 @@ export default function PdfHistory() {
         {!conversions || conversions.length === 0 ? (
           <div className="text-center py-16">
             <FileText className="w-12 h-12 mx-auto text-muted-foreground mb-4 opacity-50" />
-            <h2 className="text-xl font-bold text-foreground mb-2">No conversions yet</h2>
-            <p className="text-muted-foreground mb-6">Upload a document to get started with accessibility remediation.</p>
+            <h2 className="text-xl font-bold text-foreground mb-2">
+              No conversions yet
+            </h2>
+            <p className="text-muted-foreground mb-6">
+              Upload a document to get started with accessibility remediation.
+            </p>
             <button
               onClick={() => navigate("/pdf-accessibility")}
               className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-xl font-bold shadow-md hover:-translate-y-0.5 transition-all"
@@ -105,17 +137,27 @@ export default function PdfHistory() {
                   className="flex items-center gap-4 flex-1 min-w-0 text-left"
                   data-testid={`link-conversion-${conv.id}`}
                 >
-                  <FileText className="w-5 h-5 text-primary flex-shrink-0" aria-hidden="true" />
+                  <FileText
+                    className="w-5 h-5 text-primary flex-shrink-0"
+                    aria-hidden="true"
+                  />
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-foreground truncate">{conv.originalFilename}</p>
+                    <p className="font-medium text-foreground truncate">
+                      {conv.originalFilename}
+                    </p>
                     <p className="text-xs text-muted-foreground">
                       {conv.sourceType && (
-                        <span className="uppercase font-semibold mr-1">{conv.sourceType}</span>
+                        <span className="uppercase font-semibold mr-1">
+                          {conv.sourceType}
+                        </span>
                       )}
                       {formatBytes(conv.fileSize)}
                       {conv.pageCount && ` · ${conv.pageCount} pages`}
                       {" · "}
-                      {format(new Date(conv.createdAt), "MMM d, yyyy 'at' h:mm a")}
+                      {format(
+                        new Date(conv.createdAt),
+                        "MMM d, yyyy 'at' h:mm a",
+                      )}
                     </p>
                   </div>
                   <span
@@ -127,7 +169,7 @@ export default function PdfHistory() {
                           ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
                           : conv.status === "failed"
                             ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                            : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+                            : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
                     )}
                   >
                     {conv.status === "completed"
@@ -138,12 +180,17 @@ export default function PdfHistory() {
                           ? "Failed"
                           : "Uploaded"}
                   </span>
-                  <ArrowRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" aria-hidden="true" />
+                  <ArrowRight
+                    className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+                    aria-hidden="true"
+                  />
                 </button>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (confirm("Delete this conversion? This cannot be undone.")) {
+                    if (
+                      confirm("Delete this conversion? This cannot be undone.")
+                    ) {
                       deleteMutation.mutate(conv.id);
                     }
                   }}

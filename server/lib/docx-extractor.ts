@@ -1,8 +1,14 @@
 import mammoth from "mammoth";
 import { parse } from "node-html-parser";
-import type { PdfExtraction, ExtractedImage, ExtractedTable } from "./pdf-processor";
+import type {
+  PdfExtraction,
+  ExtractedImage,
+  ExtractedTable,
+} from "./pdf-processor";
 
-export async function extractDocxContent(buffer: Buffer): Promise<PdfExtraction> {
+export async function extractDocxContent(
+  buffer: Buffer,
+): Promise<PdfExtraction> {
   const result = await mammoth.convertToHtml({ buffer });
   const htmlContent = result.value;
 
@@ -16,7 +22,9 @@ export async function extractDocxContent(buffer: Buffer): Promise<PdfExtraction>
   imgElements.forEach((img, index) => {
     const src = img.getAttribute("src") || "";
     const alt = img.getAttribute("alt") || "";
-    const dataMatch = src.match(/^data:image\/(png|jpeg|jpg|gif|bmp|webp);base64,(.+)$/i);
+    const dataMatch = src.match(
+      /^data:image\/(png|jpeg|jpg|gif|bmp|webp);base64,(.+)$/i,
+    );
     if (dataMatch) {
       images.push({
         pageNumber: 1,

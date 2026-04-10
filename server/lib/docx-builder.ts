@@ -21,7 +21,10 @@ import {
 } from "docx";
 import { parse, HTMLElement, TextNode, NodeType } from "node-html-parser";
 
-const HEADING_MAP: Record<string, (typeof HeadingLevel)[keyof typeof HeadingLevel]> = {
+const HEADING_MAP: Record<
+  string,
+  (typeof HeadingLevel)[keyof typeof HeadingLevel]
+> = {
   h1: HeadingLevel.HEADING_1,
   h2: HeadingLevel.HEADING_2,
   h3: HeadingLevel.HEADING_3,
@@ -52,14 +55,21 @@ interface TextStyle {
 
 type InlineChild = TextRun | ExternalHyperlink;
 
-function decodeBase64Image(dataUrl: string): { data: Buffer; width: number; height: number } | null {
-  const match = dataUrl.match(/^data:image\/(png|jpeg|jpg|gif|bmp|webp);base64,(.+)$/i);
+function decodeBase64Image(
+  dataUrl: string,
+): { data: Buffer; width: number; height: number } | null {
+  const match = dataUrl.match(
+    /^data:image\/(png|jpeg|jpg|gif|bmp|webp);base64,(.+)$/i,
+  );
   if (!match) return null;
   const data = Buffer.from(match[2], "base64");
   return { data, width: 400, height: 300 };
 }
 
-function extractInlineChildren(node: HTMLElement | TextNode, style: TextStyle = {}): InlineChild[] {
+function extractInlineChildren(
+  node: HTMLElement | TextNode,
+  style: TextStyle = {},
+): InlineChild[] {
   if (node.nodeType === NodeType.TEXT_NODE) {
     const text = sanitizeXmlText((node as TextNode).rawText);
     const normalizedText = text.replace(/\s+/g, " ");
@@ -110,7 +120,9 @@ function extractInlineChildren(node: HTMLElement | TextNode, style: TextStyle = 
 
   const children: InlineChild[] = [];
   for (const child of el.childNodes) {
-    children.push(...extractInlineChildren(child as HTMLElement | TextNode, newStyle));
+    children.push(
+      ...extractInlineChildren(child as HTMLElement | TextNode, newStyle),
+    );
   }
   return children;
 }
@@ -162,7 +174,7 @@ function processTable(el: HTMLElement): Table | null {
   }
   if (gridColCount === 0) return null;
 
-  const grid: (boolean)[][] = [];
+  const grid: boolean[][] = [];
   for (let r = 0; r < tableRows.length; r++) {
     grid[r] = new Array(gridColCount).fill(false);
   }
@@ -178,9 +190,11 @@ function processTable(el: HTMLElement): Table | null {
       if (grid[rowIdx][colPos]) {
         tableCells.push(
           new TableCell({
-            children: [new Paragraph({ children: [new TextRun({ text: "" })] })],
+            children: [
+              new Paragraph({ children: [new TextRun({ text: "" })] }),
+            ],
             verticalMerge: VerticalMergeType.CONTINUE,
-          })
+          }),
         );
         colPos++;
         continue;
@@ -189,8 +203,10 @@ function processTable(el: HTMLElement): Table | null {
       if (cellIdx >= cells.length) {
         tableCells.push(
           new TableCell({
-            children: [new Paragraph({ children: [new TextRun({ text: "" })] })],
-          })
+            children: [
+              new Paragraph({ children: [new TextRun({ text: "" })] }),
+            ],
+          }),
         );
         colPos++;
         continue;
@@ -200,7 +216,7 @@ function processTable(el: HTMLElement): Table | null {
       const isHeader = cell.tagName?.toLowerCase() === "th";
       const colSpan = Math.min(
         parseInt(cell.getAttribute("colspan") || "1", 10) || 1,
-        gridColCount - colPos
+        gridColCount - colPos,
       );
       const rowSpan = parseInt(cell.getAttribute("rowspan") || "1", 10) || 1;
 
@@ -224,7 +240,10 @@ function processTable(el: HTMLElement): Table | null {
         new TableCell({
           children: [
             new Paragraph({
-              children: inlineChildren.length > 0 ? inlineChildren : [new TextRun({ text: "" })],
+              children:
+                inlineChildren.length > 0
+                  ? inlineChildren
+                  : [new TextRun({ text: "" })],
             }),
           ],
           shading: isHeader
@@ -232,7 +251,7 @@ function processTable(el: HTMLElement): Table | null {
             : undefined,
           columnSpan: colSpan > 1 ? colSpan : undefined,
           verticalMerge: rowSpan > 1 ? VerticalMergeType.RESTART : undefined,
-        })
+        }),
       );
 
       colPos += colSpan;
@@ -240,7 +259,12 @@ function processTable(el: HTMLElement): Table | null {
     }
 
     const hasHeaderCells = cells[0]?.tagName?.toLowerCase() === "th";
-    rows.push(new TableRow({ children: tableCells, tableHeader: hasHeaderCells || undefined }));
+    rows.push(
+      new TableRow({
+        children: tableCells,
+        tableHeader: hasHeaderCells || undefined,
+      }),
+    );
   }
 
   return new Table({
@@ -249,7 +273,11 @@ function processTable(el: HTMLElement): Table | null {
   });
 }
 
-function processListItems(el: HTMLElement, ordered: boolean, level: number = 0): Paragraph[] {
+function processListItems(
+  el: HTMLElement,
+  ordered: boolean,
+  level: number = 0,
+): Paragraph[] {
   const paragraphs: Paragraph[] = [];
 
   for (const child of el.childNodes) {
@@ -266,7 +294,7 @@ function processListItems(el: HTMLElement, ordered: boolean, level: number = 0):
             reference: ordered ? "ordered-list" : "unordered-list",
             level: Math.min(level, 1),
           },
-        })
+        }),
       );
     }
 
@@ -274,7 +302,9 @@ function processListItems(el: HTMLElement, ordered: boolean, level: number = 0):
       const liChildEl = liChild as HTMLElement;
       const liChildTag = liChildEl.tagName?.toLowerCase();
       if (liChildTag === "ul" || liChildTag === "ol") {
-        paragraphs.push(...processListItems(liChildEl, liChildTag === "ol", level + 1));
+        paragraphs.push(
+          ...processListItems(liChildEl, liChildTag === "ol", level + 1),
+        );
       }
     }
   }
@@ -300,7 +330,9 @@ function processElementInner(el: HTMLElement): (Paragraph | Table)[] {
 
   if (!tag) {
     if (el.nodeType === NodeType.TEXT_NODE) {
-      const text = sanitizeXmlText((el as unknown as TextNode).rawText?.trim() || "");
+      const text = sanitizeXmlText(
+        (el as unknown as TextNode).rawText?.trim() || "",
+      );
       if (text) {
         results.push(new Paragraph({ children: [new TextRun({ text })] }));
       }
@@ -316,7 +348,7 @@ function processElementInner(el: HTMLElement): (Paragraph | Table)[] {
           children,
           heading: HEADING_MAP[tag],
           spacing: { before: 240, after: 120 },
-        })
+        }),
       );
     }
     return results;
@@ -330,7 +362,9 @@ function processElementInner(el: HTMLElement): (Paragraph | Table)[] {
         const imgPara = processImage(childEl);
         if (imgPara) results.push(imgPara);
       } else {
-        children.push(...extractInlineChildren(child as HTMLElement | TextNode));
+        children.push(
+          ...extractInlineChildren(child as HTMLElement | TextNode),
+        );
       }
     }
     if (children.length > 0) {
@@ -371,7 +405,7 @@ function processElementInner(el: HTMLElement): (Paragraph | Table)[] {
               children,
               alignment: AlignmentType.CENTER,
               spacing: { after: 200 },
-            })
+            }),
           );
         }
       } else if (childTag === "table") {
@@ -394,7 +428,7 @@ function processElementInner(el: HTMLElement): (Paragraph | Table)[] {
               link: href,
             }),
           ],
-        })
+        }),
       );
     }
     return results;
@@ -409,9 +443,14 @@ function processElementInner(el: HTMLElement): (Paragraph | Table)[] {
           indent: { left: 720 },
           spacing: { before: 200, after: 200 },
           border: {
-            left: { style: BorderStyle.SINGLE, size: 6, color: "999999", space: 10 },
+            left: {
+              style: BorderStyle.SINGLE,
+              size: 6,
+              color: "999999",
+              space: 10,
+            },
           },
-        })
+        }),
       );
     }
     return results;
@@ -425,7 +464,7 @@ function processElementInner(el: HTMLElement): (Paragraph | Table)[] {
           bottom: { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" },
         },
         spacing: { before: 200, after: 200 },
-      })
+      }),
     );
     return results;
   }
@@ -437,13 +476,15 @@ function processElementInner(el: HTMLElement): (Paragraph | Table)[] {
       const runs: TextRun[] = [];
       for (let i = 0; i < lines.length; i++) {
         if (i > 0) runs.push(new TextRun({ text: "", break: 1 }));
-        runs.push(new TextRun({ text: lines[i], font: "Courier New", size: 20 }));
+        runs.push(
+          new TextRun({ text: lines[i], font: "Courier New", size: 20 }),
+        );
       }
       results.push(
         new Paragraph({
           children: runs,
           spacing: { before: 100, after: 100 },
-        })
+        }),
       );
     }
     return results;
@@ -456,7 +497,7 @@ function processElementInner(el: HTMLElement): (Paragraph | Table)[] {
         new Paragraph({
           children: [new TextRun({ text, font: "Courier New", size: 20 })],
           spacing: { before: 100, after: 100 },
-        })
+        }),
       );
     }
     return results;
@@ -472,14 +513,14 @@ function processElementInner(el: HTMLElement): (Paragraph | Table)[] {
             top: { style: BorderStyle.SINGLE, size: 1, color: "E0E0E0" },
           },
           spacing: { before: 400 },
-        })
+        }),
       );
       results.push(
         new Paragraph({
           children,
           alignment: AlignmentType.CENTER,
           spacing: { before: 100, after: 200 },
-        })
+        }),
       );
     }
     return results;
@@ -513,7 +554,7 @@ function processElementInner(el: HTMLElement): (Paragraph | Table)[] {
 
 export async function buildDocx(
   html: string,
-  metadata: { title: string; filename: string; lang: string; author?: string }
+  metadata: { title: string; filename: string; lang: string; author?: string },
 ): Promise<Buffer> {
   const root = parse(html);
 
@@ -529,7 +570,9 @@ export async function buildDocx(
   if (docChildren.length === 0) {
     const textContent = sanitizeXmlText(contentRoot.textContent?.trim() || "");
     if (textContent) {
-      docChildren.push(new Paragraph({ children: [new TextRun({ text: textContent })] }));
+      docChildren.push(
+        new Paragraph({ children: [new TextRun({ text: textContent })] }),
+      );
     }
   }
 
@@ -543,15 +586,35 @@ export async function buildDocx(
         {
           reference: "ordered-list",
           levels: [
-            { level: 0, format: LevelFormat.DECIMAL, text: "%1.", alignment: AlignmentType.START },
-            { level: 1, format: LevelFormat.LOWER_LETTER, text: "%2.", alignment: AlignmentType.START },
+            {
+              level: 0,
+              format: LevelFormat.DECIMAL,
+              text: "%1.",
+              alignment: AlignmentType.START,
+            },
+            {
+              level: 1,
+              format: LevelFormat.LOWER_LETTER,
+              text: "%2.",
+              alignment: AlignmentType.START,
+            },
           ],
         },
         {
           reference: "unordered-list",
           levels: [
-            { level: 0, format: LevelFormat.BULLET, text: "\u2022", alignment: AlignmentType.START },
-            { level: 1, format: LevelFormat.BULLET, text: "\u25E6", alignment: AlignmentType.START },
+            {
+              level: 0,
+              format: LevelFormat.BULLET,
+              text: "\u2022",
+              alignment: AlignmentType.START,
+            },
+            {
+              level: 1,
+              format: LevelFormat.BULLET,
+              text: "\u25E6",
+              alignment: AlignmentType.START,
+            },
           ],
         },
       ],

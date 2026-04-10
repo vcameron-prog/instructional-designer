@@ -6,3 +6,9 @@ id = "_QnzlVSKeXzq5KayWb_de"
 uri = "file://attached_assets/CHANGES_FOR_OTHER_REPLIT.md"
 type = "text"
 title = "Code Changes Reference for Other Replit"
+
+[[outputs]]
+id = "z4WAbtsUWYJXQqCevoMzO"
+uri = "file://accessibility-converter-code.tar.gz"
+type = "unspecified"
+title = "Accessibility Converter - All Code Files"

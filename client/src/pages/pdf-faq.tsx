@@ -1,6 +1,12 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-import { ChevronDown, ChevronRight, ArrowLeft, FileText, HelpCircle } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  ArrowLeft,
+  FileText,
+  HelpCircle,
+} from "lucide-react";
 import { HeaderControls } from "@/components/header-controls";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { cn } from "@/lib/utils";
@@ -20,50 +26,158 @@ const FAQ_SECTIONS: FAQSection[] = [
   {
     title: "Getting Started",
     items: [
-      { question: "What does this tool do?", answer: "This tool converts PDF, Word (.docx), and Google Docs documents into accessible HTML files that meet ADA Title II and WCAG 2.1 Level AA requirements. It uses AI to analyze your document's structure, add proper headings, image descriptions, reading order, and other accessibility features." },
-      { question: "Who is this tool for?", answer: "This tool is designed for BSU faculty and staff who need to make their course materials and documents accessible to all students, including those who use screen readers or other assistive technologies." },
-      { question: "Do I need to sign in?", answer: ["Signing in is optional. Here's the difference:", "• Without signing in — You can upload documents and convert them, but your conversion history won't be saved.", "• With signing in — Your conversions are saved to your account so you can return to them later, and you get access to course creation and other features."] },
-      { question: "Do I need any technical skills to use this?", answer: "No. Simply drag and drop your file, and the tool handles the rest. You'll get a downloadable Word document or HTML file that's ready to share with students." },
-      { question: "What file types can I upload?", answer: ["The tool accepts the following formats:", "• PDF files (.pdf)", "• Word documents (.docx)", "• Google Docs — Paste your Google Docs link to download it as a Word file, then upload it using the upload area."] },
+      {
+        question: "What does this tool do?",
+        answer:
+          "This tool converts PDF, Word (.docx), and Google Docs documents into accessible HTML files that meet ADA Title II and WCAG 2.1 Level AA requirements. It uses AI to analyze your document's structure, add proper headings, image descriptions, reading order, and other accessibility features.",
+      },
+      {
+        question: "Who is this tool for?",
+        answer:
+          "This tool is designed for BSU faculty and staff who need to make their course materials and documents accessible to all students, including those who use screen readers or other assistive technologies.",
+      },
+      {
+        question: "Do I need to sign in?",
+        answer: [
+          "Signing in is optional. Here's the difference:",
+          "• Without signing in — You can upload documents and convert them, but your conversion history won't be saved.",
+          "• With signing in — Your conversions are saved to your account so you can return to them later, and you get access to course creation and other features.",
+        ],
+      },
+      {
+        question: "Do I need any technical skills to use this?",
+        answer:
+          "No. Simply drag and drop your file, and the tool handles the rest. You'll get a downloadable Word document or HTML file that's ready to share with students.",
+      },
+      {
+        question: "What file types can I upload?",
+        answer: [
+          "The tool accepts the following formats:",
+          "• PDF files (.pdf)",
+          "• Word documents (.docx)",
+          "• Google Docs — Paste your Google Docs link to download it as a Word file, then upload it using the upload area.",
+        ],
+      },
     ],
   },
   {
     title: "Google Docs",
     items: [
-      { question: "How do I convert a Google Doc?", answer: ["1. Go to the Accessibility Converter page.", "2. In the \"Import from Google Docs\" section, paste the link to your Google Doc.", "3. Click the Download button — this saves the document as a Word file to your computer.", "4. Drag and drop the downloaded Word file into the upload area at the top of the page.", "The tool will then convert it to an accessible format just like any other document."] },
-      { question: "Does the Google Doc need to be shared?", answer: "Yes. The document must be shared as \"Anyone with the link\" for the download to work. You can change this in the Google Doc's sharing settings." },
-      { question: "Why can't the tool import my Google Doc directly?", answer: "Google restricts automated downloads from cloud servers. The download button opens the file directly from Google through your browser, which works reliably. After downloading, you simply upload the Word file." },
+      {
+        question: "How do I convert a Google Doc?",
+        answer: [
+          "1. Go to the Accessibility Converter page.",
+          '2. In the "Import from Google Docs" section, paste the link to your Google Doc.',
+          "3. Click the Download button — this saves the document as a Word file to your computer.",
+          "4. Drag and drop the downloaded Word file into the upload area at the top of the page.",
+          "The tool will then convert it to an accessible format just like any other document.",
+        ],
+      },
+      {
+        question: "Does the Google Doc need to be shared?",
+        answer:
+          'Yes. The document must be shared as "Anyone with the link" for the download to work. You can change this in the Google Doc\'s sharing settings.',
+      },
+      {
+        question: "Why can't the tool import my Google Doc directly?",
+        answer:
+          "Google restricts automated downloads from cloud servers. The download button opens the file directly from Google through your browser, which works reliably. After downloading, you simply upload the Word file.",
+      },
     ],
   },
   {
     title: "Accessibility & Compliance",
     items: [
-      { question: "What is ADA Title II compliance?", answer: "ADA Title II requires that state and local government entities, including public universities like BSU, make their services and programs accessible to people with disabilities. This includes digital documents shared with students." },
-      { question: "What is WCAG 2.1 Level AA?", answer: "WCAG (Web Content Accessibility Guidelines) is a set of standards for making web content accessible. Level AA is the standard most organizations are expected to meet. It covers things like text alternatives for images, proper document structure, readable text, and keyboard navigation." },
-      { question: "What does the compliance score mean?", answer: ["The compliance score shows how well your converted document meets accessibility standards. It checks for:", "• Image Descriptions — Do all images have meaningful descriptions?", "• Document Structure — Are headings, lists, and sections properly organized?", "• Reading Order — Does the content flow logically for screen readers?", "• Table Headers — Do data tables have proper header labels?", "• Text Alternatives — Are all non-text elements described?", "A score of 100% means the document passes all checks. If the score is lower, you can use the \"Fix with AI\" button on individual issues to improve it."] },
-      { question: "Are the instructional design tools also accessible?", answer: "Yes. All content generated by the instructional design tools (assignments, rubrics, syllabi, modules, and more) is built to meet WCAG 2.1 Level AA standards. This includes proper heading hierarchy, semantic HTML structure, accessible tables, descriptive link text, and color contrast guidance." },
+      {
+        question: "What is ADA Title II compliance?",
+        answer:
+          "ADA Title II requires that state and local government entities, including public universities like BSU, make their services and programs accessible to people with disabilities. This includes digital documents shared with students.",
+      },
+      {
+        question: "What is WCAG 2.1 Level AA?",
+        answer:
+          "WCAG (Web Content Accessibility Guidelines) is a set of standards for making web content accessible. Level AA is the standard most organizations are expected to meet. It covers things like text alternatives for images, proper document structure, readable text, and keyboard navigation.",
+      },
+      {
+        question: "What does the compliance score mean?",
+        answer: [
+          "The compliance score shows how well your converted document meets accessibility standards. It checks for:",
+          "• Image Descriptions — Do all images have meaningful descriptions?",
+          "• Document Structure — Are headings, lists, and sections properly organized?",
+          "• Reading Order — Does the content flow logically for screen readers?",
+          "• Table Headers — Do data tables have proper header labels?",
+          "• Text Alternatives — Are all non-text elements described?",
+          'A score of 100% means the document passes all checks. If the score is lower, you can use the "Fix with AI" button on individual issues to improve it.',
+        ],
+      },
+      {
+        question: "Are the instructional design tools also accessible?",
+        answer:
+          "Yes. All content generated by the instructional design tools (assignments, rubrics, syllabi, modules, and more) is built to meet WCAG 2.1 Level AA standards. This includes proper heading hierarchy, semantic HTML structure, accessible tables, descriptive link text, and color contrast guidance.",
+      },
     ],
   },
   {
     title: "Using Your Accessible File",
     items: [
-      { question: "How do I upload the file to Blackboard?", answer: ["Method 1: Upload Word Document (Recommended)", "1. Click the green \"Download Word (.docx)\" button to save the file.", "2. Log in to Blackboard and open your course.", "3. In Course Content, click the + button.", "4. Click Upload and upload the .docx file.", "5. Click Save and make the file visible to students.", "", "Method 2: Paste HTML Inline (Alternative)", "1. Click the blue \"Copy HTML\" button to copy the accessible content.", "2. In Blackboard, create a new Document and switch to HTML view.", "3. Paste the HTML and save."] },
-      { question: "Can I share the file by email?", answer: "Yes. You can attach the Word (.docx) file or the HTML file to an email. The Word file opens in Microsoft Word or Google Docs, and the HTML file opens in any web browser." },
-      { question: "Will the accessible file work on phones and tablets?", answer: "Yes. Both the Word (.docx) and HTML files are designed to work on any device." },
+      {
+        question: "How do I upload the file to Blackboard?",
+        answer: [
+          "Method 1: Upload Word Document (Recommended)",
+          '1. Click the green "Download Word (.docx)" button to save the file.',
+          "2. Log in to Blackboard and open your course.",
+          "3. In Course Content, click the + button.",
+          "4. Click Upload and upload the .docx file.",
+          "5. Click Save and make the file visible to students.",
+          "",
+          "Method 2: Paste HTML Inline (Alternative)",
+          '1. Click the blue "Copy HTML" button to copy the accessible content.',
+          "2. In Blackboard, create a new Document and switch to HTML view.",
+          "3. Paste the HTML and save.",
+        ],
+      },
+      {
+        question: "Can I share the file by email?",
+        answer:
+          "Yes. You can attach the Word (.docx) file or the HTML file to an email. The Word file opens in Microsoft Word or Google Docs, and the HTML file opens in any web browser.",
+      },
+      {
+        question: "Will the accessible file work on phones and tablets?",
+        answer:
+          "Yes. Both the Word (.docx) and HTML files are designed to work on any device.",
+      },
     ],
   },
   {
     title: "Fixing Issues",
     items: [
-      { question: "How does 'Fix with AI' work?", answer: "When the compliance report shows an issue, you can click the \"Fix with AI\" button next to it. The AI will analyze the specific problem and update the HTML to fix it. The compliance score updates automatically after the fix." },
-      { question: "Can the AI fix everything?", answer: "The AI can fix most common accessibility issues, like missing image descriptions, improper heading levels, and missing table headers. Some complex issues may require manual review." },
+      {
+        question: "How does 'Fix with AI' work?",
+        answer:
+          'When the compliance report shows an issue, you can click the "Fix with AI" button next to it. The AI will analyze the specific problem and update the HTML to fix it. The compliance score updates automatically after the fix.',
+      },
+      {
+        question: "Can the AI fix everything?",
+        answer:
+          "The AI can fix most common accessibility issues, like missing image descriptions, improper heading levels, and missing table headers. Some complex issues may require manual review.",
+      },
     ],
   },
   {
     title: "Privacy & Data",
     items: [
-      { question: "Is my document data secure?", answer: "Yes. Your documents are processed securely on BSU's servers." },
-      { question: "Who can see my uploaded documents?", answer: ["It depends on whether you're signed in:", "• Signed in — Only you can see your uploaded documents and conversion history. Each user's data is private.", "• Not signed in — Your conversions are processed but not saved to any account. Once you leave the page, the conversion is no longer accessible."] },
+      {
+        question: "Is my document data secure?",
+        answer: "Yes. Your documents are processed securely on BSU's servers.",
+      },
+      {
+        question: "Who can see my uploaded documents?",
+        answer: [
+          "It depends on whether you're signed in:",
+          "• Signed in — Only you can see your uploaded documents and conversion history. Each user's data is private.",
+          "• Not signed in — Your conversions are processed but not saved to any account. Once you leave the page, the conversion is no longer accessible.",
+        ],
+      },
     ],
   },
 ];
@@ -76,15 +190,46 @@ function FAQAccordionItem({ item, index }: { item: FAQItem; index: number }) {
 
   return (
     <div className="border rounded-xl overflow-hidden">
-      <button id={buttonId} onClick={() => setIsOpen(!isOpen)} className="w-full flex items-center gap-3 p-4 text-left hover:bg-secondary/50 transition-colors" aria-expanded={isOpen} aria-controls={panelId} data-testid={`faq-question-${index}`}>
-        {isOpen ? <ChevronDown className="h-4 w-4 text-blue-600 dark:text-blue-400 flex-shrink-0" /> : <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />}
-        <span className={cn("text-sm font-semibold", isOpen ? "text-blue-600 dark:text-blue-400" : "text-foreground")}>{item.question}</span>
+      <button
+        id={buttonId}
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center gap-3 p-4 text-left hover:bg-secondary/50 transition-colors"
+        aria-expanded={isOpen}
+        aria-controls={panelId}
+        data-testid={`faq-question-${index}`}
+      >
+        {isOpen ? (
+          <ChevronDown className="h-4 w-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+        ) : (
+          <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+        )}
+        <span
+          className={cn(
+            "text-sm font-semibold",
+            isOpen ? "text-blue-600 dark:text-blue-400" : "text-foreground",
+          )}
+        >
+          {item.question}
+        </span>
       </button>
       {isOpen && (
-        <div id={panelId} role="region" aria-labelledby={buttonId} className="px-4 pb-4 pl-11">
+        <div
+          id={panelId}
+          role="region"
+          aria-labelledby={buttonId}
+          className="px-4 pb-4 pl-11"
+        >
           <div className="text-sm text-muted-foreground space-y-2">
             {content.map((line, i) => (
-              <p key={i} className={cn(line.startsWith("•") ? "ml-2" : "", /^\d+\./.test(line) ? "ml-2" : "")}>{line}</p>
+              <p
+                key={i}
+                className={cn(
+                  line.startsWith("•") ? "ml-2" : "",
+                  /^\d+\./.test(line) ? "ml-2" : "",
+                )}
+              >
+                {line}
+              </p>
             ))}
           </div>
         </div>
@@ -95,23 +240,44 @@ function FAQAccordionItem({ item, index }: { item: FAQItem; index: number }) {
 
 export default function PdfFaq() {
   usePageTitle("Accessibility Converter FAQ");
-  useEffect(() => { window.scrollTo(0, 0); }, []);
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
   const [, navigate] = useLocation();
 
   return (
-    <main id="main-content" tabIndex={-1} className="min-h-screen bg-background">
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className="min-h-screen bg-background"
+    >
       <header className="border-b bg-card">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <button onClick={() => navigate("/pdf-accessibility")} className="text-muted-foreground hover:text-foreground transition-colors" data-testid="button-back">
+            <button
+              onClick={() => navigate("/pdf-accessibility")}
+              className="text-muted-foreground hover:text-foreground transition-colors"
+              data-testid="button-back"
+            >
               <ArrowLeft className="w-5 h-5" />
             </button>
             <div>
-              <h1 className="font-bold text-foreground text-lg" data-testid="text-page-title">Frequently Asked Questions</h1>
-              <p className="text-xs text-muted-foreground">Accessibility Converter</p>
+              <h1
+                className="font-bold text-foreground text-lg"
+                data-testid="text-page-title"
+              >
+                Frequently Asked Questions
+              </h1>
+              <p className="text-xs text-muted-foreground">
+                Accessibility Converter
+              </p>
             </div>
           </div>
-          <HeaderControls showHome={true} showLibrary={false} showHelp={false} />
+          <HeaderControls
+            showHome={true}
+            showLibrary={false}
+            showHelp={false}
+          />
         </div>
       </header>
 
@@ -119,10 +285,16 @@ export default function PdfFaq() {
         <div className="space-y-8">
           {FAQ_SECTIONS.map((section) => (
             <section key={section.title}>
-              <h2 className="text-lg font-bold text-foreground mb-3">{section.title}</h2>
+              <h2 className="text-lg font-bold text-foreground mb-3">
+                {section.title}
+              </h2>
               <div className="space-y-2">
                 {section.items.map((item, idx) => (
-                  <FAQAccordionItem key={item.question} item={item} index={FAQ_SECTIONS.indexOf(section) * 100 + idx} />
+                  <FAQAccordionItem
+                    key={item.question}
+                    item={item}
+                    index={FAQ_SECTIONS.indexOf(section) * 100 + idx}
+                  />
                 ))}
               </div>
             </section>
@@ -130,10 +302,18 @@ export default function PdfFaq() {
         </div>
 
         <div className="mt-10 p-6 bg-secondary/50 border rounded-2xl text-center">
-          <h2 className="font-bold text-foreground mb-2">Still have questions?</h2>
+          <h2 className="font-bold text-foreground mb-2">
+            Still have questions?
+          </h2>
           <p className="text-sm text-muted-foreground">
             Contact the <strong>BSU Teaching and Technology Center</strong> at{" "}
-            <a href="mailto:TTC@bridgew.edu" className="underline text-primary hover:text-primary/80 font-medium">TTC@bridgew.edu</a>.
+            <a
+              href="mailto:TTC@bridgew.edu"
+              className="underline text-primary hover:text-primary/80 font-medium"
+            >
+              TTC@bridgew.edu
+            </a>
+            .
           </p>
         </div>
       </div>
