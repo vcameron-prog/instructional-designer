@@ -220,29 +220,6 @@ export default function LandingPage() {
         )}
 
         <div className={`grid gap-6 max-w-4xl mx-auto ${isAuthenticated && courses.length > 0 ? "md:grid-cols-2" : "md:grid-cols-2 max-w-2xl"}`}>
-          {isAuthenticated && <Card 
-            className="group cursor-pointer transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl bg-card border-0"
-            onClick={() => navigate("/new-course")}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate("/new-course"); } }}
-            tabIndex={0}
-            role="button"
-            aria-label="Start a new course"
-            data-testid="card-new-course"
-          >
-            <CardContent className="p-8 text-center">
-              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center mx-auto mb-6 group-hover:scale-105 transition-transform">
-                <Sparkles className="w-10 h-10 text-white" />
-              </div>
-              <CardTitle className="text-2xl mb-3">Start New Course</CardTitle>
-              <CardDescription className="text-base" style={{ textWrap: "balance" }}>
-                Begin with course information and create materials from scratch
-              </CardDescription>
-              <Button className="mt-6 gap-2" data-testid="button-start-new">
-                Get Started <ArrowRight className="w-4 h-4" />
-              </Button>
-            </CardContent>
-          </Card>}
-
           <Card 
             className="group cursor-pointer transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl bg-card border-0"
             onClick={() => navigate("/quick-tools")}
@@ -288,6 +265,29 @@ export default function LandingPage() {
               </Button>
             </CardContent>
           </Card>
+
+          {isAuthenticated && <Card 
+            className="group cursor-pointer transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl bg-card border-0 md:col-span-2"
+            onClick={() => navigate("/new-course")}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate("/new-course"); } }}
+            tabIndex={0}
+            role="button"
+            aria-label="Start a new course"
+            data-testid="card-new-course"
+          >
+            <CardContent className="p-8 text-center">
+              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center mx-auto mb-6 group-hover:scale-105 transition-transform">
+                <Sparkles className="w-10 h-10 text-white" />
+              </div>
+              <CardTitle className="text-2xl mb-3">Start New Course</CardTitle>
+              <CardDescription className="text-base" style={{ textWrap: "balance" }}>
+                Begin with course information and create materials from scratch
+              </CardDescription>
+              <Button className="mt-6 gap-2" data-testid="button-start-new">
+                Get Started <ArrowRight className="w-4 h-4" />
+              </Button>
+            </CardContent>
+          </Card>}
 
           {isAuthenticated && courses.length > 0 && (
             <Card className="bg-card border-0 md:col-span-2">
