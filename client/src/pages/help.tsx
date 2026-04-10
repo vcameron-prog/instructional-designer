@@ -211,8 +211,8 @@ const faqs = [
     answer: "Your course information and generated content are stored securely and are not shared with other users. Content generation uses AI services but your data is not used to train AI models.",
   },
   {
-    question: "What file types does the PDF converter support?",
-    answer: "The PDF Accessibility Converter accepts standard PDF files up to 20MB. This includes text-based PDFs, scanned documents (OCR is applied automatically), and PDFs with images, tables, and mixed content. The converter outputs accessible HTML or Word (.docx) documents.",
+    question: "What file types does the document converter support?",
+    answer: "The Document Accessibility Converter accepts PDF files (.pdf) and Word documents (.docx) up to 20MB. You can also import Google Docs by pasting the document link — the tool downloads it as a Word file for you to upload. Text-based PDFs, scanned documents (OCR is applied automatically), and documents with images, tables, and mixed content are all supported. The converter outputs accessible HTML or Word (.docx) documents.",
   },
   {
     question: "What accessibility standards does the PDF converter check for?",
@@ -502,9 +502,9 @@ export default function HelpPage() {
                   <FileCheck2 className="w-6 h-6 text-primary" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-lg mb-1">Convert PDFs to Accessible Documents</h3>
+                  <h3 className="font-semibold text-lg mb-1">Convert Documents to Accessible Formats</h3>
                   <p className="text-muted-foreground">
-                    The PDF Accessibility Converter transforms standard PDF documents into WCAG 2.1 AA compliant 
+                    The Document Accessibility Converter transforms PDF files, Word documents (.docx), and Google Docs into WCAG 2.1 AA compliant 
                     accessible formats. Using AI-powered remediation, it analyzes your document's structure, images, 
                     and tables to produce properly structured HTML or Word documents that work with screen readers 
                     and other assistive technologies.
@@ -597,8 +597,8 @@ export default function HelpPage() {
                       <Upload className="w-4 h-4 text-primary" />
                     </div>
                     <div>
-                      <h5 className="font-medium text-sm">1. Upload Your PDF</h5>
-                      <p className="text-xs text-muted-foreground">Drag and drop or browse to upload a PDF file (up to 20MB). Scanned documents are supported via automatic OCR.</p>
+                      <h5 className="font-medium text-sm">1. Upload Your Document</h5>
+                      <p className="text-xs text-muted-foreground">Drag and drop or browse to upload a PDF or Word (.docx) file (up to 20MB). You can also paste a Google Docs link to download it first. Scanned PDFs are supported via automatic OCR.</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
@@ -645,7 +645,7 @@ export default function HelpPage() {
                 <ul className="space-y-2 text-sm text-muted-foreground">
                   <li className="flex items-start gap-2">
                     <Lightbulb className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                    Use text-based PDFs when possible — they produce better results than scanned images
+                    Word documents (.docx) and text-based PDFs produce the best results — scanned PDFs work too via OCR
                   </li>
                   <li className="flex items-start gap-2">
                     <Lightbulb className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
