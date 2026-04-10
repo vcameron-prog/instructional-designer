@@ -246,9 +246,16 @@ export default function PdfUpload() {
               Download
             </button>
           </div>
-          <p className="mt-2 text-xs text-muted-foreground text-center" data-testid="text-google-doc-hint">
-            Downloads your Google Doc as a Word file — then upload it above
-          </p>
+          <div className="mt-4 bg-primary/10 border border-primary/20 rounded-xl p-4" data-testid="text-google-doc-hint">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold mt-0.5">1</div>
+              <p className="text-sm font-medium text-foreground">Paste your link above and click <strong>Download</strong> to save it as a Word file</p>
+            </div>
+            <div className="flex items-start gap-3 mt-3">
+              <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold mt-0.5">2</div>
+              <p className="text-sm font-medium text-foreground">Drag and drop the downloaded file into the upload area above</p>
+            </div>
+          </div>
 
           {uploadError && (
             <div
