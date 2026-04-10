@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useLocation, useParams } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,7 @@ export default function ToolSelection() {
   const params = useParams();
   const courseId = params.id ? parseInt(params.id) : undefined;
   const [, navigate] = useLocation();
+  useEffect(() => { window.scrollTo(0, 0); }, []);
 
   const { data: course, isLoading: isLoadingCourse } = useQuery<Course>({
     queryKey: ["/api/courses", courseId],

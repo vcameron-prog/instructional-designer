@@ -88,6 +88,7 @@ export default function PdfConversion() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   usePageTitle("Conversion Details");
+  useEffect(() => { window.scrollTo(0, 0); }, []);
 
   const { data: conversion, isLoading, isError } = useQuery<any>({
     queryKey: ["/api/conversions", numericId],

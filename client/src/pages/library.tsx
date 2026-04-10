@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -48,6 +49,7 @@ const iconMap: Record<string, any> = {
 export default function LibraryPage() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
+  useEffect(() => { window.scrollTo(0, 0); }, []);
   const searchParams = new URLSearchParams(window.location.search);
   const fromPath = searchParams.get("from");
 

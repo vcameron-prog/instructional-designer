@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,7 @@ export default function QuickTools() {
   const { isAuthenticated } = useAuth();
 
   usePageTitle("Quick Tools");
+  useEffect(() => { window.scrollTo(0, 0); }, []);
 
   const quickTools = TOOLS.filter(t => QUICK_TOOL_IDS.includes(t.id));
 

@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { FileText, Trash2, ArrowLeft, Loader2, Upload, ArrowRight } from "lucide-react";
@@ -19,6 +20,7 @@ function formatBytes(bytes: number): string {
 
 export default function PdfHistory() {
   usePageTitle("Conversion History");
+  useEffect(() => { window.scrollTo(0, 0); }, []);
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [, navigate] = useLocation();
 

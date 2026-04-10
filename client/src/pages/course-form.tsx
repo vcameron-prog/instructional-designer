@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -126,6 +126,7 @@ export default function CourseForm({ courseId }: { courseId?: number }) {
   const [uploadedFileName, setUploadedFileName] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
+  useEffect(() => { window.scrollTo(0, 0); }, []);
 
   const { data: existingCourse, isLoading: isLoadingCourse } = useQuery<Course>({
     queryKey: ["/api/courses", courseId],

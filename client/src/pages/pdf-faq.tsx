@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { ChevronDown, ChevronRight, ArrowLeft, FileText, HelpCircle } from "lucide-react";
 import { HeaderControls } from "@/components/header-controls";
@@ -85,6 +85,7 @@ function FAQAccordionItem({ item, index }: { item: FAQItem; index: number }) {
 
 export default function PdfFaq() {
   usePageTitle("PDF Accessibility FAQ");
+  useEffect(() => { window.scrollTo(0, 0); }, []);
   const [, navigate] = useLocation();
 
   return (
