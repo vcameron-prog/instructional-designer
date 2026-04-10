@@ -3,6 +3,23 @@ import { useLocation, useParams } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
+import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
+
+const sanitizeSchema = {
+  ...defaultSchema,
+  tagNames: [
+    ...(defaultSchema.tagNames || []),
+    "table", "thead", "tbody", "tfoot", "tr", "th", "td", "caption", "colgroup", "col",
+  ],
+  attributes: {
+    ...defaultSchema.attributes,
+    th: [...(defaultSchema.attributes?.th || []), "scope", "colSpan", "rowSpan"],
+    td: [...(defaultSchema.attributes?.td || []), "colSpan", "rowSpan"],
+    col: [...(defaultSchema.attributes?.col || []), "span"],
+    table: [...(defaultSchema.attributes?.table || []), "summary"],
+  },
+};
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -653,23 +670,28 @@ export default function ResultPage() {
                 {(() => {
                   const sections = splitContentIntoSections(content.content);
                   const markdownComponents: Components = {
-                    table: ({ children }) => (
+                    table: ({ node, children, ...props }) => (
                       <div className="overflow-x-auto my-4">
-                        <table className="min-w-full border-collapse border border-border">
+                        <table {...props} className="min-w-full border-collapse border border-border">
                           {children}
                         </table>
                       </div>
                     ),
-                    thead: ({ children }) => (
-                      <thead className="bg-muted">{children}</thead>
+                    caption: ({ node, children, ...props }) => (
+                      <caption {...props} className="text-sm text-muted-foreground mb-2 caption-top">
+                        {children}
+                      </caption>
                     ),
-                    th: ({ children }) => (
-                      <th className="border border-border px-3 py-2 text-left font-semibold text-foreground">
+                    thead: ({ node, children, ...props }) => (
+                      <thead {...props} className="bg-muted">{children}</thead>
+                    ),
+                    th: ({ node, children, ...props }) => (
+                      <th {...props} className="border border-border px-3 py-2 text-left font-semibold text-foreground">
                         {children}
                       </th>
                     ),
-                    td: ({ children }) => (
-                      <td className="border border-border px-3 py-2 text-foreground">
+                    td: ({ node, children, ...props }) => (
+                      <td {...props} className="border border-border px-3 py-2 text-foreground">
                         {children}
                       </td>
                     ),
@@ -704,7 +726,7 @@ export default function ResultPage() {
 
                   if (sections.length <= 1) {
                     return (
-                      <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema]]} components={markdownComponents}>
                         {content.content}
                       </ReactMarkdown>
                     );
@@ -714,7 +736,7 @@ export default function ResultPage() {
                     if (!section.heading) {
                       return (
                         <div key={idx} data-testid={`section-intro-${idx}`}>
-                          <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                          <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema]]} components={markdownComponents}>
                             {section.body}
                           </ReactMarkdown>
                         </div>
@@ -725,7 +747,7 @@ export default function ResultPage() {
                       return (
                         <div key={idx} data-testid={`section-expanded-${idx}`}>
                           <h2 className="text-xl font-bold text-primary mt-5 mb-2">{section.heading}</h2>
-                          <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                          <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema]]} components={markdownComponents}>
                             {section.body}
                           </ReactMarkdown>
                         </div>
@@ -746,7 +768,7 @@ export default function ResultPage() {
                         </CollapsibleTrigger>
                         <CollapsibleContent>
                           <div data-testid={`collapsible-content-${idx}`}>
-                            <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                            <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema]]} components={markdownComponents}>
                               {section.body}
                             </ReactMarkdown>
                           </div>
