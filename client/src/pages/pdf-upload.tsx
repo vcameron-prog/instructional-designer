@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useDropzone } from "react-dropzone";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -21,6 +21,7 @@ function formatBytes(bytes: number): string {
 
 export default function PdfUpload() {
   usePageTitle("Document Accessibility Converter");
+  useEffect(() => { window.scrollTo(0, 0); }, []);
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
   const [, navigate] = useLocation();
   const [uploadError, setUploadError] = useState<string | null>(null);
