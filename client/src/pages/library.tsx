@@ -21,9 +21,11 @@ import {
   Trash2,
   Copy,
   Download,
-  FolderOpen
+  FolderOpen,
+  ArrowRight
 } from "lucide-react";
-import type { SavedContent, Course } from "@shared/schema";
+import { cn } from "@/lib/utils";
+import type { SavedContent, Course, Conversion } from "@shared/schema";
 import { format } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -38,6 +40,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return "0 B";
+  const k = 1024;
+  const sizes = ["B", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
+}
 
 const iconMap: Record<string, any> = {
   syllabus: BookOpen,
@@ -77,6 +87,21 @@ export default function LibraryPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/library"] });
       toast({ title: "Removed from template library" });
+    },
+  });
+
+  const { data: conversions = [], isLoading: isConversionsLoading } = useQuery<Conversion[]>({
+    queryKey: ["/api/conversions"],
+    enabled: isAuthenticated,
+  });
+
+  const deleteConversionMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/conversions/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/conversions"] });
+      toast({ title: "Conversion deleted" });
     },
   });
 
@@ -182,6 +207,106 @@ export default function LibraryPage() {
                     onDelete={() => deleteCourseMutation.mutate(course.id)}
                     isDuplicating={duplicateCourseMutation.isPending}
                   />
+                ))
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {isAuthenticated && (isConversionsLoading || conversions.length > 0) && (
+          <Card className="bg-card border mb-8" data-testid="section-conversion-history">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <FileText className="w-6 h-6 text-primary" />
+                </div>
+                <div>
+                  <CardTitle className="text-xl">Conversion History</CardTitle>
+                  <CardDescription>{conversions.length} document{conversions.length !== 1 ? "s" : ""} converted</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-2 max-h-96 overflow-y-auto">
+              {isConversionsLoading ? (
+                <div className="space-y-2">
+                  {[1, 2].map(i => (
+                    <div key={i} className="h-16 bg-muted animate-pulse rounded-lg" />
+                  ))}
+                </div>
+              ) : (
+                conversions.map((conv) => (
+                  <div
+                    key={conv.id}
+                    className="flex items-center gap-4 p-3 rounded-lg hover:bg-muted/50 transition-all group"
+                    data-testid={`card-conversion-${conv.id}`}
+                  >
+                    <button
+                      onClick={() => navigate(`/pdf-accessibility/${conv.id}`)}
+                      className="flex items-center gap-3 flex-1 min-w-0 text-left"
+                      data-testid={`link-conversion-${conv.id}`}
+                    >
+                      <FileText className="w-5 h-5 text-primary flex-shrink-0" aria-hidden="true" />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-foreground truncate text-sm">{conv.originalFilename}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {conv.sourceType && (
+                            <span className="uppercase font-semibold mr-1">{conv.sourceType}</span>
+                          )}
+                          {formatBytes(conv.fileSize)}
+                          {conv.pageCount && ` · ${conv.pageCount} pages`}
+                          {" · "}
+                          {format(new Date(conv.createdAt), "MMM d, yyyy 'at' h:mm a")}
+                        </p>
+                      </div>
+                      <span
+                        className={cn(
+                          "text-xs font-semibold px-2.5 py-1 rounded-full flex-shrink-0",
+                          conv.status === "completed"
+                            ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                            : conv.status === "processing"
+                              ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                              : conv.status === "failed"
+                                ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                                : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+                        )}
+                        data-testid={`badge-status-${conv.id}`}
+                      >
+                        {conv.status === "completed"
+                          ? `Accessible${(conv.complianceReport as Record<string, number> | null)?.overallScore != null ? ` (${(conv.complianceReport as Record<string, number>).overallScore}%)` : ""}`
+                          : conv.status === "processing"
+                            ? "Processing"
+                            : conv.status === "failed"
+                              ? "Failed"
+                              : "Uploaded"}
+                      </span>
+                      <ArrowRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" aria-hidden="true" />
+                    </button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <button
+                          className="text-muted-foreground hover:text-destructive transition-colors p-2 rounded-lg hover:bg-destructive/10 flex-shrink-0"
+                          aria-label={`Delete ${conv.originalFilename}`}
+                          data-testid={`button-delete-conversion-${conv.id}`}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete conversion?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will permanently delete this conversion and its results.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => deleteConversionMutation.mutate(conv.id)}>
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
                 ))
               )}
             </CardContent>
