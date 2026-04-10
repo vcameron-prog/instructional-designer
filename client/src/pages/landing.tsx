@@ -256,7 +256,7 @@ export default function LandingPage() {
               <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center mx-auto mb-6 group-hover:scale-105 transition-transform">
                 <Shield className="w-10 h-10 text-white" />
               </div>
-              <CardTitle className="text-2xl mb-3">PDF Accessibility</CardTitle>
+              <CardTitle className="text-2xl mb-3">Accessibility Converter</CardTitle>
               <CardDescription className="text-base" style={{ textWrap: "balance" }}>
                 Convert PDFs into ADA Title II & WCAG 2.1 AA compliant accessible documents
               </CardDescription>

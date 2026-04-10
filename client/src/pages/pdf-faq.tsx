@@ -94,7 +94,7 @@ function FAQAccordionItem({ item, index }: { item: FAQItem; index: number }) {
 }
 
 export default function PdfFaq() {
-  usePageTitle("PDF Accessibility FAQ");
+  usePageTitle("Accessibility Converter FAQ");
   useEffect(() => { window.scrollTo(0, 0); }, []);
   const [, navigate] = useLocation();
 
