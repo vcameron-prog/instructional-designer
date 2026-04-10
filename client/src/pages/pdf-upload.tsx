@@ -161,112 +161,132 @@ export default function PdfUpload() {
           </p>
         </div>
 
-        <div className="w-full max-w-2xl mx-auto mb-12">
+        {uploadError && (
           <div
-            {...getRootProps()}
-            className={cn(
-              "relative overflow-hidden group border-3 border-dashed rounded-3xl p-12 text-center transition-all duration-300 ease-out outline-none focus-visible:ring-4 focus-visible:ring-primary/20",
-              isDragActive
-                ? "border-primary bg-primary/5 scale-[1.02]"
-                : "border-border hover:border-primary/50 hover:bg-secondary/50 bg-card",
-              uploadMutation.isPending && "opacity-50 cursor-not-allowed pointer-events-none"
-            )}
-            data-testid="dropzone-upload"
+            className="w-full max-w-2xl mx-auto mb-6 p-4 bg-destructive/10 border border-destructive/20 text-destructive rounded-xl flex items-center gap-3 shadow-sm"
+            role="alert"
+            data-testid="text-upload-error"
           >
-            <input {...getInputProps()} aria-label="Document File Upload" data-testid="input-file-upload" />
-            <div className="flex flex-col items-center justify-center space-y-6">
-              <div
-                className={cn(
-                  "p-5 rounded-2xl transition-colors duration-300",
-                  uploadMutation.isPending
-                    ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25"
-                    : isDragActive
-                      ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25"
-                      : "bg-secondary text-primary group-hover:bg-primary group-hover:text-primary-foreground"
-                )}
-              >
-                {uploadMutation.isPending ? (
-                  <Loader2 className="w-10 h-10 animate-spin" aria-hidden="true" />
-                ) : (
-                  <UploadCloud className="w-10 h-10" aria-hidden="true" />
-                )}
-              </div>
-              <div className="space-y-2">
-                <h3 className="text-2xl font-bold text-foreground">
-                  {uploadMutation.isPending
-                    ? "Uploading & processing..."
-                    : isDragActive
-                      ? "Drop document here"
-                      : "Select a document to remediate"}
-                </h3>
-                <p className="text-muted-foreground font-medium max-w-sm mx-auto">
-                  {uploadMutation.isPending
-                    ? "Your document is being uploaded and prepared for accessibility remediation."
-                    : "Drag and drop your PDF or Word document here, or click to browse. We will automatically generate an accessible WCAG 2.1 AA compliant version."}
-                </p>
-              </div>
-              {!uploadMutation.isPending && (
-                <div className="flex items-center gap-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  <span className="flex items-center gap-2 bg-background px-4 py-2 rounded-full border shadow-sm">
-                    <File className="w-4 h-4" aria-hidden="true" />
-                    PDF or DOCX up to 20MB
-                  </span>
-                  <span className="bg-background px-4 py-2 rounded-full border shadow-sm">One document at a time</span>
-                </div>
-              )}
-            </div>
+            <AlertCircle className="w-5 h-5 flex-shrink-0" aria-hidden="true" />
+            <p className="font-medium text-sm">{uploadError}</p>
           </div>
+        )}
 
-          <div className="flex items-center gap-4 mt-6">
-            <div className="flex-1 border-t border-border" />
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">or import from Google Docs</span>
-            <div className="flex-1 border-t border-border" />
-          </div>
-
-          <div className="mt-4 flex gap-2" data-testid="google-doc-import-section">
-            <div className="relative flex-1">
-              <SiGoogledrive className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
-              <input
-                type="url"
-                value={googleDocUrl}
-                onChange={(e) => setGoogleDocUrl(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") handleGoogleDocDownload(); }}
-                placeholder="Paste Google Docs link here..."
-                className="w-full pl-10 pr-3 py-3 border border-border rounded-xl bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all"
-                data-testid="input-google-doc-url"
-              />
+        <div className="w-full max-w-2xl mx-auto mb-8 bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
+          <div className="px-6 py-4 bg-secondary/50 border-b border-border flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-primary text-primary-foreground">
+              <UploadCloud className="w-5 h-5" aria-hidden="true" />
             </div>
-            <button
-              onClick={handleGoogleDocDownload}
-              disabled={!googleDocUrl.trim()}
-              className="inline-flex items-center gap-2 px-5 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl text-sm font-semibold shadow-sm hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:transform-none"
-              data-testid="button-google-doc-import"
-            >
-              <ArrowRight className="w-4 h-4" aria-hidden="true" />
-              Download
-            </button>
-          </div>
-          <div className="mt-4 bg-primary/10 border border-primary/20 rounded-xl p-4" data-testid="text-google-doc-hint">
-            <div className="flex items-start gap-3">
-              <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold mt-0.5">1</div>
-              <p className="text-sm font-medium text-foreground">Paste your link above and click <strong>Download</strong> to save it as a Word file</p>
-            </div>
-            <div className="flex items-start gap-3 mt-3">
-              <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold mt-0.5">2</div>
-              <p className="text-sm font-medium text-foreground">Drag and drop the downloaded file into the upload area above</p>
+            <div>
+              <h3 className="font-bold text-foreground text-lg" data-testid="heading-upload-section">Upload a PDF or Word Document</h3>
+              <p className="text-sm text-muted-foreground">Drag and drop or click to browse your files</p>
             </div>
           </div>
-
-          {uploadError && (
+          <div className="p-6">
             <div
-              className="mt-4 p-4 bg-destructive/10 border border-destructive/20 text-destructive rounded-xl flex items-center gap-3 shadow-sm"
-              role="alert"
-              data-testid="text-upload-error"
+              {...getRootProps()}
+              className={cn(
+                "relative overflow-hidden group border-3 border-dashed rounded-2xl p-10 text-center transition-all duration-300 ease-out outline-none focus-visible:ring-4 focus-visible:ring-primary/20",
+                isDragActive
+                  ? "border-primary bg-primary/5 scale-[1.01]"
+                  : "border-border hover:border-primary/50 hover:bg-secondary/50 bg-background",
+                uploadMutation.isPending && "opacity-50 cursor-not-allowed pointer-events-none"
+              )}
+              data-testid="dropzone-upload"
             >
-              <AlertCircle className="w-5 h-5 flex-shrink-0" aria-hidden="true" />
-              <p className="font-medium text-sm">{uploadError}</p>
+              <input {...getInputProps()} aria-label="Document File Upload" data-testid="input-file-upload" />
+              <div className="flex flex-col items-center justify-center space-y-4">
+                <div
+                  className={cn(
+                    "p-4 rounded-2xl transition-colors duration-300",
+                    uploadMutation.isPending
+                      ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25"
+                      : isDragActive
+                        ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25"
+                        : "bg-secondary text-primary group-hover:bg-primary group-hover:text-primary-foreground"
+                  )}
+                >
+                  {uploadMutation.isPending ? (
+                    <Loader2 className="w-8 h-8 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <UploadCloud className="w-8 h-8" aria-hidden="true" />
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <p className="text-lg font-bold text-foreground">
+                    {uploadMutation.isPending
+                      ? "Uploading & processing..."
+                      : isDragActive
+                        ? "Drop document here"
+                        : "Select a document to remediate"}
+                  </p>
+                  <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+                    {uploadMutation.isPending
+                      ? "Your document is being prepared for accessibility remediation."
+                      : "We will automatically generate a WCAG 2.1 AA compliant accessible version."}
+                  </p>
+                </div>
+                {!uploadMutation.isPending && (
+                  <div className="flex items-center gap-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    <span className="flex items-center gap-2 bg-background px-3 py-1.5 rounded-full border shadow-sm">
+                      <File className="w-3.5 h-3.5" aria-hidden="true" />
+                      PDF or DOCX up to 20MB
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
-          )}
+          </div>
+        </div>
+
+        <div className="w-full max-w-2xl mx-auto mb-12 bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
+          <div className="px-6 py-4 bg-secondary/50 border-b border-border flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-primary text-primary-foreground">
+              <SiGoogledrive className="w-5 h-5" aria-hidden="true" />
+            </div>
+            <div>
+              <h3 className="font-bold text-foreground text-lg" data-testid="heading-google-section">Import from Google Docs</h3>
+              <p className="text-sm text-muted-foreground">Convert a shared Google Doc to an accessible format</p>
+            </div>
+          </div>
+          <div className="p-6" data-testid="google-doc-import-section">
+            <div className="space-y-4">
+              <div className="flex items-start gap-4">
+                <div className="flex-shrink-0 w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold mt-1">1</div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-foreground mb-2">Paste your Google Docs link and click Download</p>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <SiGoogledrive className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
+                      <input
+                        type="url"
+                        value={googleDocUrl}
+                        onChange={(e) => setGoogleDocUrl(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") handleGoogleDocDownload(); }}
+                        placeholder="https://docs.google.com/document/d/..."
+                        className="w-full pl-10 pr-3 py-2.5 border border-border rounded-xl bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all"
+                        data-testid="input-google-doc-url"
+                      />
+                    </div>
+                    <button
+                      onClick={handleGoogleDocDownload}
+                      disabled={!googleDocUrl.trim()}
+                      className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl text-sm font-semibold shadow-sm hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:transform-none"
+                      data-testid="button-google-doc-import"
+                    >
+                      <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                      Download
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-start gap-4">
+                <div className="flex-shrink-0 w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold mt-0.5">2</div>
+                <p className="text-sm font-semibold text-foreground mt-1">Upload the downloaded Word file using the upload area above</p>
+              </div>
+            </div>
+            <p className="mt-4 text-xs text-muted-foreground" data-testid="text-google-doc-hint">The document must be shared as "Anyone with the link" for the download to work.</p>
+          </div>
         </div>
 
         {recent.length > 0 && (
