@@ -365,7 +365,7 @@ Create or revise the syllabus following BSU's OFFICIAL SYLLABUS TEMPLATE structu
    - Brief background and enthusiasm for teaching this course
    - Set collaborative, student-centered tone
 
-3. **COURSE INFORMATION AT-A-GLANCE** (use formatted list with bold labels, NOT a table)
+3. **COURSE INFORMATION AT-A-GLANCE** (use formatted list with bold labels)
    - Instructor name
    - Office Hours
    - Office Location
@@ -425,7 +425,7 @@ Create or revise the syllabus following BSU's OFFICIAL SYLLABUS TEMPLATE structu
     - Student choice philosophy
     - Openness to feedback
 
-12. **COURSE SCHEDULE** (use week-by-week sections with bold labels, NOT a table)
+12. **COURSE SCHEDULE** (use week-by-week sections with bold labels)
     - Week number
     - Topics
     - Student Responsibilities (readings, activities, due dates)
@@ -500,7 +500,7 @@ Based on the instructor's stance, create a policy that includes:
    - How this supports the learning outcomes
 
 3. **ASSIGNMENT-SPECIFIC MATRIX** (if stance varies by assignment)
-   - List showing which policy level applies to each assignment type (use bold labels, NOT a table)
+   - List showing which policy level applies to each assignment type (use bold labels or an accessible HTML table)
    - Clear guidance for different activities
 
 4. **PERMITTED USES** (specific examples)
@@ -554,7 +554,7 @@ ${toolData.checkType?.map((c: string) => `- ${c}`).join("\n") || "Full alignment
 ADDITIONAL CONTEXT: ${toolData.additionalContext || "None"}
 
 Please provide:
-1. **Alignment Matrix** - A clear formatted list showing which assignments assess which outcomes (use bullet points with bold labels, NOT a table)
+1. **Alignment Matrix** - Show which assignments assess which outcomes (use an accessible HTML table with caption, thead, and th scope, or bullet points with bold labels)
 2. **Coverage Analysis** - Are all outcomes adequately assessed?
 3. **Gap Identification** - Any outcomes not assessed or under-assessed
 4. **Overlap Analysis** - Outcomes assessed multiple times (is this intentional/appropriate?)
