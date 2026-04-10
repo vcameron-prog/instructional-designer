@@ -108,7 +108,7 @@ function injectPrintStyles(
   `;
 
   const escapedTitle = escapeHtml(metadata.title);
-  const escapedAuthor = escapeHtml(metadata.author || "PDF Accessibility Converter");
+  const escapedAuthor = escapeHtml(metadata.author || "Accessibility Converter");
   const escapedLang = escapeHtml(metadata.lang);
 
   const titleTag = `<title>${escapedTitle}</title>`;

@@ -2347,7 +2347,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         title: docTitle,
         filename: conversion.originalFilename,
         lang: docLang,
-        author: "PDF Accessibility Converter",
+        author: "Accessibility Converter",
       });
 
       const filename = conversion.originalFilename.replace(/\.pdf$/i, "").replace(/[^\w\s.-]/g, "_") + "-accessible.docx";
@@ -2406,7 +2406,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     const docLang = langMatch ? langMatch[1] : "en";
     const authorMatch = html.match(/<meta\s+name=["']author["']\s+content=["']([^"']+)["']/i)
       || html.match(/<meta\s+content=["']([^"']+)["']\s+name=["']author["']/i);
-    const docAuthor = authorMatch ? authorMatch[1] : "PDF Accessibility Converter";
+    const docAuthor = authorMatch ? authorMatch[1] : "Accessibility Converter";
 
     try {
       const { buildPdf } = await import("./lib/pdf-builder");

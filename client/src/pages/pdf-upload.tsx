@@ -20,7 +20,7 @@ function formatBytes(bytes: number): string {
 }
 
 export default function PdfUpload() {
-  usePageTitle("Document Accessibility Converter");
+  usePageTitle("Accessibility Converter");
   useEffect(() => { window.scrollTo(0, 0); }, []);
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
   const [, navigate] = useLocation();
@@ -121,7 +121,7 @@ export default function PdfUpload() {
               <FileText className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="font-bold text-foreground text-lg" data-testid="text-page-title">Document Accessibility Converter</h1>
+              <h1 className="font-bold text-foreground text-lg" data-testid="text-page-title">Accessibility Converter</h1>
               <p className="text-xs text-muted-foreground">ADA Title II & WCAG 2.1 AA Compliance</p>
             </div>
           </div>

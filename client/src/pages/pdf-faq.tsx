@@ -30,7 +30,7 @@ const FAQ_SECTIONS: FAQSection[] = [
   {
     title: "Google Docs",
     items: [
-      { question: "How do I convert a Google Doc?", answer: ["1. Go to the Document Accessibility Converter page.", "2. In the \"Import from Google Docs\" section, paste the link to your Google Doc.", "3. Click the Download button — this saves the document as a Word file to your computer.", "4. Drag and drop the downloaded Word file into the upload area at the top of the page.", "The tool will then convert it to an accessible format just like any other document."] },
+      { question: "How do I convert a Google Doc?", answer: ["1. Go to the Accessibility Converter page.", "2. In the \"Import from Google Docs\" section, paste the link to your Google Doc.", "3. Click the Download button — this saves the document as a Word file to your computer.", "4. Drag and drop the downloaded Word file into the upload area at the top of the page.", "The tool will then convert it to an accessible format just like any other document."] },
       { question: "Does the Google Doc need to be shared?", answer: "Yes. The document must be shared as \"Anyone with the link\" for the download to work. You can change this in the Google Doc's sharing settings." },
       { question: "Why can't the tool import my Google Doc directly?", answer: "Google restricts automated downloads from cloud servers. The download button opens the file directly from Google through your browser, which works reliably. After downloading, you simply upload the Word file." },
     ],
@@ -108,7 +108,7 @@ export default function PdfFaq() {
             </button>
             <div>
               <h1 className="font-bold text-foreground text-lg" data-testid="text-page-title">Frequently Asked Questions</h1>
-              <p className="text-xs text-muted-foreground">PDF Accessibility Converter</p>
+              <p className="text-xs text-muted-foreground">Accessibility Converter</p>
             </div>
           </div>
           <HeaderControls showHome={true} showLibrary={false} showHelp={false} />

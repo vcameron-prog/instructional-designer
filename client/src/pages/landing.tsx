@@ -306,7 +306,7 @@ export default function LandingPage() {
             onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate("/pdf-accessibility"); } }}
             tabIndex={0}
             role="button"
-            aria-label="PDF Accessibility Converter"
+            aria-label="Accessibility Converter"
             data-testid="card-pdf-accessibility"
           >
             <CardContent className="p-8 text-center">

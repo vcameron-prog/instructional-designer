@@ -212,7 +212,7 @@ const faqs = [
   },
   {
     question: "What file types does the document converter support?",
-    answer: "The Document Accessibility Converter accepts PDF files (.pdf) and Word documents (.docx) up to 20MB. You can also import Google Docs by pasting the document link — the tool downloads it as a Word file for you to upload. Text-based PDFs, scanned documents (OCR is applied automatically), and documents with images, tables, and mixed content are all supported. The converter outputs accessible HTML or Word (.docx) documents.",
+    answer: "The Accessibility Converter accepts PDF files (.pdf) and Word documents (.docx) up to 20MB. You can also import Google Docs by pasting the document link — the tool downloads it as a Word file for you to upload. Text-based PDFs, scanned documents (OCR is applied automatically), and documents with images, tables, and mixed content are all supported. The converter outputs accessible HTML or Word (.docx) documents.",
   },
   {
     question: "What accessibility standards does the PDF converter check for?",
@@ -493,7 +493,7 @@ export default function HelpPage() {
         <section className="mb-12">
           <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
             <FileCheck2 className="w-6 h-6 text-primary" />
-            PDF Accessibility Converter
+            Accessibility Converter
           </h2>
           <Card>
             <CardContent className="pt-6">
@@ -504,7 +504,7 @@ export default function HelpPage() {
                 <div>
                   <h3 className="font-semibold text-lg mb-1">Convert Documents to Accessible Formats</h3>
                   <p className="text-muted-foreground">
-                    The Document Accessibility Converter transforms PDF files, Word documents (.docx), and Google Docs into WCAG 2.1 AA compliant 
+                    The Accessibility Converter transforms PDF files, Word documents (.docx), and Google Docs into WCAG 2.1 AA compliant 
                     accessible formats. Using AI-powered remediation, it analyzes your document's structure, images, 
                     and tables to produce properly structured HTML or Word documents that work with screen readers 
                     and other assistive technologies.
@@ -673,7 +673,7 @@ export default function HelpPage() {
                   data-testid="button-go-to-pdf-converter"
                 >
                   <FileCheck2 className="w-4 h-4 mr-2" />
-                  Go to PDF Accessibility Converter
+                  Go to Accessibility Converter
                   <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
               </div>

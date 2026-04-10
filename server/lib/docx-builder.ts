@@ -536,7 +536,7 @@ export async function buildDocx(
   const doc = new Document({
     title: metadata.title,
     description: `Accessible version of ${metadata.filename}`,
-    creator: metadata.author || "PDF Accessibility Converter",
+    creator: metadata.author || "Accessibility Converter",
     language: metadata.lang,
     numbering: {
       config: [
