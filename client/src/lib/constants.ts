@@ -9,16 +9,40 @@ export const COURSE_LEVELS = [
 
 export const CREDIT_OPTIONS = ["0", "1", "2", "3", "4"];
 
-export const SEMESTERS = [
-  "Fall 2025",
-  "Spring 2026",
-  "Summer 2026 Session I",
-  "Summer 2026 Session II",
-  "Fall 2026",
-  "Spring 2027",
-  "Summer 2027 Session I",
-  "Summer 2027 Session II",
-];
+export const SEMESTER_TYPES = [
+  "Fall",
+  "Spring",
+  "Summer Session I",
+  "Summer Session II",
+] as const;
+
+export function getSemesterYears(): number[] {
+  const currentYear = new Date().getFullYear();
+  const years: number[] = [];
+  for (let y = currentYear - 1; y <= currentYear + 3; y++) {
+    years.push(y);
+  }
+  return years;
+}
+
+export function buildSemesterString(type: string, year: number): string {
+  if (type.startsWith("Summer")) {
+    return `${type.replace("Summer ", "Summer " + year + " ")}`;
+  }
+  return `${type} ${year}`;
+}
+
+export function parseSemesterString(semester: string): { type: string; year: string } {
+  const summerMatch = semester.match(/^(Summer)\s+(\d{4})\s+(Session\s+\w+)$/);
+  if (summerMatch) {
+    return { type: `Summer ${summerMatch[3]}`, year: summerMatch[2] };
+  }
+  const match = semester.match(/^(\w+)\s+(\d{4})$/);
+  if (match) {
+    return { type: match[1], year: match[2] };
+  }
+  return { type: "", year: "" };
+}
 
 export const BSU_CALENDAR: Record<string, { startDate: string; endDate: string; breaks: { name: string; start: string; end: string }[] }> = {
   "Fall 2025": {

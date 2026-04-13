@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { ArrowLeft, ArrowRight, Upload, FileText, Loader2, BookOpen } from "lucide-react";
-import { COURSE_LEVELS, CREDIT_OPTIONS, SEMESTERS } from "@/lib/constants";
+import { COURSE_LEVELS, CREDIT_OPTIONS, SEMESTER_TYPES, getSemesterYears, buildSemesterString, parseSemesterString } from "@/lib/constants";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { PoweredByFooter } from "@/components/powered-by-footer";
@@ -127,12 +127,22 @@ export default function CourseForm({ courseId }: { courseId?: number }) {
   const [uploadedFileName, setUploadedFileName] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
+  const [semesterType, setSemesterType] = useState("");
+  const [semesterYear, setSemesterYear] = useState("");
   useEffect(() => { window.scrollTo(0, 0); }, []);
 
   const { data: existingCourse, isLoading: isLoadingCourse } = useQuery<Course>({
     queryKey: ["/api/courses", courseId],
     enabled: !!courseId,
   });
+
+  useEffect(() => {
+    if (existingCourse?.semester) {
+      const parsed = parseSemesterString(existingCourse.semester);
+      setSemesterType(parsed.type);
+      setSemesterYear(parsed.year);
+    }
+  }, [existingCourse]);
 
   const form = useForm<CourseFormData>({
     resolver: zodResolver(courseFormSchema),
@@ -426,18 +436,48 @@ export default function CourseForm({ courseId }: { courseId?: number }) {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Semester *</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger data-testid="select-semester" aria-required="true">
-                            <SelectValue placeholder="Select semester" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {SEMESTERS.map(sem => (
-                            <SelectItem key={sem} value={sem}>{sem}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <div className="flex gap-2">
+                        <Select
+                          value={semesterType}
+                          onValueChange={(val) => {
+                            setSemesterType(val);
+                            if (val && semesterYear) {
+                              field.onChange(buildSemesterString(val, parseInt(semesterYear)));
+                            }
+                          }}
+                        >
+                          <FormControl>
+                            <SelectTrigger data-testid="select-semester-type" aria-required="true">
+                              <SelectValue placeholder="Select type" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {SEMESTER_TYPES.map(type => (
+                              <SelectItem key={type} value={type}>{type}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Select
+                          value={semesterYear}
+                          onValueChange={(val) => {
+                            setSemesterYear(val);
+                            if (semesterType && val) {
+                              field.onChange(buildSemesterString(semesterType, parseInt(val)));
+                            }
+                          }}
+                        >
+                          <FormControl>
+                            <SelectTrigger data-testid="select-semester-year" aria-required="true">
+                              <SelectValue placeholder="Year" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {getSemesterYears().map(year => (
+                              <SelectItem key={year} value={String(year)}>{year}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                       <FormMessage />
                     </FormItem>
                   )}
