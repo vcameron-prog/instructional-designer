@@ -106,6 +106,7 @@ const COURSE_TEMPLATES = [
 const courseFormSchema = z.object({
   courseName: z.string().min(1, "Course name is required"),
   courseNumber: z.string().min(1, "Course number is required"),
+  sectionNumber: z.string().optional(),
   courseLevel: z.string().min(1, "Course level is required"),
   credits: z.string().min(1, "Credits are required"),
   semester: z.string().min(1, "Semester is required"),
@@ -138,6 +139,7 @@ export default function CourseForm({ courseId }: { courseId?: number }) {
     defaultValues: {
       courseName: "",
       courseNumber: "",
+      sectionNumber: "",
       courseLevel: "",
       credits: "",
       semester: "",
@@ -152,6 +154,7 @@ export default function CourseForm({ courseId }: { courseId?: number }) {
     values: existingCourse ? {
       courseName: existingCourse.courseName,
       courseNumber: existingCourse.courseNumber,
+      sectionNumber: existingCourse.sectionNumber || "",
       courseLevel: existingCourse.courseLevel,
       credits: existingCourse.credits,
       semester: existingCourse.semester,
@@ -351,6 +354,20 @@ export default function CourseForm({ courseId }: { courseId?: number }) {
                       <FormLabel>Course Number *</FormLabel>
                       <FormControl>
                         <Input placeholder="e.g., PSYC 101" {...field} aria-required="true" data-testid="input-course-number" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="sectionNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Section Number</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., 01 or A" {...field} data-testid="input-section-number" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

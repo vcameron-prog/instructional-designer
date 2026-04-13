@@ -272,14 +272,14 @@ export default function LandingPage() {
             onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate("/new-course"); } }}
             tabIndex={0}
             role="button"
-            aria-label="Start a new course"
+            aria-label="Design a new course"
             data-testid="card-new-course"
           >
             <CardContent className="p-8 text-center">
               <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center mx-auto mb-6 group-hover:scale-105 transition-transform">
                 <Sparkles className="w-10 h-10 text-white" />
               </div>
-              <CardTitle className="text-2xl mb-3">Start New Course</CardTitle>
+              <CardTitle className="text-2xl mb-3">Design a New Course</CardTitle>
               <CardDescription className="text-base" style={{ textWrap: "balance" }}>
                 Begin with course information and create materials from scratch
               </CardDescription>

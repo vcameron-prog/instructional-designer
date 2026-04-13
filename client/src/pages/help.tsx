@@ -180,7 +180,7 @@ const tools = [
 const faqs = [
   {
     question: "How do I get started?",
-    answer: "Click 'Start New Course' on the home page and enter your course information. The more detail you provide (especially learning outcomes and any existing syllabus), the better the generated content will be.",
+    answer: "Click 'Design a New Course' on the home page and enter your course information. The more detail you provide (especially learning outcomes and any existing syllabus), the better the generated content will be.",
   },
   {
     question: "Is my work saved automatically?",

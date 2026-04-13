@@ -124,7 +124,7 @@ All generated content MUST meet WCAG 2.1 Level AA accessibility standards:
 COURSE INFORMATION:
 ${
   course
-    ? `Course: ${course.courseName} (${course.courseNumber})
+    ? `Course: ${course.courseName} (${course.courseNumber}${course.sectionNumber ? `, Section ${course.sectionNumber}` : ""})
 Level: ${course.courseLevel}
 Credits: ${course.credits}
 Semester: ${course.semester}
@@ -209,7 +209,7 @@ ${
 COURSE INFORMATION:
 ${
   course
-    ? `Course: ${course.courseName} (${course.courseNumber})
+    ? `Course: ${course.courseName} (${course.courseNumber}${course.sectionNumber ? `, Section ${course.sectionNumber}` : ""})
 Level: ${course.courseLevel}
 Credits: ${course.credits}
 Semester: ${course.semester}
@@ -242,7 +242,7 @@ ${wcagRequirements}
 COURSE INFORMATION:
 ${
   course
-    ? `Course: ${course.courseName} (${course.courseNumber})
+    ? `Course: ${course.courseName} (${course.courseNumber}${course.sectionNumber ? `, Section ${course.sectionNumber}` : ""})
 Level: ${course.courseLevel}
 Department: ${course.department}`
     : `${toolData.subject ? `Subject/Department: ${toolData.subject}` : ""}
@@ -1642,7 +1642,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
             new Paragraph({
               children: [
                 new TextRun({
-                  text: `${course.courseName} (${course.courseNumber})`,
+                  text: `${course.courseName} (${course.courseNumber}${course.sectionNumber ? `, Section ${course.sectionNumber}` : ""})`,
                   size: 24,
                   color: "666666",
                 }),

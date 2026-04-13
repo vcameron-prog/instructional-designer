@@ -183,6 +183,7 @@ export class DatabaseStorage implements IStorage {
     const duplicated = await this.createCourse({
       courseName: `${original.courseName} (Copy)`,
       courseNumber: original.courseNumber,
+      sectionNumber: original.sectionNumber,
       courseLevel: original.courseLevel,
       credits: original.credits,
       semester: original.semester,

@@ -75,7 +75,7 @@ export function CourseCard({
             )}
           </p>
           <p className="text-sm text-muted-foreground">
-            {course.courseNumber} • {course.semester}
+            {course.courseNumber}{course.sectionNumber ? ` §${course.sectionNumber}` : ""} • {course.semester}
           </p>
           {toolsGenerated.size > 0 && (
             <div className="flex items-center gap-1 mt-2">

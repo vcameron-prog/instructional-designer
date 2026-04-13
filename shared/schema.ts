@@ -21,6 +21,7 @@ export const courses = pgTable("courses", {
   userId: varchar("user_id").notNull(),
   courseName: text("course_name").notNull(),
   courseNumber: text("course_number").notNull(),
+  sectionNumber: text("section_number"),
   courseLevel: text("course_level").notNull(),
   credits: text("credits").notNull(),
   semester: text("semester").notNull(),
