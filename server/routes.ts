@@ -1,7 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertCourseSchema, type Course, conversions } from "@shared/schema";
+import { insertCourseSchema, type Course, courses, conversions, generatedContent } from "@shared/schema";
 import {
   setupAuth,
   registerAuthRoutes,
@@ -12,7 +12,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import multer from "multer";
 import { z } from "zod";
 import { db } from "./db";
-import { eq, and, desc, isNull } from "drizzle-orm";
+import { eq, and, desc, isNull, sql } from "drizzle-orm";
 
 function getUserId(req: Request): string | null {
   return (req.user as any)?.claims?.sub ?? null;
@@ -1078,6 +1078,47 @@ export async function registerRoutes(
   // Setup authentication (before other routes)
   await setupAuth(app);
   registerAuthRoutes(app);
+
+  app.get(
+    "/api/stats/public",
+    async (req: Request, res: Response) => {
+      try {
+        const apiKey = process.env.STATS_API_KEY;
+        if (apiKey && req.headers["x-api-key"] !== apiKey) {
+          return res.status(401).json({ error: "Unauthorized" });
+        }
+
+        const now = new Date();
+        const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+        const [coursesResult, contentResult, conversionsResult] = await Promise.all([
+          db.select({ count: sql<number>`count(*)` })
+            .from(courses)
+            .where(sql`to_char(created_at, 'YYYY-MM') = ${month}`),
+          db.select({ count: sql<number>`count(*)` })
+            .from(generatedContent)
+            .where(sql`to_char(created_at, 'YYYY-MM') = ${month}`),
+          db.select({ count: sql<number>`count(*)` })
+            .from(conversions)
+            .where(sql`to_char(created_at, 'YYYY-MM') = ${month}`),
+        ]);
+
+        res.json({
+          month,
+          coursesCreated: Number(coursesResult[0]?.count ?? 0),
+          contentGenerated: Number(contentResult[0]?.count ?? 0),
+          documentsConverted: Number(conversionsResult[0]?.count ?? 0),
+          totalActivity:
+            Number(coursesResult[0]?.count ?? 0) +
+            Number(contentResult[0]?.count ?? 0) +
+            Number(conversionsResult[0]?.count ?? 0),
+        });
+      } catch (error) {
+        console.error("Error fetching stats:", error);
+        res.status(500).json({ error: "Failed to fetch stats" });
+      }
+    },
+  );
 
   // Courses API (protected)
   app.get(
