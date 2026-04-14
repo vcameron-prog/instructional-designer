@@ -44,3 +44,8 @@ integrations = ["javascript_anthropic_ai_integrations:2.0.0", "javascript_log_in
 [postMerge]
 path = "scripts/post-merge.sh"
 timeoutMs = 20000
+
+[userenv]
+
+[userenv.shared]
+STATS_API_KEY = "a656ba44c206588ef7409da4d4dfb1bbb7eed7140b465d373bbe23844bfbd504"
