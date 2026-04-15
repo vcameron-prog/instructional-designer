@@ -1211,15 +1211,15 @@ export async function registerRoutes(
           db.select({ count: sql<number>`count(*)` }).from(generatedContent)
             .where(sql`tool_type = 'accessibility'`),
           db.select({ count: sql<number>`count(*)` }).from(conversions)
-            .where(sql`compliance_report IS NOT NULL`),
+            .where(sql`status = 'completed' AND compliance_report IS NOT NULL`),
           db.select({ avg: sql<string>`avg((compliance_report->>'overallScore')::numeric)` }).from(conversions)
-            .where(sql`compliance_report IS NOT NULL`),
+            .where(sql`status = 'completed' AND compliance_report IS NOT NULL`),
           db.select({ avg: sql<string>`avg((original_compliance_report->>'overallScore')::numeric)` }).from(conversions)
-            .where(sql`compliance_report IS NOT NULL AND original_compliance_report IS NOT NULL`),
+            .where(sql`status = 'completed' AND compliance_report IS NOT NULL AND original_compliance_report IS NOT NULL`),
           db.select({ total: sql<string>`coalesce(sum((compliance_report->>'totalIssues')::integer), 0)` }).from(conversions)
-            .where(sql`compliance_report IS NOT NULL`),
+            .where(sql`status = 'completed' AND compliance_report IS NOT NULL`),
           db.select({ total: sql<string>`coalesce(sum((compliance_report->>'fixedCount')::integer), 0)` }).from(conversions)
-            .where(sql`compliance_report IS NOT NULL`),
+            .where(sql`status = 'completed' AND compliance_report IS NOT NULL`),
         ]);
 
         const allActiveUserIds = userActivityResult.map(u => u.userId).filter(Boolean);
