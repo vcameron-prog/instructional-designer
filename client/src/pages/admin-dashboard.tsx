@@ -262,13 +262,13 @@ export default function AdminDashboard() {
               </div>
             </CardContent>
           </Card>
-          <Card data-testid="card-total-users">
+          <Card data-testid="card-active-users">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Total Users</p>
-                  <p className="text-3xl font-bold text-foreground">{stats.summary.totalUsers}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{stats.summary.activeUsersThisMonth} active this month</p>
+                  <p className="text-sm text-muted-foreground">Active Users This Month</p>
+                  <p className="text-3xl font-bold text-foreground">{stats.summary.activeUsersThisMonth}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{stats.summary.totalUsers} total registered</p>
                 </div>
                 <Users className="w-10 h-10 text-primary/30" />
               </div>

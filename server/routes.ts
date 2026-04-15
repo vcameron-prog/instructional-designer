@@ -1195,8 +1195,7 @@ export async function registerRoutes(
             UNION
             SELECT user_id FROM conversions WHERE user_id IS NOT NULL
           ) AS all_users`)
-            .groupBy(sql`user_id`)
-            .limit(30),
+            .groupBy(sql`user_id`),
           db.select({ count: sql<number>`count(*)` }).from(contentVersions),
         ]);
 
