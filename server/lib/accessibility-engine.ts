@@ -5,6 +5,8 @@ import type { ExtractedImage, ExtractedTable } from "./pdf-processor";
 const anthropic = new Anthropic({
   apiKey: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
   baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL,
+  timeout: 5 * 60 * 1000,
+  maxRetries: 2,
 });
 
 const complianceIssueSchema = z.object({
