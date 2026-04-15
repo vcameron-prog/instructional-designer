@@ -1,8 +1,9 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { 
   GraduationCap, 
   Sparkles, 
@@ -16,7 +17,12 @@ import {
   Users,
   Loader2,
   Zap,
-  LayoutDashboard
+  LayoutDashboard,
+  X,
+  TrendingUp,
+  CheckCircle2,
+  Clock,
+  ShieldCheck
 } from "lucide-react";
 import { SiGoogle } from "react-icons/si";
 import bsuAiLogo from "@assets/Center_for_AI_Apparel_&_Promotional_Items-WHITE_(1)_1775653892158.png";
@@ -29,6 +35,82 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { CourseCard } from "@/components/course-card";
+
+const WHATS_NEW_KEY = "whats-new-converter-v2-dismissed";
+
+const converterUpdates = [
+  {
+    icon: TrendingUp,
+    color: "text-emerald-600 dark:text-emerald-400",
+    bg: "bg-emerald-50 dark:bg-emerald-950/40",
+    title: "Higher compliance scores",
+    detail: "Documents now consistently score 50+ points higher after conversion — proper headings, landmarks, table headers, and alt text included automatically.",
+  },
+  {
+    icon: ShieldCheck,
+    color: "text-blue-600 dark:text-blue-400",
+    bg: "bg-blue-50 dark:bg-blue-950/40",
+    title: "More accurate auditing",
+    detail: "Fixed double-counting of checks that inflated failure counts. The audit now only flags clear, actionable violations.",
+  },
+  {
+    icon: Clock,
+    color: "text-violet-600 dark:text-violet-400",
+    bg: "bg-violet-50 dark:bg-violet-950/40",
+    title: "Faster & more reliable",
+    detail: "Most conversions finish in under 15 seconds. Built-in timeout protection and automatic retries prevent conversions from hanging.",
+  },
+  {
+    icon: CheckCircle2,
+    color: "text-amber-600 dark:text-amber-400",
+    bg: "bg-amber-50 dark:bg-amber-950/40",
+    title: "Better quality HTML output",
+    detail: "Upgraded AI model produces higher-quality accessible HTML with correct language attributes, heading hierarchy, and ARIA landmarks.",
+  },
+];
+
+function WhatsNewBanner({ onDismiss }: { onDismiss: () => void }) {
+  return (
+    <div
+      className="mb-8 max-w-4xl mx-auto border border-emerald-200 dark:border-emerald-800 bg-emerald-50/60 dark:bg-emerald-950/20 rounded-xl p-5"
+      role="region"
+      aria-label="What's new in the Accessibility Converter"
+      data-testid="banner-whats-new"
+    >
+      <div className="flex items-start justify-between gap-3 mb-4">
+        <div className="flex items-center gap-2.5">
+          <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white text-xs px-2 py-0.5" data-testid="badge-whats-new">
+            What's New
+          </Badge>
+          <span className="font-semibold text-foreground text-sm">
+            Accessibility Converter — Updated
+          </span>
+        </div>
+        <button
+          onClick={onDismiss}
+          className="text-muted-foreground hover:text-foreground transition-colors flex-shrink-0 rounded p-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+          aria-label="Dismiss what's new banner"
+          data-testid="button-dismiss-whats-new"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {converterUpdates.map(({ icon: Icon, color, bg, title, detail }) => (
+          <div key={title} className={`flex gap-3 rounded-lg p-3 ${bg}`}>
+            <div className="flex-shrink-0 mt-0.5">
+              <Icon className={`w-4 h-4 ${color}`} aria-hidden="true" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-foreground leading-snug">{title}</p>
+              <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{detail}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function LoginPage() {
   usePageTitle("Sign In");
@@ -112,6 +194,15 @@ export default function LandingPage() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const { user, isLoading: isAuthLoading, isAuthenticated } = useAuth();
+  const [showWhatsNew, setShowWhatsNew] = useState(
+    () => localStorage.getItem(WHATS_NEW_KEY) !== "1"
+  );
+
+  function dismissWhatsNew() {
+    localStorage.setItem(WHATS_NEW_KEY, "1");
+    setShowWhatsNew(false);
+  }
+
   useEffect(() => { window.scrollTo(0, 0); }, []);
 
   const { data: courses = [], isLoading } = useQuery<Course[]>({
@@ -204,6 +295,10 @@ export default function LandingPage() {
             Create comprehensive, UDL-aligned course materials ready for Blackboard Ultra
           </p>
         </div>
+
+        {showWhatsNew && (
+          <WhatsNewBanner onDismiss={dismissWhatsNew} />
+        )}
 
         {!isAuthenticated && (
           <div className="mb-8 max-w-4xl mx-auto bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-xl p-4 flex items-center justify-between gap-4 flex-wrap" data-testid="banner-sign-in">
