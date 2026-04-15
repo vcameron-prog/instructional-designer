@@ -506,11 +506,15 @@ export default function AdminDashboard() {
                       <>
                         <div className="flex items-baseline gap-2">
                           <p className="text-2xl font-bold text-foreground">{stats.accessibilityStats.avgFinalScore}%</p>
-                          {stats.accessibilityStats.avgOriginalScore !== null && stats.accessibilityStats.avgOriginalScore !== stats.accessibilityStats.avgFinalScore && (
-                            <span className="text-sm text-emerald-600 dark:text-emerald-400 font-medium">
-                              +{stats.accessibilityStats.avgFinalScore - stats.accessibilityStats.avgOriginalScore}% improved
-                            </span>
-                          )}
+                          {stats.accessibilityStats.avgOriginalScore !== null && stats.accessibilityStats.avgOriginalScore !== stats.accessibilityStats.avgFinalScore && (() => {
+                            const delta = stats.accessibilityStats.avgFinalScore! - stats.accessibilityStats.avgOriginalScore!;
+                            const isPositive = delta > 0;
+                            return (
+                              <span className={`text-sm font-medium ${isPositive ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+                                {isPositive ? `+${delta}% improved` : `${delta}% declined`}
+                              </span>
+                            );
+                          })()}
                         </div>
                         <p className="text-sm text-muted-foreground">Avg. Compliance Score</p>
                         {stats.accessibilityStats.avgOriginalScore !== null && (
