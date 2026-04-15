@@ -90,6 +90,7 @@ interface AdminStats {
     avgOriginalScore: number | null;
     totalIssuesFound: number;
     totalIssuesFixed: number;
+    totalIssuesRemaining: number;
   };
 }
 
@@ -551,7 +552,7 @@ export default function AdminDashboard() {
                   </div>
                   <div>
                     <p className="text-2xl font-bold text-foreground">
-                      {Math.max(0, stats.accessibilityStats.totalIssuesFound - stats.accessibilityStats.totalIssuesFixed)}
+                      {stats.accessibilityStats.totalIssuesRemaining}
                     </p>
                     <p className="text-sm text-muted-foreground">Issues Remaining</p>
                     {stats.accessibilityStats.totalIssuesFound > 0 && (

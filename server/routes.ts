@@ -1215,7 +1215,7 @@ export async function registerRoutes(
           db.select({ avg: sql<string>`avg((compliance_report->>'overallScore')::numeric)` }).from(conversions)
             .where(sql`compliance_report IS NOT NULL`),
           db.select({ avg: sql<string>`avg((original_compliance_report->>'overallScore')::numeric)` }).from(conversions)
-            .where(sql`original_compliance_report IS NOT NULL`),
+            .where(sql`compliance_report IS NOT NULL AND original_compliance_report IS NOT NULL`),
           db.select({ total: sql<string>`coalesce(sum((compliance_report->>'totalIssues')::integer), 0)` }).from(conversions)
             .where(sql`compliance_report IS NOT NULL`),
           db.select({ total: sql<string>`coalesce(sum((compliance_report->>'fixedCount')::integer), 0)` }).from(conversions)
@@ -1326,14 +1326,19 @@ export async function registerRoutes(
             contentCount: contentByUser[uid] || 0,
             conversionCount: convByUser[uid] || 0,
           })).sort((a, b) => (b.courseCount + b.contentCount + b.conversionCount) - (a.courseCount + a.contentCount + a.conversionCount)),
-          accessibilityStats: {
-            aiChecksRun: Number(aiAccessibilityChecksResult[0]?.count ?? 0),
-            conversionsWithReport: Number(conversionsWithReportResult[0]?.count ?? 0),
-            avgFinalScore: avgFinalScoreResult[0]?.avg != null ? Math.round(Number(avgFinalScoreResult[0].avg)) : null,
-            avgOriginalScore: avgOriginalScoreResult[0]?.avg != null ? Math.round(Number(avgOriginalScoreResult[0].avg)) : null,
-            totalIssuesFound: Number(totalIssuesResult[0]?.total ?? 0),
-            totalIssuesFixed: Number(totalFixedResult[0]?.total ?? 0),
-          },
+          accessibilityStats: (() => {
+            const found = Number(totalIssuesResult[0]?.total ?? 0);
+            const fixed = Number(totalFixedResult[0]?.total ?? 0);
+            return {
+              aiChecksRun: Number(aiAccessibilityChecksResult[0]?.count ?? 0),
+              conversionsWithReport: Number(conversionsWithReportResult[0]?.count ?? 0),
+              avgFinalScore: avgFinalScoreResult[0]?.avg != null ? Math.round(Number(avgFinalScoreResult[0].avg)) : null,
+              avgOriginalScore: avgOriginalScoreResult[0]?.avg != null ? Math.round(Number(avgOriginalScoreResult[0].avg)) : null,
+              totalIssuesFound: found,
+              totalIssuesFixed: fixed,
+              totalIssuesRemaining: Math.max(0, found - fixed),
+            };
+          })(),
         });
       } catch (error) {
         console.error("Error fetching admin stats:", error);
