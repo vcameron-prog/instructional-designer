@@ -13,7 +13,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import multer from "multer";
 import { z } from "zod";
 import { db } from "./db";
-import { eq, and, desc, isNull, sql } from "drizzle-orm";
+import { eq, and, desc, isNull, sql, inArray } from "drizzle-orm";
 
 function getUserId(req: Request): string | null {
   return (req.user as any)?.claims?.sub ?? null;
@@ -1220,7 +1220,7 @@ export async function registerRoutes(
             lastName: users.lastName,
             email: users.email,
           }).from(users)
-            .where(sql`${users.id} = ANY(${userIds})`);
+            .where(inArray(users.id, userIds));
           for (const u of usersData) {
             userLookup[u.id] = { firstName: u.firstName, lastName: u.lastName, email: u.email };
           }
