@@ -49,4 +49,4 @@ timeoutMs = 20000
 
 [userenv.shared]
 STATS_API_KEY = "re_7gpkYLFz_Ebv8HJhCyGVRe8q6AMUj7YYX"
-ADMIN_USER_IDS = "53962781"
+ADMIN_USER_IDS = "53962781,vcameron@bridgew.edu"

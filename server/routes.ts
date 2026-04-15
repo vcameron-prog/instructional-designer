@@ -1080,19 +1080,24 @@ export async function registerRoutes(
   await setupAuth(app);
   registerAuthRoutes(app);
 
-  const isAdmin = (req: Request, res: Response, next: Function) => {
+  const getAdminIds = () => (process.env.ADMIN_USER_IDS || "").split(",").map(id => id.trim()).filter(Boolean);
+
+  const checkIsAdmin = (req: Request): boolean => {
     const userId = getUserId(req);
-    const adminIds = (process.env.ADMIN_USER_IDS || "").split(",").map(id => id.trim()).filter(Boolean);
-    if (!userId || !adminIds.includes(userId)) {
+    const userEmail = (req.user as any)?.claims?.email as string | undefined;
+    const adminIds = getAdminIds();
+    return !!(userId && adminIds.some(entry => entry === userId || entry === userEmail));
+  };
+
+  const isAdmin = (req: Request, res: Response, next: Function) => {
+    if (!checkIsAdmin(req)) {
       return res.status(403).json({ error: "Forbidden" });
     }
     next();
   };
 
   app.get("/api/admin/check", isAuthenticated, (req: Request, res: Response) => {
-    const userId = getUserId(req);
-    const adminIds = (process.env.ADMIN_USER_IDS || "").split(",").map(id => id.trim()).filter(Boolean);
-    res.json({ isAdmin: !!userId && adminIds.includes(userId) });
+    res.json({ isAdmin: checkIsAdmin(req) });
   });
 
   app.get(
