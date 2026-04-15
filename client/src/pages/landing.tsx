@@ -15,7 +15,8 @@ import {
   Shield,
   Users,
   Loader2,
-  Zap
+  Zap,
+  LayoutDashboard
 } from "lucide-react";
 import { SiGoogle } from "react-icons/si";
 import bsuAiLogo from "@assets/Center_for_AI_Apparel_&_Promotional_Items-WHITE_(1)_1775653892158.png";
@@ -115,6 +116,11 @@ export default function LandingPage() {
 
   const { data: courses = [], isLoading } = useQuery<Course[]>({
     queryKey: ["/api/courses"],
+    enabled: isAuthenticated,
+  });
+
+  const { data: adminCheck } = useQuery<{ isAdmin: boolean }>({
+    queryKey: ["/api/admin/check"],
     enabled: isAuthenticated,
   });
 
@@ -350,6 +356,14 @@ export default function LandingPage() {
           >
             <Library className="w-4 h-4 mr-2" />
             Content Library
+          </Button>}
+          {adminCheck?.isAdmin && <Button 
+            variant="outline" 
+            onClick={() => navigate("/admin")}
+            data-testid="button-admin-dashboard"
+          >
+            <LayoutDashboard className="w-4 h-4 mr-2" />
+            Admin Dashboard
           </Button>}
         </div>
 

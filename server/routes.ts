@@ -1,7 +1,8 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertCourseSchema, type Course, courses, conversions, generatedContent } from "@shared/schema";
+import { insertCourseSchema, type Course, courses, conversions, generatedContent, contentVersions } from "@shared/schema";
+import { users } from "@shared/models/auth";
 import {
   setupAuth,
   registerAuthRoutes,
@@ -1078,6 +1079,218 @@ export async function registerRoutes(
   // Setup authentication (before other routes)
   await setupAuth(app);
   registerAuthRoutes(app);
+
+  const isAdmin = (req: Request, res: Response, next: Function) => {
+    const userId = getUserId(req);
+    const adminIds = (process.env.ADMIN_USER_IDS || "").split(",").map(id => id.trim()).filter(Boolean);
+    if (!userId || !adminIds.includes(userId)) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+    next();
+  };
+
+  app.get("/api/admin/check", isAuthenticated, (req: Request, res: Response) => {
+    const userId = getUserId(req);
+    const adminIds = (process.env.ADMIN_USER_IDS || "").split(",").map(id => id.trim()).filter(Boolean);
+    res.json({ isAdmin: !!userId && adminIds.includes(userId) });
+  });
+
+  app.get(
+    "/api/admin/stats",
+    isAuthenticated,
+    isAdmin,
+    async (req: Request, res: Response) => {
+      try {
+        const now = new Date();
+        const months: string[] = [];
+        for (let i = 5; i >= 0; i--) {
+          const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+          months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+        }
+
+        const [
+          totalCoursesResult,
+          totalContentResult,
+          totalConversionsResult,
+          totalUsersResult,
+          activeUsersResult,
+          monthlyCoursesResult,
+          monthlyContentResult,
+          monthlyConversionsResult,
+          toolBreakdownResult,
+          conversionStatusResult,
+          ocrUsageResult,
+          recentCoursesResult,
+          recentContentResult,
+          userActivityResult,
+          refinementsResult,
+        ] = await Promise.all([
+          db.select({ count: sql<number>`count(*)` }).from(courses),
+          db.select({ count: sql<number>`count(*)` }).from(generatedContent),
+          db.select({ count: sql<number>`count(*)` }).from(conversions),
+          db.select({ count: sql<number>`count(*)` }).from(users),
+          db.select({ count: sql<number>`count(distinct user_id)` })
+            .from(courses)
+            .where(sql`to_char(created_at, 'YYYY-MM') = ${months[5]}`),
+          db.select({
+            month: sql<string>`to_char(created_at, 'YYYY-MM')`,
+            count: sql<number>`count(*)`,
+          }).from(courses)
+            .where(sql`to_char(created_at, 'YYYY-MM') = ANY(${months})`)
+            .groupBy(sql`to_char(created_at, 'YYYY-MM')`),
+          db.select({
+            month: sql<string>`to_char(created_at, 'YYYY-MM')`,
+            count: sql<number>`count(*)`,
+          }).from(generatedContent)
+            .where(sql`to_char(created_at, 'YYYY-MM') = ANY(${months})`)
+            .groupBy(sql`to_char(created_at, 'YYYY-MM')`),
+          db.select({
+            month: sql<string>`to_char(created_at, 'YYYY-MM')`,
+            count: sql<number>`count(*)`,
+          }).from(conversions)
+            .where(sql`to_char(created_at, 'YYYY-MM') = ANY(${months})`)
+            .groupBy(sql`to_char(created_at, 'YYYY-MM')`),
+          db.select({
+            toolName: generatedContent.toolName,
+            count: sql<number>`count(*)`,
+          }).from(generatedContent)
+            .groupBy(generatedContent.toolName)
+            .orderBy(sql`count(*) desc`),
+          db.select({
+            status: conversions.status,
+            count: sql<number>`count(*)`,
+          }).from(conversions)
+            .groupBy(conversions.status),
+          db.select({ count: sql<number>`count(*)` })
+            .from(conversions)
+            .where(sql`ocr_applied = true`),
+          db.select({
+            id: courses.id,
+            courseName: courses.courseName,
+            courseNumber: courses.courseNumber,
+            userId: courses.userId,
+            createdAt: courses.createdAt,
+          }).from(courses)
+            .orderBy(desc(courses.createdAt))
+            .limit(10),
+          db.select({
+            id: generatedContent.id,
+            toolName: generatedContent.toolName,
+            courseId: generatedContent.courseId,
+            userId: generatedContent.userId,
+            createdAt: generatedContent.createdAt,
+          }).from(generatedContent)
+            .orderBy(desc(generatedContent.createdAt))
+            .limit(10),
+          db.select({
+            userId: courses.userId,
+            courseCount: sql<number>`count(distinct ${courses.id})`,
+          }).from(courses)
+            .groupBy(courses.userId)
+            .orderBy(sql`count(distinct ${courses.id}) desc`)
+            .limit(20),
+          db.select({ count: sql<number>`count(*)` }).from(contentVersions),
+        ]);
+
+        const userIds = [...new Set([
+          ...recentCoursesResult.map(c => c.userId),
+          ...recentContentResult.map(c => c.userId).filter(Boolean),
+          ...userActivityResult.map(u => u.userId),
+        ])].filter(Boolean);
+
+        const userLookup: Record<string, { firstName: string | null; lastName: string | null; email: string | null }> = {};
+        if (userIds.length > 0) {
+          const usersData = await db.select({
+            id: users.id,
+            firstName: users.firstName,
+            lastName: users.lastName,
+            email: users.email,
+          }).from(users)
+            .where(sql`${users.id} = ANY(${userIds})`);
+          for (const u of usersData) {
+            userLookup[u.id] = { firstName: u.firstName, lastName: u.lastName, email: u.email };
+          }
+        }
+
+        const contentCountByUser = await db.select({
+          userId: generatedContent.userId,
+          count: sql<number>`count(*)`,
+        }).from(generatedContent)
+          .where(sql`${generatedContent.userId} IS NOT NULL`)
+          .groupBy(generatedContent.userId);
+        const contentByUser: Record<string, number> = {};
+        for (const row of contentCountByUser) {
+          if (row.userId) contentByUser[row.userId] = Number(row.count);
+        }
+
+        const convCountByUser = await db.select({
+          userId: conversions.userId,
+          count: sql<number>`count(*)`,
+        }).from(conversions)
+          .where(sql`${conversions.userId} IS NOT NULL`)
+          .groupBy(conversions.userId);
+        const convByUser: Record<string, number> = {};
+        for (const row of convCountByUser) {
+          if (row.userId) convByUser[row.userId] = Number(row.count);
+        }
+
+        const monthlyTrends = months.map(m => {
+          const c = monthlyCoursesResult.find(r => r.month === m);
+          const g = monthlyContentResult.find(r => r.month === m);
+          const d = monthlyConversionsResult.find(r => r.month === m);
+          return {
+            month: m,
+            courses: Number(c?.count ?? 0),
+            content: Number(g?.count ?? 0),
+            conversions: Number(d?.count ?? 0),
+          };
+        });
+
+        const statusMap: Record<string, number> = {};
+        for (const row of conversionStatusResult) {
+          statusMap[row.status] = Number(row.count);
+        }
+
+        res.json({
+          summary: {
+            totalCourses: Number(totalCoursesResult[0]?.count ?? 0),
+            totalContent: Number(totalContentResult[0]?.count ?? 0),
+            totalConversions: Number(totalConversionsResult[0]?.count ?? 0),
+            totalUsers: Number(totalUsersResult[0]?.count ?? 0),
+            activeUsersThisMonth: Number(activeUsersResult[0]?.count ?? 0),
+            totalRefinements: Number(refinementsResult[0]?.count ?? 0),
+          },
+          monthlyTrends,
+          toolBreakdown: toolBreakdownResult.map(t => ({
+            name: t.toolName,
+            count: Number(t.count),
+          })),
+          conversionStats: {
+            byStatus: statusMap,
+            ocrUsed: Number(ocrUsageResult[0]?.count ?? 0),
+          },
+          recentCourses: recentCoursesResult.map(c => ({
+            ...c,
+            user: userLookup[c.userId] || null,
+          })),
+          recentContent: recentContentResult.map(c => ({
+            ...c,
+            user: c.userId ? userLookup[c.userId] || null : null,
+          })),
+          userActivity: userActivityResult.map(u => ({
+            userId: u.userId,
+            user: userLookup[u.userId] || null,
+            courseCount: Number(u.courseCount),
+            contentCount: contentByUser[u.userId] || 0,
+            conversionCount: convByUser[u.userId] || 0,
+          })),
+        });
+      } catch (error) {
+        console.error("Error fetching admin stats:", error);
+        res.status(500).json({ error: "Failed to fetch admin stats" });
+      }
+    },
+  );
 
   app.get(
     "/api/stats/public",

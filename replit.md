@@ -61,6 +61,8 @@ Preferred communication style: Simple, everyday language.
 - **Content Library**: Ability to save generated content as reusable templates, view courses, and access conversion history.
 - **Course Management**: Course duplication and pre-filled course templates (Lecture, Seminar, Lab, etc.).
 - **Export**: Professional .docx export for easy integration with LMS (e.g., Blackboard Ultra).
+- **Admin Dashboard**: Protected `/admin` page showing usage statistics (total courses, content generated, conversions, users), monthly activity trends chart, tool popularity breakdown, document conversion stats with pie chart, recent activity feed, and user activity table. Access controlled via `ADMIN_USER_IDS` env var (comma-separated user IDs). Backend routes: `GET /api/admin/check` and `GET /api/admin/stats`. Admin link visible only to admin users on the landing page footer.
+- **Public Stats API**: `GET /api/stats/public` returns monthly activity counts, optionally protected by `STATS_API_KEY` env var (requires `x-api-key` header).
 
 ## External Dependencies
 
