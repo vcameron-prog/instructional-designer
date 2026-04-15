@@ -1129,9 +1129,13 @@ export async function registerRoutes(
           db.select({ count: sql<number>`count(*)` }).from(generatedContent),
           db.select({ count: sql<number>`count(*)` }).from(conversions),
           db.select({ count: sql<number>`count(*)` }).from(users),
-          db.select({ count: sql<number>`count(distinct user_id)` })
-            .from(courses)
-            .where(sql`to_char(created_at, 'YYYY-MM') = ${months[5]}`),
+          db.select({ count: sql<number>`count(*)` }).from(sql`(
+            SELECT DISTINCT user_id FROM courses WHERE to_char(created_at, 'YYYY-MM') = ${months[5]} AND user_id IS NOT NULL
+            UNION
+            SELECT DISTINCT user_id FROM generated_content WHERE to_char(created_at, 'YYYY-MM') = ${months[5]} AND user_id IS NOT NULL
+            UNION
+            SELECT DISTINCT user_id FROM conversions WHERE to_char(created_at, 'YYYY-MM') = ${months[5]} AND user_id IS NOT NULL
+          ) AS active_users`),
           db.select({
             month: sql<string>`to_char(created_at, 'YYYY-MM')`,
             count: sql<number>`count(*)`,
@@ -1183,19 +1187,25 @@ export async function registerRoutes(
             .orderBy(desc(generatedContent.createdAt))
             .limit(10),
           db.select({
-            userId: courses.userId,
-            courseCount: sql<number>`count(distinct ${courses.id})`,
-          }).from(courses)
-            .groupBy(courses.userId)
-            .orderBy(sql`count(distinct ${courses.id}) desc`)
-            .limit(20),
+            userId: sql<string>`user_id`,
+          }).from(sql`(
+            SELECT user_id FROM courses WHERE user_id IS NOT NULL
+            UNION
+            SELECT user_id FROM generated_content WHERE user_id IS NOT NULL
+            UNION
+            SELECT user_id FROM conversions WHERE user_id IS NOT NULL
+          ) AS all_users`)
+            .groupBy(sql`user_id`)
+            .limit(30),
           db.select({ count: sql<number>`count(*)` }).from(contentVersions),
         ]);
+
+        const allActiveUserIds = userActivityResult.map(u => u.userId).filter(Boolean);
 
         const userIds = [...new Set([
           ...recentCoursesResult.map(c => c.userId),
           ...recentContentResult.map(c => c.userId).filter(Boolean),
-          ...userActivityResult.map(u => u.userId),
+          ...allActiveUserIds,
         ])].filter(Boolean);
 
         const userLookup: Record<string, { firstName: string | null; lastName: string | null; email: string | null }> = {};
@@ -1210,6 +1220,16 @@ export async function registerRoutes(
           for (const u of usersData) {
             userLookup[u.id] = { firstName: u.firstName, lastName: u.lastName, email: u.email };
           }
+        }
+
+        const courseCountByUser = await db.select({
+          userId: courses.userId,
+          count: sql<number>`count(*)`,
+        }).from(courses)
+          .groupBy(courses.userId);
+        const coursesByUser: Record<string, number> = {};
+        for (const row of courseCountByUser) {
+          coursesByUser[row.userId] = Number(row.count);
         }
 
         const contentCountByUser = await db.select({
@@ -1277,13 +1297,13 @@ export async function registerRoutes(
             ...c,
             user: c.userId ? userLookup[c.userId] || null : null,
           })),
-          userActivity: userActivityResult.map(u => ({
-            userId: u.userId,
-            user: userLookup[u.userId] || null,
-            courseCount: Number(u.courseCount),
-            contentCount: contentByUser[u.userId] || 0,
-            conversionCount: convByUser[u.userId] || 0,
-          })),
+          userActivity: allActiveUserIds.map(uid => ({
+            userId: uid,
+            user: userLookup[uid] || null,
+            courseCount: coursesByUser[uid] || 0,
+            contentCount: contentByUser[uid] || 0,
+            conversionCount: convByUser[uid] || 0,
+          })).sort((a, b) => (b.courseCount + b.contentCount + b.conversionCount) - (a.courseCount + a.contentCount + a.conversionCount)),
         });
       } catch (error) {
         console.error("Error fetching admin stats:", error);
