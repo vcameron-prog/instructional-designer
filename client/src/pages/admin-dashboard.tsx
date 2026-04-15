@@ -13,6 +13,10 @@ import {
   RefreshCw,
   Loader2,
   ShieldAlert,
+  ShieldCheck,
+  TrendingUp,
+  AlertCircle,
+  Wrench,
 } from "lucide-react";
 import { HeaderControls } from "@/components/header-controls";
 import { usePageTitle } from "@/hooks/use-page-title";
@@ -79,6 +83,14 @@ interface AdminStats {
     contentCount: number;
     conversionCount: number;
   }>;
+  accessibilityStats: {
+    aiChecksRun: number;
+    conversionsWithReport: number;
+    avgFinalScore: number | null;
+    avgOriginalScore: number | null;
+    totalIssuesFound: number;
+    totalIssuesFixed: number;
+  };
 }
 
 const CHART_COLORS = [
@@ -450,6 +462,114 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
         </div>
+
+        <Card className="mb-8" data-testid="card-accessibility-stats">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5" />
+              Accessibility Insights
+            </CardTitle>
+            <CardDescription>Usage and outcomes across all accessibility tools</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {!stats.accessibilityStats || (stats.accessibilityStats.aiChecksRun === 0 && stats.accessibilityStats.conversionsWithReport === 0) ? (
+              <p className="text-muted-foreground text-center py-8">No accessibility tool usage yet</p>
+            ) : (
+              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="flex items-start gap-3" data-testid="stat-ai-checks">
+                  <div className="w-9 h-9 rounded-lg bg-indigo-100 dark:bg-indigo-950 flex items-center justify-center flex-shrink-0">
+                    <FileText className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-foreground">{stats.accessibilityStats.aiChecksRun}</p>
+                    <p className="text-sm text-muted-foreground">AI Accessibility Checks</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3" data-testid="stat-conversions-with-report">
+                  <div className="w-9 h-9 rounded-lg bg-emerald-100 dark:bg-emerald-950 flex items-center justify-center flex-shrink-0">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-foreground">{stats.accessibilityStats.conversionsWithReport}</p>
+                    <p className="text-sm text-muted-foreground">Documents with Compliance Report</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3" data-testid="stat-avg-score">
+                  <div className="w-9 h-9 rounded-lg bg-amber-100 dark:bg-amber-950 flex items-center justify-center flex-shrink-0">
+                    <TrendingUp className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <div>
+                    {stats.accessibilityStats.avgFinalScore !== null ? (
+                      <>
+                        <div className="flex items-baseline gap-2">
+                          <p className="text-2xl font-bold text-foreground">{stats.accessibilityStats.avgFinalScore}%</p>
+                          {stats.accessibilityStats.avgOriginalScore !== null && stats.accessibilityStats.avgOriginalScore !== stats.accessibilityStats.avgFinalScore && (
+                            <span className="text-sm text-emerald-600 dark:text-emerald-400 font-medium">
+                              +{stats.accessibilityStats.avgFinalScore - stats.accessibilityStats.avgOriginalScore}% improved
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-muted-foreground">Avg. Compliance Score</p>
+                        {stats.accessibilityStats.avgOriginalScore !== null && (
+                          <p className="text-xs text-muted-foreground mt-0.5">Before fixes: {stats.accessibilityStats.avgOriginalScore}%</p>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-2xl font-bold text-muted-foreground">—</p>
+                        <p className="text-sm text-muted-foreground">Avg. Compliance Score</p>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3" data-testid="stat-issues-found">
+                  <div className="w-9 h-9 rounded-lg bg-red-100 dark:bg-red-950 flex items-center justify-center flex-shrink-0">
+                    <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-foreground">{stats.accessibilityStats.totalIssuesFound}</p>
+                    <p className="text-sm text-muted-foreground">Total WCAG Issues Found</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3" data-testid="stat-issues-fixed">
+                  <div className="w-9 h-9 rounded-lg bg-teal-100 dark:bg-teal-950 flex items-center justify-center flex-shrink-0">
+                    <Wrench className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-foreground">{stats.accessibilityStats.totalIssuesFixed}</p>
+                    <p className="text-sm text-muted-foreground">Issues Auto-Fixed</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3" data-testid="stat-issues-remaining">
+                  <div className="w-9 h-9 rounded-lg bg-orange-100 dark:bg-orange-950 flex items-center justify-center flex-shrink-0">
+                    <FileCheck className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-foreground">
+                      {Math.max(0, stats.accessibilityStats.totalIssuesFound - stats.accessibilityStats.totalIssuesFixed)}
+                    </p>
+                    <p className="text-sm text-muted-foreground">Issues Remaining</p>
+                    {stats.accessibilityStats.totalIssuesFound > 0 && (
+                      <div className="mt-1.5 w-full bg-muted rounded-full h-1.5">
+                        <div
+                          className="h-1.5 rounded-full bg-teal-500 transition-all"
+                          style={{
+                            width: `${Math.min(100, (stats.accessibilityStats.totalIssuesFixed / stats.accessibilityStats.totalIssuesFound) * 100)}%`
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         <Card className="mb-8" data-testid="card-user-activity">
           <CardHeader>

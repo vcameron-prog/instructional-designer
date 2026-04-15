@@ -1129,6 +1129,12 @@ export async function registerRoutes(
           recentContentResult,
           userActivityResult,
           refinementsResult,
+          aiAccessibilityChecksResult,
+          conversionsWithReportResult,
+          avgFinalScoreResult,
+          avgOriginalScoreResult,
+          totalIssuesResult,
+          totalFixedResult,
         ] = await Promise.all([
           db.select({ count: sql<number>`count(*)` }).from(courses),
           db.select({ count: sql<number>`count(*)` }).from(generatedContent),
@@ -1202,6 +1208,18 @@ export async function registerRoutes(
           ) AS all_users`)
             .groupBy(sql`user_id`),
           db.select({ count: sql<number>`count(*)` }).from(contentVersions),
+          db.select({ count: sql<number>`count(*)` }).from(generatedContent)
+            .where(sql`tool_type = 'accessibility'`),
+          db.select({ count: sql<number>`count(*)` }).from(conversions)
+            .where(sql`compliance_report IS NOT NULL`),
+          db.select({ avg: sql<string>`avg((compliance_report->>'overallScore')::numeric)` }).from(conversions)
+            .where(sql`compliance_report IS NOT NULL`),
+          db.select({ avg: sql<string>`avg((original_compliance_report->>'overallScore')::numeric)` }).from(conversions)
+            .where(sql`original_compliance_report IS NOT NULL`),
+          db.select({ total: sql<string>`coalesce(sum((compliance_report->>'totalIssues')::integer), 0)` }).from(conversions)
+            .where(sql`compliance_report IS NOT NULL`),
+          db.select({ total: sql<string>`coalesce(sum((compliance_report->>'fixedCount')::integer), 0)` }).from(conversions)
+            .where(sql`compliance_report IS NOT NULL`),
         ]);
 
         const allActiveUserIds = userActivityResult.map(u => u.userId).filter(Boolean);
@@ -1308,6 +1326,14 @@ export async function registerRoutes(
             contentCount: contentByUser[uid] || 0,
             conversionCount: convByUser[uid] || 0,
           })).sort((a, b) => (b.courseCount + b.contentCount + b.conversionCount) - (a.courseCount + a.contentCount + a.conversionCount)),
+          accessibilityStats: {
+            aiChecksRun: Number(aiAccessibilityChecksResult[0]?.count ?? 0),
+            conversionsWithReport: Number(conversionsWithReportResult[0]?.count ?? 0),
+            avgFinalScore: avgFinalScoreResult[0]?.avg != null ? Math.round(Number(avgFinalScoreResult[0].avg)) : null,
+            avgOriginalScore: avgOriginalScoreResult[0]?.avg != null ? Math.round(Number(avgOriginalScoreResult[0].avg)) : null,
+            totalIssuesFound: Number(totalIssuesResult[0]?.total ?? 0),
+            totalIssuesFixed: Number(totalFixedResult[0]?.total ?? 0),
+          },
         });
       } catch (error) {
         console.error("Error fetching admin stats:", error);
