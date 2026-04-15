@@ -1145,19 +1145,19 @@ export async function registerRoutes(
             month: sql<string>`to_char(created_at, 'YYYY-MM')`,
             count: sql<number>`count(*)`,
           }).from(courses)
-            .where(sql`to_char(created_at, 'YYYY-MM') = ANY(${months})`)
+            .where(sql`to_char(created_at, 'YYYY-MM') >= ${months[0]} AND to_char(created_at, 'YYYY-MM') <= ${months[5]}`)
             .groupBy(sql`to_char(created_at, 'YYYY-MM')`),
           db.select({
             month: sql<string>`to_char(created_at, 'YYYY-MM')`,
             count: sql<number>`count(*)`,
           }).from(generatedContent)
-            .where(sql`to_char(created_at, 'YYYY-MM') = ANY(${months})`)
+            .where(sql`to_char(created_at, 'YYYY-MM') >= ${months[0]} AND to_char(created_at, 'YYYY-MM') <= ${months[5]}`)
             .groupBy(sql`to_char(created_at, 'YYYY-MM')`),
           db.select({
             month: sql<string>`to_char(created_at, 'YYYY-MM')`,
             count: sql<number>`count(*)`,
           }).from(conversions)
-            .where(sql`to_char(created_at, 'YYYY-MM') = ANY(${months})`)
+            .where(sql`to_char(created_at, 'YYYY-MM') >= ${months[0]} AND to_char(created_at, 'YYYY-MM') <= ${months[5]}`)
             .groupBy(sql`to_char(created_at, 'YYYY-MM')`),
           db.select({
             toolName: generatedContent.toolName,
