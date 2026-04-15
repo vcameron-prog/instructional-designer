@@ -19,6 +19,7 @@ import PdfHistory from "@/pages/pdf-history";
 import PdfConversion from "@/pages/pdf-conversion";
 import PdfFaq from "@/pages/pdf-faq";
 import AdminDashboard from "@/pages/admin-dashboard";
+import AccessibilityEmbed from "@/pages/accessibility-embed";
 import { WelcomeModal } from "@/components/welcome-modal";
 import { ThemeProvider } from "@/components/theme-provider";
 import { FontSizeProvider } from "@/components/font-size-provider";
@@ -62,6 +63,7 @@ function Router() {
       <Route path="/quick-tools" component={QuickToolsPage} />
       <Route path="/quick-tools/:toolId" component={ToolForm} />
       <Route path="/quick-tools/result/:contentId" component={ResultPage} />
+      <Route path="/accessibility" component={AccessibilityEmbed} />
       <Route path="/pdf-accessibility" component={PdfUpload} />
       <Route path="/pdf-accessibility/history" component={PdfHistory} />
       <Route path="/pdf-accessibility/faq" component={PdfFaq} />
