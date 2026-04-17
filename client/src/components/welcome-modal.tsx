@@ -98,16 +98,18 @@ export function WelcomeModal() {
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex justify-center gap-1.5 py-4">
+        <div className="flex justify-center gap-1.5 py-4" role="group" aria-label={`Step ${currentStep + 1} of ${steps.length}`}>
           {steps.map((_, index) => (
             <div
               key={index}
               className={`w-2 h-2 rounded-full transition-colors ${
                 index === currentStep ? "bg-primary" : "bg-muted"
               }`}
+              aria-hidden="true"
             />
           ))}
         </div>
+        <p className="sr-only" aria-live="polite">Step {currentStep + 1} of {steps.length}: {steps[currentStep].title}</p>
 
         <DialogFooter className="flex-row justify-between gap-2 sm:justify-between">
           <Button variant="ghost" onClick={handleSkip} data-testid="button-skip-tour">

@@ -243,8 +243,8 @@ export default function LandingPage() {
 
   if (isAuthLoading) {
     return (
-      <main id="main-content" tabIndex={-1} className="min-h-screen bg-background flex items-center justify-center" role="status">
-        <div className="text-center">
+      <main id="main-content" tabIndex={-1} className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center" role="status" aria-live="polite">
           <Loader2 className="w-12 h-12 text-primary animate-spin mx-auto mb-4" aria-hidden="true" />
           <p className="text-muted-foreground">Loading...</p>
         </div>

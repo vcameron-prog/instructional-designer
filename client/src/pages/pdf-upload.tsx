@@ -320,11 +320,15 @@ export default function PdfUpload() {
                   </p>
                   <div className="flex gap-2">
                     <div className="relative flex-1">
+                      <label htmlFor="google-doc-url" className="sr-only">
+                        Google Docs URL
+                      </label>
                       <SiGoogledrive
                         className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"
                         aria-hidden="true"
                       />
                       <input
+                        id="google-doc-url"
                         type="url"
                         value={googleDocUrl}
                         onChange={(e) => setGoogleDocUrl(e.target.value)}

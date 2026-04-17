@@ -262,9 +262,11 @@ export default function CourseForm({ courseId }: { courseId?: number }) {
 
   if (courseId && isLoadingCourse) {
     return (
-      <main id="main-content" tabIndex={-1} className="min-h-screen bg-background flex items-center justify-center" role="status">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" aria-hidden="true" />
-        <span className="sr-only">Loading course information</span>
+      <main id="main-content" tabIndex={-1} className="min-h-screen bg-background flex items-center justify-center">
+        <div role="status" aria-live="polite" className="flex items-center gap-2">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" aria-hidden="true" />
+          <span className="sr-only">Loading course information</span>
+        </div>
       </main>
     );
   }

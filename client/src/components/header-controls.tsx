@@ -54,7 +54,7 @@ export function HeaderControls({
           </TooltipTrigger>
           <TooltipContent><p>Decrease text size</p></TooltipContent>
         </Tooltip>
-        <Type className={typeClass} />
+        <Type className={typeClass} aria-hidden="true" />
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
