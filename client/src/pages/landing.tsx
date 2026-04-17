@@ -346,8 +346,8 @@ export default function LandingPage() {
 
           <Card 
             className="group cursor-pointer transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl bg-card border-0"
-            onClick={() => navigate("/pdf-accessibility")}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate("/pdf-accessibility"); } }}
+            onClick={() => navigate("/accessibility")}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate("/accessibility"); } }}
             tabIndex={0}
             role="button"
             aria-label="Accessibility Converter"
