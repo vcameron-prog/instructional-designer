@@ -11,7 +11,7 @@ export default function AccessibilityEmbed() {
       aria-label="PDF Accessibility Converter"
     >
       <iframe
-        src="https://pdf-accessibility-converter.replit.app"
+        src="https://bsu-accessibility-converter.replit.app"
         title="PDF Accessibility Converter"
         className="w-full h-full border-0"
         allow="clipboard-read; clipboard-write"
