@@ -362,7 +362,7 @@ export default function LandingPage() {
                 Convert PDFs into ADA Title II & WCAG 2.1 AA compliant accessible documents
               </CardDescription>
               <Button variant="outline" className="mt-6 gap-2" data-testid="button-pdf-accessibility">
-                Convert PDF <ArrowRight className="w-4 h-4" />
+                Convert Document <ArrowRight className="w-4 h-4" />
               </Button>
             </CardContent>
           </Card>
