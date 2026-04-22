@@ -1233,22 +1233,24 @@ export default function ResultPage() {
                     const sectionWordCount = section.body.trim().split(/\s+/).filter(Boolean).length;
                     return (
                       <Collapsible key={idx} open={isOpen} onOpenChange={(open) => setExpandedSections(prev => ({ ...prev, [idx]: open }))}>
-                        <CollapsibleTrigger asChild>
-                          <button
-                            className="flex items-center gap-2 w-full text-left group mt-5 mb-2 cursor-pointer hover:bg-muted/50 rounded-md px-2 py-1 -mx-2 transition-colors"
-                            data-testid={`collapsible-trigger-${idx}`}
-                          >
-                            <ChevronRight className={`w-4 h-4 text-primary transition-transform shrink-0 ${isOpen ? "rotate-90" : ""}`} />
-                            <h2 className="text-xl font-bold text-primary">{section.heading}</h2>
-                            <Badge
-                              className="bg-primary/10 text-primary border-primary/30 hover:bg-primary/10 ml-1 shrink-0"
-                              variant="outline"
-                              data-testid={`badge-section-wordcount-${idx}`}
+                        <div className="flex items-center gap-2 mt-5 mb-2">
+                          <CollapsibleTrigger asChild>
+                            <button
+                              className="flex items-center gap-2 min-w-0 flex-1 text-left group cursor-pointer hover:bg-muted/50 rounded-md px-2 py-1 -mx-2 transition-colors"
+                              data-testid={`collapsible-trigger-${idx}`}
                             >
-                              {sectionWordCount} word{sectionWordCount !== 1 ? "s" : ""}
-                            </Badge>
-                          </button>
-                        </CollapsibleTrigger>
+                              <ChevronRight className={`w-4 h-4 text-primary transition-transform shrink-0 ${isOpen ? "rotate-90" : ""}`} />
+                              <h2 className="text-xl font-bold text-primary">{section.heading}</h2>
+                            </button>
+                          </CollapsibleTrigger>
+                          <Badge
+                            className="bg-primary/10 text-primary border-primary/30 hover:bg-primary/10 shrink-0"
+                            variant="outline"
+                            data-testid={`badge-section-wordcount-${idx}`}
+                          >
+                            {sectionWordCount} word{sectionWordCount !== 1 ? "s" : ""}
+                          </Badge>
+                        </div>
                         <CollapsibleContent>
                           <div data-testid={`collapsible-content-${idx}`}>
                             <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema]]} components={markdownComponents}>
