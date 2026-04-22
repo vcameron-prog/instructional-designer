@@ -868,6 +868,12 @@ export function applyAriaRoleHeaderFix(html: string): string {
   return result;
 }
 
+type DeterministicFixer = (html: string) => string;
+
+const deterministicFixerRegistry: Record<string, DeterministicFixer> = {
+  "1.3.1::ARIA Role on Table Data Cell": applyAriaRoleHeaderFix,
+};
+
 function stripDataUris(html: string): { stripped: string; uris: Map<string, string> } {
   const uris = new Map<string, string>();
   let counter = 0;
@@ -930,8 +936,10 @@ export async function fixComplianceIssue(
   issueIndex: number,
   existingReport: ComplianceReport
 ): Promise<AccessibilityResult> {
-  if (issue.criterion === "1.3.1" && issue.title === "ARIA Role on Table Data Cell") {
-    const fixedHtml = applyAriaRoleHeaderFix(currentHtml);
+  const registryKey = `${issue.criterion}::${issue.title}`;
+  const deterministicFixer = deterministicFixerRegistry[registryKey];
+  if (deterministicFixer) {
+    const fixedHtml = deterministicFixer(currentHtml);
     const updatedIssues = [...existingReport.issues];
     applyDeterministicReport(fixedHtml, issue, issueIndex, updatedIssues);
     return { accessibleHtml: fixedHtml, complianceReport: buildComplianceReport(updatedIssues) };
