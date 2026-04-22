@@ -2556,6 +2556,32 @@ describe("applyDeterministicReport", () => {
     expect(updatedIssues[0].status).toBe("fixed");
     expect(updatedIssues[0].details).toBe("Fixed: Interactive element lacks a name.");
   });
+
+  it("updates a non-target, non-fixed issue whose criterion is in the deterministic map", () => {
+    // index 0: non-target issue for 3.1.1 that was failing — should be refreshed by the loop
+    const nonTargetIssue = makeIssue({
+      criterion: "3.1.1",
+      title: "Language of Page",
+      status: "fail",
+      details: "No lang attribute found.",
+    });
+    // index 1: target issue not in the deterministic map — gets the fallback fixed label
+    const targetIssue = makeIssue({
+      criterion: "4.1.2",
+      title: "Name Role Value",
+      status: "fail",
+      details: "Interactive element lacks a name.",
+    });
+    const updatedIssues: ComplianceIssue[] = [{ ...nonTargetIssue }, { ...targetIssue }];
+
+    // BASE_HTML has lang="en", so the 3.1.1 deterministic check will now pass
+    applyDeterministicReport(BASE_HTML, targetIssue, 1, updatedIssues);
+
+    // The non-target issue at index 0 should be refreshed to the fresh check result ("pass")
+    expect(updatedIssues[0].status).toBe("pass");
+    // The target issue at index 1 should get the fallback fixed treatment
+    expect(updatedIssues[1].status).toBe("fixed");
+  });
 });
 
 // ---------------------------------------------------------------------------

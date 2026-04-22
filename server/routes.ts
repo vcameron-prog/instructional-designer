@@ -1934,7 +1934,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     optionalAuth,
     async (req: Request, res: Response) => {
       try {
-        const id = parseInt(req.params.id);
+        const id = parseInt(req.params["id"] as string);
         const { fixType } = req.body;
         if (!fixType) {
           return res.status(400).json({ error: "fixType is required" });
@@ -2046,7 +2046,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     optionalAuth,
     async (req: Request, res: Response) => {
       try {
-        const id = parseInt(req.params.id);
+        const id = parseInt(req.params["id"] as string);
         const content = await storage.getContent(id);
         if (!content) {
           return res.status(404).json({ error: "Content not found" });
