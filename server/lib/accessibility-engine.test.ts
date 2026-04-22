@@ -194,6 +194,13 @@ describe("runDeterministicChecks", () => {
       const order = issues.find((i) => i.criterion === "1.3.2");
       expect(order!.status).toBe("warning");
     });
+
+    it("passes when a non-div element uses position:absolute (rule only checks div)", () => {
+      const html = `<html lang="en"><body><span style="position: absolute; top: 0">Floated span</span></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const order = issues.find((i) => i.criterion === "1.3.2");
+      expect(order!.status).toBe("pass");
+    });
   });
 
   // 1.3.1 Table Headers
@@ -312,6 +319,27 @@ describe("buildComplianceReport", () => {
     expect(report.issues[0].status).toBe("pass");
     expect(report.issues[1].status).toBe("fail");
   });
+
+  it("counts only warnings correctly — score is 0 since warnings are not positive", () => {
+    const issues = [makeIssue("warning"), makeIssue("warning"), makeIssue("warning")];
+    const report = buildComplianceReport(issues);
+    expect(report.warningCount).toBe(3);
+    expect(report.passCount).toBe(0);
+    expect(report.failCount).toBe(0);
+    expect(report.overallScore).toBe(0);
+  });
+
+  it("score rounds correctly for non-integer percentages", () => {
+    const issues = [makeIssue("pass"), makeIssue("fail"), makeIssue("fail")];
+    const report = buildComplianceReport(issues);
+    expect(report.overallScore).toBe(33);
+  });
+
+  it("totalIssues equals the length of the supplied array", () => {
+    const issues = Array.from({ length: 10 }, () => makeIssue("pass"));
+    const report = buildComplianceReport(issues);
+    expect(report.totalIssues).toBe(10);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -340,6 +368,21 @@ describe("parseHexColor", () => {
     expect(parseHexColor("#gggggg")).toBeNull();
     expect(parseHexColor("")).toBeNull();
   });
+
+  it("parses uppercase hex letters correctly", () => {
+    expect(parseHexColor("#FFFFFF")).toEqual([255, 255, 255]);
+    expect(parseHexColor("#FF0000")).toEqual([255, 0, 0]);
+    expect(parseHexColor("#FFF")).toEqual([255, 255, 255]);
+  });
+
+  it("returns null for 4-digit and 8-digit hex (unsupported lengths)", () => {
+    expect(parseHexColor("#ffff")).toBeNull();
+    expect(parseHexColor("#ffffffff")).toBeNull();
+  });
+
+  it("parses a mid-range 6-digit hex correctly", () => {
+    expect(parseHexColor("#804020")).toEqual([128, 64, 32]);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -359,6 +402,22 @@ describe("relativeLuminance", () => {
     const l = relativeLuminance(128, 128, 128);
     expect(l).toBeGreaterThan(0);
     expect(l).toBeLessThan(1);
+  });
+
+  it("returns the WCAG-specified luminance for pure red (≈ 0.2126)", () => {
+    expect(relativeLuminance(255, 0, 0)).toBeCloseTo(0.2126, 3);
+  });
+
+  it("returns a higher luminance for a lighter colour than a darker one", () => {
+    const light = relativeLuminance(200, 200, 200);
+    const dark = relativeLuminance(50, 50, 50);
+    expect(light).toBeGreaterThan(dark);
+  });
+
+  it("treats each channel independently — pure green has higher luminance than pure blue", () => {
+    const green = relativeLuminance(0, 255, 0);
+    const blue = relativeLuminance(0, 0, 255);
+    expect(green).toBeGreaterThan(blue);
   });
 });
 
@@ -394,6 +453,19 @@ describe("contrastRatio", () => {
     const white = relativeLuminance(255, 255, 255);
     const lightGrey = relativeLuminance(200, 200, 200);
     expect(contrastRatio(white, lightGrey)).toBeLessThan(4.5);
+  });
+
+  it("black-on-white exceeds WCAG AAA threshold of 7:1", () => {
+    const white = relativeLuminance(255, 255, 255);
+    const black = relativeLuminance(0, 0, 0);
+    expect(contrastRatio(white, black)).toBeGreaterThanOrEqual(7);
+  });
+
+  it("always returns a ratio of at least 1 (no negative contrast)", () => {
+    const a = relativeLuminance(10, 10, 10);
+    const b = relativeLuminance(240, 240, 240);
+    expect(contrastRatio(a, b)).toBeGreaterThanOrEqual(1);
+    expect(contrastRatio(b, a)).toBeGreaterThanOrEqual(1);
   });
 });
 
@@ -440,6 +512,26 @@ describe("checkHeadingOrder", () => {
     const html = "<h2>First</h2><h1>Second</h1>";
     const result = checkHeadingOrder(html);
     expect(result.levels).toEqual([2, 1]);
+  });
+
+  it("does not flag h1 after h2 as a skip (going up to a higher level is allowed)", () => {
+    const html = "<h2>Intro</h2><h1>Main</h1>";
+    const result = checkHeadingOrder(html);
+    expect(result.hasSkippedLevels).toBe(false);
+  });
+
+  it("handles a document with a single heading with no skips", () => {
+    const html = "<h1>Only heading</h1>";
+    const result = checkHeadingOrder(html);
+    expect(result.levels).toEqual([1]);
+    expect(result.hasSkippedLevels).toBe(false);
+    expect(result.skips).toHaveLength(0);
+  });
+
+  it("reports the correct skip pair when h1 jumps to h4", () => {
+    const html = "<h1>Title</h1><h4>Deep</h4>";
+    const result = checkHeadingOrder(html);
+    expect(result.skips).toEqual([{ from: 1, to: 4 }]);
   });
 });
 
@@ -501,6 +593,33 @@ describe("runDeterministicChecks – contrast check (1.4.3)", () => {
     expect(contrastIssue).toBeDefined();
     expect(contrastIssue!.status).toBe("fail");
   });
+
+  it("parses 3-digit hex colour pairs correctly and passes for high-contrast pair", () => {
+    const html = `<html lang="en"><body><p style="color: #000; background-color: #fff">Text</p></body></html>`;
+    const issues = runDeterministicChecks(html);
+    const contrastIssue = issues.find((i) => i.criterion === "1.4.3");
+    expect(contrastIssue).toBeDefined();
+    expect(contrastIssue!.status).toBe("pass");
+  });
+
+  it("fails when one of multiple inline colour pairs has insufficient contrast", () => {
+    const html = `<html lang="en"><body>
+      <p style="color: #000000; background-color: #ffffff">Good contrast</p>
+      <p style="color: #cccccc; background-color: #ffffff">Bad contrast</p>
+    </body></html>`;
+    const issues = runDeterministicChecks(html);
+    const contrastIssue = issues.find((i) => i.criterion === "1.4.3");
+    expect(contrastIssue).toBeDefined();
+    expect(contrastIssue!.status).toBe("fail");
+    expect(contrastIssue!.details).toContain("1 of 2");
+  });
+
+  it("is not included when inline styles exist but provide no colour-background pair", () => {
+    const html = `<html lang="en"><body><p style="font-size: 16px; margin: 0">Styled</p></body></html>`;
+    const issues = runDeterministicChecks(html);
+    const contrastIssue = issues.find((i) => i.criterion === "1.4.3");
+    expect(contrastIssue).toBeUndefined();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -528,5 +647,24 @@ describe("evaluateOriginalDocument", () => {
     const goodReport = evaluateOriginalDocument(good);
     const badReport = evaluateOriginalDocument(bad);
     expect(goodReport.overallScore).toBeGreaterThan(badReport.overallScore);
+  });
+
+  it("report has a failCount greater than 0 for a document missing lang, title, and h1", () => {
+    const html = `<html><body><div>Just some text</div></body></html>`;
+    const report = evaluateOriginalDocument(html);
+    expect(report.failCount).toBeGreaterThan(0);
+  });
+
+  it("report contains all required top-level fields", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><main><h1>H</h1></main></body></html>`;
+    const report = evaluateOriginalDocument(html);
+    expect(typeof report.totalIssues).toBe("number");
+    expect(typeof report.passCount).toBe("number");
+    expect(typeof report.failCount).toBe("number");
+    expect(typeof report.warningCount).toBe("number");
+    expect(typeof report.fixedCount).toBe("number");
+    expect(typeof report.acceptedCount).toBe("number");
+    expect(typeof report.overallScore).toBe("number");
+    expect(Array.isArray(report.issues)).toBe(true);
   });
 });
