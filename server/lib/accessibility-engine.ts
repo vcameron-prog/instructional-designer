@@ -433,6 +433,33 @@ export function runDeterministicChecks(html: string): ComplianceIssue[] {
         ? `Found ${allTableNodes.length} table(s) with properly labeled headers.`
         : `Found ${tablesWithoutTh.length} of ${allTableNodes.length} table(s) without labeled headers, making them hard to understand.`,
     });
+
+    const tablesWithTdOnlyFirstRow = allTableNodes.filter((table) => {
+      const allRows = table.querySelectorAll("tr");
+      const firstDirectRow = allRows.find((row) => {
+        let el = row.parentNode;
+        while (el && el !== table) {
+          if (el.tagName?.toLowerCase() === "table") return false;
+          el = el.parentNode;
+        }
+        return true;
+      });
+      if (!firstDirectRow) return false;
+      const tds = firstDirectRow.querySelectorAll("td");
+      const ths = firstDirectRow.querySelectorAll("th");
+      return tds.length > 0 && ths.length === 0;
+    });
+
+    if (tablesWithTdOnlyFirstRow.length > 0) {
+      issues.push({
+        criterion: "1.3.1",
+        title: "Table Header Markup",
+        level: "A",
+        status: "warning",
+        description: "Table header cells should use <th> instead of <td> so screen readers can identify them as headers.",
+        details: `Found ${tablesWithTdOnlyFirstRow.length} table(s) whose first row uses only <td> cells. If these cells act as column headers, replace them with <th scope="col"> for proper accessibility.`,
+      });
+    }
   }
 
   // 2.4.6 / 1.3.1 – Heading order: detect skipped heading levels

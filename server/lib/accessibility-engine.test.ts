@@ -297,7 +297,7 @@ describe("runDeterministicChecks", () => {
       expect(tableIssue!.status).toBe("fail");
       // 2 tables total: outer + inner
       expect(tableIssue!.details).toMatch(/2 table/);
-      // 1 table is missing headers (the inner one)
+      // Only the outer table is missing headers; the inner table passes
       expect(tableIssue!.details).toMatch(/^Found 1 of 2/);
     });
 
@@ -328,6 +328,33 @@ describe("runDeterministicChecks", () => {
       expect(tableIssue!.details).toMatch(/2 table/);
       // Only the outer table is missing headers; the inner table passes
       expect(tableIssue!.details).toMatch(/^Found 1 of 2/);
+    });
+
+    it("warns when a table's first row uses only <td> stand-in headers instead of <th>", () => {
+      const html = `<html lang="en"><body>
+        <table>
+          <tr><td><strong>Name</strong></td><td><strong>Score</strong></td></tr>
+          <tr><td>Alice</td><td>95</td></tr>
+        </table>
+      </body></html>`;
+      const issues = runDeterministicChecks(html);
+      const markupIssue = issues.find(
+        (i) => i.criterion === "1.3.1" && i.title === "Table Header Markup"
+      );
+      expect(markupIssue).toBeDefined();
+      expect(markupIssue!.status).toBe("warning");
+      expect(markupIssue!.details).toContain("1 table(s)");
+    });
+
+    it("does not warn about Table Header Markup when the first row uses <th> elements", () => {
+      const html = `<html lang="en"><body>
+        <table><thead><tr><th scope="col">Name</th><th scope="col">Score</th></tr></thead><tbody><tr><td>Alice</td><td>95</td></tr></tbody></table>
+      </body></html>`;
+      const issues = runDeterministicChecks(html);
+      const markupIssue = issues.find(
+        (i) => i.criterion === "1.3.1" && i.title === "Table Header Markup"
+      );
+      expect(markupIssue).toBeUndefined();
     });
   });
 
@@ -855,10 +882,10 @@ describe("fixture: healthcare-brochure.html — mixed accessibility with some is
     expect(report.failCount).toBeGreaterThan(0);
   });
 
-  it("returns exactly 9 issues total", () => {
+  it("returns exactly 10 issues total", () => {
     const html = loadFixture("healthcare-brochure.html");
     const issues = runDeterministicChecks(html);
-    expect(issues.length).toBe(9);
+    expect(issues.length).toBe(10);
   });
 
   it("fails table headers check (1.3.1 Table Headers) — second table has no <th>", () => {
@@ -869,14 +896,14 @@ describe("fixture: healthcare-brochure.html — mixed accessibility with some is
     expect(tableIssue!.status).toBe("fail");
   });
 
-  it("evaluateOriginalDocument reports exact counts: 6 pass, 2 fail, 1 warning, score 67", () => {
+  it("evaluateOriginalDocument reports exact counts: 6 pass, 2 fail, 2 warning, score 60", () => {
     const html = loadFixture("healthcare-brochure.html");
     const report = evaluateOriginalDocument(html);
-    expect(report.totalIssues).toBe(9);
+    expect(report.totalIssues).toBe(10);
     expect(report.passCount).toBe(6);
     expect(report.failCount).toBe(2);
-    expect(report.warningCount).toBe(1);
-    expect(report.overallScore).toBe(67);
+    expect(report.warningCount).toBe(2);
+    expect(report.overallScore).toBe(60);
   });
 
   it("every deterministic issue has all required fields", () => {
@@ -949,20 +976,20 @@ describe("fixture: government-form.html — document with multiple accessibility
     expect(issues.filter((i) => i.status === "fail").length).toBeGreaterThanOrEqual(4);
   });
 
-  it("returns exactly 9 issues total", () => {
+  it("returns exactly 10 issues total", () => {
     const html = loadFixture("government-form.html");
     const issues = runDeterministicChecks(html);
-    expect(issues.length).toBe(9);
+    expect(issues.length).toBe(10);
   });
 
-  it("evaluateOriginalDocument reports exact counts: 1 pass, 5 fail, 3 warning, score 11", () => {
+  it("evaluateOriginalDocument reports exact counts: 1 pass, 5 fail, 4 warning, score 10", () => {
     const html = loadFixture("government-form.html");
     const report = evaluateOriginalDocument(html);
-    expect(report.totalIssues).toBe(9);
+    expect(report.totalIssues).toBe(10);
     expect(report.passCount).toBe(1);
     expect(report.failCount).toBe(5);
-    expect(report.warningCount).toBe(3);
-    expect(report.overallScore).toBe(11);
+    expect(report.warningCount).toBe(4);
+    expect(report.overallScore).toBe(10);
   });
 
   it("evaluateOriginalDocument returns a low overall score (<50)", () => {
