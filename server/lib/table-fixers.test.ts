@@ -40,53 +40,51 @@ describe("fixHtmlTableCaption — flat tables", () => {
 // ---------------------------------------------------------------------------
 // fixHtmlTableCaption — nested tables
 //
-// The regex /<table(?:\s[^>]*)?>[\s\S]*?<\/table>/gi uses a non-greedy
-// quantifier, so each match runs from the leftmost <table> opening tag to the
-// nearest </table>.  For nested tables this means a single match spans from
-// the outer table's opening tag to the inner table's closing tag; the
-// remaining closing tags of the outer table are not part of that match and
-// are therefore never processed as a standalone table block.
+// node-html-parser visits every <table> element independently at every
+// nesting depth, so each table is processed as a self-contained unit and
+// receives its own <caption> when missing.
 // ---------------------------------------------------------------------------
 describe("fixHtmlTableCaption — nested tables", () => {
-  it("inserts caption after the outer opening tag when neither table has a caption", () => {
-    // Match spans: <table> (outer open) … </table> (inner close)
-    // The first <table> encountered in that span is the outer opening tag,
-    // so the caption is placed there.  The inner <table> tag is inside the
-    // matched block and is not independently visited.
+  it("inserts a caption into both the outer and inner table when neither has one", () => {
     const inner = `<table><tr><td>cell</td></tr></table>`;
     const outer = `<table><tr><td>${inner}</td></tr></table>`;
     const output = fixHtmlTableCaption(outer);
 
-    // Caption is placed immediately after the outer <table> opening tag.
-    expect(output).toContain("<table><caption>Table summary</caption>");
-    // The inner <table> tag does not receive its own caption in this pass.
-    expect(output).not.toContain("<table><caption>Table summary</caption><tr><td><table><caption>");
+    // Both tables get a caption.
+    const count = (output.match(/<caption>Table summary<\/caption>/gi) ?? []).length;
+    expect(count).toBe(2);
     // Tag balance is maintained.
     expect((output.match(/<table/gi) ?? []).length).toBe(
       (output.match(/<\/table>/gi) ?? []).length
     );
   });
 
-  it("skips the mixed block when the inner table already has a caption, leaving both tables unchanged", () => {
-    // The matched block (outer-open → inner-close) contains a <caption>,
-    // so the guard `if (/<caption[\s>]/i.test(tableBlock)) return tableBlock`
-    // fires and nothing is modified.  The trailing outer </table> is never
-    // part of any matched block, so the outer table also remains unchanged.
+  it("adds a caption to the outer table even when the inner table already has one", () => {
+    // Inner already has a caption so it is left alone; outer still needs one.
     const inner = `<table><caption>Inner</caption><tr><td>cell</td></tr></table>`;
     const outer = `<table><tr><td>${inner}</td></tr></table>`;
-    expect(fixHtmlTableCaption(outer)).toBe(outer);
+    const output = fixHtmlTableCaption(outer);
+
+    // Outer now has a caption; inner's caption is preserved unchanged.
+    expect(output).toContain("<caption>Table summary</caption>");
+    expect(output).toContain("<caption>Inner</caption>");
+    // Inner must not have gained a second caption.
+    const innerCaptionCount = (output.match(/<caption>Inner<\/caption>/gi) ?? []).length;
+    expect(innerCaptionCount).toBe(1);
+    // Tag balance is maintained.
+    expect((output.match(/<table/gi) ?? []).length).toBe(
+      (output.match(/<\/table>/gi) ?? []).length
+    );
   });
 
-  it("handles two sibling inner tables: first inner block gets caption, second standalone block also gets caption", () => {
-    // The regex produces two matches:
-    //   Match 1: outer-open … first-inner-close  (no caption → caption added)
-    //   Match 2: second-inner-open … second-inner-close (standalone → caption added)
+  it("adds captions to all three tables when two sibling inner tables and the outer table all lack one", () => {
     const inner1 = `<table><tr><td>A</td></tr></table>`;
     const inner2 = `<table><tr><td>B</td></tr></table>`;
     const outer = `<table><tr><td>${inner1}</td><td>${inner2}</td></tr></table>`;
     const output = fixHtmlTableCaption(outer);
+    // outer + inner1 + inner2 each get a caption.
     const count = (output.match(/<caption>Table summary<\/caption>/gi) ?? []).length;
-    expect(count).toBe(2);
+    expect(count).toBe(3);
     expect((output.match(/<table/gi) ?? []).length).toBe(
       (output.match(/<\/table>/gi) ?? []).length
     );
@@ -98,12 +96,13 @@ describe("fixHtmlTableCaption — nested tables", () => {
     const outer = `<table><tr><td>${inner1}</td><td>${inner2}</td></tr></table>`;
     const output = fixHtmlTableCaption(outer);
     // inner2 already has a caption — it must not gain a second one.
+    // outer + inner1 each gain a new caption; inner2 keeps its existing one.
     const count = (output.match(/<caption/gi) ?? []).length;
-    expect(count).toBe(2); // one from inner1 (new) + one from inner2 (existing)
+    expect(count).toBe(3); // outer (new) + inner1 (new) + inner2 (existing)
     expect(output).toContain("<caption>Existing</caption>");
   });
 
-  it("keeps tags balanced for three levels of nesting", () => {
+  it("keeps tags balanced for three levels of nesting and adds a caption to every table", () => {
     const deep = `<table><tr><td>d</td></tr></table>`;
     const mid = `<table><tr><td>${deep}</td></tr></table>`;
     const outer = `<table><tr><td>${mid}</td></tr></table>`;
@@ -111,8 +110,9 @@ describe("fixHtmlTableCaption — nested tables", () => {
     expect((output.match(/<table/gi) ?? []).length).toBe(
       (output.match(/<\/table>/gi) ?? []).length
     );
-    // At least one caption is inserted somewhere in the output.
-    expect(output).toContain("<caption>Table summary</caption>");
+    // All three tables receive a caption.
+    const count = (output.match(/<caption>Table summary<\/caption>/gi) ?? []).length;
+    expect(count).toBe(3);
   });
 });
 
@@ -155,27 +155,18 @@ describe("fixHtmlTableThead — flat tables", () => {
 // ---------------------------------------------------------------------------
 // fixHtmlTableThead — nested tables
 //
-// The same non-greedy matching behaviour applies here.  When an outer table
-// wraps an inner table, the first regex match runs from the outer <table>
-// opening tag to the inner table's </table>.  fixHtmlTableThead then looks
-// for the first <tr> inside that mixed block.  Because the outer <tr> appears
-// before the inner <tr>, the outer row's cells (which may contain the inner
-// table's markup as text content) are what get converted to <th> elements.
-// The second match (the remaining standalone closing tags) contains no
-// <table> opening and so does not produce a meaningful table block.
+// node-html-parser processes tables innermost-first so each table is treated
+// as a self-contained unit; both the outer and inner tables receive a <thead>
+// when one is missing.
 // ---------------------------------------------------------------------------
 describe("fixHtmlTableThead — nested tables", () => {
-  it("inserts <thead> for the mixed block (outer-open to inner-close) when neither table has a <thead>", () => {
-    // The regex match: outer <table> … inner </table>
-    // The first <tr> inside that block is the outer table's row, so it gets
-    // wrapped in <thead>.  The outer row's first cell content (which includes
-    // the inner table's opening markup) is converted to a <th scope="col">.
+  it("inserts <thead> into both the outer and inner table when neither has one", () => {
     const inner = `<table><tr><td>IH</td></tr><tr><td>ID</td></tr></table>`;
     const outer = `<table><tr><td>${inner}</td></tr></table>`;
     const output = fixHtmlTableThead(outer);
 
-    // A <thead> is present in the output.
-    expect(output).toContain("<thead>");
+    // Both tables get a <thead>.
+    expect((output.match(/<thead/gi) ?? []).length).toBe(2);
     expect(output).toContain("</thead>");
     // The opening <table> tags (outer + inner) and their matching </table> tags survive.
     expect((output.match(/<table/gi) ?? []).length).toBe(
@@ -183,19 +174,16 @@ describe("fixHtmlTableThead — nested tables", () => {
     );
   });
 
-  it("does not modify an inner table that already has a <thead>", () => {
-    // When the inner table already has <thead>, the mixed block (outer-open →
-    // inner-close) is detected as having a <thead> and returned unchanged.
-    // The second regex match consists only of the outer trailing tags which
-    // contain no <table> opening and are therefore also unchanged.
+  it("adds a <thead> to the outer table while leaving the inner table's existing <thead> intact", () => {
+    // Inner already has a thead so it is skipped; outer still needs one.
     const inner = `<table><thead><tr><th>IH</th></tr></thead><tbody><tr><td>ID</td></tr></tbody></table>`;
     const outer = `<table><tr><td>${inner}</td></tr></table>`;
     const output = fixHtmlTableThead(outer);
 
     // The inner thead content must be preserved intact.
     expect(output).toContain("<thead><tr><th>IH</th></tr></thead>");
-    // No extra thead is inserted.
-    expect((output.match(/<thead/gi) ?? []).length).toBe(1);
+    // Outer gets its own new thead — two theads total.
+    expect((output.match(/<thead/gi) ?? []).length).toBe(2);
     // Tags remain balanced.
     expect((output.match(/<table/gi) ?? []).length).toBe(
       (output.match(/<\/table>/gi) ?? []).length
