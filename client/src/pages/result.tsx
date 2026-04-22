@@ -156,6 +156,7 @@ const checkAccessibility = (content: string): AccessibilityIssue[] => {
       severity: "warning",
       message: 'Avoid vague link text like "click here" or "here"',
       fix: "Use descriptive link text that explains the destination (e.g., [BSU Academic Calendar])",
+      fixType: "fix-vague-link-text",
     });
   }
 
@@ -175,6 +176,7 @@ const checkAccessibility = (content: string): AccessibilityIssue[] => {
       severity: "suggestion",
       message: "Excessive use of ALL CAPS text can reduce readability",
       fix: "Use bold or heading styles instead of all caps for emphasis",
+      fixType: "fix-all-caps",
     });
   }
 

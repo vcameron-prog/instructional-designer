@@ -1075,6 +1075,19 @@ Additional Context: ${toolData.additionalContext || "None"}`,
   return prompts[toolId] || baseContext;
 }
 
+function fixVagueLinkText(text: string): string {
+  return text
+    .replace(/\[click here\]/gi, "[click here — describe destination]")
+    .replace(/\[here\]/gi, "[here — describe destination]")
+    .replace(/\[link\]/gi, "[describe destination]");
+}
+
+function fixAllCaps(text: string): string {
+  return text.replace(/\b[A-Z]{10,}\b/g, (match) => {
+    return match.charAt(0).toUpperCase() + match.slice(1).toLowerCase();
+  });
+}
+
 /**
  * Finds the first heading level skip in the content and inserts a placeholder
  * heading at the missing level to maintain a logical hierarchy.
@@ -1865,6 +1878,10 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           fixedContent = convertMarkdownTablesToHtml(content.content);
         } else if (fixType === "fix-heading-skip") {
           fixedContent = fixHeadingSkip(content.content);
+        } else if (fixType === "fix-vague-link-text") {
+          fixedContent = fixVagueLinkText(content.content);
+        } else if (fixType === "fix-all-caps") {
+          fixedContent = fixAllCaps(content.content);
         } else {
           return res.status(400).json({ error: "Unknown fix type" });
         }
