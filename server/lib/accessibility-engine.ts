@@ -1134,12 +1134,77 @@ export function applyPageTitleFix(html: string): string {
   return html;
 }
 
+function replaceAriaRoleElements(
+  html: string,
+  roleValue: string,
+  isAllowedTag: (tag: string) => boolean,
+  newTag: string,
+  buildOpenTag: (attrs: string) => string
+): string {
+  const root = parseHtml(html);
+  let result = html;
+
+  const nodes = root.querySelectorAll(`[role='${roleValue}']`);
+  const targets = nodes.filter((el) => !isAllowedTag(el.tagName?.toLowerCase() ?? ""));
+
+  for (const el of targets) {
+    const outerHtml = el.outerHTML;
+    const tag = el.tagName?.toLowerCase() ?? "div";
+    const openTagRegex = new RegExp(`^<${tag}([^>]*)>`, "i");
+    const openTagMatch = outerHtml.match(openTagRegex);
+    if (!openTagMatch) continue;
+    const closeTagIdx = outerHtml.lastIndexOf(`</${tag}>`);
+    if (closeTagIdx === -1) continue;
+    const innerHtml = outerHtml.slice(openTagMatch[0].length, closeTagIdx);
+    const attrs = openTagMatch[1]
+      .replace(new RegExp(`\\s*role\\s*=\\s*["']${roleValue}["']`, "gi"), "")
+      .trim();
+    const replacement = `${buildOpenTag(attrs)}${innerHtml}</${newTag}>`;
+    result = result.replace(outerHtml, replacement);
+  }
+
+  return result;
+}
+
+export function applyAriaComboboxRoleFix(html: string): string {
+  return replaceAriaRoleElements(
+    html,
+    "combobox",
+    (tag) => tag === "select" || tag === "input",
+    "select",
+    (attrs) => `<select${attrs ? " " + attrs : ""}>`
+  );
+}
+
+export function applyAriaGridRoleFix(html: string): string {
+  return replaceAriaRoleElements(
+    html,
+    "grid",
+    (tag) => tag === "table",
+    "table",
+    (attrs) => `<table${attrs ? " " + attrs : ""}>`
+  );
+}
+
+export function applyAriaTabRoleFix(html: string): string {
+  return replaceAriaRoleElements(
+    html,
+    "tab",
+    (tag) => tag === "button" || tag === "a",
+    "button",
+    (attrs) => `<button${attrs ? " " + attrs : ""}>`
+  );
+}
+
 type DeterministicFixer = (html: string) => string;
 
 const deterministicFixerRegistry: Record<string, DeterministicFixer> = {
   "1.3.1::ARIA Role on Table Data Cell": applyAriaRoleHeaderFix,
   "3.1.1::Language of Page": applyLangAttributeFix,
   "2.4.2::Page Titled": applyPageTitleFix,
+  "1.3.1::ARIA Combobox Role on Non-Combobox Element": applyAriaComboboxRoleFix,
+  "1.3.1::ARIA Grid Role on Non-Table Element": applyAriaGridRoleFix,
+  "1.3.1::ARIA Tab Role on Non-Interactive Element": applyAriaTabRoleFix,
 };
 
 export function applyDeterministicReport(

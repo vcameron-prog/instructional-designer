@@ -8,6 +8,9 @@ import {
   evaluateOriginalDocument,
   fixComplianceIssue,
   applyAriaRoleHeaderFix,
+  applyAriaComboboxRoleFix,
+  applyAriaGridRoleFix,
+  applyAriaTabRoleFix,
   applyDeterministicReport,
   applyAriaLinkRoleFix,
   applyAriaCheckboxRoleFix,
@@ -2634,38 +2637,251 @@ describe("deterministicFixerRegistry – dispatch", () => {
   });
 
   it("falls through to AI for an unregistered criterion+title key", async () => {
-    const html = `<!DOCTYPE html><html><head><title>Test</title></head><body><main><h1>Hello</h1></main></body></html>`;
+    const html = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><div><h2>Sub</h2></div></body></html>`;
     const issues = runDeterministicChecks(html);
-    const langIssue = issues.find((i) => i.criterion === "3.1.1")!;
-    expect(langIssue.status).toBe("fail");
+    const headingIssue = issues.find((i) => i.criterion === "2.4.6" && i.title === "Headings and Labels")!;
+    expect(headingIssue.status).toBe("fail");
 
-    const fixedHtml = html.replace("<html>", '<html lang="en">');
+    const fixedHtml = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><div><h1>Main</h1><h2>Sub</h2></div></body></html>`;
     mockCreate.mockResolvedValueOnce({
       content: [{ type: "text", text: `<!DOCTYPE html>\n${fixedHtml}` }],
     });
 
     const report = makeReport(issues);
-    await fixComplianceIssue(html, langIssue, issues.indexOf(langIssue), report);
+    await fixComplianceIssue(html, headingIssue, issues.indexOf(headingIssue), report);
 
     expect(mockCreate).toHaveBeenCalledTimes(1);
   });
 
   it("does not invoke the deterministic fixer when the key is not registered", async () => {
-    const html = `<!DOCTYPE html><html lang="en"><head></head><body><main><h1>Hello</h1></main></body></html>`;
+    const html = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><div style="position: absolute; top: 0">Floated</div></body></html>`;
     const issues = runDeterministicChecks(html);
-    const titleIssue = issues.find((i) => i.criterion === "2.4.2")!;
-    expect(titleIssue.status).toBe("fail");
+    const readingOrderIssue = issues.find((i) => i.criterion === "1.3.2" && i.title === "Reading Order")!;
+    expect(readingOrderIssue.status).toBe("warning");
 
-    const fixedHtml = `<!DOCTYPE html><html lang="en"><head><title>My Page</title></head><body><main><h1>Hello</h1></main></body></html>`;
+    const fixedHtml = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><div>Floated</div></body></html>`;
     mockCreate.mockResolvedValueOnce({
       content: [{ type: "text", text: fixedHtml }],
     });
 
     const report = makeReport(issues);
-    const result = await fixComplianceIssue(html, titleIssue, issues.indexOf(titleIssue), report);
+    const result = await fixComplianceIssue(html, readingOrderIssue, issues.indexOf(readingOrderIssue), report);
 
     expect(mockCreate).toHaveBeenCalledTimes(1);
-    expect(result.accessibleHtml).toContain("<title>My Page</title>");
+    expect(result.accessibleHtml).not.toContain("position: absolute");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// applyAriaComboboxRoleFix
+// ---------------------------------------------------------------------------
+
+describe("applyAriaComboboxRoleFix", () => {
+  it("converts <div role=combobox> to <select>", () => {
+    const html = `<div role="combobox"><option value="a">A</option></div>`;
+    const result = applyAriaComboboxRoleFix(html);
+    expect(result).toContain("<select>");
+    expect(result).toContain("</select>");
+    expect(result).not.toContain('role="combobox"');
+    expect(result).not.toContain("<div");
+  });
+
+  it("preserves inner content when replacing the element", () => {
+    const html = `<span role="combobox">Choose one</span>`;
+    const result = applyAriaComboboxRoleFix(html);
+    expect(result).toContain("Choose one");
+    expect(result).toContain("<select>");
+  });
+
+  it("preserves other attributes on the element (excluding role)", () => {
+    const html = `<div role="combobox" class="my-combo" id="combo1">Pick</div>`;
+    const result = applyAriaComboboxRoleFix(html);
+    expect(result).toContain('class="my-combo"');
+    expect(result).toContain('id="combo1"');
+    expect(result).not.toContain('role="combobox"');
+  });
+
+  it("handles single-quoted role attribute correctly", () => {
+    const html = `<div role='combobox'>Pick</div>`;
+    const result = applyAriaComboboxRoleFix(html);
+    expect(result).toContain("<select>");
+    expect(result).not.toContain("role='combobox'");
+    expect(result).not.toContain("<div");
+  });
+
+  it("does not change <select role=combobox> (already a select)", () => {
+    const html = `<select role="combobox"><option>A</option></select>`;
+    const result = applyAriaComboboxRoleFix(html);
+    expect(result).toBe(html);
+  });
+
+  it("does not change <input role=combobox> (already an input)", () => {
+    const html = `<input role="combobox" type="text">`;
+    const result = applyAriaComboboxRoleFix(html);
+    expect(result).toBe(html);
+  });
+
+  it("fixed HTML no longer triggers the combobox ARIA warning", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><main><h1>T</h1><div role="combobox">Choose</div></main></body></html>`;
+    const before = runDeterministicChecks(html);
+    expect(before.find((i) => i.title === "ARIA Combobox Role on Non-Combobox Element")).toBeDefined();
+
+    const fixed = applyAriaComboboxRoleFix(html);
+    const after = runDeterministicChecks(fixed);
+    expect(after.find((i) => i.title === "ARIA Combobox Role on Non-Combobox Element")).toBeUndefined();
+  });
+
+  it("is dispatched deterministically by fixComplianceIssue without calling AI", async () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><main><h1>T</h1><div role="combobox">Choose</div></main></body></html>`;
+    const issues = runDeterministicChecks(html);
+    const comboIssue = issues.find((i) => i.title === "ARIA Combobox Role on Non-Combobox Element")!;
+    const report = buildComplianceReport(issues);
+
+    mockCreate.mockClear();
+    const result = await fixComplianceIssue(html, comboIssue, issues.indexOf(comboIssue), report);
+    expect(mockCreate).not.toHaveBeenCalled();
+    expect(result.accessibleHtml).not.toContain('role="combobox"');
+    expect(result.accessibleHtml).toContain("<select");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// applyAriaGridRoleFix
+// ---------------------------------------------------------------------------
+
+describe("applyAriaGridRoleFix", () => {
+  it("converts <div role=grid> to <table>", () => {
+    const html = `<div role="grid"><tr><td>Cell</td></tr></div>`;
+    const result = applyAriaGridRoleFix(html);
+    expect(result).toContain("<table>");
+    expect(result).toContain("</table>");
+    expect(result).not.toContain('role="grid"');
+    expect(result).not.toContain("<div");
+  });
+
+  it("preserves inner content when replacing the element", () => {
+    const html = `<section role="grid"><tr><td>Data</td></tr></section>`;
+    const result = applyAriaGridRoleFix(html);
+    expect(result).toContain("Data");
+    expect(result).toContain("<table>");
+  });
+
+  it("preserves other attributes on the element (excluding role)", () => {
+    const html = `<div role="grid" class="data-grid" aria-label="Results">Content</div>`;
+    const result = applyAriaGridRoleFix(html);
+    expect(result).toContain('class="data-grid"');
+    expect(result).toContain('aria-label="Results"');
+    expect(result).not.toContain('role="grid"');
+  });
+
+  it("handles single-quoted role attribute correctly", () => {
+    const html = `<div role='grid'><tr><td>Cell</td></tr></div>`;
+    const result = applyAriaGridRoleFix(html);
+    expect(result).toContain("<table>");
+    expect(result).not.toContain("role='grid'");
+    expect(result).not.toContain("<div");
+  });
+
+  it("does not change <table role=grid> (already a table)", () => {
+    const html = `<table role="grid"><tr><td>Cell</td></tr></table>`;
+    const result = applyAriaGridRoleFix(html);
+    expect(result).toBe(html);
+  });
+
+  it("fixed HTML no longer triggers the grid ARIA warning", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><main><h1>T</h1><div role="grid"><tr><td>Cell</td></tr></div></main></body></html>`;
+    const before = runDeterministicChecks(html);
+    expect(before.find((i) => i.title === "ARIA Grid Role on Non-Table Element")).toBeDefined();
+
+    const fixed = applyAriaGridRoleFix(html);
+    const after = runDeterministicChecks(fixed);
+    expect(after.find((i) => i.title === "ARIA Grid Role on Non-Table Element")).toBeUndefined();
+  });
+
+  it("is dispatched deterministically by fixComplianceIssue without calling AI", async () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><main><h1>T</h1><div role="grid"><tr><td>Cell</td></tr></div></main></body></html>`;
+    const issues = runDeterministicChecks(html);
+    const gridIssue = issues.find((i) => i.title === "ARIA Grid Role on Non-Table Element")!;
+    const report = buildComplianceReport(issues);
+
+    mockCreate.mockClear();
+    const result = await fixComplianceIssue(html, gridIssue, issues.indexOf(gridIssue), report);
+    expect(mockCreate).not.toHaveBeenCalled();
+    expect(result.accessibleHtml).not.toContain('role="grid"');
+    expect(result.accessibleHtml).toContain("<table");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// applyAriaTabRoleFix
+// ---------------------------------------------------------------------------
+
+describe("applyAriaTabRoleFix", () => {
+  it("converts <div role=tab> to <button>", () => {
+    const html = `<div role="tab">Tab One</div>`;
+    const result = applyAriaTabRoleFix(html);
+    expect(result).toContain("<button>");
+    expect(result).toContain("</button>");
+    expect(result).not.toContain('role="tab"');
+    expect(result).not.toContain("<div");
+  });
+
+  it("preserves inner content when replacing the element", () => {
+    const html = `<span role="tab">Profile</span>`;
+    const result = applyAriaTabRoleFix(html);
+    expect(result).toContain("Profile");
+    expect(result).toContain("<button>");
+  });
+
+  it("preserves other attributes on the element (excluding role)", () => {
+    const html = `<div role="tab" class="tab-item" aria-selected="true">Settings</div>`;
+    const result = applyAriaTabRoleFix(html);
+    expect(result).toContain('class="tab-item"');
+    expect(result).toContain('aria-selected="true"');
+    expect(result).not.toContain('role="tab"');
+  });
+
+  it("handles single-quoted role attribute correctly", () => {
+    const html = `<div role='tab'>Tab One</div>`;
+    const result = applyAriaTabRoleFix(html);
+    expect(result).toContain("<button>");
+    expect(result).not.toContain("role='tab'");
+    expect(result).not.toContain("<div");
+  });
+
+  it("does not change <button role=tab> (already a button)", () => {
+    const html = `<button role="tab">Click</button>`;
+    const result = applyAriaTabRoleFix(html);
+    expect(result).toBe(html);
+  });
+
+  it("does not change <a role=tab> (anchor is allowed)", () => {
+    const html = `<a role="tab" href="#">Link Tab</a>`;
+    const result = applyAriaTabRoleFix(html);
+    expect(result).toBe(html);
+  });
+
+  it("fixed HTML no longer triggers the tab ARIA warning", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><main><h1>T</h1><div role="tab">Tab One</div></main></body></html>`;
+    const before = runDeterministicChecks(html);
+    expect(before.find((i) => i.title === "ARIA Tab Role on Non-Interactive Element")).toBeDefined();
+
+    const fixed = applyAriaTabRoleFix(html);
+    const after = runDeterministicChecks(fixed);
+    expect(after.find((i) => i.title === "ARIA Tab Role on Non-Interactive Element")).toBeUndefined();
+  });
+
+  it("is dispatched deterministically by fixComplianceIssue without calling AI", async () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><main><h1>T</h1><div role="tab">Tab One</div></main></body></html>`;
+    const issues = runDeterministicChecks(html);
+    const tabIssue = issues.find((i) => i.title === "ARIA Tab Role on Non-Interactive Element")!;
+    const report = buildComplianceReport(issues);
+
+    mockCreate.mockClear();
+    const result = await fixComplianceIssue(html, tabIssue, issues.indexOf(tabIssue), report);
+    expect(mockCreate).not.toHaveBeenCalled();
+    expect(result.accessibleHtml).not.toContain('role="tab"');
+    expect(result.accessibleHtml).toContain("<button");
   });
 });
 
