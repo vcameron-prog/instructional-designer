@@ -1196,6 +1196,81 @@ function replaceAriaRoleElements(
   return result;
 }
 
+export function applyAriaButtonRoleFix(html: string): string {
+  const BUTTON_INPUT_TYPES = new Set(["button", "submit", "reset", "image"]);
+  const root = parseHtml(html);
+  let result = html;
+
+  const buttonRoleNodes = root.querySelectorAll("[role='button']");
+  const targets = buttonRoleNodes.filter((el) => {
+    const tag = el.tagName?.toLowerCase();
+    if (tag === "button") return false;
+    if (tag === "input") {
+      const type = (el.getAttribute("type") ?? "").toLowerCase();
+      return !BUTTON_INPUT_TYPES.has(type);
+    }
+    return true;
+  });
+
+  for (const el of targets) {
+    const outerHtml = el.outerHTML;
+    const tag = el.tagName?.toLowerCase() ?? "div";
+
+    if (tag === "input") {
+      const replacement = outerHtml.replace(/\s*role\s*=\s*["']button["']/gi, "");
+      result = result.replace(outerHtml, replacement);
+      continue;
+    }
+
+    const openTagMatch = outerHtml.match(new RegExp(`^<${tag}((?:[^>"']|"[^"]*"|'[^']*')*)>`, "i"));
+    if (!openTagMatch) continue;
+    const closeTagIdx = outerHtml.lastIndexOf(`</${tag}>`);
+    if (closeTagIdx === -1) continue;
+    const innerHtml = outerHtml.slice(openTagMatch[0].length, closeTagIdx);
+    const attrs = openTagMatch[1]
+      .replace(/\s*role\s*=\s*["']button["']/gi, "")
+      .trim();
+    const replacement = `<button${attrs ? " " + attrs : ""}>${innerHtml}</button>`;
+    result = result.replace(outerHtml, replacement);
+  }
+
+  return result;
+}
+
+export function applyAriaHeadingRoleFix(html: string): string {
+  const root = parseHtml(html);
+  let result = html;
+
+  const headingRoleNodes = root.querySelectorAll("[role='heading']");
+  const targets = headingRoleNodes.filter((el) => {
+    const tag = el.tagName?.toLowerCase();
+    return !/^h[1-6]$/.test(tag ?? "");
+  });
+
+  for (const el of targets) {
+    const outerHtml = el.outerHTML;
+    const tag = el.tagName?.toLowerCase() ?? "div";
+    const openTagMatch = outerHtml.match(new RegExp(`^<${tag}((?:[^>"']|"[^"]*"|'[^']*')*)>`, "i"));
+    if (!openTagMatch) continue;
+    const closeTagIdx = outerHtml.lastIndexOf(`</${tag}>`);
+    if (closeTagIdx === -1) continue;
+    const innerHtml = outerHtml.slice(openTagMatch[0].length, closeTagIdx);
+
+    const ariaLevel = el.getAttribute("aria-level");
+    const level = ariaLevel ? Math.min(Math.max(parseInt(ariaLevel, 10) || 2, 1), 6) : 2;
+    const headingTag = `h${level}`;
+
+    const attrs = openTagMatch[1]
+      .replace(/\s*role\s*=\s*["']heading["']/gi, "")
+      .replace(/\s*aria-level\s*=\s*["'][^"']*["']/gi, "")
+      .trim();
+    const replacement = `<${headingTag}${attrs ? " " + attrs : ""}>${innerHtml}</${headingTag}>`;
+    result = result.replace(outerHtml, replacement);
+  }
+
+  return result;
+}
+
 export function applyAriaComboboxRoleFix(html: string): string {
   return replaceAriaRoleElements(
     html,
@@ -1236,6 +1311,8 @@ const deterministicFixerRegistry: Record<string, DeterministicFixer> = {
   "1.3.1::ARIA Combobox Role on Non-Combobox Element": applyAriaComboboxRoleFix,
   "1.3.1::ARIA Grid Role on Non-Table Element": applyAriaGridRoleFix,
   "1.3.1::ARIA Tab Role on Non-Interactive Element": applyAriaTabRoleFix,
+  "4.1.2::ARIA Button Role on Non-Button Element": applyAriaButtonRoleFix,
+  "1.3.1::ARIA Heading Role on Non-Heading Element": applyAriaHeadingRoleFix,
 };
 
 export function registerDeterministicFixer(key: string, fn: DeterministicFixer): void {

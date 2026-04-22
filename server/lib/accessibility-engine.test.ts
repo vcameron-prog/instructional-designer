@@ -17,6 +17,8 @@ import {
   applyAriaRadioRoleFix,
   applyAriaListRoleFix,
   applyAriaListitemRoleFix,
+  applyAriaButtonRoleFix,
+  applyAriaHeadingRoleFix,
   applyBypassBlocksFix,
   applyLangAttributeFix,
   applyPageTitleFix,
@@ -3057,6 +3059,209 @@ describe("applyAriaTabRoleFix", () => {
     expect(mockCreate).not.toHaveBeenCalled();
     expect(result.accessibleHtml).not.toContain('role="tab"');
     expect(result.accessibleHtml).toContain("<button");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// applyAriaButtonRoleFix
+// ---------------------------------------------------------------------------
+
+describe("applyAriaButtonRoleFix", () => {
+  it("converts <div role=button> to <button>", () => {
+    const html = `<div role="button">Click me</div>`;
+    const result = applyAriaButtonRoleFix(html);
+    expect(result).toContain("<button>");
+    expect(result).toContain("</button>");
+    expect(result).not.toContain('role="button"');
+    expect(result).not.toContain("<div");
+  });
+
+  it("converts <span role=button> to <button>", () => {
+    const html = `<span role="button">Submit</span>`;
+    const result = applyAriaButtonRoleFix(html);
+    expect(result).toContain("<button>Submit</button>");
+    expect(result).not.toContain('role="button"');
+    expect(result).not.toContain("<span");
+  });
+
+  it("preserves inner content when replacing the element", () => {
+    const html = `<div role="button"><span>Icon</span> Label</div>`;
+    const result = applyAriaButtonRoleFix(html);
+    expect(result).toContain("<span>Icon</span>");
+    expect(result).toContain("Label");
+    expect(result).toContain("<button");
+  });
+
+  it("preserves other attributes on the element (excluding role)", () => {
+    const html = `<div role="button" class="btn" id="save-btn">Save</div>`;
+    const result = applyAriaButtonRoleFix(html);
+    expect(result).toContain('class="btn"');
+    expect(result).toContain('id="save-btn"');
+    expect(result).not.toContain('role="button"');
+  });
+
+  it("handles single-quoted role attribute correctly", () => {
+    const html = `<div role='button'>Click</div>`;
+    const result = applyAriaButtonRoleFix(html);
+    expect(result).toContain("<button>");
+    expect(result).not.toContain("role='button'");
+    expect(result).not.toContain("<div");
+  });
+
+  it("does not change native <button> elements", () => {
+    const html = `<button type="button">Click me</button>`;
+    const result = applyAriaButtonRoleFix(html);
+    expect(result).toBe(html);
+  });
+
+  it("does not change <button role=button> (redundant but acceptable)", () => {
+    const html = `<button role="button">OK</button>`;
+    const result = applyAriaButtonRoleFix(html);
+    expect(result).toBe(html);
+  });
+
+  it("removes role=button from <input type=text> without converting to <button>", () => {
+    const html = `<input type="text" role="button">`;
+    const result = applyAriaButtonRoleFix(html);
+    expect(result).not.toContain('role="button"');
+    expect(result).toContain("<input");
+  });
+
+  it("fixed HTML no longer triggers the 4.1.2 ARIA button role warning", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><main><h1>T</h1><div role="button">Click me</div></main></body></html>`;
+    const before = runDeterministicChecks(html);
+    expect(before.find((i) => i.title === "ARIA Button Role on Non-Button Element")).toBeDefined();
+
+    const fixed = applyAriaButtonRoleFix(html);
+    const after = runDeterministicChecks(fixed);
+    expect(after.find((i) => i.title === "ARIA Button Role on Non-Button Element")).toBeUndefined();
+  });
+
+  it("is dispatched deterministically by fixComplianceIssue without calling AI", async () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><main><h1>T</h1><div role="button">Click me</div></main></body></html>`;
+    const issues = runDeterministicChecks(html);
+    const buttonIssue = issues.find((i) => i.title === "ARIA Button Role on Non-Button Element")!;
+    expect(buttonIssue).toBeDefined();
+    const report = buildComplianceReport(issues);
+
+    mockCreate.mockClear();
+    const result = await fixComplianceIssue(html, buttonIssue, issues.indexOf(buttonIssue), report);
+    expect(mockCreate).not.toHaveBeenCalled();
+    expect(result.accessibleHtml).not.toContain('role="button"');
+    expect(result.accessibleHtml).toContain("<button");
+  });
+
+  it("resolves the warning after fix (issue marked fixed in report)", async () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><main><h1>T</h1><span role="button">Go</span></main></body></html>`;
+    const issues = runDeterministicChecks(html);
+    const buttonIssue = issues.find((i) => i.title === "ARIA Button Role on Non-Button Element")!;
+    const issueIndex = issues.indexOf(buttonIssue);
+    const report = buildComplianceReport(issues);
+
+    const result = await fixComplianceIssue(html, buttonIssue, issueIndex, report);
+    const updatedIssue = result.complianceReport.issues[issueIndex];
+    expect(updatedIssue.status).toBe("fixed");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// applyAriaHeadingRoleFix
+// ---------------------------------------------------------------------------
+
+describe("applyAriaHeadingRoleFix", () => {
+  it("converts <div role=heading aria-level=2> to <h2>", () => {
+    const html = `<div role="heading" aria-level="2">Section Title</div>`;
+    const result = applyAriaHeadingRoleFix(html);
+    expect(result).toContain("<h2>Section Title</h2>");
+    expect(result).not.toContain('role="heading"');
+    expect(result).not.toContain('aria-level');
+    expect(result).not.toContain("<div");
+  });
+
+  it("defaults to <h2> when aria-level is absent", () => {
+    const html = `<span role="heading">Section</span>`;
+    const result = applyAriaHeadingRoleFix(html);
+    expect(result).toContain("<h2>Section</h2>");
+    expect(result).not.toContain('role="heading"');
+  });
+
+  it("uses aria-level=3 to produce <h3>", () => {
+    const html = `<p role="heading" aria-level="3">Subsection</p>`;
+    const result = applyAriaHeadingRoleFix(html);
+    expect(result).toContain("<h3>Subsection</h3>");
+    expect(result).not.toContain('role="heading"');
+  });
+
+  it("clamps out-of-range aria-level values", () => {
+    const html = `<div role="heading" aria-level="7">Too deep</div>`;
+    const result = applyAriaHeadingRoleFix(html);
+    expect(result).toContain("<h6>Too deep</h6>");
+  });
+
+  it("preserves other attributes on the element (excluding role and aria-level)", () => {
+    const html = `<div role="heading" aria-level="2" class="section-head" id="sec1">Title</div>`;
+    const result = applyAriaHeadingRoleFix(html);
+    expect(result).toContain('class="section-head"');
+    expect(result).toContain('id="sec1"');
+    expect(result).not.toContain('role="heading"');
+    expect(result).not.toContain('aria-level');
+  });
+
+  it("preserves inner content when replacing the element", () => {
+    const html = `<div role="heading" aria-level="2"><strong>Bold</strong> Title</div>`;
+    const result = applyAriaHeadingRoleFix(html);
+    expect(result).toContain("<strong>Bold</strong>");
+    expect(result).toContain("<h2");
+  });
+
+  it("handles single-quoted role attribute correctly", () => {
+    const html = `<div role='heading' aria-level='2'>Section</div>`;
+    const result = applyAriaHeadingRoleFix(html);
+    expect(result).toContain("<h2>");
+    expect(result).not.toContain("role='heading'");
+    expect(result).not.toContain("<div");
+  });
+
+  it("does not change native heading elements", () => {
+    const html = `<h2>Section Title</h2>`;
+    const result = applyAriaHeadingRoleFix(html);
+    expect(result).toBe(html);
+  });
+
+  it("fixed HTML no longer triggers the 1.3.1 ARIA heading role warning", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><main><h1>T</h1><div role="heading" aria-level="2">Section</div></main></body></html>`;
+    const before = runDeterministicChecks(html);
+    expect(before.find((i) => i.title === "ARIA Heading Role on Non-Heading Element")).toBeDefined();
+
+    const fixed = applyAriaHeadingRoleFix(html);
+    const after = runDeterministicChecks(fixed);
+    expect(after.find((i) => i.title === "ARIA Heading Role on Non-Heading Element")).toBeUndefined();
+  });
+
+  it("is dispatched deterministically by fixComplianceIssue without calling AI", async () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><main><h1>T</h1><div role="heading" aria-level="2">Section</div></main></body></html>`;
+    const issues = runDeterministicChecks(html);
+    const headingIssue = issues.find((i) => i.title === "ARIA Heading Role on Non-Heading Element")!;
+    expect(headingIssue).toBeDefined();
+    const report = buildComplianceReport(issues);
+
+    mockCreate.mockClear();
+    const result = await fixComplianceIssue(html, headingIssue, issues.indexOf(headingIssue), report);
+    expect(mockCreate).not.toHaveBeenCalled();
+    expect(result.accessibleHtml).not.toContain('role="heading"');
+    expect(result.accessibleHtml).toContain("<h2");
+  });
+
+  it("resolves the warning after fix (issue marked fixed in report)", async () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><main><h1>T</h1><span role="heading" aria-level="3">Sub</span></main></body></html>`;
+    const issues = runDeterministicChecks(html);
+    const headingIssue = issues.find((i) => i.title === "ARIA Heading Role on Non-Heading Element")!;
+    const issueIndex = issues.indexOf(headingIssue);
+    const report = buildComplianceReport(issues);
+
+    const result = await fixComplianceIssue(html, headingIssue, issueIndex, report);
+    const updatedIssue = result.complianceReport.issues[issueIndex];
+    expect(updatedIssue.status).toBe("fixed");
   });
 });
 
