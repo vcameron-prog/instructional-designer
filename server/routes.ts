@@ -1363,9 +1363,9 @@ export async function registerRoutes(
 
         const userIds = [...new Set([
           ...recentCoursesResult.map(c => c.userId),
-          ...recentContentResult.map(c => c.userId).filter(Boolean),
+          ...recentContentResult.map(c => c.userId).filter((id): id is string => id !== null),
           ...allActiveUserIds,
-        ])].filter(Boolean);
+        ])].filter((id): id is string => id !== null);
 
         const userLookup: Record<string, { firstName: string | null; lastName: string | null; email: string | null }> = {};
         if (userIds.length > 0) {
@@ -1547,7 +1547,7 @@ export async function registerRoutes(
     async (req: Request, res: Response) => {
       try {
         const userId = getUserId(req) as string;
-        const id = parseInt(req.params.id);
+        const id = parseInt(req.params.id as string);
         const course = await storage.getCourse(id, userId);
         if (!course) {
           return res.status(404).json({ error: "Course not found" });
@@ -1585,7 +1585,7 @@ export async function registerRoutes(
     async (req: Request, res: Response) => {
       try {
         const userId = getUserId(req) as string;
-        const id = parseInt(req.params.id);
+        const id = parseInt(req.params.id as string);
         // Validate partial course data
         const partialSchema = insertCourseSchema.partial();
         const parsed = partialSchema.safeParse(req.body);
@@ -1610,7 +1610,7 @@ export async function registerRoutes(
     async (req: Request, res: Response) => {
       try {
         const userId = getUserId(req) as string;
-        const id = parseInt(req.params.id);
+        const id = parseInt(req.params.id as string);
         await storage.deleteCourse(id, userId);
         res.status(204).send();
       } catch (error) {
@@ -1627,7 +1627,7 @@ export async function registerRoutes(
     async (req: Request, res: Response) => {
       try {
         const userId = getUserId(req) as string;
-        const courseId = parseInt(req.params.id);
+        const courseId = parseInt(req.params.id as string);
 
         // Verify course ownership
         const course = await storage.getCourse(courseId, userId);
@@ -1650,7 +1650,7 @@ export async function registerRoutes(
     async (req: Request, res: Response) => {
       try {
         const userId = getUserId(req) as string;
-        const id = parseInt(req.params.id);
+        const id = parseInt(req.params.id as string);
         const content = await storage.getContent(id);
         if (!content) {
           return res.status(404).json({ error: "Content not found" });
@@ -1680,7 +1680,7 @@ export async function registerRoutes(
     async (req: Request, res: Response) => {
       try {
         const userId = getUserId(req) as string;
-        const id = parseInt(req.params.id);
+        const id = parseInt(req.params.id as string);
         const { isApproved } = req.body;
 
         if (typeof isApproved !== "boolean") {
@@ -1718,7 +1718,7 @@ export async function registerRoutes(
     async (req: Request, res: Response) => {
       try {
         const userId = getUserId(req) as string;
-        const courseId = parseInt(req.params.id);
+        const courseId = parseInt(req.params.id as string);
         const { toolId, toolName, formData } = req.body;
 
         const course = await storage.getCourse(courseId, userId);
@@ -1857,7 +1857,7 @@ export async function registerRoutes(
     async (req: Request, res: Response) => {
       try {
         const userId = getUserId(req) as string;
-        const id = parseInt(req.params.id);
+        const id = parseInt(req.params.id as string);
         const content = await storage.getStandaloneContentById(id, userId);
         if (!content) {
           return res.status(404).json({ error: "Content not found" });
@@ -1877,7 +1877,7 @@ export async function registerRoutes(
     async (req: Request, res: Response) => {
       try {
         const userId = getUserId(req) as string;
-        const id = parseInt(req.params.id);
+        const id = parseInt(req.params.id as string);
         const { refinementRequest } = req.body;
 
         const content = await storage.getContent(id);
@@ -1940,7 +1940,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     optionalAuth,
     async (req: Request, res: Response) => {
       try {
-        const id = parseInt(req.params.id);
+        const id = parseInt(req.params.id as string);
         const { fixType } = req.body;
         if (!fixType) {
           return res.status(400).json({ error: "fixType is required" });
@@ -2004,7 +2004,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     optionalAuth,
     async (req: Request, res: Response) => {
       try {
-        const id = parseInt(req.params.id);
+        const id = parseInt(req.params.id as string);
         const { versionId } = req.body;
         if (!versionId) {
           return res.status(400).json({ error: "versionId is required" });
@@ -2090,7 +2090,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     async (req: Request, res: Response) => {
       try {
         const userId = getUserId(req) as string;
-        const id = parseInt(req.params.id);
+        const id = parseInt(req.params.id as string);
         const duplicated = await storage.duplicateCourse(id, userId);
         if (!duplicated) {
           return res.status(404).json({ error: "Course not found" });
@@ -2143,7 +2143,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     isAuthenticated,
     async (req: Request, res: Response) => {
       try {
-        const id = parseInt(req.params.id);
+        const id = parseInt(req.params.id as string);
         await storage.deleteSavedContent(id);
         res.status(204).send();
       } catch (error) {
@@ -2160,7 +2160,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     async (req: Request, res: Response) => {
       try {
         const userId = getUserId(req) as string;
-        const id = parseInt(req.params.id);
+        const id = parseInt(req.params.id as string);
         const content = await storage.getContent(id);
 
         if (!content) {
@@ -2448,7 +2448,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           updatedAt: conversions.updatedAt,
         })
         .from(conversions)
-        .where(eq(conversions.userId, userId))
+        .where(userId ? eq(conversions.userId, userId) : isNull(conversions.userId))
         .orderBy(desc(conversions.createdAt));
       res.json(results);
     },
@@ -2459,7 +2459,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     optionalAuth,
     async (req: Request, res: Response) => {
       const userId = getUserId(req);
-      const id = parseInt(req.params.id);
+      const id = parseInt(req.params.id as string);
       if (isNaN(id)) {
         res.status(400).json({ error: "Invalid ID" });
         return;
@@ -2760,7 +2760,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     optionalAuth,
     async (req: Request, res: Response) => {
       const userId = getUserId(req);
-      const id = parseInt(req.params.id);
+      const id = parseInt(req.params.id as string);
       if (isNaN(id)) {
         res.status(400).json({ error: "Invalid ID" });
         return;
@@ -2924,7 +2924,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     optionalAuth,
     async (req: Request, res: Response) => {
       const userId = getUserId(req);
-      const id = parseInt(req.params.id);
+      const id = parseInt(req.params.id as string);
       if (isNaN(id)) {
         res.status(400).json({ error: "Invalid ID" });
         return;
@@ -2940,7 +2940,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     optionalAuth,
     async (req: Request, res: Response) => {
       const userId = getUserId(req);
-      const id = parseInt(req.params.id);
+      const id = parseInt(req.params.id as string);
       if (isNaN(id)) {
         res.status(400).json({ error: "Invalid ID" });
         return;
@@ -3019,7 +3019,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     optionalAuth,
     async (req: Request, res: Response) => {
       const userId = getUserId(req);
-      const id = parseInt(req.params.id);
+      const id = parseInt(req.params.id as string);
       if (isNaN(id)) {
         res.status(400).json({ error: "Invalid ID" });
         return;
@@ -3089,7 +3089,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     optionalAuth,
     async (req: Request, res: Response) => {
       const userId = getUserId(req);
-      const id = parseInt(req.params.id);
+      const id = parseInt(req.params.id as string);
       if (isNaN(id)) {
         res.status(400).json({ error: "Invalid ID" });
         return;
@@ -3164,7 +3164,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     optionalAuth,
     async (req: Request, res: Response) => {
       const userId = getUserId(req);
-      const id = parseInt(req.params.id);
+      const id = parseInt(req.params.id as string);
       if (isNaN(id)) {
         res.status(400).json({ error: "Invalid ID" });
         return;
@@ -3219,7 +3219,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     optionalAuth,
     async (req: Request, res: Response) => {
       const userId = getUserId(req);
-      const id = parseInt(req.params.id);
+      const id = parseInt(req.params.id as string);
       if (isNaN(id)) {
         res.status(400).json({ error: "Invalid ID" });
         return;
@@ -3292,7 +3292,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     optionalAuth,
     async (req: Request, res: Response) => {
       const userId = getUserId(req);
-      const id = parseInt(req.params.id);
+      const id = parseInt(req.params.id as string);
       if (isNaN(id)) {
         res.status(400).json({ error: "Invalid ID" });
         return;
@@ -3382,7 +3382,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     optionalAuth,
     async (req: Request, res: Response) => {
       const userId = getUserId(req);
-      const id = parseInt(req.params.id);
+      const id = parseInt(req.params.id as string);
       if (isNaN(id)) {
         res.status(400).json({ error: "Invalid ID" });
         return;

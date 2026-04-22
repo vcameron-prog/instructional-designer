@@ -17,6 +17,7 @@ export async function seedDatabase() {
     // Sample courses for BSU faculty (clearly marked as samples)
     const sampleCourses = [
       {
+        userId: "seed",
         courseName: "[SAMPLE] Introduction to Psychology",
         courseNumber: "PSYC 101",
         courseLevel: "Undergraduate - 100 level",
@@ -31,6 +32,7 @@ export async function seedDatabase() {
         additionalContext: "This is a large lecture course with approximately 150 students. Weekly discussion sections are led by teaching assistants.",
       },
       {
+        userId: "seed",
         courseName: "[SAMPLE] Technical Writing",
         courseNumber: "ENGL 202",
         courseLevel: "Undergraduate - 200 level",
@@ -45,6 +47,7 @@ export async function seedDatabase() {
         additionalContext: "Students will complete a major collaborative project working with a local organization to create professional documentation.",
       },
       {
+        userId: "seed",
         courseName: "[SAMPLE] Data Structures and Algorithms",
         courseNumber: "COMP 285",
         courseLevel: "Undergraduate - 200 level",

@@ -54,7 +54,7 @@ export async function extractPdfContent(
   const tables: ExtractedTable[] = [];
   for (let i = 1; i <= pageCount; i++) {
     try {
-      const pageTables = await parser.getPageTables(i);
+      const pageTables = await (parser as any).getPageTables(i);
       if (pageTables && Array.isArray(pageTables)) {
         for (const table of pageTables) {
           if (table && table.rows && table.rows.length > 0) {

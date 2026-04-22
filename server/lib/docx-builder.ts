@@ -144,7 +144,7 @@ function processImage(el: HTMLElement): Paragraph | null {
           description: alt || "Embedded image",
           name: alt || "image",
         },
-      }),
+      } as any),
     ],
     spacing: { after: 200 },
   });
@@ -580,7 +580,6 @@ export async function buildDocx(
     title: metadata.title,
     description: `Accessible version of ${metadata.filename}`,
     creator: metadata.author || "Accessibility Converter",
-    language: metadata.lang,
     numbering: {
       config: [
         {
