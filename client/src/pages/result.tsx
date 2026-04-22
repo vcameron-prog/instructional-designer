@@ -255,6 +255,55 @@ const checkAccessibility = (content: string): AccessibilityIssue[] => {
   return issues;
 };
 
+type DiffLine = { type: "unchanged" | "removed" | "added"; text: string };
+
+function computeLineDiff(before: string, after: string): DiffLine[] {
+  const a = before.split("\n");
+  const b = after.split("\n");
+  const m = a.length, n = b.length;
+  const dp: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] + 1 : Math.max(dp[i - 1][j], dp[i][j - 1]);
+    }
+  }
+  const result: DiffLine[] = [];
+  let i = m, j = n;
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && a[i - 1] === b[j - 1]) {
+      result.unshift({ type: "unchanged", text: a[i - 1] });
+      i--; j--;
+    } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+      result.unshift({ type: "added", text: b[j - 1] });
+      j--;
+    } else {
+      result.unshift({ type: "removed", text: a[i - 1] });
+      i--;
+    }
+  }
+  return result;
+}
+
+function buildDiffHunks(diff: DiffLine[], context = 2): Array<DiffLine | "ellipsis"> {
+  const changed = new Set<number>();
+  diff.forEach((line, idx) => { if (line.type !== "unchanged") changed.add(idx); });
+  if (changed.size === 0) return [];
+  const visible = new Set<number>();
+  changed.forEach((idx) => {
+    for (let k = Math.max(0, idx - context); k <= Math.min(diff.length - 1, idx + context); k++) {
+      visible.add(k);
+    }
+  });
+  const result: Array<DiffLine | "ellipsis"> = [];
+  let prev = -1;
+  Array.from(visible).sort((a, b) => a - b).forEach((idx) => {
+    if (prev !== -1 && idx > prev + 1) result.push("ellipsis");
+    result.push(diff[idx]);
+    prev = idx;
+  });
+  return result;
+}
+
 export default function ResultPage() {
   const params = useParams();
   const courseId = params.id ? parseInt(params.id) : undefined;
@@ -280,6 +329,10 @@ export default function ResultPage() {
   const [fixingIssue, setFixingIssue] = useState<string | null>(null);
   const [versionHistoryOpen, setVersionHistoryOpen] = useState(false);
   const [selectedVersionId, setSelectedVersionId] = useState<number | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewFixType, setPreviewFixType] = useState<string | null>(null);
+  const [previewBefore, setPreviewBefore] = useState("");
+  const [previewAfter, setPreviewAfter] = useState("");
 
   useEffect(() => {
     setExpandedSections({});
@@ -459,6 +512,33 @@ export default function ResultPage() {
   const handleApplyFix = (fixType: string) => {
     setFixingIssue(fixType);
     applyFixMutation.mutate(fixType);
+  };
+
+  const previewFixMutation = useMutation({
+    mutationFn: async (fixType: string) => {
+      const response = await apiRequest("POST", `/api/content/${contentId}/preview-fix`, { fixType });
+      return response.json() as Promise<{ before: string; after: string }>;
+    },
+    onSuccess: (data, fixType) => {
+      setPreviewBefore(data.before);
+      setPreviewAfter(data.after);
+      setPreviewFixType(fixType);
+      setPreviewOpen(true);
+    },
+    onError: (error) => {
+      toast({ title: "Preview failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const handlePreviewFix = (fixType: string) => {
+    setPreviewFixType(fixType);
+    previewFixMutation.mutate(fixType);
+  };
+
+  const handleConfirmFix = () => {
+    if (!previewFixType) return;
+    setPreviewOpen(false);
+    handleApplyFix(previewFixType);
   };
 
   const handleCopy = async () => {
@@ -828,26 +908,41 @@ export default function ResultPage() {
                               {issue.type}
                             </Badge>
                             {issue.fixType && !isAnon && contentId && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="mb-2 gap-1.5 text-xs h-7 px-2"
-                                disabled={fixingIssue === issue.fixType || applyFixMutation.isPending}
-                                onClick={() => handleApplyFix(issue.fixType!)}
-                                data-testid={`button-fix-${issue.fixType}`}
-                              >
-                                {fixingIssue === issue.fixType ? (
-                                  <>
-                                    <Loader2 className="w-3 h-3 animate-spin" />
-                                    Fixing…
-                                  </>
-                                ) : (
-                                  <>
-                                    <CheckCircle className="w-3 h-3" />
-                                    Fix this
-                                  </>
-                                )}
-                              </Button>
+                              <div className="mb-2 flex items-center gap-1.5">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="gap-1.5 text-xs h-7 px-2"
+                                  disabled={fixingIssue === issue.fixType || applyFixMutation.isPending || previewFixMutation.isPending}
+                                  onClick={() => handlePreviewFix(issue.fixType!)}
+                                  data-testid={`button-fix-${issue.fixType}`}
+                                >
+                                  {fixingIssue === issue.fixType ? (
+                                    <>
+                                      <Loader2 className="w-3 h-3 animate-spin" />
+                                      Fixing…
+                                    </>
+                                  ) : previewFixMutation.isPending && previewFixType === issue.fixType ? (
+                                    <>
+                                      <Loader2 className="w-3 h-3 animate-spin" />
+                                      Loading…
+                                    </>
+                                  ) : (
+                                    <>
+                                      <CheckCircle className="w-3 h-3" />
+                                      Fix this
+                                    </>
+                                  )}
+                                </Button>
+                                <button
+                                  className="text-[10px] text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors leading-none"
+                                  disabled={fixingIssue !== null || applyFixMutation.isPending || previewFixMutation.isPending}
+                                  onClick={() => handleApplyFix(issue.fixType!)}
+                                  data-testid={`button-fix-direct-${issue.fixType}`}
+                                >
+                                  Apply directly
+                                </button>
+                              </div>
                             )}
                           </div>
                           <p className="font-medium">{issue.message}</p>
@@ -1151,6 +1246,82 @@ export default function ResultPage() {
         </div>
       </div>
       <PoweredByFooter />
+
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-2xl" data-testid="dialog-fix-preview">
+          <DialogHeader>
+            <DialogTitle>Preview Fix</DialogTitle>
+            <DialogDescription>
+              Review what will change before applying the fix. Lines in{" "}
+              <span className="text-red-600 dark:text-red-400 font-medium">red</span> will be removed and lines in{" "}
+              <span className="text-green-600 dark:text-green-400 font-medium">green</span> will be added.
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="h-80 rounded border bg-muted/30 p-3 font-mono text-xs leading-relaxed" data-testid="diff-preview-scroll">
+            {(() => {
+              const diff = computeLineDiff(previewBefore, previewAfter);
+              const hunks = buildDiffHunks(diff);
+              if (hunks.length === 0) {
+                return <p className="text-muted-foreground italic">No changes would be made by this fix.</p>;
+              }
+              return hunks.map((item, idx) => {
+                if (item === "ellipsis") {
+                  return (
+                    <div key={idx} className="text-muted-foreground text-center py-0.5 select-none">
+                      ···
+                    </div>
+                  );
+                }
+                if (item.type === "removed") {
+                  return (
+                    <div key={idx} className="bg-red-100 dark:bg-red-950 text-red-800 dark:text-red-200 px-2 py-0.5 rounded-sm whitespace-pre-wrap break-all" data-testid="diff-line-removed">
+                      <span className="select-none mr-1 opacity-60">−</span>{item.text || " "}
+                    </div>
+                  );
+                }
+                if (item.type === "added") {
+                  return (
+                    <div key={idx} className="bg-green-100 dark:bg-green-950 text-green-800 dark:text-green-200 px-2 py-0.5 rounded-sm whitespace-pre-wrap break-all" data-testid="diff-line-added">
+                      <span className="select-none mr-1 opacity-60">+</span>{item.text || " "}
+                    </div>
+                  );
+                }
+                return (
+                  <div key={idx} className="text-muted-foreground px-2 py-0.5 whitespace-pre-wrap break-all" data-testid="diff-line-unchanged">
+                    <span className="select-none mr-1 opacity-40"> </span>{item.text || " "}
+                  </div>
+                );
+              });
+            })()}
+          </ScrollArea>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="ghost"
+              onClick={() => setPreviewOpen(false)}
+              data-testid="button-preview-cancel"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmFix}
+              disabled={fixingIssue !== null || applyFixMutation.isPending}
+              data-testid="button-preview-confirm"
+            >
+              {applyFixMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin mr-1.5" />
+                  Applying…
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-4 h-4 mr-1.5" />
+                  Apply fix
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }

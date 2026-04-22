@@ -1934,6 +1934,54 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     },
   );
 
+  // Preview what an accessibility fix will change (dry-run, no save)
+  app.post(
+    "/api/content/:id/preview-fix",
+    optionalAuth,
+    async (req: Request, res: Response) => {
+      try {
+        const id = parseInt(req.params.id);
+        const { fixType } = req.body;
+        if (!fixType) {
+          return res.status(400).json({ error: "fixType is required" });
+        }
+
+        const content = await storage.getContent(id);
+        if (!content) {
+          return res.status(404).json({ error: "Content not found" });
+        }
+
+        const userId = getUserId(req);
+        if (content.courseId) {
+          if (!userId) return res.status(403).json({ error: "Unauthorized" });
+          const course = await storage.getCourse(content.courseId, userId);
+          if (!course) return res.status(404).json({ error: "Content not found" });
+        } else if (content.userId && content.userId !== userId) {
+          return res.status(403).json({ error: "Unauthorized" });
+        }
+
+        let fixedContent = content.content;
+
+        if (fixType === "convert-markdown-tables") {
+          fixedContent = convertMarkdownTablesToHtml(content.content);
+        } else if (fixType === "fix-heading-skip") {
+          fixedContent = fixHeadingSkip(content.content);
+        } else if (fixType === "fix-vague-link-text") {
+          fixedContent = fixVagueLinkText(content.content);
+        } else if (fixType === "fix-all-caps") {
+          fixedContent = fixAllCaps(content.content);
+        } else {
+          return res.status(400).json({ error: "Unknown fix type" });
+        }
+
+        res.json({ before: content.content, after: fixedContent });
+      } catch (error) {
+        console.error("Error previewing accessibility fix:", error);
+        res.status(500).json({ error: "Failed to preview fix" });
+      }
+    },
+  );
+
   // Fix accessibility issue in-place
   app.post(
     "/api/content/:id/fix-accessibility",
