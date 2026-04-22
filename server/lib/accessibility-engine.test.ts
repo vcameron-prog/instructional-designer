@@ -2495,6 +2495,82 @@ describe("applyAriaRoleHeaderFix", () => {
 });
 
 // ---------------------------------------------------------------------------
+// deterministicFixerRegistry – dispatch
+// ---------------------------------------------------------------------------
+
+describe("deterministicFixerRegistry – dispatch", () => {
+  beforeEach(() => {
+    mockCreate.mockReset();
+  });
+
+  it("routes a registered key to the deterministic fixer and does not call AI", async () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>Table</h1><table><thead><tr><td role="columnheader">Name</td><td role="columnheader">Score</td></tr></thead><tbody><tr><td>Alice</td><td>95</td></tr></tbody></table></main></body></html>`;
+    const issues = runDeterministicChecks(html);
+    const ariaIssue = issues.find(
+      (i) => i.criterion === "1.3.1" && i.title === "ARIA Role on Table Data Cell"
+    )!;
+    expect(ariaIssue).toBeDefined();
+
+    const report = makeReport(issues);
+    const result = await fixComplianceIssue(html, ariaIssue, issues.indexOf(ariaIssue), report);
+
+    expect(mockCreate).not.toHaveBeenCalled();
+    expect(result.accessibleHtml).toContain('<th scope="col">');
+    expect(result.accessibleHtml).not.toContain('role="columnheader"');
+  });
+
+  it("routes a registered key to the correct fixer and returns transformed HTML", async () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>Data</h1><table><tbody><tr><td role="rowheader">Row A</td><td>Val</td></tr></tbody></table></main></body></html>`;
+    const issues = runDeterministicChecks(html);
+    const ariaIssue = issues.find(
+      (i) => i.criterion === "1.3.1" && i.title === "ARIA Role on Table Data Cell"
+    )!;
+
+    const report = makeReport(issues);
+    const result = await fixComplianceIssue(html, ariaIssue, issues.indexOf(ariaIssue), report);
+
+    expect(mockCreate).not.toHaveBeenCalled();
+    expect(result.accessibleHtml).toContain('<th scope="row">Row A</th>');
+    expect(result.accessibleHtml).not.toContain('role="rowheader"');
+  });
+
+  it("falls through to AI for an unregistered criterion+title key", async () => {
+    const html = `<!DOCTYPE html><html><head><title>Test</title></head><body><main><h1>Hello</h1></main></body></html>`;
+    const issues = runDeterministicChecks(html);
+    const langIssue = issues.find((i) => i.criterion === "3.1.1")!;
+    expect(langIssue.status).toBe("fail");
+
+    const fixedHtml = html.replace("<html>", '<html lang="en">');
+    mockCreate.mockResolvedValueOnce({
+      content: [{ type: "text", text: `<!DOCTYPE html>\n${fixedHtml}` }],
+    });
+
+    const report = makeReport(issues);
+    await fixComplianceIssue(html, langIssue, issues.indexOf(langIssue), report);
+
+    expect(mockCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not invoke the deterministic fixer when the key is not registered", async () => {
+    const html = `<!DOCTYPE html><html lang="en"><head></head><body><main><h1>Hello</h1></main></body></html>`;
+    const issues = runDeterministicChecks(html);
+    const titleIssue = issues.find((i) => i.criterion === "2.4.2")!;
+    expect(titleIssue.status).toBe("fail");
+
+    const fixedHtml = `<!DOCTYPE html><html lang="en"><head><title>My Page</title></head><body><main><h1>Hello</h1></main></body></html>`;
+    mockCreate.mockResolvedValueOnce({
+      content: [{ type: "text", text: fixedHtml }],
+    });
+
+    const report = makeReport(issues);
+    const result = await fixComplianceIssue(html, titleIssue, issues.indexOf(titleIssue), report);
+
+    expect(mockCreate).toHaveBeenCalledTimes(1);
+    expect(result.accessibleHtml).toContain("<title>My Page</title>");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // applyDeterministicReport
 // ---------------------------------------------------------------------------
 
