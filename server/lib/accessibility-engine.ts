@@ -1226,7 +1226,7 @@ export function applyAriaTabRoleFix(html: string): string {
   );
 }
 
-type DeterministicFixer = (html: string) => string;
+export type DeterministicFixer = (html: string) => string;
 
 const deterministicFixerRegistry: Record<string, DeterministicFixer> = {
   "1.3.1::ARIA Role on Table Data Cell": applyAriaRoleHeaderFix,
@@ -1237,6 +1237,10 @@ const deterministicFixerRegistry: Record<string, DeterministicFixer> = {
   "1.3.1::ARIA Grid Role on Non-Table Element": applyAriaGridRoleFix,
   "1.3.1::ARIA Tab Role on Non-Interactive Element": applyAriaTabRoleFix,
 };
+
+export function registerDeterministicFixer(key: string, fn: DeterministicFixer): void {
+  deterministicFixerRegistry[key] = fn;
+}
 
 export function applyDeterministicReport(
   fixedHtml: string,

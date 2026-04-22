@@ -27,6 +27,7 @@ import {
   ensureAltText,
   injectImageData,
   ensureMissingImages,
+  registerDeterministicFixer,
   type ComplianceIssue,
   type ComplianceReport,
 } from "./accessibility-engine.js";
@@ -4471,5 +4472,55 @@ describe("replaceAriaRoleElements (via applyAriaComboboxRoleFix) – angle brack
     expect(result).toContain("<select");
     expect(result).not.toContain('role="combobox"');
     expect(result).toContain("<option>A</option>");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// registerDeterministicFixer
+// ---------------------------------------------------------------------------
+
+describe("registerDeterministicFixer", () => {
+  it("registers a custom fixer that fixComplianceIssue dispatches without calling AI", async () => {
+    const CUSTOM_CRITERION = "9.9.9";
+    const CUSTOM_TITLE = "Custom Test Fixer";
+    const SENTINEL = "data-custom-fixed";
+
+    registerDeterministicFixer(`${CUSTOM_CRITERION}::${CUSTOM_TITLE}`, (html) =>
+      html.replace("<body>", `<body ${SENTINEL}>`)
+    );
+
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><main><h1>H</h1></main></body></html>`;
+    const customIssue: ComplianceIssue = {
+      criterion: CUSTOM_CRITERION,
+      title: CUSTOM_TITLE,
+      level: "AA",
+      status: "fail",
+      description: "Custom test issue",
+      details: "Details",
+    };
+    const report = buildComplianceReport([customIssue]);
+
+    mockCreate.mockClear();
+    const result = await fixComplianceIssue(html, customIssue, 0, report);
+
+    expect(mockCreate).not.toHaveBeenCalled();
+    expect(result.accessibleHtml).toContain(SENTINEL);
+  });
+
+  it("allows overwriting an existing fixer key", async () => {
+    const key = "3.1.1::Language of Page";
+    const MARKER = "data-overwritten";
+
+    registerDeterministicFixer(key, (html) => html.replace("<html", `<html ${MARKER}`));
+
+    const html = `<!DOCTYPE html><html><head><title>T</title></head><body><main><h1>H</h1></main></body></html>`;
+    const issues = runDeterministicChecks(html);
+    const langIssue = issues.find((i) => i.title === "Language of Page")!;
+    const report = buildComplianceReport(issues);
+
+    const result = await fixComplianceIssue(html, langIssue, issues.indexOf(langIssue), report);
+    expect(result.accessibleHtml).toContain(MARKER);
+
+    registerDeterministicFixer(key, applyLangAttributeFix);
   });
 });
