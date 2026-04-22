@@ -778,6 +778,39 @@ function restoreDataUris(html: string, uris: Map<string, string>): string {
   return result;
 }
 
+function applyDeterministicReport(
+  fixedHtml: string,
+  issue: ComplianceIssue,
+  issueIndex: number,
+  updatedIssues: ComplianceIssue[]
+): void {
+  const deterministicIssues = runDeterministicChecks(fixedHtml);
+  const deterministicMap = new Map<string, ComplianceIssue>();
+  for (const di of deterministicIssues) {
+    deterministicMap.set(`${di.criterion}::${di.title}`, di);
+  }
+  for (let i = 0; i < updatedIssues.length; i++) {
+    const key = `${updatedIssues[i].criterion}::${updatedIssues[i].title}`;
+    const freshCheck = deterministicMap.get(key);
+    if (freshCheck && updatedIssues[i].status !== "fixed") {
+      updatedIssues[i] = { ...freshCheck };
+    }
+  }
+  if (issueIndex >= 0 && issueIndex < updatedIssues.length) {
+    const targetIssue = updatedIssues[issueIndex];
+    if (targetIssue.criterion === issue.criterion && targetIssue.title === issue.title) {
+      const freshCheck = deterministicMap.get(`${issue.criterion}::${issue.title}`);
+      if (freshCheck) {
+        updatedIssues[issueIndex] = freshCheck.status === "pass"
+          ? { ...freshCheck, status: "fixed" }
+          : { ...freshCheck };
+      } else {
+        updatedIssues[issueIndex] = { ...targetIssue, status: "fixed", details: `Fixed: ${targetIssue.details}` };
+      }
+    }
+  }
+}
+
 export async function fixComplianceIssue(
   currentHtml: string,
   issue: ComplianceIssue,
@@ -787,31 +820,7 @@ export async function fixComplianceIssue(
   if (issue.criterion === "1.3.1" && issue.title === "ARIA Role on Table Data Cell") {
     const fixedHtml = applyAriaRoleHeaderFix(currentHtml);
     const updatedIssues = [...existingReport.issues];
-    const deterministicIssues = runDeterministicChecks(fixedHtml);
-    const deterministicMap = new Map<string, ComplianceIssue>();
-    for (const di of deterministicIssues) {
-      deterministicMap.set(`${di.criterion}::${di.title}`, di);
-    }
-    for (let i = 0; i < updatedIssues.length; i++) {
-      const key = `${updatedIssues[i].criterion}::${updatedIssues[i].title}`;
-      const freshCheck = deterministicMap.get(key);
-      if (freshCheck && updatedIssues[i].status !== "fixed") {
-        updatedIssues[i] = { ...freshCheck };
-      }
-    }
-    if (issueIndex >= 0 && issueIndex < updatedIssues.length) {
-      const targetIssue = updatedIssues[issueIndex];
-      if (targetIssue.criterion === issue.criterion && targetIssue.title === issue.title) {
-        const freshCheck = deterministicMap.get(`${issue.criterion}::${issue.title}`);
-        if (freshCheck) {
-          updatedIssues[issueIndex] = freshCheck.status === "pass"
-            ? { ...freshCheck, status: "fixed" }
-            : { ...freshCheck };
-        } else {
-          updatedIssues[issueIndex] = { ...targetIssue, status: "fixed", details: `Fixed: ${targetIssue.details}` };
-        }
-      }
-    }
+    applyDeterministicReport(fixedHtml, issue, issueIndex, updatedIssues);
     return { accessibleHtml: fixedHtml, complianceReport: buildComplianceReport(updatedIssues) };
   }
 
@@ -859,42 +868,7 @@ ${stripped}`,
   const fixedHtml = restoreDataUris(rawOutput, uris);
 
   const updatedIssues = [...existingReport.issues];
-
-  const deterministicIssues = runDeterministicChecks(fixedHtml);
-  const deterministicMap = new Map<string, ComplianceIssue>();
-  for (const di of deterministicIssues) {
-    deterministicMap.set(`${di.criterion}::${di.title}`, di);
-  }
-
-  for (let i = 0; i < updatedIssues.length; i++) {
-    const key = `${updatedIssues[i].criterion}::${updatedIssues[i].title}`;
-    const freshCheck = deterministicMap.get(key);
-    if (freshCheck) {
-      if (updatedIssues[i].status !== "fixed") {
-        updatedIssues[i] = { ...freshCheck };
-      }
-    }
-  }
-
-  if (issueIndex >= 0 && issueIndex < updatedIssues.length) {
-    const targetIssue = updatedIssues[issueIndex];
-    if (targetIssue.criterion === issue.criterion && targetIssue.title === issue.title) {
-      const freshCheck = deterministicMap.get(`${issue.criterion}::${issue.title}`);
-      if (freshCheck) {
-        if (freshCheck.status === "pass") {
-          updatedIssues[issueIndex] = { ...freshCheck, status: "fixed" };
-        } else {
-          updatedIssues[issueIndex] = { ...freshCheck };
-        }
-      } else {
-        updatedIssues[issueIndex] = {
-          ...targetIssue,
-          status: "fixed",
-          details: `Fixed: ${targetIssue.details}`,
-        };
-      }
-    }
-  }
+  applyDeterministicReport(fixedHtml, issue, issueIndex, updatedIssues);
 
   return {
     accessibleHtml: fixedHtml,
