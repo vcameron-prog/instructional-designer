@@ -302,6 +302,7 @@ export default function PdfConversion() {
   const [fixingIndex, setFixingIndex] = useState<number | null>(null);
   const [fixError, setFixError] = useState<string | null>(null);
   const [copiedImageKeys, setCopiedImageKeys] = useState<Set<string>>(new Set());
+  const [copiedAllKeys, setCopiedAllKeys] = useState<Set<number>>(new Set());
   const [acceptingIndex, setAcceptingIndex] = useState<number | null>(null);
   const [revertingIndex, setRevertingIndex] = useState<number | null>(null);
   const [justificationText, setJustificationText] = useState("");
@@ -427,6 +428,22 @@ export default function PdfConversion() {
       img.classList.remove("ring-2", "ring-amber-500", "ring-offset-2");
     });
   }, [htmlViewMode, expandedIssues]);
+
+  const copyAllFilenames = useCallback((filenames: string[], issueIndex: number) => {
+    const text = filenames.join("\n");
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedAllKeys((prev) => new Set(prev).add(issueIndex));
+      setTimeout(() => {
+        setCopiedAllKeys((prev) => {
+          const next = new Set(prev);
+          next.delete(issueIndex);
+          return next;
+        });
+      }, 2000);
+    }).catch(() => {
+      toast({ title: "Copy failed", description: "Could not copy filenames to clipboard.", variant: "destructive" });
+    });
+  }, [toast]);
 
   const handleFixIssue = useCallback(
     (issueIndex: number) => {
@@ -1357,9 +1374,25 @@ export default function PdfConversion() {
                               issue.imageItems &&
                               issue.imageItems.length > 0 && (
                                 <div className="rounded-lg border bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800 p-3 space-y-2">
-                                  <p className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wide">
-                                    Images missing alt text
-                                  </p>
+                                  <div className="flex items-center justify-between">
+                                    <p className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wide">
+                                      Images missing alt text
+                                    </p>
+                                    <button
+                                      onClick={() => copyAllFilenames(issue.imageItems.map((item: any) => item.label), i)}
+                                      className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-800/60 border border-amber-300 dark:border-amber-700 transition-colors"
+                                      data-testid={`button-copy-all-filenames-${i}`}
+                                      title="Copy all filenames"
+                                      aria-label="Copy all filenames"
+                                    >
+                                      {copiedAllKeys.has(i) ? (
+                                        <Check className="w-3 h-3" />
+                                      ) : (
+                                        <ClipboardCopy className="w-3 h-3" />
+                                      )}
+                                      {copiedAllKeys.has(i) ? "Copied!" : "Copy all filenames"}
+                                    </button>
+                                  </div>
                                   <ul className="space-y-1.5" data-testid="missing-alt-image-list">
                                     {issue.imageItems.map((item: any, imgIdx: number) => (
                                       <li
