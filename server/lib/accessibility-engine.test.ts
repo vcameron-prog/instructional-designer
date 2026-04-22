@@ -1792,6 +1792,27 @@ describe("ensureAltText", () => {
     expect(result).toContain("&gt;");
     expect(result).toContain('alt="Image: a&amp;b&lt;&quot;c&quot;&gt;d"');
   });
+
+  it("keeps a single quote in the filename literally inside a double-quoted alt attribute without breaking HTML", () => {
+    const html = `<img src="o'clock.png">`;
+    const result = ensureAltText(html, []);
+    const altMatch = result.match(/alt="([^"]*)"/);
+    expect(altMatch).not.toBeNull();
+    const altValue = altMatch![1];
+    expect(altValue).toContain("o'clock");
+    expect(result).not.toMatch(/alt="[^"]*"[^"]*"/);
+  });
+
+  it("keeps a single quote in a data URI image name literally inside a double-quoted alt attribute", () => {
+    const img = makeImage("o'clock.png", "data:image/png;base64,clockdata");
+    const html = `<img src="${img.dataUrl}">`;
+    const result = ensureAltText(html, [img]);
+    const altMatch = result.match(/alt="([^"]*)"/);
+    expect(altMatch).not.toBeNull();
+    const altValue = altMatch![1];
+    expect(altValue).toContain("o'clock");
+    expect(result).not.toMatch(/alt="[^"]*"[^"]*"/);
+  });
 });
 
 // ---------------------------------------------------------------------------
