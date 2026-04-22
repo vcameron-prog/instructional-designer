@@ -423,6 +423,28 @@ export function runDeterministicChecks(html: string): ComplianceIssue[] {
       return directThs.length === 0;
     });
     const allHaveHeaders = tablesWithoutTh.length === 0;
+
+    let failingTableDescriptions: string[] = [];
+    if (!allHaveHeaders) {
+      failingTableDescriptions = tablesWithoutTh.map((table) => {
+        const tableIndex = allTableNodes.indexOf(table) + 1;
+        const captionEl = table.querySelector("caption");
+        const caption = captionEl?.text?.trim();
+        const id = table.getAttribute("id");
+        const rows = table.querySelectorAll("tr").length;
+        const cols = Math.max(
+          0,
+          ...table.querySelectorAll("tr").map((tr) => tr.querySelectorAll("td, th").length)
+        );
+        const label = caption
+          ? `caption: "${caption}"`
+          : id
+          ? `id="${id}"`
+          : `${rows} row${rows !== 1 ? "s" : ""} × ${cols} col${cols !== 1 ? "s" : ""}`;
+        return `Table ${tableIndex} (${label})`;
+      });
+    }
+
     issues.push({
       criterion: "1.3.1",
       title: "Table Headers",
@@ -431,7 +453,7 @@ export function runDeterministicChecks(html: string): ComplianceIssue[] {
       description: "Tables must have clear headers so users understand what each column or row means.",
       details: allHaveHeaders
         ? `Found ${allTableNodes.length} table(s) with properly labeled headers.`
-        : `Found ${tablesWithoutTh.length} of ${allTableNodes.length} table(s) without labeled headers, making them hard to understand.`,
+        : `Found ${tablesWithoutTh.length} of ${allTableNodes.length} table(s) without labeled headers: ${failingTableDescriptions.join("; ")}.`,
     });
 
     const tablesWithTdOnlyFirstRow = allTableNodes.filter((table) => {

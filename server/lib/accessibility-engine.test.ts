@@ -272,6 +272,66 @@ describe("runDeterministicChecks", () => {
       );
       expect(tableIssue).toBeDefined();
       expect(tableIssue!.status).toBe("fail");
+      expect(tableIssue!.details).toMatch(/Table 2/);
+    });
+
+    it("details includes caption text when a failing table has a <caption>", () => {
+      const html = `<html lang="en"><body>
+        <table>
+          <caption>Annual Budget</caption>
+          <tr><td>Q1</td><td>100</td></tr>
+        </table>
+      </body></html>`;
+      const issues = runDeterministicChecks(html);
+      const tableIssue = issues.find(
+        (i) => i.criterion === "1.3.1" && i.title === "Table Headers"
+      );
+      expect(tableIssue!.status).toBe("fail");
+      expect(tableIssue!.details).toContain('caption: "Annual Budget"');
+    });
+
+    it("details includes id attribute when a failing table has an id but no caption", () => {
+      const html = `<html lang="en"><body>
+        <table id="pricing-table">
+          <tr><td>Basic</td><td>$9</td></tr>
+        </table>
+      </body></html>`;
+      const issues = runDeterministicChecks(html);
+      const tableIssue = issues.find(
+        (i) => i.criterion === "1.3.1" && i.title === "Table Headers"
+      );
+      expect(tableIssue!.status).toBe("fail");
+      expect(tableIssue!.details).toContain('id="pricing-table"');
+    });
+
+    it("details includes row×col count when a failing table has no caption or id", () => {
+      const html = `<html lang="en"><body>
+        <table>
+          <tr><td>A</td><td>B</td><td>C</td></tr>
+          <tr><td>1</td><td>2</td><td>3</td></tr>
+          <tr><td>4</td><td>5</td><td>6</td></tr>
+        </table>
+      </body></html>`;
+      const issues = runDeterministicChecks(html);
+      const tableIssue = issues.find(
+        (i) => i.criterion === "1.3.1" && i.title === "Table Headers"
+      );
+      expect(tableIssue!.status).toBe("fail");
+      expect(tableIssue!.details).toMatch(/3 rows × 3 cols/);
+    });
+
+    it("details lists multiple failing tables with individual identifiers", () => {
+      const html = `<html lang="en"><body>
+        <table id="t1"><tr><td>X</td></tr></table>
+        <table><caption>Summary Table</caption><tr><td>Y</td></tr></table>
+      </body></html>`;
+      const issues = runDeterministicChecks(html);
+      const tableIssue = issues.find(
+        (i) => i.criterion === "1.3.1" && i.title === "Table Headers"
+      );
+      expect(tableIssue!.status).toBe("fail");
+      expect(tableIssue!.details).toContain('id="t1"');
+      expect(tableIssue!.details).toContain('caption: "Summary Table"');
     });
 
     it("evaluates outer and inner tables independently when tables are nested", () => {
