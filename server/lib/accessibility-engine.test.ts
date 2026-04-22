@@ -2022,6 +2022,48 @@ describe("injectImageData", () => {
       const result = injectImageData(html, [img]);
       expect(result).toContain('src="data:image/png;base64,spaceparen"');
     });
+
+    it("matches percent-encoded emoji src against literal emoji image name (%F0%9F%98%80.png vs 😀.png)", () => {
+      const img = makeImage("😀.png", "data:image/png;base64,emojidata");
+      const html = `<img src="%F0%9F%98%80.png" alt="Smile">`;
+      const result = injectImageData(html, [img]);
+      expect(result).toContain('src="data:image/png;base64,emojidata"');
+    });
+
+    it("matches literal emoji src against literal emoji image name (😀.png vs 😀.png)", () => {
+      const img = makeImage("😀.png", "data:image/png;base64,emojidirect");
+      const html = `<img src="😀.png" alt="Smile">`;
+      const result = injectImageData(html, [img]);
+      expect(result).toContain('src="data:image/png;base64,emojidirect"');
+    });
+
+    it("matches percent-encoded CJK src against literal CJK image name (%E6%96%87%E4%BB%B6.png vs 文件.png)", () => {
+      const img = makeImage("文件.png", "data:image/png;base64,cjkdata");
+      const html = `<img src="%E6%96%87%E4%BB%B6.png" alt="File">`;
+      const result = injectImageData(html, [img]);
+      expect(result).toContain('src="data:image/png;base64,cjkdata"');
+    });
+
+    it("matches literal CJK src against literal CJK image name (文件.png vs 文件.png)", () => {
+      const img = makeImage("文件.png", "data:image/png;base64,cjkdirect");
+      const html = `<img src="文件.png" alt="File">`;
+      const result = injectImageData(html, [img]);
+      expect(result).toContain('src="data:image/png;base64,cjkdirect"');
+    });
+
+    it("matches multi-emoji percent-encoded src against stored emoji filename", () => {
+      const img = makeImage("🎉🎊.png", "data:image/png;base64,multiemojidata");
+      const html = `<img src="%F0%9F%8E%89%F0%9F%8E%8A.png" alt="Party">`;
+      const result = injectImageData(html, [img]);
+      expect(result).toContain('src="data:image/png;base64,multiemojidata"');
+    });
+
+    it("matches mixed CJK and emoji percent-encoded src against stored filename", () => {
+      const img = makeImage("图片😀.png", "data:image/png;base64,mixedcjkemoji");
+      const html = `<img src="%E5%9B%BE%E7%89%87%F0%9F%98%80.png" alt="Image">`;
+      const result = injectImageData(html, [img]);
+      expect(result).toContain('src="data:image/png;base64,mixedcjkemoji"');
+    });
   });
 
   describe("angle brackets in attribute values", () => {
@@ -2311,6 +2353,50 @@ describe("ensureMissingImages", () => {
       const html = `<html><body><img src="other.png" alt="Other"></body></html>`;
       const result = ensureMissingImages(html, [img]);
       expect(result).toContain(`src="data:image/png;base64,ACCENTMISS"`);
+      expect(result).toContain("Additional document images");
+    });
+
+    it("does not re-inject when src uses percent-encoded emoji and matches literal emoji image name", () => {
+      const img = makeImage("😀.png", "data:image/png;base64,EMOJIENC");
+      const html = `<html><body><img src="%F0%9F%98%80.png" alt="Smile"></body></html>`;
+      const result = ensureMissingImages(html, [img]);
+      expect(result).toBe(html);
+    });
+
+    it("does not re-inject when src uses literal emoji and matches literal emoji image name", () => {
+      const img = makeImage("😀.png", "data:image/png;base64,EMOJIDIRECT");
+      const html = `<html><body><img src="😀.png" alt="Smile"></body></html>`;
+      const result = ensureMissingImages(html, [img]);
+      expect(result).toBe(html);
+    });
+
+    it("does not re-inject when src uses percent-encoded CJK and matches literal CJK image name", () => {
+      const img = makeImage("文件.png", "data:image/png;base64,CJKENC");
+      const html = `<html><body><img src="%E6%96%87%E4%BB%B6.png" alt="File"></body></html>`;
+      const result = ensureMissingImages(html, [img]);
+      expect(result).toBe(html);
+    });
+
+    it("does not re-inject when src uses literal CJK and matches literal CJK image name", () => {
+      const img = makeImage("文件.png", "data:image/png;base64,CJKDIRECT");
+      const html = `<html><body><img src="文件.png" alt="File"></body></html>`;
+      const result = ensureMissingImages(html, [img]);
+      expect(result).toBe(html);
+    });
+
+    it("still injects emoji image when src is a completely different name", () => {
+      const img = { ...makeImage("😀.png", "data:image/png;base64,EMOJIMISS"), pageNumber: 3 };
+      const html = `<html><body><img src="other.png" alt="Other"></body></html>`;
+      const result = ensureMissingImages(html, [img]);
+      expect(result).toContain(`src="data:image/png;base64,EMOJIMISS"`);
+      expect(result).toContain("Additional document images");
+    });
+
+    it("still injects CJK image when src is a completely different name", () => {
+      const img = { ...makeImage("文件.png", "data:image/png;base64,CJKMISS"), pageNumber: 4 };
+      const html = `<html><body><img src="other.png" alt="Other"></body></html>`;
+      const result = ensureMissingImages(html, [img]);
+      expect(result).toContain(`src="data:image/png;base64,CJKMISS"`);
       expect(result).toContain("Additional document images");
     });
   });
