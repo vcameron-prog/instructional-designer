@@ -916,6 +916,158 @@ export function evaluateOriginalDocument(extractedText: string): ComplianceRepor
   return buildComplianceReport(issues);
 }
 
+export function applyAriaLinkRoleFix(html: string): string {
+  const root = parseHtml(html);
+  let result = html;
+
+  const linkRoleNodes = root.querySelectorAll("[role='link']");
+  const nonAnchors = linkRoleNodes.filter((el) => el.tagName?.toLowerCase() !== "a");
+
+  for (const el of nonAnchors) {
+    const outerHtml = el.outerHTML;
+    const tag = el.tagName?.toLowerCase() ?? "div";
+    const openTagMatch = outerHtml.match(new RegExp(`^<${tag}([^>]*)>`, "i"));
+    if (!openTagMatch) continue;
+    const innerHtml = outerHtml.slice(
+      openTagMatch[0].length,
+      outerHtml.lastIndexOf(`</${tag}>`)
+    );
+    let attrs = openTagMatch[1]
+      .replace(/\s*role\s*=\s*["']link["']/gi, "")
+      .trim();
+    if (!/\bhref\s*=/i.test(attrs)) {
+      attrs = attrs ? `href="#" ${attrs}` : `href="#"`;
+    }
+    const replacement = `<a${attrs ? " " + attrs : ""}>${innerHtml}</a>`;
+    result = result.replace(outerHtml, replacement);
+  }
+
+  return result;
+}
+
+export function applyAriaCheckboxRoleFix(html: string): string {
+  const root = parseHtml(html);
+  let result = html;
+
+  const checkboxRoleNodes = root.querySelectorAll("[role='checkbox']");
+  const wrongElements = checkboxRoleNodes.filter((el) => {
+    const tag = el.tagName?.toLowerCase();
+    if (tag === "input") {
+      const type = (el.getAttribute("type") ?? "").toLowerCase();
+      return type !== "checkbox";
+    }
+    return true;
+  });
+
+  for (const el of wrongElements) {
+    const outerHtml = el.outerHTML;
+    const tag = el.tagName?.toLowerCase() ?? "";
+
+    if (tag === "input") {
+      const replacement = outerHtml
+        .replace(/\s*role\s*=\s*["']checkbox["']/gi, "")
+        .replace(/\s*type\s*=\s*["'][^"']*["']/gi, "")
+        .replace(/^<input/i, '<input type="checkbox"');
+      result = result.replace(outerHtml, replacement);
+    } else {
+      const labelText = (el.text ?? "").trim();
+      const ariaLabel = labelText ? ` aria-label="${labelText.replace(/"/g, "&quot;")}"` : "";
+      result = result.replace(outerHtml, `<input type="checkbox"${ariaLabel}>`);
+    }
+  }
+
+  return result;
+}
+
+export function applyAriaRadioRoleFix(html: string): string {
+  const root = parseHtml(html);
+  let result = html;
+
+  const radioRoleNodes = root.querySelectorAll("[role='radio']");
+  const wrongElements = radioRoleNodes.filter((el) => {
+    const tag = el.tagName?.toLowerCase();
+    if (tag === "input") {
+      const type = (el.getAttribute("type") ?? "").toLowerCase();
+      return type !== "radio";
+    }
+    return true;
+  });
+
+  for (const el of wrongElements) {
+    const outerHtml = el.outerHTML;
+    const tag = el.tagName?.toLowerCase() ?? "";
+
+    if (tag === "input") {
+      const replacement = outerHtml
+        .replace(/\s*role\s*=\s*["']radio["']/gi, "")
+        .replace(/\s*type\s*=\s*["'][^"']*["']/gi, "")
+        .replace(/^<input/i, '<input type="radio"');
+      result = result.replace(outerHtml, replacement);
+    } else {
+      const labelText = (el.text ?? "").trim();
+      const ariaLabel = labelText ? ` aria-label="${labelText.replace(/"/g, "&quot;")}"` : "";
+      result = result.replace(outerHtml, `<input type="radio"${ariaLabel}>`);
+    }
+  }
+
+  return result;
+}
+
+export function applyAriaListRoleFix(html: string): string {
+  const root = parseHtml(html);
+  let result = html;
+
+  const listRoleNodes = root.querySelectorAll("[role='list']");
+  const nonLists = listRoleNodes.filter((el) => {
+    const tag = el.tagName?.toLowerCase();
+    return tag !== "ul" && tag !== "ol";
+  });
+
+  for (const el of nonLists) {
+    const outerHtml = el.outerHTML;
+    const tag = el.tagName?.toLowerCase() ?? "div";
+    const openTagMatch = outerHtml.match(new RegExp(`^<${tag}([^>]*)>`, "i"));
+    if (!openTagMatch) continue;
+    const innerHtml = outerHtml.slice(
+      openTagMatch[0].length,
+      outerHtml.lastIndexOf(`</${tag}>`)
+    );
+    const attrs = openTagMatch[1]
+      .replace(/\s*role\s*=\s*["']list["']/gi, "")
+      .trim();
+    const replacement = `<ul${attrs ? " " + attrs : ""}>${innerHtml}</ul>`;
+    result = result.replace(outerHtml, replacement);
+  }
+
+  return result;
+}
+
+export function applyAriaListitemRoleFix(html: string): string {
+  const root = parseHtml(html);
+  let result = html;
+
+  const listitemRoleNodes = root.querySelectorAll("[role='listitem']");
+  const nonListitems = listitemRoleNodes.filter((el) => el.tagName?.toLowerCase() !== "li");
+
+  for (const el of nonListitems) {
+    const outerHtml = el.outerHTML;
+    const tag = el.tagName?.toLowerCase() ?? "div";
+    const openTagMatch = outerHtml.match(new RegExp(`^<${tag}([^>]*)>`, "i"));
+    if (!openTagMatch) continue;
+    const innerHtml = outerHtml.slice(
+      openTagMatch[0].length,
+      outerHtml.lastIndexOf(`</${tag}>`)
+    );
+    const attrs = openTagMatch[1]
+      .replace(/\s*role\s*=\s*["']listitem["']/gi, "")
+      .trim();
+    const replacement = `<li${attrs ? " " + attrs : ""}>${innerHtml}</li>`;
+    result = result.replace(outerHtml, replacement);
+  }
+
+  return result;
+}
+
 export function applyAriaRoleHeaderFix(html: string): string {
   const root = parseHtml(html);
   let result = html;
@@ -1015,6 +1167,41 @@ export async function fixComplianceIssue(
   const deterministicFixer = deterministicFixerRegistry[registryKey];
   if (deterministicFixer) {
     const fixedHtml = deterministicFixer(currentHtml);
+    const updatedIssues = [...existingReport.issues];
+    applyDeterministicReport(fixedHtml, issue, issueIndex, updatedIssues);
+    return { accessibleHtml: fixedHtml, complianceReport: buildComplianceReport(updatedIssues) };
+  }
+
+  if (issue.criterion === "4.1.2" && issue.title === "ARIA Link Role on Non-Anchor Element") {
+    const fixedHtml = applyAriaLinkRoleFix(currentHtml);
+    const updatedIssues = [...existingReport.issues];
+    applyDeterministicReport(fixedHtml, issue, issueIndex, updatedIssues);
+    return { accessibleHtml: fixedHtml, complianceReport: buildComplianceReport(updatedIssues) };
+  }
+
+  if (issue.criterion === "4.1.2" && issue.title === "ARIA Checkbox Role on Non-Input Element") {
+    const fixedHtml = applyAriaCheckboxRoleFix(currentHtml);
+    const updatedIssues = [...existingReport.issues];
+    applyDeterministicReport(fixedHtml, issue, issueIndex, updatedIssues);
+    return { accessibleHtml: fixedHtml, complianceReport: buildComplianceReport(updatedIssues) };
+  }
+
+  if (issue.criterion === "4.1.2" && issue.title === "ARIA Radio Role on Non-Input Element") {
+    const fixedHtml = applyAriaRadioRoleFix(currentHtml);
+    const updatedIssues = [...existingReport.issues];
+    applyDeterministicReport(fixedHtml, issue, issueIndex, updatedIssues);
+    return { accessibleHtml: fixedHtml, complianceReport: buildComplianceReport(updatedIssues) };
+  }
+
+  if (issue.criterion === "1.3.1" && issue.title === "ARIA List Role on Non-List Element") {
+    const fixedHtml = applyAriaListRoleFix(currentHtml);
+    const updatedIssues = [...existingReport.issues];
+    applyDeterministicReport(fixedHtml, issue, issueIndex, updatedIssues);
+    return { accessibleHtml: fixedHtml, complianceReport: buildComplianceReport(updatedIssues) };
+  }
+
+  if (issue.criterion === "1.3.1" && issue.title === "ARIA Listitem Role on Non-Listitem Element") {
+    const fixedHtml = applyAriaListitemRoleFix(currentHtml);
     const updatedIssues = [...existingReport.issues];
     applyDeterministicReport(fixedHtml, issue, issueIndex, updatedIssues);
     return { accessibleHtml: fixedHtml, complianceReport: buildComplianceReport(updatedIssues) };

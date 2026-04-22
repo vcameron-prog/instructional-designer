@@ -9,6 +9,11 @@ import {
   fixComplianceIssue,
   applyAriaRoleHeaderFix,
   applyDeterministicReport,
+  applyAriaLinkRoleFix,
+  applyAriaCheckboxRoleFix,
+  applyAriaRadioRoleFix,
+  applyAriaListRoleFix,
+  applyAriaListitemRoleFix,
   parseHexColor,
   relativeLuminance,
   contrastRatio,
@@ -2529,5 +2534,364 @@ describe("applyDeterministicReport", () => {
 
     expect(updatedIssues[0].status).toBe("fixed");
     expect(updatedIssues[0].details).toBe("Fixed: Interactive element lacks a name.");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// applyAriaLinkRoleFix
+// ---------------------------------------------------------------------------
+
+describe("applyAriaLinkRoleFix", () => {
+  it("converts <div role=link> to <a href=#>", () => {
+    const html = `<div role="link" tabindex="0">Go somewhere</div>`;
+    const result = applyAriaLinkRoleFix(html);
+    expect(result).toContain("<a");
+    expect(result).toContain('href="#"');
+    expect(result).toContain("Go somewhere");
+    expect(result).not.toContain('role="link"');
+    expect(result).not.toContain("<div");
+  });
+
+  it("converts <span role=link> to <a>", () => {
+    const html = `<span role="link">Click me</span>`;
+    const result = applyAriaLinkRoleFix(html);
+    expect(result).toContain("<a");
+    expect(result).toContain("Click me");
+    expect(result).not.toContain('role="link"');
+    expect(result).not.toContain("<span");
+  });
+
+  it("preserves an existing href attribute instead of adding href=#", () => {
+    const html = `<div role="link" href="https://example.com">Visit</div>`;
+    const result = applyAriaLinkRoleFix(html);
+    expect(result).toContain('href="https://example.com"');
+    expect(result).not.toContain('href="#"');
+  });
+
+  it("preserves other attributes (except role) on the replaced element", () => {
+    const html = `<div role="link" class="nav-link" tabindex="0">Home</div>`;
+    const result = applyAriaLinkRoleFix(html);
+    expect(result).toContain('class="nav-link"');
+    expect(result).toContain('tabindex="0"');
+    expect(result).not.toContain('role="link"');
+  });
+
+  it("leaves native <a> elements unchanged", () => {
+    const html = `<a href="#" role="link">Native link</a>`;
+    const result = applyAriaLinkRoleFix(html);
+    expect(result).toBe(html);
+  });
+
+  it("returns HTML unchanged when no role=link elements are present", () => {
+    const html = `<div>No links here</div>`;
+    expect(applyAriaLinkRoleFix(html)).toBe(html);
+  });
+
+  it("fixed HTML no longer triggers the ARIA Link Role warning", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><main><h1>T</h1><div role="link" tabindex="0">Go</div></main></body></html>`;
+    const before = runDeterministicChecks(html);
+    expect(before.find((i) => i.title === "ARIA Link Role on Non-Anchor Element")).toBeDefined();
+
+    const fixed = applyAriaLinkRoleFix(html);
+    const after = runDeterministicChecks(fixed);
+    expect(after.find((i) => i.title === "ARIA Link Role on Non-Anchor Element")).toBeUndefined();
+  });
+
+  it("handles multiple non-anchor elements with role=link", () => {
+    const html = `<div role="link">First</div><span role="link">Second</span>`;
+    const result = applyAriaLinkRoleFix(html);
+    expect((result.match(/<a /g) ?? []).length).toBe(2);
+    expect(result).not.toContain('role="link"');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// applyAriaCheckboxRoleFix
+// ---------------------------------------------------------------------------
+
+describe("applyAriaCheckboxRoleFix", () => {
+  it("converts <div role=checkbox> to <input type=checkbox> with aria-label", () => {
+    const html = `<div role="checkbox" aria-checked="false">Option A</div>`;
+    const result = applyAriaCheckboxRoleFix(html);
+    expect(result).toContain('<input type="checkbox"');
+    expect(result).toContain('aria-label="Option A"');
+    expect(result).not.toContain('role="checkbox"');
+    expect(result).not.toContain("<div");
+  });
+
+  it("converts <span role=checkbox> to <input type=checkbox>", () => {
+    const html = `<span role="checkbox">Subscribe</span>`;
+    const result = applyAriaCheckboxRoleFix(html);
+    expect(result).toContain('<input type="checkbox"');
+    expect(result).not.toContain("<span");
+    expect(result).not.toContain('role="checkbox"');
+  });
+
+  it("changes type on <input type=radio role=checkbox> without removing other attrs", () => {
+    const html = `<input type="radio" role="checkbox" name="opts">`;
+    const result = applyAriaCheckboxRoleFix(html);
+    expect(result).toContain('<input type="checkbox"');
+    expect(result).not.toContain('role="checkbox"');
+    expect(result).not.toContain('type="radio"');
+    expect(result).toContain('name="opts"');
+  });
+
+  it("leaves <input type=checkbox> unchanged (correct native element)", () => {
+    const html = `<input type="checkbox" name="agree">`;
+    expect(applyAriaCheckboxRoleFix(html)).toBe(html);
+  });
+
+  it("returns HTML unchanged when no role=checkbox elements are present", () => {
+    const html = `<div>No checkboxes</div>`;
+    expect(applyAriaCheckboxRoleFix(html)).toBe(html);
+  });
+
+  it("fixed HTML no longer triggers the ARIA Checkbox Role warning", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><main><h1>T</h1><div role="checkbox" aria-checked="false">Accept</div></main></body></html>`;
+    const before = runDeterministicChecks(html);
+    expect(before.find((i) => i.title === "ARIA Checkbox Role on Non-Input Element")).toBeDefined();
+
+    const fixed = applyAriaCheckboxRoleFix(html);
+    const after = runDeterministicChecks(fixed);
+    expect(after.find((i) => i.title === "ARIA Checkbox Role on Non-Input Element")).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// applyAriaRadioRoleFix
+// ---------------------------------------------------------------------------
+
+describe("applyAriaRadioRoleFix", () => {
+  it("converts <span role=radio> to <input type=radio> with aria-label", () => {
+    const html = `<span role="radio" aria-checked="false">Choice A</span>`;
+    const result = applyAriaRadioRoleFix(html);
+    expect(result).toContain('<input type="radio"');
+    expect(result).toContain('aria-label="Choice A"');
+    expect(result).not.toContain('role="radio"');
+    expect(result).not.toContain("<span");
+  });
+
+  it("converts <div role=radio> to <input type=radio>", () => {
+    const html = `<div role="radio">Option B</div>`;
+    const result = applyAriaRadioRoleFix(html);
+    expect(result).toContain('<input type="radio"');
+    expect(result).not.toContain("<div");
+    expect(result).not.toContain('role="radio"');
+  });
+
+  it("changes type on <input type=checkbox role=radio> without removing other attrs", () => {
+    const html = `<input type="checkbox" role="radio" name="group">`;
+    const result = applyAriaRadioRoleFix(html);
+    expect(result).toContain('<input type="radio"');
+    expect(result).not.toContain('role="radio"');
+    expect(result).not.toContain('type="checkbox"');
+    expect(result).toContain('name="group"');
+  });
+
+  it("leaves <input type=radio> unchanged (correct native element)", () => {
+    const html = `<input type="radio" name="group">`;
+    expect(applyAriaRadioRoleFix(html)).toBe(html);
+  });
+
+  it("returns HTML unchanged when no role=radio elements are present", () => {
+    const html = `<div>No radios</div>`;
+    expect(applyAriaRadioRoleFix(html)).toBe(html);
+  });
+
+  it("fixed HTML no longer triggers the ARIA Radio Role warning", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><main><h1>T</h1><span role="radio" aria-checked="false">Yes</span></main></body></html>`;
+    const before = runDeterministicChecks(html);
+    expect(before.find((i) => i.title === "ARIA Radio Role on Non-Input Element")).toBeDefined();
+
+    const fixed = applyAriaRadioRoleFix(html);
+    const after = runDeterministicChecks(fixed);
+    expect(after.find((i) => i.title === "ARIA Radio Role on Non-Input Element")).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// applyAriaListRoleFix
+// ---------------------------------------------------------------------------
+
+describe("applyAriaListRoleFix", () => {
+  it("converts <div role=list> to <ul> preserving inner HTML", () => {
+    const html = `<div role="list"><div role="listitem">Item</div></div>`;
+    const result = applyAriaListRoleFix(html);
+    expect(result).toContain("<ul>");
+    expect(result).toContain("</ul>");
+    expect(result).not.toContain('role="list"');
+    expect(result).not.toContain("<div role=\"list\"");
+    expect(result).toContain("Item");
+  });
+
+  it("preserves other attributes on the list element (excluding role)", () => {
+    const html = `<div role="list" class="menu" id="nav-list"><div>Item</div></div>`;
+    const result = applyAriaListRoleFix(html);
+    expect(result).toContain('class="menu"');
+    expect(result).toContain('id="nav-list"');
+    expect(result).not.toContain('role="list"');
+  });
+
+  it("leaves native <ul> unchanged (even with redundant role=list)", () => {
+    const html = `<ul role="list"><li>Item</li></ul>`;
+    expect(applyAriaListRoleFix(html)).toBe(html);
+  });
+
+  it("leaves native <ol> unchanged", () => {
+    const html = `<ol><li>Item</li></ol>`;
+    expect(applyAriaListRoleFix(html)).toBe(html);
+  });
+
+  it("returns HTML unchanged when no role=list elements are present", () => {
+    const html = `<ul><li>Item</li></ul>`;
+    expect(applyAriaListRoleFix(html)).toBe(html);
+  });
+
+  it("fixed HTML no longer triggers the ARIA List Role warning", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><main><h1>T</h1><div role="list"><div role="listitem">Item</div></div></main></body></html>`;
+    const before = runDeterministicChecks(html);
+    expect(before.find((i) => i.title === "ARIA List Role on Non-List Element")).toBeDefined();
+
+    const fixed = applyAriaListRoleFix(html);
+    const after = runDeterministicChecks(fixed);
+    expect(after.find((i) => i.title === "ARIA List Role on Non-List Element")).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// applyAriaListitemRoleFix
+// ---------------------------------------------------------------------------
+
+describe("applyAriaListitemRoleFix", () => {
+  it("converts <div role=listitem> to <li> preserving inner HTML", () => {
+    const html = `<ul><div role="listitem">Item A</div></ul>`;
+    const result = applyAriaListitemRoleFix(html);
+    expect(result).toContain("<li>Item A</li>");
+    expect(result).not.toContain('role="listitem"');
+    expect(result).not.toContain("<div");
+  });
+
+  it("converts <span role=listitem> to <li>", () => {
+    const html = `<ul><span role="listitem">Item B</span></ul>`;
+    const result = applyAriaListitemRoleFix(html);
+    expect(result).toContain("<li>Item B</li>");
+    expect(result).not.toContain("<span");
+    expect(result).not.toContain('role="listitem"');
+  });
+
+  it("preserves other attributes on the listitem element (excluding role)", () => {
+    const html = `<ul><div role="listitem" class="item" data-id="1">Entry</div></ul>`;
+    const result = applyAriaListitemRoleFix(html);
+    expect(result).toContain('class="item"');
+    expect(result).toContain('data-id="1"');
+    expect(result).not.toContain('role="listitem"');
+  });
+
+  it("leaves native <li> unchanged (even with redundant role=listitem)", () => {
+    const html = `<ul><li role="listitem">Item</li></ul>`;
+    expect(applyAriaListitemRoleFix(html)).toBe(html);
+  });
+
+  it("returns HTML unchanged when no role=listitem elements are present", () => {
+    const html = `<ul><li>Item</li></ul>`;
+    expect(applyAriaListitemRoleFix(html)).toBe(html);
+  });
+
+  it("fixed HTML no longer triggers the ARIA Listitem Role warning", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><main><h1>T</h1><ul><div role="listitem">Item</div></ul></main></body></html>`;
+    const before = runDeterministicChecks(html);
+    expect(before.find((i) => i.title === "ARIA Listitem Role on Non-Listitem Element")).toBeDefined();
+
+    const fixed = applyAriaListitemRoleFix(html);
+    const after = runDeterministicChecks(fixed);
+    expect(after.find((i) => i.title === "ARIA Listitem Role on Non-Listitem Element")).toBeUndefined();
+  });
+
+  it("handles multiple non-listitem elements with role=listitem", () => {
+    const html = `<ul><div role="listitem">A</div><span role="listitem">B</span></ul>`;
+    const result = applyAriaListitemRoleFix(html);
+    expect(result).toContain("<li>A</li>");
+    expect(result).toContain("<li>B</li>");
+    expect(result).not.toContain('role="listitem"');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// fixComplianceIssue — deterministic fix dispatch for new ARIA roles
+// ---------------------------------------------------------------------------
+
+describe("fixComplianceIssue – deterministic ARIA role fix dispatch", () => {
+  beforeEach(() => {
+    mockCreate.mockReset();
+  });
+
+  it("applies deterministic link fix without calling AI for ARIA Link Role on Non-Anchor Element", async () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><main><h1>T</h1><div role="link" tabindex="0">Go</div></main></body></html>`;
+    const issues = runDeterministicChecks(html);
+    const issue = issues.find((i) => i.title === "ARIA Link Role on Non-Anchor Element")!;
+    expect(issue).toBeDefined();
+
+    const report = buildComplianceReport(issues);
+    const result = await fixComplianceIssue(html, issue, issues.indexOf(issue), report);
+
+    expect(mockCreate).not.toHaveBeenCalled();
+    const afterIssues = runDeterministicChecks(result.accessibleHtml);
+    expect(afterIssues.find((i) => i.title === "ARIA Link Role on Non-Anchor Element")).toBeUndefined();
+  });
+
+  it("applies deterministic checkbox fix without calling AI for ARIA Checkbox Role on Non-Input Element", async () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><main><h1>T</h1><div role="checkbox" aria-checked="false">Accept</div></main></body></html>`;
+    const issues = runDeterministicChecks(html);
+    const issue = issues.find((i) => i.title === "ARIA Checkbox Role on Non-Input Element")!;
+    expect(issue).toBeDefined();
+
+    const report = buildComplianceReport(issues);
+    const result = await fixComplianceIssue(html, issue, issues.indexOf(issue), report);
+
+    expect(mockCreate).not.toHaveBeenCalled();
+    const afterIssues = runDeterministicChecks(result.accessibleHtml);
+    expect(afterIssues.find((i) => i.title === "ARIA Checkbox Role on Non-Input Element")).toBeUndefined();
+  });
+
+  it("applies deterministic radio fix without calling AI for ARIA Radio Role on Non-Input Element", async () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><main><h1>T</h1><span role="radio" aria-checked="false">Yes</span></main></body></html>`;
+    const issues = runDeterministicChecks(html);
+    const issue = issues.find((i) => i.title === "ARIA Radio Role on Non-Input Element")!;
+    expect(issue).toBeDefined();
+
+    const report = buildComplianceReport(issues);
+    const result = await fixComplianceIssue(html, issue, issues.indexOf(issue), report);
+
+    expect(mockCreate).not.toHaveBeenCalled();
+    const afterIssues = runDeterministicChecks(result.accessibleHtml);
+    expect(afterIssues.find((i) => i.title === "ARIA Radio Role on Non-Input Element")).toBeUndefined();
+  });
+
+  it("applies deterministic list fix without calling AI for ARIA List Role on Non-List Element", async () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><main><h1>T</h1><div role="list"><div role="listitem">Item</div></div></main></body></html>`;
+    const issues = runDeterministicChecks(html);
+    const issue = issues.find((i) => i.title === "ARIA List Role on Non-List Element")!;
+    expect(issue).toBeDefined();
+
+    const report = buildComplianceReport(issues);
+    const result = await fixComplianceIssue(html, issue, issues.indexOf(issue), report);
+
+    expect(mockCreate).not.toHaveBeenCalled();
+    const afterIssues = runDeterministicChecks(result.accessibleHtml);
+    expect(afterIssues.find((i) => i.title === "ARIA List Role on Non-List Element")).toBeUndefined();
+  });
+
+  it("applies deterministic listitem fix without calling AI for ARIA Listitem Role on Non-Listitem Element", async () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><main><h1>T</h1><ul><div role="listitem">Item</div></ul></main></body></html>`;
+    const issues = runDeterministicChecks(html);
+    const issue = issues.find((i) => i.title === "ARIA Listitem Role on Non-Listitem Element")!;
+    expect(issue).toBeDefined();
+
+    const report = buildComplianceReport(issues);
+    const result = await fixComplianceIssue(html, issue, issues.indexOf(issue), report);
+
+    expect(mockCreate).not.toHaveBeenCalled();
+    const afterIssues = runDeterministicChecks(result.accessibleHtml);
+    expect(afterIssues.find((i) => i.title === "ARIA Listitem Role on Non-Listitem Element")).toBeUndefined();
   });
 });
