@@ -549,6 +549,139 @@ describe("runDeterministicChecks", () => {
     });
   });
 
+  // 4.1.2 ARIA Button Role on Non-Button Element
+  describe("criterion 4.1.2 – ARIA Button Role on Non-Button Element", () => {
+    it("warns when a <div> uses role=\"button\"", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1><div role="button">Click me</div></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Button Role on Non-Button Element");
+      expect(issue).toBeDefined();
+      expect(issue!.criterion).toBe("4.1.2");
+      expect(issue!.status).toBe("warning");
+      expect(issue!.details).toContain("1 element(s)");
+      expect(issue!.details).toContain("<div>");
+    });
+
+    it("warns when a <span> uses role=\"button\"", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1><span role="button">Submit</span></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Button Role on Non-Button Element");
+      expect(issue).toBeDefined();
+      expect(issue!.status).toBe("warning");
+      expect(issue!.details).toContain("<span>");
+    });
+
+    it("warns and counts multiple non-button elements with role=\"button\"", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1>
+        <div role="button">A</div>
+        <span role="button">B</span>
+        <a role="button" href="#">C</a>
+      </main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Button Role on Non-Button Element");
+      expect(issue).toBeDefined();
+      expect(issue!.details).toContain("3 element(s)");
+    });
+
+    it("does not warn when a native <button> element is used", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1><button type="button">Click me</button></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Button Role on Non-Button Element");
+      expect(issue).toBeUndefined();
+    });
+
+    it("does not warn when <button role=\"button\"> is used (redundant but acceptable)", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1><button role="button">OK</button></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Button Role on Non-Button Element");
+      expect(issue).toBeUndefined();
+    });
+
+    it("does not emit the issue when no role=\"button\" is present at all", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1><p>No buttons here</p></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Button Role on Non-Button Element");
+      expect(issue).toBeUndefined();
+    });
+
+    it("does not warn when <input type=\"submit\" role=\"button\"> is used (button-capable input)", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1><input type="submit" role="button" value="Save"></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Button Role on Non-Button Element");
+      expect(issue).toBeUndefined();
+    });
+
+    it("does not warn when <input type=\"reset\" role=\"button\"> is used (button-capable input)", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1><input type="reset" role="button" value="Clear"></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Button Role on Non-Button Element");
+      expect(issue).toBeUndefined();
+    });
+
+    it("warns when <input type=\"text\" role=\"button\"> is used (text input is not button-capable)", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1><input type="text" role="button"></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Button Role on Non-Button Element");
+      expect(issue).toBeDefined();
+      expect(issue!.status).toBe("warning");
+    });
+  });
+
+  // 1.3.1 ARIA Heading Role on Non-Heading Element
+  describe("criterion 1.3.1 – ARIA Heading Role on Non-Heading Element", () => {
+    it("warns when a <div> uses role=\"heading\"", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1><div role="heading" aria-level="2">Section Title</div></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Heading Role on Non-Heading Element");
+      expect(issue).toBeDefined();
+      expect(issue!.criterion).toBe("1.3.1");
+      expect(issue!.status).toBe("warning");
+      expect(issue!.details).toContain("1 element(s)");
+      expect(issue!.details).toContain("<div>");
+    });
+
+    it("warns when a <span> uses role=\"heading\"", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1><span role="heading">Title</span></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Heading Role on Non-Heading Element");
+      expect(issue).toBeDefined();
+      expect(issue!.status).toBe("warning");
+      expect(issue!.details).toContain("<span>");
+    });
+
+    it("warns and counts multiple non-heading elements with role=\"heading\"", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1>
+        <div role="heading" aria-level="2">Section A</div>
+        <p role="heading" aria-level="3">Section B</p>
+      </main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Heading Role on Non-Heading Element");
+      expect(issue).toBeDefined();
+      expect(issue!.details).toContain("2 element(s)");
+    });
+
+    it("does not warn when native <h1>–<h6> elements are used", () => {
+      const html = `<html lang="en"><body><main><h1>Title</h1><h2>Section</h2></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Heading Role on Non-Heading Element");
+      expect(issue).toBeUndefined();
+    });
+
+    it("does not warn when role=\"heading\" is placed on an <h2> (redundant but acceptable)", () => {
+      const html = `<html lang="en"><body><main><h1>Title</h1><h2 role="heading">Section</h2></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Heading Role on Non-Heading Element");
+      expect(issue).toBeUndefined();
+    });
+
+    it("does not emit the issue when no role=\"heading\" is present at all", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1><p>Content</p></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Heading Role on Non-Heading Element");
+      expect(issue).toBeUndefined();
+    });
+  });
+
   // All issues have required fields
   describe("issue shape", () => {
     it("every issue has criterion, title, level, status, description, and details", () => {

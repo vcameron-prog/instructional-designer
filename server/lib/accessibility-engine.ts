@@ -547,6 +547,54 @@ export function runDeterministicChecks(html: string): ComplianceIssue[] {
     }
   }
 
+  // 4.1.2 – ARIA role="button" on non-button elements
+  const BUTTON_INPUT_TYPES = new Set(["button", "submit", "reset", "image"]);
+  const buttonRoleNodes = parsedDoc.querySelectorAll("[role='button']");
+  const nonButtonsWithButtonRole = buttonRoleNodes.filter((el) => {
+    const tag = el.tagName?.toLowerCase();
+    if (tag === "button") return false;
+    if (tag === "input") {
+      const type = (el.getAttribute("type") ?? "").toLowerCase();
+      return !BUTTON_INPUT_TYPES.has(type);
+    }
+    return true;
+  });
+  if (nonButtonsWithButtonRole.length > 0) {
+    const tagList = nonButtonsWithButtonRole
+      .slice(0, 5)
+      .map((el) => `<${el.tagName?.toLowerCase()}>`)
+      .join(", ");
+    issues.push({
+      criterion: "4.1.2",
+      title: "ARIA Button Role on Non-Button Element",
+      level: "A",
+      status: "warning",
+      description: "Using role=\"button\" on a non-button element (e.g. <div> or <span>) is fragile and error-prone. Use a native <button> element instead.",
+      details: `Found ${nonButtonsWithButtonRole.length} element(s) with role="button" that are not native button elements (e.g. ${tagList}). Replace them with <button> for built-in keyboard and accessibility support.`,
+    });
+  }
+
+  // 1.3.1 – ARIA role="heading" on non-heading elements
+  const headingRoleNodes = parsedDoc.querySelectorAll("[role='heading']");
+  const nonHeadingsWithHeadingRole = headingRoleNodes.filter((el) => {
+    const tag = el.tagName?.toLowerCase();
+    return !/^h[1-6]$/.test(tag ?? "");
+  });
+  if (nonHeadingsWithHeadingRole.length > 0) {
+    const tagList = nonHeadingsWithHeadingRole
+      .slice(0, 5)
+      .map((el) => `<${el.tagName?.toLowerCase()}>`)
+      .join(", ");
+    issues.push({
+      criterion: "1.3.1",
+      title: "ARIA Heading Role on Non-Heading Element",
+      level: "A",
+      status: "warning",
+      description: "Using role=\"heading\" on a non-heading element (e.g. <div> or <span>) is a misuse of ARIA. Use native <h1>–<h6> elements instead.",
+      details: `Found ${nonHeadingsWithHeadingRole.length} element(s) with role="heading" that are not native heading elements (e.g. ${tagList}). Replace them with the appropriate <h1>–<h6> element for proper document structure.`,
+    });
+  }
+
   // 2.4.6 / 1.3.1 – Heading order: detect skipped heading levels
   const headingOrder = checkHeadingOrder(html);
   if (headingOrder.levels.length > 0) {
