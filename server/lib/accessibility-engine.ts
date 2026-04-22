@@ -1397,10 +1397,8 @@ export async function fixComplianceIssue(
 
   const { stripped, uris } = stripDataUris(currentHtml);
 
-  const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-5",
-    max_tokens: 16384,
-    system: `You are an accessibility expert specializing in ADA Title II compliance and WCAG 2.1 Level AA standards.
+  function buildSystemPrompt(strict: boolean): string {
+    const base = `You are an accessibility expert specializing in ADA Title II compliance and WCAG 2.1 Level AA standards.
 
 You will receive an accessible HTML document and a specific accessibility issue that needs to be fixed.
 Your task is to modify the HTML to resolve ONLY the specified issue while preserving all other content and structure.
@@ -1412,11 +1410,21 @@ Rules:
 4. Ensure the fix follows accessibility best practices
 5. Preserve all img src attributes exactly as they are - do not modify, remove, or rewrite any src values
 6. Output ONLY the complete fixed HTML document, no markdown, no code fences
-7. Start with <!DOCTYPE html>`,
-    messages: [
-      {
-        role: "user",
-        content: `Fix the following WCAG compliance issue in this HTML document:
+7. Start with <!DOCTYPE html>`;
+    if (!strict) return base;
+    return `${base}
+8. CRITICAL: You MUST output the ENTIRE document. Do NOT truncate or omit any part of the HTML. The response must include every element from <!DOCTYPE html> through to </html>, with <body> and </body> tags present and closed. Incomplete output is not acceptable.`;
+  }
+
+  async function callAi(strict: boolean): Promise<string> {
+    const response = await anthropic.messages.create({
+      model: "claude-sonnet-4-5",
+      max_tokens: 16384,
+      system: buildSystemPrompt(strict),
+      messages: [
+        {
+          role: "user",
+          content: `Fix the following WCAG compliance issue in this HTML document:
 
 --- ISSUE TO FIX ---
 WCAG Criterion: ${issue.criterion} (${issue.title})
@@ -1427,19 +1435,28 @@ Details: ${issue.details}
 
 --- CURRENT HTML ---
 ${stripped}`,
-      },
-    ],
-  });
-
-  const rawOutput = response.content[0]?.type === "text" ? response.content[0].text.trim() : "";
-  if (!rawOutput || (!rawOutput.startsWith("<!DOCTYPE html>") && !rawOutput.startsWith("<!doctype html>"))) {
-    throw new Error("AI failed to produce a valid HTML fix. Please try again.");
+        },
+      ],
+    });
+    return response.content[0]?.type === "text" ? response.content[0].text.trim() : "";
   }
-  const hasBody = /<body[\s>]/i.test(rawOutput);
-  const hasClosingBody = /<\/body>/i.test(rawOutput);
-  const hasClosingHtml = /<\/html>/i.test(rawOutput);
-  if (!hasBody || !hasClosingBody || !hasClosingHtml) {
-    throw new Error("AI failed to produce a valid HTML fix. Please try again.");
+
+  function validateOutput(rawOutput: string): boolean {
+    if (!rawOutput || (!rawOutput.startsWith("<!DOCTYPE html>") && !rawOutput.startsWith("<!doctype html>"))) {
+      return false;
+    }
+    const hasBody = /<body[\s>]/i.test(rawOutput);
+    const hasClosingBody = /<\/body>/i.test(rawOutput);
+    const hasClosingHtml = /<\/html>/i.test(rawOutput);
+    return hasBody && hasClosingBody && hasClosingHtml;
+  }
+
+  let rawOutput = await callAi(false);
+  if (!validateOutput(rawOutput)) {
+    rawOutput = await callAi(true);
+    if (!validateOutput(rawOutput)) {
+      throw new Error("AI failed to produce a valid HTML fix. Please try again.");
+    }
   }
 
   const fixedHtml = restoreDataUris(rawOutput, uris);

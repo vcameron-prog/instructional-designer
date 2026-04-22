@@ -2623,10 +2623,13 @@ describe("fixComplianceIssue – fixture-based regression tests", () => {
     expect(updatedIssue.criterion).toBe("3.1.1");
   });
 
-  it("throws when the AI returns output that does not start with <!DOCTYPE html>", async () => {
+  it("throws when the AI returns output that does not start with <!DOCTYPE html> (both attempts fail)", async () => {
     const issues = runDeterministicChecks(fixtureHtml);
     const headingIssue = issues.find((i) => i.criterion === "2.4.6")!;
 
+    mockCreate.mockResolvedValueOnce({
+      content: [{ type: "text", text: "Sorry, I cannot fix that." }],
+    });
     mockCreate.mockResolvedValueOnce({
       content: [{ type: "text", text: "Sorry, I cannot fix that." }],
     });
@@ -4514,53 +4517,88 @@ describe("fixComplianceIssue – partial or truncated AI HTML responses", () => 
     mockCreate.mockReset();
   });
 
-  it("throws when the AI returns a valid HTML fragment that is missing the DOCTYPE declaration", async () => {
+  it("throws when the AI returns a valid HTML fragment that is missing the DOCTYPE declaration (both attempts fail)", async () => {
     const issues = runDeterministicChecks(baseHtml);
     const headingIssue = issues.find((i) => i.criterion === "2.4.6")!;
     expect(headingIssue.status).toBe("fail");
 
-    mockCreate.mockResolvedValueOnce({
-      content: [{ type: "text", text: `<html lang="en"><head><title>Test</title></head><body><main><h1>No H1 Here</h1></main></body></html>` }],
-    });
+    const noDoctype = `<html lang="en"><head><title>Test</title></head><body><main><h1>No H1 Here</h1></main></body></html>`;
+    mockCreate.mockResolvedValueOnce({ content: [{ type: "text", text: noDoctype }] });
+    mockCreate.mockResolvedValueOnce({ content: [{ type: "text", text: noDoctype }] });
 
     const report = makeReport(issues);
     await expect(
       fixComplianceIssue(baseHtml, headingIssue, issues.indexOf(headingIssue), report)
     ).rejects.toThrow("AI failed to produce a valid HTML fix");
+    expect(mockCreate).toHaveBeenCalledTimes(2);
   });
 
-  it("throws when AI returns truncated HTML that starts with <!DOCTYPE html> but is missing closing </body> and </html> tags", async () => {
+  it("throws when AI returns truncated HTML on both attempts (missing closing </body> and </html> tags)", async () => {
     const issues = runDeterministicChecks(baseHtml);
     const headingIssue = issues.find((i) => i.criterion === "2.4.6")!;
     expect(headingIssue.status).toBe("fail");
 
     const truncatedHtml = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>No H1 Here</h1></main>`;
-
-    mockCreate.mockResolvedValueOnce({
-      content: [{ type: "text", text: truncatedHtml }],
-    });
+    mockCreate.mockResolvedValueOnce({ content: [{ type: "text", text: truncatedHtml }] });
+    mockCreate.mockResolvedValueOnce({ content: [{ type: "text", text: truncatedHtml }] });
 
     const report = makeReport(issues);
     await expect(
       fixComplianceIssue(baseHtml, headingIssue, issues.indexOf(headingIssue), report)
     ).rejects.toThrow("AI failed to produce a valid HTML fix");
+    expect(mockCreate).toHaveBeenCalledTimes(2);
   });
 
-  it("throws when AI returns HTML that starts with <!DOCTYPE html> but contains only a <head> and no <body>", async () => {
+  it("throws when AI returns head-only HTML on both attempts (no <body>)", async () => {
     const issues = runDeterministicChecks(baseHtml);
     const headingIssue = issues.find((i) => i.criterion === "2.4.6")!;
     expect(headingIssue.status).toBe("fail");
 
     const headOnlyHtml = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head></html>`;
-
-    mockCreate.mockResolvedValueOnce({
-      content: [{ type: "text", text: headOnlyHtml }],
-    });
+    mockCreate.mockResolvedValueOnce({ content: [{ type: "text", text: headOnlyHtml }] });
+    mockCreate.mockResolvedValueOnce({ content: [{ type: "text", text: headOnlyHtml }] });
 
     const report = makeReport(issues);
     await expect(
       fixComplianceIssue(baseHtml, headingIssue, issues.indexOf(headingIssue), report)
     ).rejects.toThrow("AI failed to produce a valid HTML fix");
+    expect(mockCreate).toHaveBeenCalledTimes(2);
+  });
+
+  it("succeeds on retry when the first AI response is incomplete but the second is valid", async () => {
+    const issues = runDeterministicChecks(baseHtml);
+    const headingIssue = issues.find((i) => i.criterion === "2.4.6")!;
+    expect(headingIssue.status).toBe("fail");
+
+    const truncatedHtml = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>No H1 Here</h1></main>`;
+    const validHtml = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>No H1 Here</h1></main></body></html>`;
+    mockCreate.mockResolvedValueOnce({ content: [{ type: "text", text: truncatedHtml }] });
+    mockCreate.mockResolvedValueOnce({ content: [{ type: "text", text: validHtml }] });
+
+    const report = makeReport(issues);
+    const result = await fixComplianceIssue(baseHtml, headingIssue, issues.indexOf(headingIssue), report);
+
+    expect(mockCreate).toHaveBeenCalledTimes(2);
+    expect(result.accessibleHtml).toContain("</body>");
+    expect(result.accessibleHtml).toContain("</html>");
+  });
+
+  it("uses the strict completeness prompt on the retry call", async () => {
+    const issues = runDeterministicChecks(baseHtml);
+    const headingIssue = issues.find((i) => i.criterion === "2.4.6")!;
+
+    const truncatedHtml = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>No H1 Here</h1></main>`;
+    const validHtml = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>No H1 Here</h1></main></body></html>`;
+    mockCreate.mockResolvedValueOnce({ content: [{ type: "text", text: truncatedHtml }] });
+    mockCreate.mockResolvedValueOnce({ content: [{ type: "text", text: validHtml }] });
+
+    const report = makeReport(issues);
+    await fixComplianceIssue(baseHtml, headingIssue, issues.indexOf(headingIssue), report);
+
+    expect(mockCreate).toHaveBeenCalledTimes(2);
+    const retryCall = mockCreate.mock.calls[1][0] as { system: string };
+    expect(retryCall.system).toContain("CRITICAL");
+    expect(retryCall.system).toContain("ENTIRE document");
   });
 });
 
