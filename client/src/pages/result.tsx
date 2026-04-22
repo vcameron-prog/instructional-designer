@@ -233,6 +233,7 @@ const checkAccessibility = (content: string): AccessibilityIssue[] => {
         severity: "warning",
         message: "HTML table found without a <caption> element",
         fix: "Add a <caption> element immediately after <table> to describe the table's purpose for screen reader users",
+        fixType: "fix-html-table-caption",
       });
       reportedMissingCaption = true;
     }
@@ -243,6 +244,7 @@ const checkAccessibility = (content: string): AccessibilityIssue[] => {
         severity: "warning",
         message: "HTML table found without a <thead> element",
         fix: "Add a <thead> with <th scope=\"col\"> for each column so screen readers can identify column headers",
+        fixType: "fix-html-table-thead",
       });
       reportedMissingThead = true;
     }
