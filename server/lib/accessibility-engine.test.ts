@@ -7,6 +7,7 @@ import {
   buildComplianceReport,
   evaluateOriginalDocument,
   fixComplianceIssue,
+  applyAriaRoleHeaderFix,
   parseHexColor,
   relativeLuminance,
   contrastRatio,
@@ -1824,5 +1825,103 @@ describe("fixComplianceIssue – fixture-based regression tests", () => {
 
     expect(capturedInput).not.toContain("data:image/png;base64,iVBOR");
     expect(capturedInput).toContain("__IMG_PLACEHOLDER_");
+  });
+
+  it("fixes criterion 1.3.1 ARIA Role on Table Data Cell: replaces td role=columnheader with th scope=col", async () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>Table</h1><table><thead><tr><td role="columnheader">Name</td><td role="columnheader">Value</td></tr></thead><tbody><tr><td>Row 1</td><td>Data 1</td></tr></tbody></table></main></body></html>`;
+    const issues = runDeterministicChecks(html);
+    const ariaIssue = issues.find((i) => i.criterion === "1.3.1" && i.title === "ARIA Role on Table Data Cell")!;
+    expect(ariaIssue).toBeDefined();
+    expect(ariaIssue.status).toBe("warning");
+
+    const report = makeReport(issues);
+    const result = await fixComplianceIssue(html, ariaIssue, issues.indexOf(ariaIssue), report);
+
+    const afterIssues = runDeterministicChecks(result.accessibleHtml);
+    const afterAriaIssue = afterIssues.find((i) => i.criterion === "1.3.1" && i.title === "ARIA Role on Table Data Cell");
+    expect(afterAriaIssue).toBeUndefined();
+    expect(result.accessibleHtml).toContain('<th scope="col">');
+    expect(result.accessibleHtml).not.toContain('role="columnheader"');
+  });
+
+  it("fixes criterion 1.3.1 ARIA Role on Table Data Cell: replaces td role=rowheader with th scope=row", async () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>Table</h1><table><thead><tr><th scope="col">Category</th><th scope="col">Score</th></tr></thead><tbody><tr><td role="rowheader">Section A</td><td>95</td></tr></tbody></table></main></body></html>`;
+    const issues = runDeterministicChecks(html);
+    const ariaIssue = issues.find((i) => i.criterion === "1.3.1" && i.title === "ARIA Role on Table Data Cell")!;
+    expect(ariaIssue).toBeDefined();
+
+    const report = makeReport(issues);
+    const result = await fixComplianceIssue(html, ariaIssue, issues.indexOf(ariaIssue), report);
+
+    expect(result.accessibleHtml).toContain('<th scope="row">');
+    expect(result.accessibleHtml).not.toContain('role="rowheader"');
+    const afterIssues = runDeterministicChecks(result.accessibleHtml);
+    const afterAriaIssue = afterIssues.find((i) => i.criterion === "1.3.1" && i.title === "ARIA Role on Table Data Cell");
+    expect(afterAriaIssue).toBeUndefined();
+  });
+
+  it("does not call the AI when fixing the ARIA Role on Table Data Cell issue", async () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>Table</h1><table><thead><tr><td role="columnheader">Col</td></tr></thead><tbody><tr><td>Data</td></tr></tbody></table></main></body></html>`;
+    const issues = runDeterministicChecks(html);
+    const ariaIssue = issues.find((i) => i.criterion === "1.3.1" && i.title === "ARIA Role on Table Data Cell")!;
+    const report = makeReport(issues);
+    mockCreate.mockClear();
+    await fixComplianceIssue(html, ariaIssue, issues.indexOf(ariaIssue), report);
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// applyAriaRoleHeaderFix
+// ---------------------------------------------------------------------------
+
+describe("applyAriaRoleHeaderFix", () => {
+  it("converts <td role=columnheader> to <th scope=col>", () => {
+    const html = `<table><tr><td role="columnheader">Name</td></tr></table>`;
+    const result = applyAriaRoleHeaderFix(html);
+    expect(result).toContain('<th scope="col">Name</th>');
+    expect(result).not.toContain('<td');
+    expect(result).not.toContain('role="columnheader"');
+  });
+
+  it("converts <td role=rowheader> to <th scope=row>", () => {
+    const html = `<table><tr><td role="rowheader">Row A</td><td>Data</td></tr></table>`;
+    const result = applyAriaRoleHeaderFix(html);
+    expect(result).toContain('<th scope="row">Row A</th>');
+    expect(result).not.toContain('role="rowheader"');
+    expect(result).toContain('<td>Data</td>');
+  });
+
+  it("handles multiple cells with different roles in the same table", () => {
+    const html = `<table><thead><tr><td role="columnheader">Col</td></tr></thead><tbody><tr><td role="rowheader">Row</td><td>Val</td></tr></tbody></table>`;
+    const result = applyAriaRoleHeaderFix(html);
+    expect(result).toContain('<th scope="col">Col</th>');
+    expect(result).toContain('<th scope="row">Row</th>');
+    expect(result).toContain('<td>Val</td>');
+  });
+
+  it("preserves other attributes on the td element (excluding role)", () => {
+    const html = `<table><tr><td role="columnheader" class="header-cell" id="col1">Name</td></tr></table>`;
+    const result = applyAriaRoleHeaderFix(html);
+    expect(result).toContain('scope="col"');
+    expect(result).toContain('class="header-cell"');
+    expect(result).toContain('id="col1"');
+    expect(result).not.toContain('role="columnheader"');
+  });
+
+  it("returns the HTML unchanged when no td cells have ARIA header roles", () => {
+    const html = `<table><thead><tr><th scope="col">Name</th></tr></thead><tbody><tr><td>Data</td></tr></tbody></table>`;
+    const result = applyAriaRoleHeaderFix(html);
+    expect(result).toBe(html);
+  });
+
+  it("fixed HTML no longer triggers the 1.3.1 ARIA Role warning", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><main><h1>T</h1><table><thead><tr><td role="columnheader">Name</td></tr></thead><tbody><tr><td>Val</td></tr></tbody></table></main></body></html>`;
+    const before = runDeterministicChecks(html);
+    expect(before.find((i) => i.title === "ARIA Role on Table Data Cell")).toBeDefined();
+
+    const fixed = applyAriaRoleHeaderFix(html);
+    const after = runDeterministicChecks(fixed);
+    expect(after.find((i) => i.title === "ARIA Role on Table Data Cell")).toBeUndefined();
   });
 });

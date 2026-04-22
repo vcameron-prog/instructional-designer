@@ -728,6 +728,33 @@ export function evaluateOriginalDocument(extractedText: string): ComplianceRepor
   return buildComplianceReport(issues);
 }
 
+export function applyAriaRoleHeaderFix(html: string): string {
+  const root = parseHtml(html);
+  let result = html;
+
+  const columnHeaders = root.querySelectorAll('td[role="columnheader"]');
+  const rowHeaders = root.querySelectorAll('td[role="rowheader"]');
+
+  const entries: Array<{ outerHtml: string; scope: "col" | "row" }> = [
+    ...Array.from(columnHeaders).map((td) => ({ outerHtml: td.outerHTML, scope: "col" as const })),
+    ...Array.from(rowHeaders).map((td) => ({ outerHtml: td.outerHTML, scope: "row" as const })),
+  ];
+
+  for (const { outerHtml, scope } of entries) {
+    const openTagMatch = outerHtml.match(/^<td([^>]*)>/i);
+    if (!openTagMatch) continue;
+    const innerHtml = outerHtml.slice(openTagMatch[0].length, outerHtml.lastIndexOf("</td>"));
+    const attrs = openTagMatch[1]
+      .replace(/\s*role="(?:columnheader|rowheader)"/gi, "")
+      .trim();
+    const newOpenTag = `<th scope="${scope}"${attrs ? " " + attrs : ""}>`;
+    const replacement = `${newOpenTag}${innerHtml}</th>`;
+    result = result.replace(outerHtml, replacement);
+  }
+
+  return result;
+}
+
 function stripDataUris(html: string): { stripped: string; uris: Map<string, string> } {
   const uris = new Map<string, string>();
   let counter = 0;
@@ -757,6 +784,37 @@ export async function fixComplianceIssue(
   issueIndex: number,
   existingReport: ComplianceReport
 ): Promise<AccessibilityResult> {
+  if (issue.criterion === "1.3.1" && issue.title === "ARIA Role on Table Data Cell") {
+    const fixedHtml = applyAriaRoleHeaderFix(currentHtml);
+    const updatedIssues = [...existingReport.issues];
+    const deterministicIssues = runDeterministicChecks(fixedHtml);
+    const deterministicMap = new Map<string, ComplianceIssue>();
+    for (const di of deterministicIssues) {
+      deterministicMap.set(`${di.criterion}::${di.title}`, di);
+    }
+    for (let i = 0; i < updatedIssues.length; i++) {
+      const key = `${updatedIssues[i].criterion}::${updatedIssues[i].title}`;
+      const freshCheck = deterministicMap.get(key);
+      if (freshCheck && updatedIssues[i].status !== "fixed") {
+        updatedIssues[i] = { ...freshCheck };
+      }
+    }
+    if (issueIndex >= 0 && issueIndex < updatedIssues.length) {
+      const targetIssue = updatedIssues[issueIndex];
+      if (targetIssue.criterion === issue.criterion && targetIssue.title === issue.title) {
+        const freshCheck = deterministicMap.get(`${issue.criterion}::${issue.title}`);
+        if (freshCheck) {
+          updatedIssues[issueIndex] = freshCheck.status === "pass"
+            ? { ...freshCheck, status: "fixed" }
+            : { ...freshCheck };
+        } else {
+          updatedIssues[issueIndex] = { ...targetIssue, status: "fixed", details: `Fixed: ${targetIssue.details}` };
+        }
+      }
+    }
+    return { accessibleHtml: fixedHtml, complianceReport: buildComplianceReport(updatedIssues) };
+  }
+
   const { stripped, uris } = stripDataUris(currentHtml);
 
   const response = await anthropic.messages.create({
