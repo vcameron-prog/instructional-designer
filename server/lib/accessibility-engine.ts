@@ -231,6 +231,76 @@ function ensureMissingImages(html: string, images: ExtractedImage[]): string {
   return html + sectionHtml;
 }
 
+// ---------------------------------------------------------------------------
+// Pure helper: parse a CSS hex colour string to [r, g, b] 0-255, or null.
+// ---------------------------------------------------------------------------
+export function parseHexColor(hex: string): [number, number, number] | null {
+  const h = hex.replace(/^#/, "").trim();
+  if (h.length === 3) {
+    const r = parseInt(h[0] + h[0], 16);
+    const g = parseInt(h[1] + h[1], 16);
+    const b = parseInt(h[2] + h[2], 16);
+    if (isNaN(r) || isNaN(g) || isNaN(b)) return null;
+    return [r, g, b];
+  }
+  if (h.length === 6) {
+    const r = parseInt(h.slice(0, 2), 16);
+    const g = parseInt(h.slice(2, 4), 16);
+    const b = parseInt(h.slice(4, 6), 16);
+    if (isNaN(r) || isNaN(g) || isNaN(b)) return null;
+    return [r, g, b];
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Pure helper: WCAG relative luminance for a linear RGB channel value 0-255.
+// ---------------------------------------------------------------------------
+export function relativeLuminance(r: number, g: number, b: number): number {
+  const linearize = (v: number): number => {
+    const s = v / 255;
+    return s <= 0.04045 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  };
+  return 0.2126 * linearize(r) + 0.7152 * linearize(g) + 0.0722 * linearize(b);
+}
+
+// ---------------------------------------------------------------------------
+// Pure helper: WCAG contrast ratio between two relative luminance values.
+// ---------------------------------------------------------------------------
+export function contrastRatio(l1: number, l2: number): number {
+  const lighter = Math.max(l1, l2);
+  const darker = Math.min(l1, l2);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+// ---------------------------------------------------------------------------
+// Pure helper: detect skipped heading levels in document order.
+// Returns the sequence of levels found and whether any level was skipped.
+// ---------------------------------------------------------------------------
+export function checkHeadingOrder(html: string): {
+  levels: number[];
+  hasSkippedLevels: boolean;
+  skips: Array<{ from: number; to: number }>;
+} {
+  const headingRegex = /<h([1-6])[\s>]/gi;
+  const levels: number[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = headingRegex.exec(html)) !== null) {
+    levels.push(parseInt(match[1], 10));
+  }
+
+  const skips: Array<{ from: number; to: number }> = [];
+  for (let i = 1; i < levels.length; i++) {
+    const prev = levels[i - 1];
+    const curr = levels[i];
+    if (curr > prev + 1) {
+      skips.push({ from: prev, to: curr });
+    }
+  }
+
+  return { levels, hasSkippedLevels: skips.length > 0, skips };
+}
+
 export function runDeterministicChecks(html: string): ComplianceIssue[] {
   const issues: ComplianceIssue[] = [];
 
@@ -349,6 +419,63 @@ export function runDeterministicChecks(html: string): ComplianceIssue[] {
         tablesWithTh > 0
           ? `Found ${tableTags.length} table(s) with properly labeled headers.`
           : `Found ${tableTags.length} table(s) without labeled headers, making them hard to understand.`,
+    });
+  }
+
+  // 2.4.6 / 1.3.1 – Heading order: detect skipped heading levels
+  const headingOrder = checkHeadingOrder(html);
+  if (headingOrder.levels.length > 0) {
+    issues.push({
+      criterion: "1.3.1",
+      title: "Heading Order",
+      level: "A",
+      status: headingOrder.hasSkippedLevels ? "warning" : "pass",
+      description: "Headings should follow a logical order without skipping levels so screen reader users can navigate predictably.",
+      details: headingOrder.hasSkippedLevels
+        ? `Heading levels appear to skip: ${headingOrder.skips.map((s) => `h${s.from} → h${s.to}`).join(", ")}. This may confuse screen reader users.`
+        : `Headings follow a logical order (${headingOrder.levels.map((l) => `h${l}`).join(", ")}).`,
+    });
+  }
+
+  // 1.4.3 – Contrast: check inline hex color/background pairs for WCAG AA ratio
+  const inlineStyleRegex = /style\s*=\s*["']([^"']*)["']/gi;
+  const colorPairs: Array<{ color: string; background: string; ratio: number }> = [];
+  let styleMatch: RegExpExecArray | null;
+  const styleBlocks: string[] = [];
+  while ((styleMatch = inlineStyleRegex.exec(html)) !== null) {
+    styleBlocks.push(styleMatch[1]);
+  }
+  for (const block of styleBlocks) {
+    let colorVal: string | null = null;
+    let bgVal: string | null = null;
+    let m: RegExpExecArray | null;
+    const colorBlockRegex = /(?:^|;)\s*(color|background(?:-color)?)\s*:\s*(#[0-9a-fA-F]{3,6})/gi;
+    while ((m = colorBlockRegex.exec(block)) !== null) {
+      const prop = m[1].toLowerCase();
+      const val = m[2];
+      if (prop === "color") colorVal = val;
+      else bgVal = val;
+    }
+    if (colorVal && bgVal) {
+      const fg = parseHexColor(colorVal);
+      const bg = parseHexColor(bgVal);
+      if (fg && bg) {
+        const ratio = contrastRatio(relativeLuminance(...fg), relativeLuminance(...bg));
+        colorPairs.push({ color: colorVal, background: bgVal, ratio });
+      }
+    }
+  }
+  const lowContrastPairs = colorPairs.filter((p) => p.ratio < 4.5);
+  if (colorPairs.length > 0) {
+    issues.push({
+      criterion: "1.4.3",
+      title: "Text Contrast",
+      level: "AA",
+      status: lowContrastPairs.length === 0 ? "pass" : "fail",
+      description: "Text must have enough colour contrast against its background so people with low vision can read it.",
+      details: lowContrastPairs.length === 0
+        ? `All ${colorPairs.length} inline colour pair(s) meet the minimum contrast ratio of 4.5:1.`
+        : `${lowContrastPairs.length} of ${colorPairs.length} inline colour pair(s) fail the minimum contrast ratio of 4.5:1 (e.g., ${lowContrastPairs[0].color} on ${lowContrastPairs[0].background} = ${lowContrastPairs[0].ratio.toFixed(2)}:1).`,
     });
   }
 
