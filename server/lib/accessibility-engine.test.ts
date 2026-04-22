@@ -3113,6 +3113,32 @@ describe("applyDeterministicReport", () => {
     // The target issue at index 1 should get the fallback fixed treatment
     expect(updatedIssues[1].status).toBe("fixed");
   });
+
+  it("degrades a non-target issue from 'pass' to 'fail' when the fresh deterministic check returns 'fail'", () => {
+    // A non-target issue for 3.1.1 that was previously passing
+    const nonTargetIssue = makeIssue({
+      criterion: "3.1.1",
+      title: "Language of Page",
+      status: "pass",
+      details: "lang attribute is present.",
+    });
+    // Target issue not in the deterministic map — gets fallback fixed label
+    const targetIssue = makeIssue({
+      criterion: "4.1.2",
+      title: "Name Role Value",
+      status: "fail",
+      details: "Interactive element lacks a name.",
+    });
+    const updatedIssues: ComplianceIssue[] = [{ ...nonTargetIssue }, { ...targetIssue }];
+
+    // NO_LANG_HTML has no lang attribute, so the 3.1.1 deterministic check returns "fail"
+    applyDeterministicReport(NO_LANG_HTML, targetIssue, 1, updatedIssues);
+
+    // The non-target issue should be degraded from "pass" to "fail"
+    expect(updatedIssues[0].status).toBe("fail");
+    // The target issue should still receive the fallback fixed treatment
+    expect(updatedIssues[1].status).toBe("fixed");
+  });
 });
 
 // ---------------------------------------------------------------------------
