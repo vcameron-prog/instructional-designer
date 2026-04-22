@@ -909,7 +909,7 @@ function restoreDataUris(html: string, uris: Map<string, string>): string {
   return result;
 }
 
-function applyDeterministicReport(
+export function applyDeterministicReport(
   fixedHtml: string,
   issue: ComplianceIssue,
   issueIndex: number,

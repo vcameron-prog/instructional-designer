@@ -8,6 +8,7 @@ import {
   evaluateOriginalDocument,
   fixComplianceIssue,
   applyAriaRoleHeaderFix,
+  applyDeterministicReport,
   parseHexColor,
   relativeLuminance,
   contrastRatio,
@@ -2328,5 +2329,69 @@ describe("applyAriaRoleHeaderFix", () => {
     const fixed = applyAriaRoleHeaderFix(html);
     const after = runDeterministicChecks(fixed);
     expect(after.find((i) => i.title === "ARIA Role on Table Data Cell")).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// applyDeterministicReport
+// ---------------------------------------------------------------------------
+
+function makeIssue(overrides: Partial<ComplianceIssue> = {}): ComplianceIssue {
+  return {
+    criterion: "3.1.1",
+    title: "Language of Page",
+    level: "A",
+    status: "fail",
+    description: "The language of the page must be declared.",
+    details: "No lang attribute found.",
+    ...overrides,
+  };
+}
+
+const BASE_HTML = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>Hello</h1></main></body></html>`;
+const NO_LANG_HTML = `<!DOCTYPE html><html><head><title>Test</title></head><body><main><h1>Hello</h1></main></body></html>`;
+
+describe("applyDeterministicReport", () => {
+  it("marks the target issue as 'fixed' when the deterministic check now passes", () => {
+    const issue = makeIssue({ criterion: "3.1.1", title: "Language of Page", status: "fail" });
+    const updatedIssues: ComplianceIssue[] = [{ ...issue }];
+
+    applyDeterministicReport(BASE_HTML, issue, 0, updatedIssues);
+
+    expect(updatedIssues[0].status).toBe("fixed");
+  });
+
+  it("leaves the target issue unchanged when the deterministic check still fails", () => {
+    const issue = makeIssue({ criterion: "3.1.1", title: "Language of Page", status: "fail" });
+    const updatedIssues: ComplianceIssue[] = [{ ...issue }];
+
+    applyDeterministicReport(NO_LANG_HTML, issue, 0, updatedIssues);
+
+    expect(updatedIssues[0].status).toBe("fail");
+  });
+
+  it("does not overwrite a non-target issue that is already 'fixed'", () => {
+    const alreadyFixed = makeIssue({ criterion: "3.1.1", title: "Language of Page", status: "fixed" });
+    const targetIssue = makeIssue({ criterion: "2.4.2", title: "Page Titled", status: "fail", details: "No title found." });
+    const updatedIssues: ComplianceIssue[] = [{ ...alreadyFixed }, { ...targetIssue }];
+
+    applyDeterministicReport(BASE_HTML, targetIssue, 1, updatedIssues);
+
+    expect(updatedIssues[0].status).toBe("fixed");
+  });
+
+  it("applies a fallback 'fixed' label when the target issue is not in the deterministic map", () => {
+    const aiOnlyIssue = makeIssue({
+      criterion: "4.1.2",
+      title: "Name Role Value",
+      status: "fail",
+      details: "Interactive element lacks a name.",
+    });
+    const updatedIssues: ComplianceIssue[] = [{ ...aiOnlyIssue }];
+
+    applyDeterministicReport(BASE_HTML, aiOnlyIssue, 0, updatedIssues);
+
+    expect(updatedIssues[0].status).toBe("fixed");
+    expect(updatedIssues[0].details).toBe("Fixed: Interactive element lacks a name.");
   });
 });
