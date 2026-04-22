@@ -20,6 +20,7 @@ import PdfConversion from "@/pages/pdf-conversion";
 import PdfFaq from "@/pages/pdf-faq";
 import AdminDashboard from "@/pages/admin-dashboard";
 import AccessibilityEmbed from "@/pages/accessibility-embed";
+import SettingsPage from "@/pages/settings";
 import { WelcomeModal } from "@/components/welcome-modal";
 import { ThemeProvider } from "@/components/theme-provider";
 import { FontSizeProvider } from "@/components/font-size-provider";
@@ -69,6 +70,7 @@ function Router() {
       <Route path="/pdf-accessibility/faq" component={PdfFaq} />
       <Route path="/pdf-accessibility/:id" component={PdfConversion} />
       <Route path="/admin" component={AdminDashboard} />
+      <Route path="/settings" component={SettingsPage} />
       <Route path="/help" component={HelpPage} />
       <Route path="/research" component={ResearchPage} />
       <Route path="/library" component={LibraryPage} />

@@ -1,4 +1,4 @@
-import { Moon, Sun, Minus, Plus, Type, Library, HelpCircle, LogOut, Home, LogIn } from "lucide-react";
+import { Moon, Sun, Minus, Plus, Type, Library, HelpCircle, LogOut, Home, LogIn, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTheme } from "@/components/theme-provider";
@@ -11,6 +11,7 @@ interface HeaderControlsProps {
   showHome?: boolean;
   showLibrary?: boolean;
   showHelp?: boolean;
+  showSettings?: boolean;
   showLogout?: boolean;
 }
 
@@ -19,6 +20,7 @@ export function HeaderControls({
   showHome = false,
   showLibrary = true,
   showHelp = true,
+  showSettings = true,
   showLogout = true,
 }: HeaderControlsProps) {
   const { isAuthenticated } = useAuth();
@@ -142,6 +144,24 @@ export function HeaderControls({
             </Button>
           </TooltipTrigger>
           <TooltipContent><p>Help & Tips</p></TooltipContent>
+        </Tooltip>
+      )}
+
+      {showSettings && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant={btnVariant}
+              size="icon"
+              className={btnClass}
+              onClick={() => navigate("/settings")}
+              data-testid="button-settings"
+              aria-label="Preferences"
+            >
+              <Settings className="w-5 h-5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent><p>Preferences</p></TooltipContent>
         </Tooltip>
       )}
 
