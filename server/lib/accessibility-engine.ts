@@ -1313,6 +1313,11 @@ const deterministicFixerRegistry: Record<string, DeterministicFixer> = {
   "1.3.1::ARIA Tab Role on Non-Interactive Element": applyAriaTabRoleFix,
   "4.1.2::ARIA Button Role on Non-Button Element": applyAriaButtonRoleFix,
   "1.3.1::ARIA Heading Role on Non-Heading Element": applyAriaHeadingRoleFix,
+  "4.1.2::ARIA Link Role on Non-Anchor Element": applyAriaLinkRoleFix,
+  "4.1.2::ARIA Checkbox Role on Non-Input Element": applyAriaCheckboxRoleFix,
+  "4.1.2::ARIA Radio Role on Non-Input Element": applyAriaRadioRoleFix,
+  "1.3.1::ARIA List Role on Non-List Element": applyAriaListRoleFix,
+  "1.3.1::ARIA Listitem Role on Non-Listitem Element": applyAriaListitemRoleFix,
 };
 
 export function registerDeterministicFixer(key: string, fn: DeterministicFixer): void {
@@ -1385,41 +1390,6 @@ export async function fixComplianceIssue(
   const deterministicFixer = deterministicFixerRegistry[registryKey];
   if (deterministicFixer) {
     const fixedHtml = deterministicFixer(currentHtml);
-    const updatedIssues = [...existingReport.issues];
-    applyDeterministicReport(fixedHtml, issue, issueIndex, updatedIssues);
-    return { accessibleHtml: fixedHtml, complianceReport: buildComplianceReport(updatedIssues) };
-  }
-
-  if (issue.criterion === "4.1.2" && issue.title === "ARIA Link Role on Non-Anchor Element") {
-    const fixedHtml = applyAriaLinkRoleFix(currentHtml);
-    const updatedIssues = [...existingReport.issues];
-    applyDeterministicReport(fixedHtml, issue, issueIndex, updatedIssues);
-    return { accessibleHtml: fixedHtml, complianceReport: buildComplianceReport(updatedIssues) };
-  }
-
-  if (issue.criterion === "4.1.2" && issue.title === "ARIA Checkbox Role on Non-Input Element") {
-    const fixedHtml = applyAriaCheckboxRoleFix(currentHtml);
-    const updatedIssues = [...existingReport.issues];
-    applyDeterministicReport(fixedHtml, issue, issueIndex, updatedIssues);
-    return { accessibleHtml: fixedHtml, complianceReport: buildComplianceReport(updatedIssues) };
-  }
-
-  if (issue.criterion === "4.1.2" && issue.title === "ARIA Radio Role on Non-Input Element") {
-    const fixedHtml = applyAriaRadioRoleFix(currentHtml);
-    const updatedIssues = [...existingReport.issues];
-    applyDeterministicReport(fixedHtml, issue, issueIndex, updatedIssues);
-    return { accessibleHtml: fixedHtml, complianceReport: buildComplianceReport(updatedIssues) };
-  }
-
-  if (issue.criterion === "1.3.1" && issue.title === "ARIA List Role on Non-List Element") {
-    const fixedHtml = applyAriaListRoleFix(currentHtml);
-    const updatedIssues = [...existingReport.issues];
-    applyDeterministicReport(fixedHtml, issue, issueIndex, updatedIssues);
-    return { accessibleHtml: fixedHtml, complianceReport: buildComplianceReport(updatedIssues) };
-  }
-
-  if (issue.criterion === "1.3.1" && issue.title === "ARIA Listitem Role on Non-Listitem Element") {
-    const fixedHtml = applyAriaListitemRoleFix(currentHtml);
     const updatedIssues = [...existingReport.issues];
     applyDeterministicReport(fixedHtml, issue, issueIndex, updatedIssues);
     return { accessibleHtml: fixedHtml, complianceReport: buildComplianceReport(updatedIssues) };
