@@ -3701,6 +3701,45 @@ describe("applyPageTitleFix", () => {
     const after = runDeterministicChecks(fixed);
     expect(after.find((i) => i.criterion === "2.4.2")!.status).toBe("pass");
   });
+
+  it("uses the h1 text when the title is empty", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title></title></head><body><h1>About Us</h1></body></html>`;
+    const result = applyPageTitleFix(html);
+    expect(result).toContain("<title>About Us</title>");
+    expect(result).not.toContain("<title>Document</title>");
+  });
+
+  it("uses the h1 text when the title element is missing", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head></head><body><h1>Welcome Home</h1></body></html>`;
+    const result = applyPageTitleFix(html);
+    expect(result).toContain("<title>Welcome Home</title>");
+    expect(result).not.toContain("<title>Document</title>");
+  });
+
+  it("falls back to h2 when h1 is absent", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title></title></head><body><h2>Contact</h2></body></html>`;
+    const result = applyPageTitleFix(html);
+    expect(result).toContain("<title>Contact</title>");
+    expect(result).not.toContain("<title>Document</title>");
+  });
+
+  it("falls back to h2 when h1 is present but empty", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title></title></head><body><h1>  </h1><h2>Services</h2></body></html>`;
+    const result = applyPageTitleFix(html);
+    expect(result).toContain("<title>Services</title>");
+  });
+
+  it("falls back to 'Document' when no h1 or h2 is found", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title></title></head><body><p>No headings here</p></body></html>`;
+    const result = applyPageTitleFix(html);
+    expect(result).toContain("<title>Document</title>");
+  });
+
+  it("strips inner HTML tags from h1 when building the title", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title></title></head><body><h1><span>Products</span></h1></body></html>`;
+    const result = applyPageTitleFix(html);
+    expect(result).toContain("<title>Products</title>");
+  });
 });
 
 // ---------------------------------------------------------------------------

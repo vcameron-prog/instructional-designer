@@ -1122,14 +1122,29 @@ export function applyLangAttributeFix(html: string): string {
 }
 
 export function applyPageTitleFix(html: string): string {
+  function extractHeadingTitle(): string {
+    const h1Match = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+    if (h1Match) {
+      const text = h1Match[1].replace(/<[^>]+>/g, "").trim();
+      if (text) return text;
+    }
+    const h2Match = html.match(/<h2[^>]*>([\s\S]*?)<\/h2>/i);
+    if (h2Match) {
+      const text = h2Match[1].replace(/<[^>]+>/g, "").trim();
+      if (text) return text;
+    }
+    return "Document";
+  }
+
   if (/<title>\s*<\/title>/i.test(html)) {
-    return html.replace(/<title>\s*<\/title>/i, "<title>Document</title>");
+    return html.replace(/<title>\s*<\/title>/i, `<title>${extractHeadingTitle()}</title>`);
   }
   if (!/<title>[^<]+<\/title>/i.test(html)) {
+    const title = extractHeadingTitle();
     if (/<head[^>]*>/i.test(html)) {
-      return html.replace(/(<head[^>]*>)/i, "$1<title>Document</title>");
+      return html.replace(/(<head[^>]*>)/i, `$1<title>${title}</title>`);
     }
-    return html.replace(/(<html[^>]*>)/i, "$1<head><title>Document</title></head>");
+    return html.replace(/(<html[^>]*>)/i, `$1<head><title>${title}</title></head>`);
   }
   return html;
 }
