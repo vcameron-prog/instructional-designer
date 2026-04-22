@@ -1460,6 +1460,40 @@ describe("ensureMissingImages", () => {
     const result = ensureMissingImages(html, [img]);
     expect(result.endsWith("</section>")).toBe(true);
   });
+
+  it("escapes & in image name so alt and figcaption contain &amp; not raw ampersand", () => {
+    const img = { ...makeImage("cats & dogs.png", "data:image/png;base64,AMPTEST"), pageNumber: 2 };
+    const html = `<html><body><p>Content</p></body></html>`;
+    const result = ensureMissingImages(html, [img]);
+    expect(result).toContain(`alt="Image: cats &amp; dogs (page 2)"`);
+    expect(result).toContain("<figcaption>cats &amp; dogs</figcaption>");
+    expect(result).not.toContain(`alt="Image: cats & dogs`);
+  });
+
+  it("escapes \" in image name so the alt attribute value does not break the HTML", () => {
+    const img = { ...makeImage('report "final".png', "data:image/png;base64,QUOTETEST"), pageNumber: 1 };
+    const html = `<html><body><p>Content</p></body></html>`;
+    const result = ensureMissingImages(html, [img]);
+    expect(result).toContain(`alt="Image: report &quot;final&quot; (page 1)"`);
+    expect(result).not.toMatch(/alt="Image: report "final"/);
+  });
+
+  it("escapes < and > in image name so injected markup is not broken by angle brackets", () => {
+    const img = { ...makeImage("<figure>.png", "data:image/png;base64,ANGLETEST"), pageNumber: 3 };
+    const html = `<html><body><p>Content</p></body></html>`;
+    const result = ensureMissingImages(html, [img]);
+    expect(result).toContain(`alt="Image: &lt;figure&gt; (page 3)"`);
+    expect(result).toContain("<figcaption>&lt;figure&gt;</figcaption>");
+    expect(result).not.toMatch(/alt="Image: <figure>/);
+  });
+
+  it("escapes all special characters in a single image name containing &, \", <, and >", () => {
+    const img = { ...makeImage('A & B <"quoted">.png', "data:image/png;base64,ALLTEST"), pageNumber: 4 };
+    const html = `<html><body><p>Content</p></body></html>`;
+    const result = ensureMissingImages(html, [img]);
+    expect(result).toContain(`alt="Image: A &amp; B &lt;&quot;quoted&quot;&gt; (page 4)"`);
+    expect(result).toContain(`<figcaption>A &amp; B &lt;"quoted"&gt;</figcaption>`);
+  });
 });
 
 // ---------------------------------------------------------------------------
