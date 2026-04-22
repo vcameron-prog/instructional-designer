@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { join, dirname } from "path";
@@ -6,6 +6,7 @@ import {
   runDeterministicChecks,
   buildComplianceReport,
   evaluateOriginalDocument,
+  fixComplianceIssue,
   parseHexColor,
   relativeLuminance,
   contrastRatio,
@@ -14,8 +15,17 @@ import {
   injectImageData,
   ensureMissingImages,
   type ComplianceIssue,
+  type ComplianceReport,
 } from "./accessibility-engine.js";
 import type { ExtractedImage } from "./pdf-processor.js";
+
+const mockCreate = vi.hoisted(() => vi.fn());
+vi.mock("@anthropic-ai/sdk", () => {
+  function MockAnthropic() {
+    return { messages: { create: mockCreate } };
+  }
+  return { default: MockAnthropic };
+});
 
 const TRANSPARENT_PIXEL = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
 
@@ -1111,7 +1121,6 @@ describe("injectImageData", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // ensureMissingImages
 // ---------------------------------------------------------------------------
 
@@ -1203,5 +1212,203 @@ describe("ensureMissingImages", () => {
     const html = `<div><p>Content</p></div>`;
     const result = ensureMissingImages(html, [img]);
     expect(result.endsWith("</section>")).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// fixComplianceIssue — fixture-based regression tests with mocked AI
+// ---------------------------------------------------------------------------
+
+function makeReport(issues: ComplianceIssue[]): ComplianceReport {
+  return buildComplianceReport(issues);
+}
+
+function mockAiResponse(html: string): void {
+  mockCreate.mockResolvedValueOnce({
+    content: [{ type: "text", text: html }],
+  });
+}
+
+describe("fixComplianceIssue – fixture-based regression tests", () => {
+  const fixtureHtml = loadFixture("government-form.html");
+
+  beforeEach(() => {
+    mockCreate.mockReset();
+  });
+
+  it("fixes criterion 3.1.1 (Language of Page): returned HTML passes the lang check", async () => {
+    const issues = runDeterministicChecks(fixtureHtml);
+    const langIssue = issues.find((i) => i.criterion === "3.1.1")!;
+    expect(langIssue.status).toBe("fail");
+
+    const fixedHtml = fixtureHtml.replace("<html>", '<html lang="en">');
+    mockAiResponse(`<!DOCTYPE html>\n${fixedHtml}`);
+
+    const report = makeReport(issues);
+    const result = await fixComplianceIssue(fixtureHtml, langIssue, issues.indexOf(langIssue), report);
+
+    const afterIssues = runDeterministicChecks(result.accessibleHtml);
+    const afterLang = afterIssues.find((i) => i.criterion === "3.1.1")!;
+    expect(afterLang.status).toBe("pass");
+  });
+
+  it("fixes criterion 2.4.2 (Page Titled): returned HTML passes the title check", async () => {
+    const issues = runDeterministicChecks(fixtureHtml);
+    const titleIssue = issues.find((i) => i.criterion === "2.4.2")!;
+    expect(titleIssue.status).toBe("fail");
+
+    const fixedHtml = fixtureHtml.replace("<title></title>", "<title>Form W-99: Household Income Verification Request</title>");
+    mockAiResponse(`<!DOCTYPE html>\n${fixedHtml}`);
+
+    const report = makeReport(issues);
+    const result = await fixComplianceIssue(fixtureHtml, titleIssue, issues.indexOf(titleIssue), report);
+
+    const afterIssues = runDeterministicChecks(result.accessibleHtml);
+    const afterTitle = afterIssues.find((i) => i.criterion === "2.4.2")!;
+    expect(afterTitle.status).toBe("pass");
+  });
+
+  it("fixes criterion 2.4.6 (Headings and Labels): returned HTML passes the h1 check", async () => {
+    const issues = runDeterministicChecks(fixtureHtml);
+    const headingIssue = issues.find((i) => i.criterion === "2.4.6")!;
+    expect(headingIssue.status).toBe("fail");
+
+    const fixedHtml = fixtureHtml.replace(
+      "<h2>Form W-99: Household Income Verification Request</h2>",
+      "<h1>Form W-99: Household Income Verification Request</h1>"
+    );
+    mockAiResponse(`<!DOCTYPE html>\n${fixedHtml}`);
+
+    const report = makeReport(issues);
+    const result = await fixComplianceIssue(fixtureHtml, headingIssue, issues.indexOf(headingIssue), report);
+
+    const afterIssues = runDeterministicChecks(result.accessibleHtml);
+    const afterHeading = afterIssues.find((i) => i.criterion === "2.4.6")!;
+    expect(afterHeading.status).toBe("pass");
+  });
+
+  it("fixes criterion 1.1.1 (Image Descriptions): returned HTML passes the alt-text check", async () => {
+    const issues = runDeterministicChecks(fixtureHtml);
+    const altIssue = issues.find((i) => i.criterion === "1.1.1")!;
+    expect(altIssue.status).toBe("fail");
+
+    const fixedHtml = fixtureHtml
+      .replace('<img src="agency-logo.png">', '<img src="agency-logo.png" alt="Agency logo">')
+      .replace('<img src="seal.png">', '<img src="seal.png" alt="Official seal">');
+    mockAiResponse(`<!DOCTYPE html>\n${fixedHtml}`);
+
+    const report = makeReport(issues);
+    const result = await fixComplianceIssue(fixtureHtml, altIssue, issues.indexOf(altIssue), report);
+
+    const afterIssues = runDeterministicChecks(result.accessibleHtml);
+    const afterAlt = afterIssues.find((i) => i.criterion === "1.1.1")!;
+    expect(afterAlt.status).toBe("pass");
+  });
+
+  it("fixes criterion 1.3.1 Table Headers: returned HTML passes the table header check", async () => {
+    const issues = runDeterministicChecks(fixtureHtml);
+    const tableIssue = issues.find((i) => i.criterion === "1.3.1" && i.title === "Table Headers")!;
+    expect(tableIssue.status).toBe("fail");
+
+    const fixedHtml = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>Form W-99</title></head>
+<body>
+<main>
+  <h1>Form W-99: Household Income Verification Request</h1>
+  <table>
+    <thead>
+      <tr>
+        <th scope="col">Last Name</th>
+        <th scope="col">First Name</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><input type="text" name="last_name"></td>
+        <td><input type="text" name="first_name"></td>
+      </tr>
+    </tbody>
+  </table>
+</main>
+</body>
+</html>`;
+    mockAiResponse(fixedHtml);
+
+    const report = makeReport(issues);
+    const result = await fixComplianceIssue(fixtureHtml, tableIssue, issues.indexOf(tableIssue), report);
+
+    const afterIssues = runDeterministicChecks(result.accessibleHtml);
+    const afterTable = afterIssues.find((i) => i.criterion === "1.3.1" && i.title === "Table Headers")!;
+    expect(afterTable.status).toBe("pass");
+  });
+
+  it("marks the targeted issue as 'fixed' in the returned compliance report when the deterministic check now passes", async () => {
+    const issues = runDeterministicChecks(fixtureHtml);
+    const langIssue = issues.find((i) => i.criterion === "3.1.1")!;
+    const issueIndex = issues.indexOf(langIssue);
+
+    const fixedHtml = fixtureHtml.replace("<html>", '<html lang="en">');
+    mockAiResponse(`<!DOCTYPE html>\n${fixedHtml}`);
+
+    const report = makeReport(issues);
+    const result = await fixComplianceIssue(fixtureHtml, langIssue, issueIndex, report);
+
+    const updatedIssue = result.complianceReport.issues[issueIndex];
+    expect(updatedIssue.status).toBe("fixed");
+    expect(updatedIssue.criterion).toBe("3.1.1");
+  });
+
+  it("throws when the AI returns output that does not start with <!DOCTYPE html>", async () => {
+    const issues = runDeterministicChecks(fixtureHtml);
+    const langIssue = issues.find((i) => i.criterion === "3.1.1")!;
+
+    mockCreate.mockResolvedValueOnce({
+      content: [{ type: "text", text: "Sorry, I cannot fix that." }],
+    });
+
+    const report = makeReport(issues);
+    await expect(
+      fixComplianceIssue(fixtureHtml, langIssue, issues.indexOf(langIssue), report)
+    ).rejects.toThrow("AI failed to produce a valid HTML fix");
+  });
+
+  it("preserves issues that were already 'fixed' and are not targeted by the current fix", async () => {
+    const baseIssues = runDeterministicChecks(fixtureHtml);
+    const langIssue = baseIssues.find((i) => i.criterion === "3.1.1")!;
+    const langIndex = baseIssues.indexOf(langIssue);
+
+    const issuesWithPriorFix: ComplianceIssue[] = baseIssues.map((issue, idx) =>
+      idx === 1 ? { ...issue, status: "fixed" } : issue
+    );
+
+    const fixedHtml = fixtureHtml.replace("<html>", '<html lang="en">');
+    mockAiResponse(`<!DOCTYPE html>\n${fixedHtml}`);
+
+    const report = makeReport(issuesWithPriorFix);
+    const result = await fixComplianceIssue(fixtureHtml, langIssue, langIndex, report);
+
+    const priorFixedIssue = result.complianceReport.issues[1];
+    expect(priorFixedIssue.status).toBe("fixed");
+  });
+
+  it("strips and restores data URIs so the AI never receives large base64 blobs", async () => {
+    const dataUri = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+    const htmlWithDataUri = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>Doc</h1><img src="${dataUri}" alt="Pixel"></main></body></html>`;
+
+    const issues = runDeterministicChecks(htmlWithDataUri);
+    const titleIssue = issues.find((i) => i.criterion === "2.4.2")!;
+
+    let capturedInput = "";
+    mockCreate.mockImplementationOnce(async ({ messages }: { messages: Array<{ content: string }> }) => {
+      capturedInput = messages[0].content;
+      return { content: [{ type: "text", text: htmlWithDataUri }] };
+    });
+
+    const report = makeReport(issues);
+    await fixComplianceIssue(htmlWithDataUri, titleIssue, issues.indexOf(titleIssue), report);
+
+    expect(capturedInput).not.toContain("data:image/png;base64,iVBOR");
+    expect(capturedInput).toContain("__IMG_PLACEHOLDER_");
   });
 });
