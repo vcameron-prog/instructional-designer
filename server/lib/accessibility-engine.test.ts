@@ -1769,6 +1769,14 @@ describe("ensureAltText", () => {
     expect(result).toContain("&gt;");
     expect(result).not.toContain("<arrow>");
   });
+
+  it("escapes & in the image name when the src attribute is single-quoted", () => {
+    const html = `<img src='sales&marketing.png'>`;
+    const result = ensureAltText(html, []);
+    expect(result).toContain("&amp;");
+    expect(result).not.toMatch(/alt="[^"]*&[^a-z#][^"]*"/);
+    expect(result).toContain('alt="Image: sales&amp;marketing"');
+  });
 });
 
 // ---------------------------------------------------------------------------
