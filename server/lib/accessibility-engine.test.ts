@@ -7,8 +7,17 @@ import {
   relativeLuminance,
   contrastRatio,
   checkHeadingOrder,
+  ensureAltText,
+  injectImageData,
   type ComplianceIssue,
 } from "./accessibility-engine.js";
+import type { ExtractedImage } from "./pdf-processor.js";
+
+const TRANSPARENT_PIXEL = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
+
+function makeImage(name: string, dataUrl = `data:image/png;base64,${name}`): ExtractedImage {
+  return { name, dataUrl, pageNumber: 1, width: 100, height: 100 };
+}
 
 // ---------------------------------------------------------------------------
 // runDeterministicChecks
@@ -666,5 +675,122 @@ describe("evaluateOriginalDocument", () => {
     expect(typeof report.acceptedCount).toBe("number");
     expect(typeof report.overallScore).toBe("number");
     expect(Array.isArray(report.issues)).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ensureAltText
+// ---------------------------------------------------------------------------
+
+describe("ensureAltText", () => {
+  it("adds a generated alt attribute to an image with no alt at all", () => {
+    const img = makeImage("diagram.png");
+    const html = `<img src="${img.dataUrl}">`;
+    const result = ensureAltText(html, [img]);
+    expect(result).toContain('alt="');
+    expect(result).not.toContain('alt=""');
+  });
+
+  it("replaces a weak alt ('image') with a generated description", () => {
+    const img = makeImage("chart.png");
+    const html = `<img src="${img.dataUrl}" alt="image">`;
+    const result = ensureAltText(html, [img]);
+    expect(result).not.toContain('alt="image"');
+    expect(result).toContain('alt="');
+  });
+
+  it("replaces other weak patterns such as 'photo', 'icon', and 'graphic'", () => {
+    for (const weak of ["photo", "icon", "graphic", "figure", "picture"]) {
+      const img = makeImage("test.png");
+      const html = `<img src="${img.dataUrl}" alt="${weak}">`;
+      const result = ensureAltText(html, [img]);
+      expect(result).not.toContain(`alt="${weak}"`);
+    }
+  });
+
+  it("leaves a meaningful alt unchanged", () => {
+    const img = makeImage("logo.png");
+    const html = `<img src="${img.dataUrl}" alt="Company logo showing a blue mountain">`;
+    const result = ensureAltText(html, [img]);
+    expect(result).toContain('alt="Company logo showing a blue mountain"');
+  });
+
+  it("uses the image name from the ExtractedImage metadata when src is a data URI", () => {
+    const img = makeImage("quarterly-report.png");
+    const html = `<img src="${img.dataUrl}">`;
+    const result = ensureAltText(html, [img]);
+    expect(result).toContain("quarterly");
+    expect(result).toContain("report");
+  });
+
+  it("derives alt text from the non-data src attribute when no metadata matches", () => {
+    const html = `<img src="some_figure.png">`;
+    const result = ensureAltText(html, []);
+    expect(result).toContain("some");
+    expect(result).toContain("figure");
+  });
+
+  it("handles multiple images in one HTML string independently", () => {
+    const img1 = makeImage("chart.png");
+    const img2 = makeImage("table.png");
+    const html = `<img src="${img1.dataUrl}" alt="image"><img src="${img2.dataUrl}" alt="A meaningful description">`;
+    const result = ensureAltText(html, [img1, img2]);
+    expect(result).not.toContain('alt="image"');
+    expect(result).toContain('alt="A meaningful description"');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// injectImageData
+// ---------------------------------------------------------------------------
+
+describe("injectImageData", () => {
+  it("returns the html unchanged when the images array is empty", () => {
+    const html = `<img src="photo.png" alt="A photo">`;
+    expect(injectImageData(html, [])).toBe(html);
+  });
+
+  it("replaces src with the dataUrl on an exact name match (case-insensitive)", () => {
+    const img = makeImage("Logo.png", "data:image/png;base64,abc123");
+    const html = `<img src="logo.png" alt="Logo">`;
+    const result = injectImageData(html, [img]);
+    expect(result).toContain('src="data:image/png;base64,abc123"');
+  });
+
+  it("replaces src on a partial name match (src contains image name)", () => {
+    const img = makeImage("chart", "data:image/png;base64,chartdata");
+    const html = `<img src="monthly-chart-2024" alt="Chart">`;
+    const result = injectImageData(html, [img]);
+    expect(result).toContain('src="data:image/png;base64,chartdata"');
+  });
+
+  it("replaces src on a partial name match (image name contains src)", () => {
+    const img = makeImage("full-report-chart.png", "data:image/png;base64,fullchartdata");
+    const html = `<img src="chart" alt="Chart">`;
+    const result = injectImageData(html, [img]);
+    expect(result).toContain('src="data:image/png;base64,fullchartdata"');
+  });
+
+  it("falls back to the transparent pixel when no match is found", () => {
+    const img = makeImage("diagram.png", "data:image/png;base64,diagramdata");
+    const html = `<img src="completely-unrelated-name" alt="Unknown">`;
+    const result = injectImageData(html, [img]);
+    expect(result).toContain(`src="${TRANSPARENT_PIXEL}"`);
+  });
+
+  it("leaves an existing data URI src unchanged (does not double-encode)", () => {
+    const existingUri = "data:image/png;base64,alreadyembedded";
+    const html = `<img src="${existingUri}" alt="Already embedded">`;
+    const result = injectImageData(html, [makeImage("other.png")]);
+    expect(result).toContain(`src="${existingUri}"`);
+  });
+
+  it("replaces multiple img tags in a single pass", () => {
+    const img1 = makeImage("photo.png", "data:image/png;base64,photo");
+    const img2 = makeImage("icon.png", "data:image/png;base64,icon");
+    const html = `<img src="photo.png" alt="Photo"><img src="icon.png" alt="Icon">`;
+    const result = injectImageData(html, [img1, img2]);
+    expect(result).toContain('src="data:image/png;base64,photo"');
+    expect(result).toContain('src="data:image/png;base64,icon"');
   });
 });

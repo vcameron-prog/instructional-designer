@@ -103,7 +103,7 @@ function buildStructuralSummary(
 
 const TRANSPARENT_PIXEL = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
 
-function injectImageData(html: string, images: ExtractedImage[]): string {
+export function injectImageData(html: string, images: ExtractedImage[]): string {
   if (images.length === 0) return html;
 
   const imageMap = new Map<string, string>();
@@ -142,7 +142,7 @@ function escapeHtmlText(str: string): string {
   return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-function ensureAltText(html: string, images: ExtractedImage[]): string {
+export function ensureAltText(html: string, images: ExtractedImage[]): string {
   const imageMetaMap = new Map<string, ExtractedImage>();
   for (const img of images) {
     imageMetaMap.set(img.dataUrl, img);
