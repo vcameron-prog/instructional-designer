@@ -360,6 +360,25 @@ export function runDeterministicChecks(html: string): ComplianceIssue[] {
   const imgsWithoutAlt = imgTags.filter(
     (tag) => !/\salt\s*=\s*["'][^"']*["']/i.test(tag)
   );
+
+  let altDetails: string;
+  if (imgTags.length === 0) {
+    altDetails = "No images were found in the document.";
+  } else if (imgsWithoutAlt.length === 0) {
+    altDetails = `All ${imgTags.length} image(s) have text descriptions.`;
+  } else {
+    const failingImageDescriptions = imgsWithoutAlt.map((tag, idx) => {
+      const srcMatch = tag.match(/\ssrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i);
+      const src = srcMatch ? (srcMatch[1] ?? srcMatch[2] ?? srcMatch[3] ?? "") : "";
+      if (src && !src.startsWith("data:")) {
+        const filename = src.split("/").pop() ?? src;
+        return `Image ${idx + 1} ("${filename}")`;
+      }
+      return `Image ${idx + 1} (no src)`;
+    });
+    altDetails = `${imgsWithoutAlt.length} of ${imgTags.length} image(s) are missing text descriptions: ${failingImageDescriptions.join(", ")}.`;
+  }
+
   issues.push({
     criterion: "1.1.1",
     title: "Image Descriptions",
@@ -371,12 +390,7 @@ export function runDeterministicChecks(html: string): ComplianceIssue[] {
           ? "pass"
           : "fail",
     description: "Every image must have a text description so people who can't see the image understand what it shows.",
-    details:
-      imgTags.length === 0
-        ? "No images were found in the document."
-        : imgsWithoutAlt.length === 0
-          ? `All ${imgTags.length} image(s) have text descriptions.`
-          : `${imgsWithoutAlt.length} of ${imgTags.length} image(s) are missing text descriptions.`,
+    details: altDetails,
   });
 
   const hasSemantic =

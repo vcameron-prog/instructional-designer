@@ -164,7 +164,7 @@ describe("runDeterministicChecks", () => {
       expect(altCheck!.status).toBe("fail");
     });
 
-    it("fails when some images are missing alt and reports the count", () => {
+    it("fails when some images are missing alt and reports the count and filenames", () => {
       const html = `<html lang="en"><body>
         <img src="a.jpg" alt="Image A">
         <img src="b.jpg">
@@ -174,6 +174,28 @@ describe("runDeterministicChecks", () => {
       const altCheck = issues.find((i) => i.criterion === "1.1.1");
       expect(altCheck!.status).toBe("fail");
       expect(altCheck!.details).toContain("2 of 3");
+      expect(altCheck!.details).toContain('"b.jpg"');
+      expect(altCheck!.details).toContain('"c.jpg"');
+    });
+
+    it("lists only the filename (not full path) for images with path-style src", () => {
+      const html = `<html lang="en"><body>
+        <img src="/assets/images/hero-banner.png">
+      </body></html>`;
+      const issues = runDeterministicChecks(html);
+      const altCheck = issues.find((i) => i.criterion === "1.1.1");
+      expect(altCheck!.status).toBe("fail");
+      expect(altCheck!.details).toContain('"hero-banner.png"');
+    });
+
+    it("falls back to positional label when image has an empty src", () => {
+      const html = `<html lang="en"><body>
+        <img src="">
+      </body></html>`;
+      const issues = runDeterministicChecks(html);
+      const altCheck = issues.find((i) => i.criterion === "1.1.1");
+      expect(altCheck!.status).toBe("fail");
+      expect(altCheck!.details).toContain("no src");
     });
   });
 
