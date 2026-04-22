@@ -263,6 +263,33 @@ describe("runDeterministicChecks", () => {
       expect(tableIssue).toBeDefined();
       expect(tableIssue!.status).toBe("fail");
     });
+
+    it("evaluates outer and inner tables independently when tables are nested", () => {
+      // Outer table has a <th>, inner table does not — should fail because the inner table lacks headers
+      const html = `<html lang="en"><body>
+        <table>
+          <thead><tr><th scope="col">Outer Header</th></tr></thead>
+          <tbody>
+            <tr><td>
+              <table>
+                <tr><td>Inner Cell A</td><td>Inner Cell B</td></tr>
+              </table>
+            </td></tr>
+          </tbody>
+        </table>
+      </body></html>`;
+      const issues = runDeterministicChecks(html);
+      const tableIssue = issues.find(
+        (i) => i.criterion === "1.3.1" && i.title === "Table Headers"
+      );
+      expect(tableIssue).toBeDefined();
+      // Inner table has no <th>, so the check must fail
+      expect(tableIssue!.status).toBe("fail");
+      // 2 tables total: outer + inner
+      expect(tableIssue!.details).toMatch(/2 table/);
+      // 1 table is missing headers (the inner one)
+      expect(tableIssue!.details).toMatch(/^Found 1 of 2/);
+    });
   });
 
   // All issues have required fields

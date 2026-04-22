@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
+import { parse as parseHtml } from "node-html-parser";
 import type { ExtractedImage, ExtractedTable } from "./pdf-processor";
 
 const anthropic = new Anthropic({
@@ -406,9 +407,21 @@ export function runDeterministicChecks(html: string): ComplianceIssue[] {
       : "Some content may not be in a natural reading order, which could confuse screen readers.",
   });
 
-  const tableMatches = html.match(/<table[\s>][\s\S]*?<\/table>/gi) || [];
-  if (tableMatches.length > 0) {
-    const tablesWithoutTh = tableMatches.filter((t) => !/<th[\s>]/i.test(t));
+  const parsedDoc = parseHtml(html);
+  const allTableNodes = parsedDoc.querySelectorAll("table");
+  if (allTableNodes.length > 0) {
+    const tablesWithoutTh = allTableNodes.filter((table) => {
+      const allThs = table.querySelectorAll("th");
+      const directThs = allThs.filter((th) => {
+        let el = th.parentNode;
+        while (el && el !== table) {
+          if (el.tagName?.toLowerCase() === "table") return false;
+          el = el.parentNode;
+        }
+        return true;
+      });
+      return directThs.length === 0;
+    });
     const allHaveHeaders = tablesWithoutTh.length === 0;
     issues.push({
       criterion: "1.3.1",
@@ -417,8 +430,8 @@ export function runDeterministicChecks(html: string): ComplianceIssue[] {
       status: allHaveHeaders ? "pass" : "fail",
       description: "Tables must have clear headers so users understand what each column or row means.",
       details: allHaveHeaders
-        ? `Found ${tableMatches.length} table(s) with properly labeled headers.`
-        : `Found ${tablesWithoutTh.length} of ${tableMatches.length} table(s) without labeled headers, making them hard to understand.`,
+        ? `Found ${allTableNodes.length} table(s) with properly labeled headers.`
+        : `Found ${tablesWithoutTh.length} of ${allTableNodes.length} table(s) without labeled headers, making them hard to understand.`,
     });
   }
 
