@@ -3815,22 +3815,18 @@ describe("fixComplianceIssue – multi-fix sequences and report accumulation", (
     const initialReport = makeReport(initialIssues);
     const initialScore = initialReport.overallScore;
 
-    // Fix 1: lang attribute
-    const html1 = fixtureHtml.replace("<html>", '<html lang="en">');
-    mockAiResponse(`<!DOCTYPE html>\n${html1}`);
+    // Fix 1: lang attribute — deterministic fixer, does NOT call the AI
     const langIssue = initialIssues.find((i) => i.criterion === "3.1.1")!;
     const result1 = await fixComplianceIssue(fixtureHtml, langIssue, initialIssues.indexOf(langIssue), initialReport);
     expect(result1.complianceReport.overallScore).toBeGreaterThanOrEqual(initialScore);
 
-    // Fix 2: page title
-    const html2 = html1.replace("<title></title>", "<title>Form W-99</title>");
-    mockAiResponse(`<!DOCTYPE html>\n${html2}`);
+    // Fix 2: page title — deterministic fixer, does NOT call the AI
     const titleIssue2 = result1.complianceReport.issues.find((i) => i.criterion === "2.4.2")!;
     const result2 = await fixComplianceIssue(result1.accessibleHtml, titleIssue2, result1.complianceReport.issues.indexOf(titleIssue2), result1.complianceReport);
     expect(result2.complianceReport.overallScore).toBeGreaterThanOrEqual(result1.complianceReport.overallScore);
 
-    // Fix 3: h1 heading
-    const html3 = html2.replace(
+    // Fix 3: h1 heading — uses AI; mock only this response
+    const html3 = result2.accessibleHtml.replace(
       "<h2>Form W-99: Household Income Verification Request</h2>",
       "<h1>Form W-99: Household Income Verification Request</h1>"
     );
@@ -4001,5 +3997,64 @@ describe("fixComplianceIssue – multi-fix sequences and report accumulation", (
 
     // fixedCount accumulates: 2 total
     expect(result2.complianceReport.fixedCount).toBe(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// fixComplianceIssue — partial / truncated AI response edge cases
+// ---------------------------------------------------------------------------
+
+describe("fixComplianceIssue – partial or truncated AI HTML responses", () => {
+  const baseHtml = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h2>No H1 Here</h2></main></body></html>`;
+
+  beforeEach(() => {
+    mockCreate.mockReset();
+  });
+
+  it("throws when the AI returns a valid HTML fragment that is missing the DOCTYPE declaration", async () => {
+    const issues = runDeterministicChecks(baseHtml);
+    const headingIssue = issues.find((i) => i.criterion === "2.4.6")!;
+    expect(headingIssue.status).toBe("fail");
+
+    mockCreate.mockResolvedValueOnce({
+      content: [{ type: "text", text: `<html lang="en"><head><title>Test</title></head><body><main><h1>No H1 Here</h1></main></body></html>` }],
+    });
+
+    const report = makeReport(issues);
+    await expect(
+      fixComplianceIssue(baseHtml, headingIssue, issues.indexOf(headingIssue), report)
+    ).rejects.toThrow("AI failed to produce a valid HTML fix");
+  });
+
+  it("accepts truncated HTML that starts with <!DOCTYPE html> but is missing closing </body> and </html> tags", async () => {
+    const issues = runDeterministicChecks(baseHtml);
+    const headingIssue = issues.find((i) => i.criterion === "2.4.6")!;
+    expect(headingIssue.status).toBe("fail");
+
+    const truncatedHtml = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>No H1 Here</h1></main>`;
+
+    mockCreate.mockResolvedValueOnce({
+      content: [{ type: "text", text: truncatedHtml }],
+    });
+
+    const report = makeReport(issues);
+    const result = await fixComplianceIssue(baseHtml, headingIssue, issues.indexOf(headingIssue), report);
+    expect(result.accessibleHtml).toBe(truncatedHtml);
+  });
+
+  it("accepts HTML that starts with <!DOCTYPE html> but contains only a <head> and no <body>", async () => {
+    const issues = runDeterministicChecks(baseHtml);
+    const headingIssue = issues.find((i) => i.criterion === "2.4.6")!;
+    expect(headingIssue.status).toBe("fail");
+
+    const headOnlyHtml = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head></html>`;
+
+    mockCreate.mockResolvedValueOnce({
+      content: [{ type: "text", text: headOnlyHtml }],
+    });
+
+    const report = makeReport(issues);
+    const result = await fixComplianceIssue(baseHtml, headingIssue, issues.indexOf(headingIssue), report);
+    expect(result.accessibleHtml).toBe(headOnlyHtml);
   });
 });
