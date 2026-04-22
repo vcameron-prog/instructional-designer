@@ -15,6 +15,7 @@ import { z } from "zod";
 import { db } from "./db";
 import { eq, and, desc, isNull, sql, inArray } from "drizzle-orm";
 import { convertMarkdownTablesToHtml } from "./markdownTableConverter.js";
+import { fixHtmlTableCaption, fixHtmlTableThead } from "./lib/table-fixers.js";
 
 function getUserId(req: Request): string | null {
   return (req.user as any)?.claims?.sub ?? null;
@@ -1098,71 +1099,6 @@ function fixVagueLinkText(text: string): string {
 function fixAllCaps(text: string): string {
   return text.replace(/\b[A-Z]{10,}\b/g, (match) => {
     return match.charAt(0).toUpperCase() + match.slice(1).toLowerCase();
-  });
-}
-
-/**
- * Inserts a placeholder <caption>Table summary</caption> after the opening
- * tag of every HTML table that is missing a <caption>.
- * Correctly handles opening tags that carry attributes (e.g. <table class="x">).
- */
-function fixHtmlTableCaption(text: string, captionText: string = "Table summary"): string {
-  const safeCaption = captionText.trim() || "Table summary";
-  return text.replace(/<table(?:\s[^>]*)?>[\s\S]*?<\/table>/gi, (tableBlock) => {
-    if (/<caption[\s>]/i.test(tableBlock)) return tableBlock;
-    return tableBlock.replace(/(<table(?:\s[^>]*)?>)/i, `$1<caption>${safeCaption}</caption>\n`);
-  });
-}
-
-/**
- * Converts a header row's cells from <td> to <th scope="col">.
- */
-function _convertRowToHeaderCells(row: string): string {
-  return row.replace(/<td(\s[^>]*)?>[\s\S]*?<\/td>/gi, (cell: string) => {
-    const inner = cell.replace(/^<td[^>]*>/i, "").replace(/<\/td>$/i, "");
-    return `<th scope="col">${inner}</th>`;
-  });
-}
-
-/**
- * Wraps the first <tr> in a <thead> (converting its <td> cells to
- * <th scope="col">) for every HTML table that is missing a <thead>.
- * When the table already uses a <tbody>, the first row is extracted from
- * <tbody> and re-inserted as a direct <thead> child of <table> so the
- * resulting structure is valid HTML.
- */
-function fixHtmlTableThead(text: string): string {
-  return text.replace(/<table(?:\s[^>]*)?>[\s\S]*?<\/table>/gi, (tableBlock) => {
-    if (/<thead[\s>]/i.test(tableBlock)) return tableBlock;
-
-    if (/<tbody[\s>]/i.test(tableBlock)) {
-      // Pull the first <tr> out of <tbody> and make it a standalone <thead>
-      let extractedRow: string | null = null;
-      const withoutFirstRow = tableBlock.replace(
-        /(<tbody(?:\s[^>]*)?>)([\s\S]*?)(<\/tbody>)/i,
-        (_full: string, open: string, body: string, close: string) => {
-          const cleaned = body.replace(/(<tr[\s>][\s\S]*?<\/tr>)/i, (row: string) => {
-            if (extractedRow === null) {
-              extractedRow = row;
-              return "";
-            }
-            return row;
-          });
-          return open + cleaned + close;
-        },
-      );
-      if (extractedRow === null) return tableBlock;
-      const convertedRow = _convertRowToHeaderCells(extractedRow as string);
-      return withoutFirstRow.replace(
-        /(<table(?:\s[^>]*)?>)/i,
-        `$1<thead>\n${convertedRow}\n</thead>\n`,
-      );
-    }
-
-    // No <tbody>: wrap the first <tr> directly
-    return tableBlock.replace(/(<tr[\s>][\s\S]*?<\/tr>)/i, (firstRow) => {
-      return `<thead>\n${_convertRowToHeaderCells(firstRow)}\n</thead>`;
-    });
   });
 }
 
