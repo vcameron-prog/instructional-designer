@@ -333,6 +333,7 @@ export default function ResultPage() {
   const [previewFixType, setPreviewFixType] = useState<string | null>(null);
   const [previewBefore, setPreviewBefore] = useState("");
   const [previewAfter, setPreviewAfter] = useState("");
+  const [skipPreview, setSkipPreview] = useState(() => localStorage.getItem("a11y-skip-preview") === "true");
 
   useEffect(() => {
     setExpandedSections({});
@@ -533,6 +534,19 @@ export default function ResultPage() {
   const handlePreviewFix = (fixType: string) => {
     setPreviewFixType(fixType);
     previewFixMutation.mutate(fixType);
+  };
+
+  const handleToggleSkipPreview = (value: boolean) => {
+    setSkipPreview(value);
+    localStorage.setItem("a11y-skip-preview", value ? "true" : "false");
+  };
+
+  const handleFixThis = (fixType: string) => {
+    if (skipPreview) {
+      handleApplyFix(fixType);
+    } else {
+      handlePreviewFix(fixType);
+    }
   };
 
   const handleConfirmFix = () => {
@@ -886,6 +900,22 @@ export default function ResultPage() {
               </CollapsibleTrigger>
               <CollapsibleContent>
                 <CardContent className="pt-0 space-y-3">
+                  <div className="flex items-center gap-2 pb-1 border-b border-border/50">
+                    <input
+                      id="skip-preview-toggle"
+                      type="checkbox"
+                      className="w-4 h-4 accent-primary cursor-pointer"
+                      checked={skipPreview}
+                      onChange={(e) => handleToggleSkipPreview(e.target.checked)}
+                      data-testid="checkbox-skip-preview"
+                    />
+                    <label
+                      htmlFor="skip-preview-toggle"
+                      className="text-sm text-muted-foreground cursor-pointer select-none"
+                    >
+                      Apply fixes directly without previewing
+                    </label>
+                  </div>
                   {accessibilityIssues.map((issue, index) => (
                     <div
                       key={index}
@@ -914,7 +944,7 @@ export default function ResultPage() {
                                   variant="outline"
                                   className="gap-1.5 text-xs h-7 px-2"
                                   disabled={fixingIssue === issue.fixType || applyFixMutation.isPending || previewFixMutation.isPending}
-                                  onClick={() => handlePreviewFix(issue.fixType!)}
+                                  onClick={() => handleFixThis(issue.fixType!)}
                                   data-testid={`button-fix-${issue.fixType}`}
                                 >
                                   {fixingIssue === issue.fixType ? (
@@ -934,14 +964,16 @@ export default function ResultPage() {
                                     </>
                                   )}
                                 </Button>
-                                <button
-                                  className="text-[10px] text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors leading-none"
-                                  disabled={fixingIssue !== null || applyFixMutation.isPending || previewFixMutation.isPending}
-                                  onClick={() => handleApplyFix(issue.fixType!)}
-                                  data-testid={`button-fix-direct-${issue.fixType}`}
-                                >
-                                  Apply directly
-                                </button>
+                                {!skipPreview && (
+                                  <button
+                                    className="text-[10px] text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors leading-none"
+                                    disabled={fixingIssue !== null || applyFixMutation.isPending || previewFixMutation.isPending}
+                                    onClick={() => handleApplyFix(issue.fixType!)}
+                                    data-testid={`button-fix-direct-${issue.fixType}`}
+                                  >
+                                    Apply directly
+                                  </button>
+                                )}
                               </div>
                             )}
                           </div>
