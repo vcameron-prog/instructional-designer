@@ -41,7 +41,7 @@ import {
 } from "@/components/ui/collapsible";
 import { PoweredByFooter } from "@/components/powered-by-footer";
 import { HeaderControls } from "@/components/header-controls";
-import { ArrowLeft, Copy, Download, FileText, RefreshCw, CheckCircle, AlertTriangle, Lightbulb, ChevronDown, ChevronRight, Loader2, Library, Link2, Link2Off, History, RotateCcw } from "lucide-react";
+import { ArrowLeft, Copy, Download, FileText, RefreshCw, CheckCircle, AlertTriangle, Lightbulb, ChevronDown, ChevronRight, Loader2, Library, Link2, Link2Off, History, RotateCcw, Pencil } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TOOLS, LOADING_MESSAGES } from "@/lib/constants";
@@ -349,6 +349,16 @@ function buildDiffHunks(diff: DiffLine[], context = 2): Array<DiffLine | "ellips
   return result;
 }
 
+function extractChildrenText(children: React.ReactNode): string {
+  if (typeof children === "string") return children;
+  if (typeof children === "number") return String(children);
+  if (Array.isArray(children)) return children.map(extractChildrenText).join("");
+  if (children && typeof children === "object" && "props" in (children as object)) {
+    return extractChildrenText((children as { props: { children?: React.ReactNode } }).props.children);
+  }
+  return "";
+}
+
 export default function ResultPage() {
   const params = useParams();
   const courseId = params.id ? parseInt(params.id) : undefined;
@@ -381,6 +391,8 @@ export default function ResultPage() {
   const [skipPreview, setSkipPreview] = useState(() => localStorage.getItem("a11y-skip-preview") === "true");
   const [captionDialogOpen, setCaptionDialogOpen] = useState(false);
   const [captionTexts, setCaptionTexts] = useState<string[]>(["Table summary"]);
+  const [captionEditText, setCaptionEditText] = useState("Table summary");
+  const [captionEditMode, setCaptionEditMode] = useState<"add" | "edit">("add");
 
   useEffect(() => {
     setExpandedSections({});
@@ -526,9 +538,10 @@ export default function ResultPage() {
   });
 
   const applyFixMutation = useMutation({
-    mutationFn: async ({ fixType, captionTexts }: { fixType: string; captionTexts?: string[] }) => {
+    mutationFn: async ({ fixType, captionTexts, captionText }: { fixType: string; captionTexts?: string[]; captionText?: string }) => {
       const body: Record<string, unknown> = { fixType };
       if (captionTexts !== undefined) body.captionTexts = captionTexts;
+      if (captionText !== undefined) body.captionText = captionText;
       const response = await apiRequest("POST", `/api/content/${contentId}/fix-accessibility`, body);
       return response.json();
     },
@@ -587,10 +600,21 @@ export default function ResultPage() {
     applyFixMutation.mutate({ fixType });
   };
 
+  const handleEditCaption = (currentCaption: string) => {
+    setCaptionEditMode("edit");
+    setCaptionEditText(currentCaption);
+    setCaptionDialogOpen(true);
+  };
+
   const handleApplyCaptionFix = () => {
     setCaptionDialogOpen(false);
-    setFixingIssue("fix-html-table-caption");
-    applyFixMutation.mutate({ fixType: "fix-html-table-caption", captionTexts });
+    if (captionEditMode === "edit") {
+      setFixingIssue("edit-html-table-caption");
+      applyFixMutation.mutate({ fixType: "edit-html-table-caption", captionText: captionEditText });
+    } else {
+      setFixingIssue("fix-html-table-caption");
+      applyFixMutation.mutate({ fixType: "fix-html-table-caption", captionTexts });
+    }
   };
 
   const previewFixMutation = useMutation({
@@ -1234,11 +1258,26 @@ export default function ResultPage() {
                         </table>
                       </div>
                     ),
-                    caption: ({ node, children, ...props }) => (
-                      <caption {...props} className="text-sm text-muted-foreground mb-2 caption-top">
-                        {children}
-                      </caption>
-                    ),
+                    caption: ({ node, children, ...props }) => {
+                      const captionText = extractChildrenText(children);
+                      return (
+                        <caption {...props} className="text-sm text-muted-foreground mb-2 caption-top group/cap">
+                          {children}
+                          {!isAnon && contentId && (
+                            <button
+                              className="ml-1.5 opacity-0 group-hover/cap:opacity-100 transition-opacity inline-flex items-center text-muted-foreground hover:text-foreground focus:opacity-100 focus:outline-none"
+                              onClick={(e) => { e.preventDefault(); handleEditCaption(captionText); }}
+                              title="Edit caption"
+                              type="button"
+                              data-testid="button-edit-caption"
+                              aria-label="Edit table caption"
+                            >
+                              <Pencil className="w-3 h-3" />
+                            </button>
+                          )}
+                        </caption>
+                      );
+                    },
                     thead: ({ node, children, ...props }) => (
                       <thead {...props} className="bg-muted">{children}</thead>
                     ),
@@ -1479,15 +1518,32 @@ export default function ResultPage() {
       <Dialog open={captionDialogOpen} onOpenChange={(open) => { if (!open) setCaptionDialogOpen(false); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Set Table {captionTexts.length > 1 ? "Captions" : "Caption"}</DialogTitle>
+            <DialogTitle>
+              {captionEditMode === "edit" ? "Edit Table Caption" : `Set Table ${captionTexts.length > 1 ? "Captions" : "Caption"}`}
+            </DialogTitle>
             <DialogDescription>
-              {captionTexts.length > 1
-                ? `Enter a meaningful caption for each of the ${captionTexts.length} tables missing a caption. Good captions help screen reader users understand each table's purpose.`
-                : "Enter a meaningful caption that describes what this table contains. A good caption helps screen reader users understand the table's purpose."}
+              {captionEditMode === "edit"
+                ? "Update the caption to better describe what this table contains. Captions help screen reader users understand the table's purpose."
+                : captionTexts.length > 1
+                  ? `Enter a meaningful caption for each of the ${captionTexts.length} tables missing a caption. Good captions help screen reader users understand each table's purpose.`
+                  : "Enter a meaningful caption that describes what this table contains. A good caption helps screen reader users understand the table's purpose."}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 max-h-72 overflow-y-auto pr-1">
-            {captionTexts.map((text, index) => (
+            {captionEditMode === "edit" ? (
+              <div className="space-y-1">
+                <Label htmlFor="caption-input-edit">Caption text</Label>
+                <Input
+                  id="caption-input-edit"
+                  value={captionEditText}
+                  onChange={(e) => setCaptionEditText(e.target.value)}
+                  placeholder="e.g., Weekly assignment schedule"
+                  onKeyDown={(e) => { if (e.key === "Enter") handleApplyCaptionFix(); }}
+                  data-testid="input-caption-text"
+                  autoFocus
+                />
+              </div>
+            ) : captionTexts.map((text, index) => (
               <div key={index} className="space-y-1">
                 <Label htmlFor={`caption-input-${index}`}>
                   {captionTexts.length > 1 ? `Table ${index + 1} caption` : "Caption text"}
@@ -1515,11 +1571,11 @@ export default function ResultPage() {
             <Button
               onClick={handleApplyCaptionFix}
               className="gap-2"
-              disabled={captionTexts.some((t) => !t.trim())}
+              disabled={captionEditMode === "edit" ? !captionEditText.trim() : captionTexts.some((t) => !t.trim())}
               data-testid="button-apply-caption"
             >
               <CheckCircle className="w-4 h-4" />
-              Apply {captionTexts.length > 1 ? "Captions" : "Caption"}
+              {captionEditMode === "edit" ? "Save Caption" : `Apply ${captionTexts.length > 1 ? "Captions" : "Caption"}`}
             </Button>
           </DialogFooter>
         </DialogContent>

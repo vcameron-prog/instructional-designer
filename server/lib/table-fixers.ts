@@ -42,6 +42,18 @@ export function fixHtmlTableCaption(text: string, captionTexts: string | string[
 }
 
 /**
+ * Replaces the text of every existing <caption>…</caption> element with a
+ * new caption string.  Tables that already have a caption are updated in-place;
+ * tables without a caption are left untouched.
+ */
+export function editHtmlTableCaption(text: string, newCaption: string): string {
+  const safeCaption = newCaption.trim() || "Table summary";
+  return text.replace(/<caption([^>]*)>([\s\S]*?)<\/caption>/gi, (_match, attrs) => {
+    return `<caption${attrs}>${safeCaption}</caption>`;
+  });
+}
+
+/**
  * Wraps the first <tr> in a <thead> (converting its <td> cells to
  * <th scope="col">) for every HTML table that is missing a <thead>.
  * When the table already uses a <tbody>, the first row is extracted from

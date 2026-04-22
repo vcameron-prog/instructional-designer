@@ -15,7 +15,7 @@ import { z } from "zod";
 import { db } from "./db";
 import { eq, and, desc, isNull, sql, inArray } from "drizzle-orm";
 import { convertMarkdownTablesToHtml } from "./markdownTableConverter.js";
-import { fixHtmlTableCaption, fixHtmlTableThead } from "./lib/table-fixers.js";
+import { fixHtmlTableCaption, fixHtmlTableThead, editHtmlTableCaption } from "./lib/table-fixers.js";
 
 function getUserId(req: Request): string | null {
   return (req.user as any)?.claims?.sub ?? null;
@@ -1951,6 +1951,8 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           fixedContent = fixAllCaps(content.content);
         } else if (fixType === "fix-html-table-caption") {
           fixedContent = fixHtmlTableCaption(content.content, captionTexts ?? captionText);
+        } else if (fixType === "edit-html-table-caption") {
+          fixedContent = editHtmlTableCaption(content.content, captionText ?? "Table summary");
         } else if (fixType === "fix-html-table-thead") {
           fixedContent = fixHtmlTableThead(content.content);
         } else {
