@@ -19,10 +19,13 @@ export function _convertRowToHeaderCells(row: string): string {
  * the outer table's opening tag to the inner table's closing tag; that
  * partial block is processed as a unit.
  */
-export function fixHtmlTableCaption(text: string, captionText: string = "Table summary"): string {
-  const safeCaption = captionText.trim() || "Table summary";
+export function fixHtmlTableCaption(text: string, captionTexts: string | string[] = "Table summary"): string {
+  const captions = Array.isArray(captionTexts) ? captionTexts : [captionTexts];
+  let tableIndex = 0;
   return text.replace(/<table(?:\s[^>]*)?>[\s\S]*?<\/table>/gi, (tableBlock) => {
     if (/<caption[\s>]/i.test(tableBlock)) return tableBlock;
+    const safeCaption = (captions[tableIndex] || "Table summary").trim() || "Table summary";
+    tableIndex++;
     return tableBlock.replace(/(<table(?:\s[^>]*)?>)/i, `$1<caption>${safeCaption}</caption>\n`);
   });
 }

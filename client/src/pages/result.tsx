@@ -380,7 +380,7 @@ export default function ResultPage() {
   const [previewAfter, setPreviewAfter] = useState("");
   const [skipPreview, setSkipPreview] = useState(() => localStorage.getItem("a11y-skip-preview") === "true");
   const [captionDialogOpen, setCaptionDialogOpen] = useState(false);
-  const [captionEditText, setCaptionEditText] = useState("Table summary");
+  const [captionTexts, setCaptionTexts] = useState<string[]>(["Table summary"]);
 
   useEffect(() => {
     setExpandedSections({});
@@ -526,9 +526,9 @@ export default function ResultPage() {
   });
 
   const applyFixMutation = useMutation({
-    mutationFn: async ({ fixType, captionText }: { fixType: string; captionText?: string }) => {
-      const body: Record<string, string> = { fixType };
-      if (captionText !== undefined) body.captionText = captionText;
+    mutationFn: async ({ fixType, captionTexts }: { fixType: string; captionTexts?: string[] }) => {
+      const body: Record<string, unknown> = { fixType };
+      if (captionTexts !== undefined) body.captionTexts = captionTexts;
       const response = await apiRequest("POST", `/api/content/${contentId}/fix-accessibility`, body);
       return response.json();
     },
@@ -562,10 +562,25 @@ export default function ResultPage() {
     },
   });
 
+  const countTablesWithoutCaptions = (html: string): number => {
+    const tableRegex = /<table(?:\s[^>]*)?>[\s\S]*?<\/table>/gi;
+    let count = 0;
+    let match;
+    while ((match = tableRegex.exec(html)) !== null) {
+      if (!/<caption[\s>]/i.test(match[0])) count++;
+    }
+    return count;
+  };
+
+  const openCaptionDialog = () => {
+    const count = content ? countTablesWithoutCaptions(content.content) : 1;
+    setCaptionTexts(Array(Math.max(1, count)).fill("Table summary"));
+    setCaptionDialogOpen(true);
+  };
+
   const handleApplyFix = (fixType: string) => {
     if (fixType === "fix-html-table-caption") {
-      setCaptionEditText("Table summary");
-      setCaptionDialogOpen(true);
+      openCaptionDialog();
       return;
     }
     setFixingIssue(fixType);
@@ -575,7 +590,7 @@ export default function ResultPage() {
   const handleApplyCaptionFix = () => {
     setCaptionDialogOpen(false);
     setFixingIssue("fix-html-table-caption");
-    applyFixMutation.mutate({ fixType: "fix-html-table-caption", captionText: captionEditText });
+    applyFixMutation.mutate({ fixType: "fix-html-table-caption", captionTexts });
   };
 
   const previewFixMutation = useMutation({
@@ -606,8 +621,7 @@ export default function ResultPage() {
 
   const handleFixThis = (fixType: string) => {
     if (fixType === "fix-html-table-caption") {
-      setCaptionEditText("Table summary");
-      setCaptionDialogOpen(true);
+      openCaptionDialog();
       return;
     }
     if (skipPreview) {
@@ -1465,22 +1479,34 @@ export default function ResultPage() {
       <Dialog open={captionDialogOpen} onOpenChange={(open) => { if (!open) setCaptionDialogOpen(false); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Set Table Caption</DialogTitle>
+            <DialogTitle>Set Table {captionTexts.length > 1 ? "Captions" : "Caption"}</DialogTitle>
             <DialogDescription>
-              Enter a meaningful caption that describes what this table contains. A good caption helps screen reader users understand the table's purpose.
+              {captionTexts.length > 1
+                ? `Enter a meaningful caption for each of the ${captionTexts.length} tables missing a caption. Good captions help screen reader users understand each table's purpose.`
+                : "Enter a meaningful caption that describes what this table contains. A good caption helps screen reader users understand the table's purpose."}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor="caption-input">Caption text</Label>
-            <Input
-              id="caption-input"
-              value={captionEditText}
-              onChange={(e) => setCaptionEditText(e.target.value)}
-              placeholder="e.g., Weekly assignment schedule"
-              onKeyDown={(e) => { if (e.key === "Enter") handleApplyCaptionFix(); }}
-              data-testid="input-caption-text"
-              autoFocus
-            />
+          <div className="space-y-4 max-h-72 overflow-y-auto pr-1">
+            {captionTexts.map((text, index) => (
+              <div key={index} className="space-y-1">
+                <Label htmlFor={`caption-input-${index}`}>
+                  {captionTexts.length > 1 ? `Table ${index + 1} caption` : "Caption text"}
+                </Label>
+                <Input
+                  id={`caption-input-${index}`}
+                  value={text}
+                  onChange={(e) => {
+                    const updated = [...captionTexts];
+                    updated[index] = e.target.value;
+                    setCaptionTexts(updated);
+                  }}
+                  placeholder="e.g., Weekly assignment schedule"
+                  onKeyDown={(e) => { if (e.key === "Enter" && index === captionTexts.length - 1) handleApplyCaptionFix(); }}
+                  data-testid={`input-caption-text-${index}`}
+                  autoFocus={index === 0}
+                />
+              </div>
+            ))}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCaptionDialogOpen(false)} data-testid="button-cancel-caption">
@@ -1489,11 +1515,11 @@ export default function ResultPage() {
             <Button
               onClick={handleApplyCaptionFix}
               className="gap-2"
-              disabled={!captionEditText.trim()}
+              disabled={captionTexts.some((t) => !t.trim())}
               data-testid="button-apply-caption"
             >
               <CheckCircle className="w-4 h-4" />
-              Apply Caption
+              Apply {captionTexts.length > 1 ? "Captions" : "Caption"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1920,7 +1920,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     async (req: Request, res: Response) => {
       try {
         const id = parseInt(req.params.id as string);
-        const { fixType, captionText } = req.body;
+        const { fixType, captionText, captionTexts } = req.body;
         if (!fixType) {
           return res.status(400).json({ error: "fixType is required" });
         }
@@ -1950,7 +1950,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         } else if (fixType === "fix-all-caps") {
           fixedContent = fixAllCaps(content.content);
         } else if (fixType === "fix-html-table-caption") {
-          fixedContent = fixHtmlTableCaption(content.content, captionText);
+          fixedContent = fixHtmlTableCaption(content.content, captionTexts ?? captionText);
         } else if (fixType === "fix-html-table-thead") {
           fixedContent = fixHtmlTableThead(content.content);
         } else {
