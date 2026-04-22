@@ -4086,7 +4086,7 @@ describe("fixComplianceIssue – partial or truncated AI HTML responses", () => 
     ).rejects.toThrow("AI failed to produce a valid HTML fix");
   });
 
-  it("accepts truncated HTML that starts with <!DOCTYPE html> but is missing closing </body> and </html> tags", async () => {
+  it("throws when AI returns truncated HTML that starts with <!DOCTYPE html> but is missing closing </body> and </html> tags", async () => {
     const issues = runDeterministicChecks(baseHtml);
     const headingIssue = issues.find((i) => i.criterion === "2.4.6")!;
     expect(headingIssue.status).toBe("fail");
@@ -4098,11 +4098,12 @@ describe("fixComplianceIssue – partial or truncated AI HTML responses", () => 
     });
 
     const report = makeReport(issues);
-    const result = await fixComplianceIssue(baseHtml, headingIssue, issues.indexOf(headingIssue), report);
-    expect(result.accessibleHtml).toBe(truncatedHtml);
+    await expect(
+      fixComplianceIssue(baseHtml, headingIssue, issues.indexOf(headingIssue), report)
+    ).rejects.toThrow("AI failed to produce a valid HTML fix");
   });
 
-  it("accepts HTML that starts with <!DOCTYPE html> but contains only a <head> and no <body>", async () => {
+  it("throws when AI returns HTML that starts with <!DOCTYPE html> but contains only a <head> and no <body>", async () => {
     const issues = runDeterministicChecks(baseHtml);
     const headingIssue = issues.find((i) => i.criterion === "2.4.6")!;
     expect(headingIssue.status).toBe("fail");
@@ -4114,8 +4115,9 @@ describe("fixComplianceIssue – partial or truncated AI HTML responses", () => 
     });
 
     const report = makeReport(issues);
-    const result = await fixComplianceIssue(baseHtml, headingIssue, issues.indexOf(headingIssue), report);
-    expect(result.accessibleHtml).toBe(headOnlyHtml);
+    await expect(
+      fixComplianceIssue(baseHtml, headingIssue, issues.indexOf(headingIssue), report)
+    ).rejects.toThrow("AI failed to produce a valid HTML fix");
   });
 });
 

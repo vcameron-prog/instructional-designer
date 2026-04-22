@@ -1376,6 +1376,12 @@ ${stripped}`,
   if (!rawOutput || (!rawOutput.startsWith("<!DOCTYPE html>") && !rawOutput.startsWith("<!doctype html>"))) {
     throw new Error("AI failed to produce a valid HTML fix. Please try again.");
   }
+  const hasBody = /<body[\s>]/i.test(rawOutput);
+  const hasClosingBody = /<\/body>/i.test(rawOutput);
+  const hasClosingHtml = /<\/html>/i.test(rawOutput);
+  if (!hasBody || !hasClosingBody || !hasClosingHtml) {
+    throw new Error("AI failed to produce a valid HTML fix. Please try again.");
+  }
 
   const fixedHtml = restoreDataUris(rawOutput, uris);
 
