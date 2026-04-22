@@ -1301,6 +1301,51 @@ export function applyAriaTabRoleFix(html: string): string {
   );
 }
 
+export function fixAllAriaRoleMisuse(
+  currentHtml: string,
+  existingReport: ComplianceReport
+): AccessibilityResult {
+  const ariaFixers = [
+    applyAriaRoleHeaderFix,
+    applyAriaLinkRoleFix,
+    applyAriaCheckboxRoleFix,
+    applyAriaRadioRoleFix,
+    applyAriaListRoleFix,
+    applyAriaListitemRoleFix,
+    applyAriaComboboxRoleFix,
+    applyAriaGridRoleFix,
+    applyAriaTabRoleFix,
+  ];
+
+  const fixedHtml = ariaFixers.reduce((html, fixer) => fixer(html), currentHtml);
+
+  const freshChecks = runDeterministicChecks(fixedHtml);
+  const freshMap = new Map<string, ComplianceIssue>();
+  for (const fi of freshChecks) {
+    freshMap.set(`${fi.criterion}::${fi.title}`, fi);
+  }
+
+  const updatedIssues = existingReport.issues.map((issue) => {
+    if (issue.status === "fixed") {
+      return issue;
+    }
+    const key = `${issue.criterion}::${issue.title}`;
+    const freshCheck = freshMap.get(key);
+    if (freshCheck) {
+      if (freshCheck.status === "pass" && (issue.status === "fail" || issue.status === "warning")) {
+        return { ...freshCheck, status: "fixed" as const };
+      }
+      return { ...freshCheck };
+    }
+    if (issue.title.includes("ARIA") && (issue.status === "fail" || issue.status === "warning")) {
+      return { ...issue, status: "fixed" as const, details: `Fixed: ${issue.details}` };
+    }
+    return issue;
+  });
+
+  return { accessibleHtml: fixedHtml, complianceReport: buildComplianceReport(updatedIssues) };
+}
+
 export type DeterministicFixer = (html: string) => string;
 
 const deterministicFixerRegistry: Record<string, DeterministicFixer> = {
@@ -1386,6 +1431,10 @@ export async function fixComplianceIssue(
   issueIndex: number,
   existingReport: ComplianceReport
 ): Promise<AccessibilityResult> {
+  if (issue.title === "Fix all ARIA role misuse") {
+    return fixAllAriaRoleMisuse(currentHtml, existingReport);
+  }
+
   const registryKey = `${issue.criterion}::${issue.title}`;
   const deterministicFixer = deterministicFixerRegistry[registryKey];
   if (deterministicFixer) {

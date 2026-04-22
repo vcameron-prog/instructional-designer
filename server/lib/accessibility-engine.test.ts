@@ -7,6 +7,7 @@ import {
   buildComplianceReport,
   evaluateOriginalDocument,
   fixComplianceIssue,
+  fixAllAriaRoleMisuse,
   applyAriaRoleHeaderFix,
   applyAriaComboboxRoleFix,
   applyAriaGridRoleFix,
@@ -4782,5 +4783,227 @@ describe("registerDeterministicFixer", () => {
     expect(result.accessibleHtml).toContain(MARKER);
 
     registerDeterministicFixer(key, applyLangAttributeFix);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// fixAllAriaRoleMisuse – batch fix
+// ---------------------------------------------------------------------------
+
+function makeAriaReport(issues: Partial<ComplianceIssue>[]): ComplianceReport {
+  const full: ComplianceIssue[] = issues.map((ov) => ({
+    criterion: "1.3.1",
+    title: "ARIA Role Misuse",
+    level: "A" as const,
+    status: "warning" as const,
+    description: "ARIA role misuse.",
+    details: "Element uses wrong ARIA role.",
+    ...ov,
+  }));
+  return buildComplianceReport(full);
+}
+
+describe("fixAllAriaRoleMisuse", () => {
+  it("fixes combobox, grid, and tab misuse in a single call", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body>
+      <div role="combobox"><option>A</option></div>
+      <div role="grid"><tr><td>Cell</td></tr></div>
+      <div role="tab">Tab One</div>
+    </body></html>`;
+
+    const report = makeAriaReport([
+      { title: "ARIA Combobox Role on Non-Combobox Element" },
+      { title: "ARIA Grid Role on Non-Table Element" },
+      { title: "ARIA Tab Role on Non-Interactive Element" },
+    ]);
+
+    const result = fixAllAriaRoleMisuse(html, report);
+
+    expect(result.accessibleHtml).not.toContain('role="combobox"');
+    expect(result.accessibleHtml).not.toContain('role="grid"');
+    expect(result.accessibleHtml).not.toContain('role="tab"');
+    expect(result.accessibleHtml).toContain("<select");
+    expect(result.accessibleHtml).toContain("<table");
+    expect(result.accessibleHtml).toContain("<button");
+  });
+
+  it("marks all three ARIA role issues as fixed in the compliance report", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body>
+      <div role="combobox"><option>A</option></div>
+      <div role="grid"><tr><td>Cell</td></tr></div>
+      <div role="tab">Tab One</div>
+    </body></html>`;
+
+    const report = makeAriaReport([
+      { criterion: "1.3.1", title: "ARIA Combobox Role on Non-Combobox Element" },
+      { criterion: "1.3.1", title: "ARIA Grid Role on Non-Table Element" },
+      { criterion: "1.3.1", title: "ARIA Tab Role on Non-Interactive Element" },
+    ]);
+
+    const result = fixAllAriaRoleMisuse(html, report);
+
+    const comboboxIssue = result.complianceReport.issues.find(
+      (i) => i.title === "ARIA Combobox Role on Non-Combobox Element"
+    );
+    const gridIssue = result.complianceReport.issues.find(
+      (i) => i.title === "ARIA Grid Role on Non-Table Element"
+    );
+    const tabIssue = result.complianceReport.issues.find(
+      (i) => i.title === "ARIA Tab Role on Non-Interactive Element"
+    );
+
+    expect(comboboxIssue?.status).toBe("fixed");
+    expect(gridIssue?.status).toBe("fixed");
+    expect(tabIssue?.status).toBe("fixed");
+  });
+
+  it("preserves non-ARIA issues unchanged", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body>
+      <div role="tab">Tab One</div>
+    </body></html>`;
+
+    const report = makeAriaReport([
+      { criterion: "1.3.1", title: "ARIA Tab Role on Non-Interactive Element" },
+      { criterion: "4.1.2", title: "Name Role Value", status: "fail", details: "Missing label." },
+    ]);
+
+    const result = fixAllAriaRoleMisuse(html, report);
+
+    const nameRoleIssue = result.complianceReport.issues.find(
+      (i) => i.title === "Name Role Value"
+    );
+    expect(nameRoleIssue?.status).toBe("fail");
+  });
+
+  it("preserves already-fixed ARIA issues as fixed", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body>
+      <div role="combobox"><option>A</option></div>
+    </body></html>`;
+
+    const report = makeAriaReport([
+      { criterion: "1.3.1", title: "ARIA Combobox Role on Non-Combobox Element", status: "fixed" },
+    ]);
+
+    const result = fixAllAriaRoleMisuse(html, report);
+
+    const issue = result.complianceReport.issues.find(
+      (i) => i.title === "ARIA Combobox Role on Non-Combobox Element"
+    );
+    expect(issue?.status).toBe("fixed");
+  });
+
+  it("updates the overall compliance score upward after fixing all three roles", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body>
+      <div role="combobox"><option>A</option></div>
+      <div role="grid"><tr><td>Cell</td></tr></div>
+      <div role="tab">Tab One</div>
+    </body></html>`;
+
+    const report = makeAriaReport([
+      { criterion: "1.3.1", title: "ARIA Combobox Role on Non-Combobox Element" },
+      { criterion: "1.3.1", title: "ARIA Grid Role on Non-Table Element" },
+      { criterion: "1.3.1", title: "ARIA Tab Role on Non-Interactive Element" },
+    ]);
+
+    const before = report.overallScore;
+    const result = fixAllAriaRoleMisuse(html, report);
+    expect(result.complianceReport.overallScore).toBeGreaterThan(before);
+  });
+
+  it("fixes all nine ARIA role types present simultaneously", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body>
+      <td role="columnheader">Header</td>
+      <div role="link" href="/about">About</div>
+      <div role="checkbox">Check me</div>
+      <div role="radio">Option A</div>
+      <div role="list"><div role="listitem">Item</div></div>
+      <div role="combobox"><option>A</option></div>
+      <div role="grid"><tr><td>Cell</td></tr></div>
+      <div role="tab">Tab One</div>
+    </body></html>`;
+
+    const report = makeAriaReport([
+      { criterion: "1.3.1", title: "ARIA Role on Table Data Cell" },
+      { criterion: "4.1.2", title: "ARIA Link Role on Non-Anchor Element" },
+      { criterion: "4.1.2", title: "ARIA Checkbox Role on Non-Input Element" },
+      { criterion: "4.1.2", title: "ARIA Radio Role on Non-Input Element" },
+      { criterion: "1.3.1", title: "ARIA List Role on Non-List Element" },
+      { criterion: "1.3.1", title: "ARIA Listitem Role on Non-Listitem Element" },
+      { criterion: "1.3.1", title: "ARIA Combobox Role on Non-Combobox Element" },
+      { criterion: "1.3.1", title: "ARIA Grid Role on Non-Table Element" },
+      { criterion: "1.3.1", title: "ARIA Tab Role on Non-Interactive Element" },
+    ]);
+
+    const result = fixAllAriaRoleMisuse(html, report);
+
+    const warningOrFail = result.complianceReport.issues.filter(
+      (i) => i.title.includes("ARIA") && (i.status === "warning" || i.status === "fail")
+    );
+    expect(warningOrFail).toHaveLength(0);
+  });
+
+  it("correctly transitions warning-status ARIA issues to fixed (matching real deterministic output)", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body>
+      <div role="combobox"><option>A</option></div>
+      <div role="grid"><tr><td>Cell</td></tr></div>
+      <div role="tab">Tab One</div>
+    </body></html>`;
+
+    const report = buildComplianceReport(
+      runDeterministicChecks(html)
+    );
+
+    const before = report.issues.filter((i) => i.title.includes("ARIA") && i.status === "warning");
+    expect(before.length).toBeGreaterThanOrEqual(3);
+
+    const result = fixAllAriaRoleMisuse(html, report);
+
+    const after = result.complianceReport.issues.filter(
+      (i) => i.title.includes("ARIA") && (i.status === "warning" || i.status === "fail")
+    );
+    expect(after).toHaveLength(0);
+
+    const fixed = result.complianceReport.issues.filter(
+      (i) => i.title.includes("ARIA") && i.status === "fixed"
+    );
+    expect(fixed.length).toBeGreaterThanOrEqual(3);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// fixComplianceIssue – batch ARIA role misuse dispatch
+// ---------------------------------------------------------------------------
+
+describe("fixComplianceIssue – batch ARIA role misuse via synthetic issue title", () => {
+  it("dispatches to fixAllAriaRoleMisuse when issue title is 'Fix all ARIA role misuse'", async () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body>
+      <div role="combobox"><option>A</option></div>
+      <div role="grid"><tr><td>Cell</td></tr></div>
+      <div role="tab">Tab One</div>
+    </body></html>`;
+
+    const report = buildComplianceReport(runDeterministicChecks(html));
+
+    const batchIssue: ComplianceIssue = {
+      criterion: "batch",
+      title: "Fix all ARIA role misuse",
+      level: "A",
+      status: "warning",
+      description: "Fix all ARIA role misuse in one action.",
+      details: "Applies all registered ARIA role fixers.",
+    };
+
+    mockCreate.mockClear();
+    const result = await fixComplianceIssue(html, batchIssue, -1, report);
+
+    expect(mockCreate).not.toHaveBeenCalled();
+    expect(result.accessibleHtml).not.toContain('role="combobox"');
+    expect(result.accessibleHtml).not.toContain('role="grid"');
+    expect(result.accessibleHtml).not.toContain('role="tab"');
+
+    const remaining = result.complianceReport.issues.filter(
+      (i) => i.title.includes("ARIA") && (i.status === "warning" || i.status === "fail")
+    );
+    expect(remaining).toHaveLength(0);
   });
 });
