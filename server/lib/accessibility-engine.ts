@@ -720,6 +720,69 @@ export function runDeterministicChecks(html: string): ComplianceIssue[] {
     });
   }
 
+  // 1.3.1 – ARIA role="combobox" on non-select/non-input elements
+  const comboboxRoleNodes = parsedDoc.querySelectorAll("[role='combobox']");
+  const nonComboboxWithComboboxRole = comboboxRoleNodes.filter((el) => {
+    const tag = el.tagName?.toLowerCase();
+    return tag !== "select" && tag !== "input";
+  });
+  if (nonComboboxWithComboboxRole.length > 0) {
+    const tagList = nonComboboxWithComboboxRole
+      .slice(0, 5)
+      .map((el) => `<${el.tagName?.toLowerCase()}>`)
+      .join(", ");
+    issues.push({
+      criterion: "1.3.1",
+      title: "ARIA Combobox Role on Non-Combobox Element",
+      level: "A",
+      status: "warning",
+      description: "Using role=\"combobox\" on a non-interactive element (e.g. <div>) is a misuse of ARIA. Use a native <select> or <input> element with an associated listbox instead.",
+      details: `Found ${nonComboboxWithComboboxRole.length} element(s) with role="combobox" that are not native combobox elements (e.g. ${tagList}). Replace them with <select> or <input> for proper semantics.`,
+    });
+  }
+
+  // 1.3.1 – ARIA role="grid" on non-table elements
+  const gridRoleNodes = parsedDoc.querySelectorAll("[role='grid']");
+  const nonTableWithGridRole = gridRoleNodes.filter((el) => {
+    const tag = el.tagName?.toLowerCase();
+    return tag !== "table";
+  });
+  if (nonTableWithGridRole.length > 0) {
+    const tagList = nonTableWithGridRole
+      .slice(0, 5)
+      .map((el) => `<${el.tagName?.toLowerCase()}>`)
+      .join(", ");
+    issues.push({
+      criterion: "1.3.1",
+      title: "ARIA Grid Role on Non-Table Element",
+      level: "A",
+      status: "warning",
+      description: "Using role=\"grid\" on a non-table element (e.g. <div>) is a misuse of ARIA. Use a native <table> element instead.",
+      details: `Found ${nonTableWithGridRole.length} element(s) with role="grid" that are not native table elements (e.g. ${tagList}). Replace them with <table> for proper semantics.`,
+    });
+  }
+
+  // 1.3.1 – ARIA role="tab" on non-button/non-anchor elements
+  const tabRoleNodes = parsedDoc.querySelectorAll("[role='tab']");
+  const nonInteractiveWithTabRole = tabRoleNodes.filter((el) => {
+    const tag = el.tagName?.toLowerCase();
+    return tag !== "button" && tag !== "a";
+  });
+  if (nonInteractiveWithTabRole.length > 0) {
+    const tagList = nonInteractiveWithTabRole
+      .slice(0, 5)
+      .map((el) => `<${el.tagName?.toLowerCase()}>`)
+      .join(", ");
+    issues.push({
+      criterion: "1.3.1",
+      title: "ARIA Tab Role on Non-Interactive Element",
+      level: "A",
+      status: "warning",
+      description: "Using role=\"tab\" on a non-interactive element (e.g. <div> or <span>) is a misuse of ARIA. Use a native <button> or <a> element instead.",
+      details: `Found ${nonInteractiveWithTabRole.length} element(s) with role="tab" that are not native interactive elements (e.g. ${tagList}). Replace them with <button> or <a> for proper semantics.`,
+    });
+  }
+
   // 2.4.6 / 1.3.1 – Heading order: detect skipped heading levels
   const headingOrder = checkHeadingOrder(html);
   if (headingOrder.levels.length > 0) {

@@ -865,6 +865,124 @@ describe("runDeterministicChecks", () => {
     });
   });
 
+  // 1.3.1 ARIA Combobox Role on Non-Combobox Element
+  describe("criterion 1.3.1 – ARIA Combobox Role on Non-Combobox Element", () => {
+    it("warns when a <div> uses role=\"combobox\"", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1><div role="combobox">Choose</div></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Combobox Role on Non-Combobox Element");
+      expect(issue).toBeDefined();
+      expect(issue!.criterion).toBe("1.3.1");
+      expect(issue!.status).toBe("warning");
+      expect(issue!.details).toContain("1 element(s)");
+      expect(issue!.details).toContain("<div>");
+    });
+
+    it("warns when a <span> uses role=\"combobox\"", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1><span role="combobox">Choose</span></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Combobox Role on Non-Combobox Element");
+      expect(issue).toBeDefined();
+      expect(issue!.status).toBe("warning");
+      expect(issue!.details).toContain("<span>");
+    });
+
+    it("does not warn when a native <select> is used", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1><select><option>A</option></select></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Combobox Role on Non-Combobox Element");
+      expect(issue).toBeUndefined();
+    });
+
+    it("does not warn when <input> carries role=\"combobox\" (redundant but acceptable)", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1><input role="combobox" /></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Combobox Role on Non-Combobox Element");
+      expect(issue).toBeUndefined();
+    });
+
+    it("does not warn when <select> carries role=\"combobox\" (redundant but acceptable)", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1><select role="combobox"><option>A</option></select></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Combobox Role on Non-Combobox Element");
+      expect(issue).toBeUndefined();
+    });
+  });
+
+  // 1.3.1 ARIA Grid Role on Non-Table Element
+  describe("criterion 1.3.1 – ARIA Grid Role on Non-Table Element", () => {
+    it("warns when a <div> uses role=\"grid\"", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1><div role="grid"><div>Cell</div></div></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Grid Role on Non-Table Element");
+      expect(issue).toBeDefined();
+      expect(issue!.criterion).toBe("1.3.1");
+      expect(issue!.status).toBe("warning");
+      expect(issue!.details).toContain("1 element(s)");
+      expect(issue!.details).toContain("<div>");
+    });
+
+    it("warns when a <section> uses role=\"grid\"", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1><section role="grid"></section></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Grid Role on Non-Table Element");
+      expect(issue).toBeDefined();
+      expect(issue!.status).toBe("warning");
+      expect(issue!.details).toContain("<section>");
+    });
+
+    it("does not warn when a native <table> is used", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1><table><tr><td>Cell</td></tr></table></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Grid Role on Non-Table Element");
+      expect(issue).toBeUndefined();
+    });
+
+    it("does not warn when <table> carries role=\"grid\" (redundant but acceptable)", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1><table role="grid"><tr><td>Cell</td></tr></table></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Grid Role on Non-Table Element");
+      expect(issue).toBeUndefined();
+    });
+  });
+
+  // 1.3.1 ARIA Tab Role on Non-Interactive Element
+  describe("criterion 1.3.1 – ARIA Tab Role on Non-Interactive Element", () => {
+    it("warns when a <div> uses role=\"tab\"", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1><div role="tab">Tab</div></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Tab Role on Non-Interactive Element");
+      expect(issue).toBeDefined();
+      expect(issue!.criterion).toBe("1.3.1");
+      expect(issue!.status).toBe("warning");
+      expect(issue!.details).toContain("1 element(s)");
+      expect(issue!.details).toContain("<div>");
+    });
+
+    it("warns when a <span> uses role=\"tab\"", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1><span role="tab">Tab</span></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Tab Role on Non-Interactive Element");
+      expect(issue).toBeDefined();
+      expect(issue!.status).toBe("warning");
+      expect(issue!.details).toContain("<span>");
+    });
+
+    it("does not warn when a native <button> carries role=\"tab\"", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1><button role="tab">Tab</button></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Tab Role on Non-Interactive Element");
+      expect(issue).toBeUndefined();
+    });
+
+    it("does not warn when a native <a> carries role=\"tab\"", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1><a href="#" role="tab">Tab</a></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Tab Role on Non-Interactive Element");
+      expect(issue).toBeUndefined();
+    });
+  });
+
   // All issues have required fields
   describe("issue shape", () => {
     it("every issue has criterion, title, level, status, description, and details", () => {
