@@ -300,6 +300,35 @@ describe("runDeterministicChecks", () => {
       // 1 table is missing headers (the inner one)
       expect(tableIssue!.details).toMatch(/^Found 1 of 2/);
     });
+
+    it("fails the outer table when <th> elements exist only inside a nested table", () => {
+      // The outer table has NO direct <th> — all <th> elements belong to the inner table.
+      // The engine must not count the inner table's <th> as headers for the outer table.
+      const html = `<html lang="en"><body>
+        <table>
+          <tbody>
+            <tr><td>
+              <table>
+                <thead><tr><th scope="col">Inner Header A</th><th scope="col">Inner Header B</th></tr></thead>
+                <tbody><tr><td>Cell A</td><td>Cell B</td></tr></tbody>
+              </table>
+            </td></tr>
+          </tbody>
+        </table>
+      </body></html>`;
+      const issues = runDeterministicChecks(html);
+      const tableIssue = issues.find(
+        (i) => i.criterion === "1.3.1" && i.title === "Table Headers"
+      );
+      expect(tableIssue).toBeDefined();
+      // Outer table has no direct <th>, so the check must fail even though
+      // the nested inner table does have properly marked-up headers.
+      expect(tableIssue!.status).toBe("fail");
+      // 2 tables total: outer + inner
+      expect(tableIssue!.details).toMatch(/2 table/);
+      // Only the outer table is missing headers; the inner table passes
+      expect(tableIssue!.details).toMatch(/^Found 1 of 2/);
+    });
   });
 
   // All issues have required fields
