@@ -41,7 +41,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 const anonRateLimits = new Map<string, { count: number; resetAt: number }>();
 const ANON_RATE_LIMIT = 10;
 const ANON_RATE_WINDOW_MS = 60 * 60 * 1000;
-const CONTENT_VERSION_KEEP_COUNT = parseInt(process.env.CONTENT_VERSION_KEEP_COUNT ?? "10", 10);
+const VERSION_HISTORY_LIMIT = parseInt(process.env.VERSION_HISTORY_LIMIT ?? "10", 10);
 
 function checkAnonRateLimit(ip: string): boolean {
   const now = Date.now();
@@ -1814,7 +1814,7 @@ export async function registerRoutes(
           content: content.content,
           refinementRequest: "Previous version",
         });
-        await storage.pruneOldVersions(id, CONTENT_VERSION_KEEP_COUNT);
+        await storage.pruneOldVersions(id, VERSION_HISTORY_LIMIT);
 
         const refinementPrompt = `You previously generated the following ${content.toolName} content:
 
@@ -1897,7 +1897,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           content: content.content,
           refinementRequest: "accessibility-fix-snapshot",
         });
-        await storage.pruneOldVersions(id, CONTENT_VERSION_KEEP_COUNT);
+        await storage.pruneOldVersions(id, VERSION_HISTORY_LIMIT);
 
         const updated = await storage.updateContent(id, fixedContent);
         res.json({ ...updated, preFixVersionId: savedVersion.id });
