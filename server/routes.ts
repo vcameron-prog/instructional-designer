@@ -1159,6 +1159,10 @@ export async function registerRoutes(
     next();
   };
 
+  app.get("/api/config", (_req: Request, res: Response) => {
+    res.json({ versionHistoryLimit: VERSION_HISTORY_LIMIT });
+  });
+
   app.get("/api/admin/check", isAuthenticated, (req: Request, res: Response) => {
     res.json({ isAdmin: checkIsAdmin(req) });
   });

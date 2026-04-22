@@ -52,6 +52,10 @@ import { usePageTitle } from "@/hooks/use-page-title";
 import { useAuth } from "@/hooks/use-auth";
 import type { Course, GeneratedContent } from "@shared/schema";
 
+interface AppConfig {
+  versionHistoryLimit: number;
+}
+
   const COLLAPSED_HEADING_PATTERNS = [
     /submission\s*(requirements|guidelines)?/i,
     /blackboard/i,
@@ -293,6 +297,10 @@ export default function ResultPage() {
   const { data: fetchedContent, isLoading } = useQuery<GeneratedContent>({
     queryKey: isStandalone ? ["/api/standalone-content", contentId] : ["/api/content", contentId],
     enabled: !!contentId && !isAnon,
+  });
+
+  const { data: appConfig } = useQuery<AppConfig>({
+    queryKey: ["/api/config"],
   });
 
   const content = isAnon ? (anonData as GeneratedContent | undefined) : fetchedContent;
@@ -829,6 +837,11 @@ export default function ResultPage() {
                     Describe the changes you'd like to make to improve this content
                   </DialogDescription>
                 </DialogHeader>
+                {appConfig && (
+                  <p className="text-xs text-muted-foreground" data-testid="text-version-history-limit">
+                    Showing up to {appConfig.versionHistoryLimit} versions
+                  </p>
+                )}
                 <Textarea
                   placeholder="e.g., Make the rubric more detailed, add more UDL accommodations, simplify the language..."
                   value={refinementRequest}
