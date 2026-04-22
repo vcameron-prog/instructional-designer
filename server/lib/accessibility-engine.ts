@@ -150,7 +150,7 @@ export function injectImageData(html: string, images: ExtractedImage[]): string 
   }
 
   return html.replace(
-    /<img\s([^>]*?)src\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))([^>]*?)>/gi,
+    /<img\s((?:[^>"']|"[^"]*"|'[^']*')*?)src\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))((?:[^>"']|"[^"]*"|'[^']*')*?)>/gi,
     (match, before: string, dq: string | undefined, sq: string | undefined, uq: string | undefined, after: string) => {
       const src = dq ?? sq ?? uq ?? "";
       if (src.startsWith("data:")) return match;
@@ -230,7 +230,7 @@ export function ensureMissingImages(html: string, images: ExtractedImage[]): str
 
   const matchedDataUrls = new Set<string>();
   const matchedNames = new Set<string>();
-  const imgTagRegex = /<img\s[^>]*src\s*=\s*(?:"([^"]*)"|'([^']*)')[^>]*>/gi;
+  const imgTagRegex = /<img\s(?:[^>"']|"[^"]*"|'[^']*')*?src\s*=\s*(?:"([^"]*)"|'([^']*)')(?:[^>"']|"[^"]*"|'[^']*')*>/gi;
   let tagMatch;
   while ((tagMatch = imgTagRegex.exec(html)) !== null) {
     const src = tagMatch[1] ?? tagMatch[2] ?? "";
@@ -393,7 +393,7 @@ export function runDeterministicChecks(html: string): ComplianceIssue[] {
       : "The document could be better organized into labeled sections for easier navigation.",
   });
 
-  const imgTags = html.match(/<img\s[^>]*>/gi) || [];
+  const imgTags = html.match(/<img\s(?:[^>"']|"[^"]*"|'[^']*')*>/gi) || [];
   const imgsWithoutAlt: Array<{ tag: string; originalIndex: number }> = [];
   imgTags.forEach((tag, originalIndex) => {
     if (!/\salt\s*=\s*["'][^"']*["']/i.test(tag)) {

@@ -2023,6 +2023,29 @@ describe("injectImageData", () => {
       expect(result).toContain('src="data:image/png;base64,spaceparen"');
     });
   });
+
+  describe("angle brackets in attribute values", () => {
+    it("matches src when a preceding attribute contains > inside double quotes", () => {
+      const img = makeImage("photo.png", "data:image/png;base64,angledata");
+      const html = `<img data-info="a>b" src="photo.png" alt="Photo">`;
+      const result = injectImageData(html, [img]);
+      expect(result).toContain('src="data:image/png;base64,angledata"');
+    });
+
+    it("matches src when a trailing attribute contains > inside single quotes", () => {
+      const img = makeImage("shot.png", "data:image/png;base64,angledatatrail");
+      const html = `<img src="shot.png" data-label='x>y' alt="Shot">`;
+      const result = injectImageData(html, [img]);
+      expect(result).toContain('src="data:image/png;base64,angledatatrail"');
+    });
+
+    it("matches src when the filename itself contains > inside a double-quoted attribute", () => {
+      const img = makeImage("a>b.png", "data:image/png;base64,anglename");
+      const html = `<img src="a>b.png" alt="Arrow">`;
+      const result = injectImageData(html, [img]);
+      expect(result).toContain('src="data:image/png;base64,anglename"');
+    });
+  });
 });
 
 // ensureMissingImages
@@ -2288,6 +2311,37 @@ describe("ensureMissingImages", () => {
       const html = `<html><body><img src="other.png" alt="Other"></body></html>`;
       const result = ensureMissingImages(html, [img]);
       expect(result).toContain(`src="data:image/png;base64,ACCENTMISS"`);
+      expect(result).toContain("Additional document images");
+    });
+  });
+
+  describe("angle brackets in attribute values – already-present detection", () => {
+    it("does not re-inject when a preceding attribute contains > inside double quotes", () => {
+      const img = makeImage("photo.png", "data:image/png;base64,ANGLEPRE");
+      const html = `<html><body><img data-info="a>b" src="photo.png" alt="Photo"></body></html>`;
+      const result = ensureMissingImages(html, [img]);
+      expect(result).toBe(html);
+    });
+
+    it("does not re-inject when a trailing attribute contains > inside single quotes", () => {
+      const img = makeImage("shot.png", "data:image/png;base64,ANGLEPOST");
+      const html = `<html><body><img src="shot.png" data-label='x>y' alt="Shot"></body></html>`;
+      const result = ensureMissingImages(html, [img]);
+      expect(result).toBe(html);
+    });
+
+    it("does not re-inject when src itself contains > and filename matches", () => {
+      const img = makeImage("a>b.png", "data:image/png;base64,ANGLESRC");
+      const html = `<html><body><img src="a>b.png" alt="Arrow"></body></html>`;
+      const result = ensureMissingImages(html, [img]);
+      expect(result).toBe(html);
+    });
+
+    it("injects when the image name contains > but the src attribute does not match", () => {
+      const img = { ...makeImage("a>b.png", "data:image/png;base64,ANGLEMISS"), pageNumber: 2 };
+      const html = `<html><body><p>No images</p></body></html>`;
+      const result = ensureMissingImages(html, [img]);
+      expect(result).toContain(`src="data:image/png;base64,ANGLEMISS"`);
       expect(result).toContain("Additional document images");
     });
   });
