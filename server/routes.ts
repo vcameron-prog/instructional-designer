@@ -41,7 +41,19 @@ const upload = multer({ storage: multer.memoryStorage() });
 const anonRateLimits = new Map<string, { count: number; resetAt: number }>();
 const ANON_RATE_LIMIT = 10;
 const ANON_RATE_WINDOW_MS = 60 * 60 * 1000;
-const VERSION_HISTORY_LIMIT = parseInt(process.env.VERSION_HISTORY_LIMIT ?? "10", 10);
+const DEFAULT_VERSION_HISTORY_LIMIT = 10;
+const _parsedVersionHistoryLimit = parseInt(process.env.VERSION_HISTORY_LIMIT ?? "", 10);
+const VERSION_HISTORY_LIMIT: number = (() => {
+  if (isNaN(_parsedVersionHistoryLimit) || _parsedVersionHistoryLimit <= 0) {
+    if (process.env.VERSION_HISTORY_LIMIT !== undefined) {
+      console.warn(
+        `[config] VERSION_HISTORY_LIMIT="${process.env.VERSION_HISTORY_LIMIT}" is invalid (must be a positive integer). Falling back to default of ${DEFAULT_VERSION_HISTORY_LIMIT}.`
+      );
+    }
+    return DEFAULT_VERSION_HISTORY_LIMIT;
+  }
+  return _parsedVersionHistoryLimit;
+})();
 
 function checkAnonRateLimit(ip: string): boolean {
   const now = Date.now();
