@@ -334,6 +334,8 @@ export default function ResultPage() {
   const [previewBefore, setPreviewBefore] = useState("");
   const [previewAfter, setPreviewAfter] = useState("");
   const [skipPreview, setSkipPreview] = useState(() => localStorage.getItem("a11y-skip-preview") === "true");
+  const [captionDialogOpen, setCaptionDialogOpen] = useState(false);
+  const [captionEditText, setCaptionEditText] = useState("Table summary");
 
   useEffect(() => {
     setExpandedSections({});
@@ -479,8 +481,10 @@ export default function ResultPage() {
   });
 
   const applyFixMutation = useMutation({
-    mutationFn: async (fixType: string) => {
-      const response = await apiRequest("POST", `/api/content/${contentId}/fix-accessibility`, { fixType });
+    mutationFn: async ({ fixType, captionText }: { fixType: string; captionText?: string }) => {
+      const body: Record<string, string> = { fixType };
+      if (captionText !== undefined) body.captionText = captionText;
+      const response = await apiRequest("POST", `/api/content/${contentId}/fix-accessibility`, body);
       return response.json();
     },
     onSuccess: (data) => {
@@ -511,8 +515,19 @@ export default function ResultPage() {
   });
 
   const handleApplyFix = (fixType: string) => {
+    if (fixType === "fix-html-table-caption") {
+      setCaptionEditText("Table summary");
+      setCaptionDialogOpen(true);
+      return;
+    }
     setFixingIssue(fixType);
-    applyFixMutation.mutate(fixType);
+    applyFixMutation.mutate({ fixType });
+  };
+
+  const handleApplyCaptionFix = () => {
+    setCaptionDialogOpen(false);
+    setFixingIssue("fix-html-table-caption");
+    applyFixMutation.mutate({ fixType: "fix-html-table-caption", captionText: captionEditText });
   };
 
   const previewFixMutation = useMutation({
@@ -542,6 +557,11 @@ export default function ResultPage() {
   };
 
   const handleFixThis = (fixType: string) => {
+    if (fixType === "fix-html-table-caption") {
+      setCaptionEditText("Table summary");
+      setCaptionDialogOpen(true);
+      return;
+    }
     if (skipPreview) {
       handleApplyFix(fixType);
     } else {
@@ -1352,6 +1372,43 @@ export default function ResultPage() {
                   Apply fix
                 </>
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={captionDialogOpen} onOpenChange={(open) => { if (!open) setCaptionDialogOpen(false); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Set Table Caption</DialogTitle>
+            <DialogDescription>
+              Enter a meaningful caption that describes what this table contains. A good caption helps screen reader users understand the table's purpose.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="caption-input">Caption text</Label>
+            <Input
+              id="caption-input"
+              value={captionEditText}
+              onChange={(e) => setCaptionEditText(e.target.value)}
+              placeholder="e.g., Weekly assignment schedule"
+              onKeyDown={(e) => { if (e.key === "Enter") handleApplyCaptionFix(); }}
+              data-testid="input-caption-text"
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCaptionDialogOpen(false)} data-testid="button-cancel-caption">
+              Cancel
+            </Button>
+            <Button
+              onClick={handleApplyCaptionFix}
+              className="gap-2"
+              disabled={!captionEditText.trim()}
+              data-testid="button-apply-caption"
+            >
+              <CheckCircle className="w-4 h-4" />
+              Apply Caption
             </Button>
           </DialogFooter>
         </DialogContent>

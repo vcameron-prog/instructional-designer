@@ -1106,10 +1106,11 @@ function fixAllCaps(text: string): string {
  * tag of every HTML table that is missing a <caption>.
  * Correctly handles opening tags that carry attributes (e.g. <table class="x">).
  */
-function fixHtmlTableCaption(text: string): string {
+function fixHtmlTableCaption(text: string, captionText: string = "Table summary"): string {
+  const safeCaption = captionText.trim() || "Table summary";
   return text.replace(/<table(?:\s[^>]*)?>[\s\S]*?<\/table>/gi, (tableBlock) => {
     if (/<caption[\s>]/i.test(tableBlock)) return tableBlock;
-    return tableBlock.replace(/(<table(?:\s[^>]*)?>)/i, "$1<caption>Table summary</caption>\n");
+    return tableBlock.replace(/(<table(?:\s[^>]*)?>)/i, `$1<caption>${safeCaption}</caption>\n`);
   });
 }
 
@@ -1983,7 +1984,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     async (req: Request, res: Response) => {
       try {
         const id = parseInt(req.params.id as string);
-        const { fixType } = req.body;
+        const { fixType, captionText } = req.body;
         if (!fixType) {
           return res.status(400).json({ error: "fixType is required" });
         }
@@ -2013,7 +2014,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         } else if (fixType === "fix-all-caps") {
           fixedContent = fixAllCaps(content.content);
         } else if (fixType === "fix-html-table-caption") {
-          fixedContent = fixHtmlTableCaption(content.content);
+          fixedContent = fixHtmlTableCaption(content.content, captionText);
         } else if (fixType === "fix-html-table-thead") {
           fixedContent = fixHtmlTableThead(content.content);
         } else {
