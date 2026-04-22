@@ -250,6 +250,19 @@ describe("runDeterministicChecks", () => {
       );
       expect(tableIssue!.status).toBe("fail");
     });
+
+    it("fails when some tables have <th> elements but others do not", () => {
+      const html = `<html lang="en"><body>
+        <table><thead><tr><th scope="col">Name</th><th scope="col">Score</th></tr></thead><tbody><tr><td>Alice</td><td>95</td></tr></tbody></table>
+        <table><tr><td>Item A</td><td>$10</td></tr><tr><td>Item B</td><td>$20</td></tr></table>
+      </body></html>`;
+      const issues = runDeterministicChecks(html);
+      const tableIssue = issues.find(
+        (i) => i.criterion === "1.3.1" && i.title === "Table Headers"
+      );
+      expect(tableIssue).toBeDefined();
+      expect(tableIssue!.status).toBe("fail");
+    });
   });
 
   // All issues have required fields
@@ -782,14 +795,22 @@ describe("fixture: healthcare-brochure.html — mixed accessibility with some is
     expect(issues.length).toBe(9);
   });
 
-  it("evaluateOriginalDocument reports exact counts: 7 pass, 1 fail, 1 warning, score 78", () => {
+  it("fails table headers check (1.3.1 Table Headers) — second table has no <th>", () => {
+    const html = loadFixture("healthcare-brochure.html");
+    const issues = runDeterministicChecks(html);
+    const tableIssue = issues.find((i) => i.criterion === "1.3.1" && i.title === "Table Headers");
+    expect(tableIssue).toBeDefined();
+    expect(tableIssue!.status).toBe("fail");
+  });
+
+  it("evaluateOriginalDocument reports exact counts: 6 pass, 2 fail, 1 warning, score 67", () => {
     const html = loadFixture("healthcare-brochure.html");
     const report = evaluateOriginalDocument(html);
     expect(report.totalIssues).toBe(9);
-    expect(report.passCount).toBe(7);
-    expect(report.failCount).toBe(1);
+    expect(report.passCount).toBe(6);
+    expect(report.failCount).toBe(2);
     expect(report.warningCount).toBe(1);
-    expect(report.overallScore).toBe(78);
+    expect(report.overallScore).toBe(67);
   });
 
   it("every deterministic issue has all required fields", () => {

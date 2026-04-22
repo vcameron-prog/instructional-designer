@@ -406,19 +406,19 @@ export function runDeterministicChecks(html: string): ComplianceIssue[] {
       : "Some content may not be in a natural reading order, which could confuse screen readers.",
   });
 
-  const tableTags = html.match(/<table[\s>]/gi) || [];
-  const tablesWithTh = (html.match(/<th[\s>]/gi) || []).length;
-  if (tableTags.length > 0) {
+  const tableMatches = html.match(/<table[\s>][\s\S]*?<\/table>/gi) || [];
+  if (tableMatches.length > 0) {
+    const tablesWithoutTh = tableMatches.filter((t) => !/<th[\s>]/i.test(t));
+    const allHaveHeaders = tablesWithoutTh.length === 0;
     issues.push({
       criterion: "1.3.1",
       title: "Table Headers",
       level: "A",
-      status: tablesWithTh > 0 ? "pass" : "fail",
+      status: allHaveHeaders ? "pass" : "fail",
       description: "Tables must have clear headers so users understand what each column or row means.",
-      details:
-        tablesWithTh > 0
-          ? `Found ${tableTags.length} table(s) with properly labeled headers.`
-          : `Found ${tableTags.length} table(s) without labeled headers, making them hard to understand.`,
+      details: allHaveHeaders
+        ? `Found ${tableMatches.length} table(s) with properly labeled headers.`
+        : `Found ${tablesWithoutTh.length} of ${tableMatches.length} table(s) without labeled headers, making them hard to understand.`,
     });
   }
 
