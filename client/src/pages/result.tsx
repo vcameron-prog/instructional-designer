@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { useLocation, useParams } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import ReactMarkdown, { type Components } from "react-markdown";
@@ -256,6 +256,51 @@ const checkAccessibility = (content: string): AccessibilityIssue[] => {
 };
 
 type DiffLine = { type: "unchanged" | "removed" | "added"; text: string };
+
+type WordSpan = { text: string; changed: boolean };
+
+function tokenize(text: string): string[] {
+  return text.split(/(\s+)/).filter((t) => t.length > 0);
+}
+
+function computeWordDiff(removed: string, added: string): { removedSpans: WordSpan[]; addedSpans: WordSpan[] } {
+  const a = tokenize(removed);
+  const b = tokenize(added);
+  const m = a.length, n = b.length;
+  const dp: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] + 1 : Math.max(dp[i - 1][j], dp[i][j - 1]);
+    }
+  }
+  const removedSpans: WordSpan[] = [];
+  const addedSpans: WordSpan[] = [];
+  let i = m, j = n;
+  const ops: Array<{ op: "same" | "remove" | "add"; text: string }> = [];
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && a[i - 1] === b[j - 1]) {
+      ops.unshift({ op: "same", text: a[i - 1] });
+      i--; j--;
+    } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+      ops.unshift({ op: "add", text: b[j - 1] });
+      j--;
+    } else {
+      ops.unshift({ op: "remove", text: a[i - 1] });
+      i--;
+    }
+  }
+  for (const op of ops) {
+    if (op.op === "same") {
+      removedSpans.push({ text: op.text, changed: false });
+      addedSpans.push({ text: op.text, changed: false });
+    } else if (op.op === "remove") {
+      removedSpans.push({ text: op.text, changed: true });
+    } else {
+      addedSpans.push({ text: op.text, changed: true });
+    }
+  }
+  return { removedSpans, addedSpans };
+}
 
 function computeLineDiff(before: string, after: string): DiffLine[] {
   const a = before.split("\n");
@@ -1321,34 +1366,71 @@ export default function ResultPage() {
               if (hunks.length === 0) {
                 return <p className="text-muted-foreground italic">No changes would be made by this fix.</p>;
               }
-              return hunks.map((item, idx) => {
+              const elements: ReactNode[] = [];
+              let i2 = 0;
+              while (i2 < hunks.length) {
+                const item = hunks[i2];
                 if (item === "ellipsis") {
-                  return (
-                    <div key={idx} className="text-muted-foreground text-center py-0.5 select-none">
-                      ···
+                  elements.push(
+                    <div key={i2} className="text-muted-foreground text-center py-0.5 select-none">···</div>
+                  );
+                  i2++;
+                  continue;
+                }
+                const next = hunks[i2 + 1];
+                const isPair =
+                  item.type === "removed" &&
+                  next !== undefined &&
+                  next !== "ellipsis" &&
+                  next.type === "added";
+                if (isPair) {
+                  const nextLine = next as DiffLine;
+                  const { removedSpans, addedSpans } = computeWordDiff(item.text, nextLine.text);
+                  elements.push(
+                    <div key={i2} className="bg-red-100 dark:bg-red-950 text-red-800 dark:text-red-200 px-2 py-0.5 rounded-sm whitespace-pre-wrap break-all" data-testid="diff-line-removed">
+                      <span className="select-none mr-1 opacity-60">−</span>
+                      {removedSpans.map((s, si) =>
+                        s.changed
+                          ? <mark key={si} className="bg-red-300 dark:bg-red-700 text-red-900 dark:text-red-100 rounded-sm px-0.5" data-testid="diff-word-removed">{s.text}</mark>
+                          : <span key={si}>{s.text}</span>
+                      )}
                     </div>
                   );
+                  elements.push(
+                    <div key={i2 + 1} className="bg-green-100 dark:bg-green-950 text-green-800 dark:text-green-200 px-2 py-0.5 rounded-sm whitespace-pre-wrap break-all" data-testid="diff-line-added">
+                      <span className="select-none mr-1 opacity-60">+</span>
+                      {addedSpans.map((s, si) =>
+                        s.changed
+                          ? <mark key={si} className="bg-green-300 dark:bg-green-700 text-green-900 dark:text-green-100 rounded-sm px-0.5" data-testid="diff-word-added">{s.text}</mark>
+                          : <span key={si}>{s.text}</span>
+                      )}
+                    </div>
+                  );
+                  i2 += 2;
+                  continue;
                 }
                 if (item.type === "removed") {
-                  return (
-                    <div key={idx} className="bg-red-100 dark:bg-red-950 text-red-800 dark:text-red-200 px-2 py-0.5 rounded-sm whitespace-pre-wrap break-all" data-testid="diff-line-removed">
+                  elements.push(
+                    <div key={i2} className="bg-red-100 dark:bg-red-950 text-red-800 dark:text-red-200 px-2 py-0.5 rounded-sm whitespace-pre-wrap break-all" data-testid="diff-line-removed">
                       <span className="select-none mr-1 opacity-60">−</span>{item.text || " "}
                     </div>
                   );
-                }
-                if (item.type === "added") {
-                  return (
-                    <div key={idx} className="bg-green-100 dark:bg-green-950 text-green-800 dark:text-green-200 px-2 py-0.5 rounded-sm whitespace-pre-wrap break-all" data-testid="diff-line-added">
+                } else if (item.type === "added") {
+                  elements.push(
+                    <div key={i2} className="bg-green-100 dark:bg-green-950 text-green-800 dark:text-green-200 px-2 py-0.5 rounded-sm whitespace-pre-wrap break-all" data-testid="diff-line-added">
                       <span className="select-none mr-1 opacity-60">+</span>{item.text || " "}
                     </div>
                   );
+                } else {
+                  elements.push(
+                    <div key={i2} className="text-muted-foreground px-2 py-0.5 whitespace-pre-wrap break-all" data-testid="diff-line-unchanged">
+                      <span className="select-none mr-1 opacity-40"> </span>{item.text || " "}
+                    </div>
+                  );
                 }
-                return (
-                  <div key={idx} className="text-muted-foreground px-2 py-0.5 whitespace-pre-wrap break-all" data-testid="diff-line-unchanged">
-                    <span className="select-none mr-1 opacity-40"> </span>{item.text || " "}
-                  </div>
-                );
-              });
+                i2++;
+              }
+              return elements;
             })()}
           </ScrollArea>
           <DialogFooter className="gap-2 sm:gap-0">
