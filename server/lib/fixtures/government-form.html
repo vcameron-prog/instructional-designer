@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title></title>
+  <style>
+    body { font-family: "Times New Roman", serif; color: #888888; background: #ffffff; }
+    .form-label { color: #999999; background-color: #ffffff; }
+  </style>
+</head>
+<body>
+  <div id="wrapper">
+
+    <div id="branding">
+      <img src="agency-logo.png">
+      <img src="seal.png">
+    </div>
+
+    <div id="page-content">
+
+      <h2>Form W-99: Household Income Verification Request</h2>
+
+      <p class="form-label">Complete all sections. Incomplete forms will be returned. Use black ink only.</p>
+
+      <h3>Section A — Applicant Information</h3>
+
+      <table>
+        <tr>
+          <td>Last Name</td>
+          <td><input type="text" name="last_name"></td>
+          <td>First Name</td>
+          <td><input type="text" name="first_name"></td>
+        </tr>
+        <tr>
+          <td>Date of Birth</td>
+          <td><input type="text" name="dob"></td>
+          <td>Social Security Number</td>
+          <td><input type="text" name="ssn"></td>
+        </tr>
+      </table>
+
+      <h3>Section B — Income Sources</h3>
+
+      <table>
+        <tr>
+          <td>Employer Name</td>
+          <td>Annual Gross Income</td>
+          <td>Employment Type</td>
+        </tr>
+        <tr>
+          <td><input type="text" name="employer"></td>
+          <td><input type="text" name="income"></td>
+          <td><input type="text" name="emp_type"></td>
+        </tr>
+        <tr>
+          <td>Secondary Employer (if any)</td>
+          <td>Additional Income</td>
+          <td>Source Type</td>
+        </tr>
+        <tr>
+          <td><input type="text" name="employer2"></td>
+          <td><input type="text" name="income2"></td>
+          <td><input type="text" name="source_type"></td>
+        </tr>
+      </table>
+
+      <h5>Supporting Documents Required</h5>
+      <p>Attach copies of W-2 forms, 1099s, and recent pay stubs for the current and prior tax year.</p>
+
+      <h3>Section C — Household Composition</h3>
+
+      <table>
+        <tr>
+          <td>Name</td>
+          <td>Relationship</td>
+          <td>Age</td>
+          <td>Income Contribution</td>
+        </tr>
+        <tr>
+          <td><input type="text" name="member1_name"></td>
+          <td><input type="text" name="member1_rel"></td>
+          <td><input type="text" name="member1_age"></td>
+          <td><input type="text" name="member1_income"></td>
+        </tr>
+        <tr>
+          <td><input type="text" name="member2_name"></td>
+          <td><input type="text" name="member2_rel"></td>
+          <td><input type="text" name="member2_age"></td>
+          <td><input type="text" name="member2_income"></td>
+        </tr>
+      </table>
+
+      <h3>Section D — Certification &amp; Signature</h3>
+
+      <p>I certify that all information provided is accurate and complete to the best of my knowledge.</p>
+
+      <table>
+        <tr>
+          <td>Signature</td>
+          <td><input type="text" name="signature"></td>
+          <td>Date</td>
+          <td><input type="text" name="date"></td>
+        </tr>
+      </table>
+
+      <p>Return completed form to: Agency of Housing &amp; Community Services, PO Box 4400, Capital City, ST 00001</p>
+
+      <div>
+        <p>For office use only:</p>
+        <table>
+          <tr>
+            <td>Received By</td>
+            <td>Case Number</td>
+            <td>Status</td>
+          </tr>
+          <tr>
+            <td><input type="text" name="received_by"></td>
+            <td><input type="text" name="case_num"></td>
+            <td><input type="text" name="status"></td>
+          </tr>
+        </table>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

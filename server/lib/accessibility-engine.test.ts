@@ -1,4 +1,7 @@
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "fs";
+import { fileURLToPath } from "url";
+import { join, dirname } from "path";
 import {
   runDeterministicChecks,
   buildComplianceReport,
@@ -17,6 +20,11 @@ const TRANSPARENT_PIXEL = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAA
 
 function makeImage(name: string, dataUrl = `data:image/png;base64,${name}`): ExtractedImage {
   return { name, dataUrl, pageNumber: 1, width: 100, height: 100 };
+}
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+function loadFixture(name: string): string {
+  return readFileSync(join(__dirname, "fixtures", name), "utf-8");
 }
 
 // ---------------------------------------------------------------------------
@@ -628,6 +636,265 @@ describe("runDeterministicChecks – contrast check (1.4.3)", () => {
     const issues = runDeterministicChecks(html);
     const contrastIssue = issues.find((i) => i.criterion === "1.4.3");
     expect(contrastIssue).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// HTML Fixture tests — realistic documents
+// ---------------------------------------------------------------------------
+
+describe("fixture: corporate-report.html — well-structured accessible document", () => {
+  it("passes language check (3.1.1)", () => {
+    const html = loadFixture("corporate-report.html");
+    const issues = runDeterministicChecks(html);
+    expect(issues.find((i) => i.criterion === "3.1.1")!.status).toBe("pass");
+  });
+
+  it("passes page title check (2.4.2)", () => {
+    const html = loadFixture("corporate-report.html");
+    const issues = runDeterministicChecks(html);
+    expect(issues.find((i) => i.criterion === "2.4.2")!.status).toBe("pass");
+  });
+
+  it("passes heading check (2.4.6) — has an h1", () => {
+    const html = loadFixture("corporate-report.html");
+    const issues = runDeterministicChecks(html);
+    expect(issues.find((i) => i.criterion === "2.4.6")!.status).toBe("pass");
+  });
+
+  it("passes landmark check (2.4.1) — has a <main> element", () => {
+    const html = loadFixture("corporate-report.html");
+    const issues = runDeterministicChecks(html);
+    expect(issues.find((i) => i.criterion === "2.4.1")!.status).toBe("pass");
+  });
+
+  it("passes image alt check (1.1.1) — all images have alt text", () => {
+    const html = loadFixture("corporate-report.html");
+    const issues = runDeterministicChecks(html);
+    expect(issues.find((i) => i.criterion === "1.1.1")!.status).toBe("pass");
+  });
+
+  it("passes table headers check (1.3.1 Table Headers) — all tables use <th>", () => {
+    const html = loadFixture("corporate-report.html");
+    const issues = runDeterministicChecks(html);
+    const tableIssue = issues.find((i) => i.criterion === "1.3.1" && i.title === "Table Headers");
+    expect(tableIssue).toBeDefined();
+    expect(tableIssue!.status).toBe("pass");
+  });
+
+  it("passes heading order check (1.3.1 Heading Order) — no skipped levels", () => {
+    const html = loadFixture("corporate-report.html");
+    const issues = runDeterministicChecks(html);
+    const orderIssue = issues.find((i) => i.criterion === "1.3.1" && i.title === "Heading Order");
+    expect(orderIssue).toBeDefined();
+    expect(orderIssue!.status).toBe("pass");
+  });
+
+  it("passes reading order check (1.3.2) — no position:absolute divs", () => {
+    const html = loadFixture("corporate-report.html");
+    const issues = runDeterministicChecks(html);
+    expect(issues.find((i) => i.criterion === "1.3.2")!.status).toBe("pass");
+  });
+
+  it("evaluateOriginalDocument returns a high overall score (>=80)", () => {
+    const html = loadFixture("corporate-report.html");
+    const report = evaluateOriginalDocument(html);
+    expect(report.overallScore).toBeGreaterThanOrEqual(80);
+    expect(report.failCount).toBe(0);
+  });
+
+  it("returns exactly 9 issues — one per deterministic check triggered", () => {
+    const html = loadFixture("corporate-report.html");
+    const issues = runDeterministicChecks(html);
+    expect(issues.length).toBe(9);
+  });
+
+  it("evaluateOriginalDocument reports 9 issues all passing (0 fail, 0 warning)", () => {
+    const html = loadFixture("corporate-report.html");
+    const report = evaluateOriginalDocument(html);
+    expect(report.totalIssues).toBe(9);
+    expect(report.passCount).toBe(9);
+    expect(report.failCount).toBe(0);
+    expect(report.warningCount).toBe(0);
+    expect(report.overallScore).toBe(100);
+  });
+
+  it("every deterministic issue has all required fields", () => {
+    const html = loadFixture("corporate-report.html");
+    const issues = runDeterministicChecks(html);
+    for (const issue of issues) {
+      expect(issue.criterion).toBeTruthy();
+      expect(issue.title).toBeTruthy();
+      expect(["A", "AA", "AAA"]).toContain(issue.level);
+      expect(["pass", "fail", "warning", "fixed", "accepted"]).toContain(issue.status);
+      expect(issue.description).toBeTruthy();
+      expect(issue.details).toBeTruthy();
+    }
+  });
+});
+
+describe("fixture: healthcare-brochure.html — mixed accessibility with some issues", () => {
+  it("passes language check (3.1.1)", () => {
+    const html = loadFixture("healthcare-brochure.html");
+    const issues = runDeterministicChecks(html);
+    expect(issues.find((i) => i.criterion === "3.1.1")!.status).toBe("pass");
+  });
+
+  it("passes landmark check (2.4.1) — uses role=main", () => {
+    const html = loadFixture("healthcare-brochure.html");
+    const issues = runDeterministicChecks(html);
+    expect(issues.find((i) => i.criterion === "2.4.1")!.status).toBe("pass");
+  });
+
+  it("fails image alt check (1.1.1) — multiple images missing alt text", () => {
+    const html = loadFixture("healthcare-brochure.html");
+    const issues = runDeterministicChecks(html);
+    const altIssue = issues.find((i) => i.criterion === "1.1.1")!;
+    expect(altIssue.status).toBe("fail");
+    expect(altIssue.details).toMatch(/3 of 5/);
+  });
+
+  it("warns on reading order (1.3.2) — has a position:absolute div", () => {
+    const html = loadFixture("healthcare-brochure.html");
+    const issues = runDeterministicChecks(html);
+    expect(issues.find((i) => i.criterion === "1.3.2")!.status).toBe("warning");
+  });
+
+  it("has at least one fail and at least one warning", () => {
+    const html = loadFixture("healthcare-brochure.html");
+    const issues = runDeterministicChecks(html);
+    expect(issues.filter((i) => i.status === "fail").length).toBeGreaterThanOrEqual(1);
+    expect(issues.filter((i) => i.status === "warning").length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("evaluateOriginalDocument score is between 50 and 99 (partially accessible)", () => {
+    const html = loadFixture("healthcare-brochure.html");
+    const report = evaluateOriginalDocument(html);
+    expect(report.overallScore).toBeGreaterThanOrEqual(50);
+    expect(report.overallScore).toBeLessThan(100);
+    expect(report.failCount).toBeGreaterThan(0);
+  });
+
+  it("returns exactly 9 issues total", () => {
+    const html = loadFixture("healthcare-brochure.html");
+    const issues = runDeterministicChecks(html);
+    expect(issues.length).toBe(9);
+  });
+
+  it("evaluateOriginalDocument reports exact counts: 7 pass, 1 fail, 1 warning, score 78", () => {
+    const html = loadFixture("healthcare-brochure.html");
+    const report = evaluateOriginalDocument(html);
+    expect(report.totalIssues).toBe(9);
+    expect(report.passCount).toBe(7);
+    expect(report.failCount).toBe(1);
+    expect(report.warningCount).toBe(1);
+    expect(report.overallScore).toBe(78);
+  });
+
+  it("every deterministic issue has all required fields", () => {
+    const html = loadFixture("healthcare-brochure.html");
+    const issues = runDeterministicChecks(html);
+    for (const issue of issues) {
+      expect(issue.criterion).toBeTruthy();
+      expect(issue.title).toBeTruthy();
+      expect(["A", "AA", "AAA"]).toContain(issue.level);
+      expect(["pass", "fail", "warning", "fixed", "accepted"]).toContain(issue.status);
+      expect(issue.description).toBeTruthy();
+      expect(issue.details).toBeTruthy();
+    }
+  });
+});
+
+describe("fixture: government-form.html — document with multiple accessibility failures", () => {
+  it("fails language check (3.1.1) — no lang attribute", () => {
+    const html = loadFixture("government-form.html");
+    const issues = runDeterministicChecks(html);
+    expect(issues.find((i) => i.criterion === "3.1.1")!.status).toBe("fail");
+  });
+
+  it("fails page title check (2.4.2) — empty <title>", () => {
+    const html = loadFixture("government-form.html");
+    const issues = runDeterministicChecks(html);
+    expect(issues.find((i) => i.criterion === "2.4.2")!.status).toBe("fail");
+  });
+
+  it("fails heading check (2.4.6) — no h1 present", () => {
+    const html = loadFixture("government-form.html");
+    const issues = runDeterministicChecks(html);
+    expect(issues.find((i) => i.criterion === "2.4.6")!.status).toBe("fail");
+  });
+
+  it("warns on bypass blocks (2.4.1) — no main landmark", () => {
+    const html = loadFixture("government-form.html");
+    const issues = runDeterministicChecks(html);
+    expect(issues.find((i) => i.criterion === "2.4.1")!.status).toBe("warning");
+  });
+
+  it("fails image alt check (1.1.1) — all images missing alt text", () => {
+    const html = loadFixture("government-form.html");
+    const issues = runDeterministicChecks(html);
+    const altIssue = issues.find((i) => i.criterion === "1.1.1")!;
+    expect(altIssue.status).toBe("fail");
+    expect(altIssue.details).toMatch(/2 of 2/);
+  });
+
+  it("fails table headers check (1.3.1 Table Headers) — no <th> in any table", () => {
+    const html = loadFixture("government-form.html");
+    const issues = runDeterministicChecks(html);
+    const tableIssue = issues.find((i) => i.criterion === "1.3.1" && i.title === "Table Headers");
+    expect(tableIssue).toBeDefined();
+    expect(tableIssue!.status).toBe("fail");
+  });
+
+  it("warns on heading order (1.3.1 Heading Order) — jumps from h3 to h5", () => {
+    const html = loadFixture("government-form.html");
+    const issues = runDeterministicChecks(html);
+    const orderIssue = issues.find((i) => i.criterion === "1.3.1" && i.title === "Heading Order");
+    expect(orderIssue).toBeDefined();
+    expect(orderIssue!.status).toBe("warning");
+    expect(orderIssue!.details).toContain("h3 → h5");
+  });
+
+  it("has multiple failures — at least 4 fail statuses", () => {
+    const html = loadFixture("government-form.html");
+    const issues = runDeterministicChecks(html);
+    expect(issues.filter((i) => i.status === "fail").length).toBeGreaterThanOrEqual(4);
+  });
+
+  it("returns exactly 9 issues total", () => {
+    const html = loadFixture("government-form.html");
+    const issues = runDeterministicChecks(html);
+    expect(issues.length).toBe(9);
+  });
+
+  it("evaluateOriginalDocument reports exact counts: 1 pass, 5 fail, 3 warning, score 11", () => {
+    const html = loadFixture("government-form.html");
+    const report = evaluateOriginalDocument(html);
+    expect(report.totalIssues).toBe(9);
+    expect(report.passCount).toBe(1);
+    expect(report.failCount).toBe(5);
+    expect(report.warningCount).toBe(3);
+    expect(report.overallScore).toBe(11);
+  });
+
+  it("evaluateOriginalDocument returns a low overall score (<50)", () => {
+    const html = loadFixture("government-form.html");
+    const report = evaluateOriginalDocument(html);
+    expect(report.overallScore).toBeLessThan(50);
+    expect(report.failCount).toBeGreaterThanOrEqual(4);
+  });
+
+  it("every deterministic issue has all required fields", () => {
+    const html = loadFixture("government-form.html");
+    const issues = runDeterministicChecks(html);
+    for (const issue of issues) {
+      expect(issue.criterion).toBeTruthy();
+      expect(issue.title).toBeTruthy();
+      expect(["A", "AA", "AAA"]).toContain(issue.level);
+      expect(["pass", "fail", "warning", "fixed", "accepted"]).toContain(issue.status);
+      expect(issue.description).toBeTruthy();
+      expect(issue.details).toBeTruthy();
+    }
   });
 });
 
