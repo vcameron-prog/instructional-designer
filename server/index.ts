@@ -3,6 +3,7 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { seedDatabase } from "./seed";
+import { trimAllOversizedVersions } from "./lib/trimVersions";
 
 const app = express();
 const httpServer = createServer(app);
@@ -63,7 +64,10 @@ app.use((req, res, next) => {
 (async () => {
   // Seed database with sample data
   await seedDatabase();
-  
+
+  // Enforce version history limit on any pre-existing oversized rows
+  await trimAllOversizedVersions();
+
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
