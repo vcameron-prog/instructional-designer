@@ -41,7 +41,7 @@ import {
 } from "@/components/ui/collapsible";
 import { PoweredByFooter } from "@/components/powered-by-footer";
 import { HeaderControls } from "@/components/header-controls";
-import { ArrowLeft, Copy, Download, FileText, RefreshCw, CheckCircle, AlertTriangle, Lightbulb, ChevronDown, ChevronRight, Loader2, Library, Link2, Link2Off } from "lucide-react";
+import { ArrowLeft, Copy, Download, FileText, RefreshCw, CheckCircle, AlertTriangle, Lightbulb, ChevronDown, ChevronRight, Loader2, Library, Link2, Link2Off, History, RotateCcw } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TOOLS, LOADING_MESSAGES } from "@/lib/constants";
@@ -50,7 +50,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ToastAction } from "@/components/ui/toast";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useAuth } from "@/hooks/use-auth";
-import type { Course, GeneratedContent } from "@shared/schema";
+import type { Course, GeneratedContent, ContentVersion } from "@shared/schema";
 
 interface AppConfig {
   versionHistoryLimit: number;
@@ -278,6 +278,8 @@ export default function ResultPage() {
   const [libraryDescription, setLibraryDescription] = useState("");
   const [expandedSections, setExpandedSections] = useState<Record<number, boolean>>({});
   const [fixingIssue, setFixingIssue] = useState<string | null>(null);
+  const [versionHistoryOpen, setVersionHistoryOpen] = useState(false);
+  const [selectedVersionId, setSelectedVersionId] = useState<number | null>(null);
 
   useEffect(() => {
     setExpandedSections({});
@@ -293,6 +295,18 @@ export default function ResultPage() {
     queryKey: ["/api/courses", courseId],
     enabled: !!courseId && !isStandalone,
   });
+
+  const { data: versions } = useQuery<ContentVersion[]>({
+    queryKey: ["/api/content", contentId, "versions"],
+    enabled: !!contentId && versionHistoryOpen,
+    staleTime: 0,
+  });
+
+  useEffect(() => {
+    if (versions && versions.length > 0 && selectedVersionId === null) {
+      setSelectedVersionId(versions[0].id);
+    }
+  }, [versions]);
 
   const anonData = isAnon ? queryClient.getQueryData<GeneratedContent>(["/api/standalone-content", "anon"]) : undefined;
 
@@ -319,6 +333,7 @@ export default function ResultPage() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/content", contentId] });
       queryClient.invalidateQueries({ queryKey: ["/api/standalone-content", contentId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/content", contentId, "versions"] });
       setRefinementOpen(false);
       setRefinementRequest("");
       setIsRefining(false);
@@ -383,10 +398,29 @@ export default function ResultPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/content", contentId] });
       queryClient.invalidateQueries({ queryKey: ["/api/standalone-content", contentId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/content", contentId, "versions"] });
       toast({ title: "Fix undone", description: "Content restored to the version before the fix." });
     },
     onError: (error) => {
       toast({ title: "Undo failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const restoreVersionMutation = useMutation({
+    mutationFn: async (versionId: number) => {
+      const response = await apiRequest("POST", `/api/content/${contentId}/restore-version`, { versionId });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/content", contentId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/standalone-content", contentId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/content", contentId, "versions"] });
+      setVersionHistoryOpen(false);
+      setSelectedVersionId(null);
+      toast({ title: "Version restored", description: "Content has been restored to the selected version." });
+    },
+    onError: (error) => {
+      toast({ title: "Restore failed", description: error.message, variant: "destructive" });
     },
   });
 
@@ -398,6 +432,7 @@ export default function ResultPage() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/content", contentId] });
       queryClient.invalidateQueries({ queryKey: ["/api/standalone-content", contentId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/content", contentId, "versions"] });
       setFixingIssue(null);
       const preFixVersionId: number | null = data?.preFixVersionId ?? null;
       toast({
@@ -495,6 +530,18 @@ export default function ResultPage() {
       onSettled: () => clearInterval(interval),
     });
   };
+
+  function getVersionLabel(version: ContentVersion): string {
+    if (version.refinementRequest === "accessibility-fix-snapshot") {
+      return "Before accessibility fix";
+    }
+    if (version.refinementRequest === "Previous version") {
+      return "Before refinement";
+    }
+    return version.refinementRequest || "Saved version";
+  }
+
+  const selectedVersion = versions?.find(v => v.id === selectedVersionId) ?? null;
 
   const tool = content ? TOOLS.find(t => t.id === content.toolType) : null;
   const accessibilityIssues = content ? checkAccessibility(content.content) : [];
@@ -825,7 +872,107 @@ export default function ResultPage() {
                 {new Date(content.createdAt).toLocaleTimeString()}
               </CardDescription>
             </div>
-            {isAuthenticated && !isAnon && <Dialog open={refinementOpen} onOpenChange={setRefinementOpen}>
+            {isAuthenticated && !isAnon && contentId && (
+            <div className="flex items-center gap-2">
+              <Dialog open={versionHistoryOpen} onOpenChange={(open) => { setVersionHistoryOpen(open); if (!open) setSelectedVersionId(null); }}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" className="gap-2" data-testid="button-version-history">
+                    <History className="w-4 h-4" />
+                    History
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-4xl max-h-[85vh] flex flex-col">
+                  <DialogHeader>
+                    <DialogTitle>Version History</DialogTitle>
+                    <DialogDescription>
+                      Browse all saved versions and restore any previous state
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="flex flex-col sm:flex-row gap-4 flex-1 min-h-0 overflow-hidden">
+                    <div className="sm:w-64 shrink-0 flex flex-col min-h-0">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                        {versions?.length ?? 0} saved version{versions?.length !== 1 ? "s" : ""}
+                      </p>
+                      {!versions ? (
+                        <div className="flex items-center justify-center py-8">
+                          <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                        </div>
+                      ) : versions.length === 0 ? (
+                        <div className="py-8 text-center">
+                          <History className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                          <p className="text-sm text-muted-foreground">No saved versions yet.</p>
+                          <p className="text-xs text-muted-foreground mt-1">Versions are saved automatically when you refine or apply accessibility fixes.</p>
+                        </div>
+                      ) : (
+                        <ScrollArea className="flex-1">
+                          <div className="space-y-1 pr-2">
+                            {versions.map((version) => (
+                              <button
+                                key={version.id}
+                                className={`w-full text-left rounded-md px-3 py-2.5 transition-colors border ${
+                                  selectedVersionId === version.id
+                                    ? "bg-primary/10 border-primary/30"
+                                    : "bg-background hover:bg-muted border-transparent hover:border-border"
+                                }`}
+                                onClick={() => setSelectedVersionId(version.id)}
+                                data-testid={`version-item-${version.id}`}
+                              >
+                                <p className="text-sm font-medium leading-snug line-clamp-2">{getVersionLabel(version)}</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                  {new Date(version.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                                  {" · "}
+                                  {new Date(version.createdAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
+                                </p>
+                              </button>
+                            ))}
+                          </div>
+                        </ScrollArea>
+                      )}
+                    </div>
+                    <div className="flex-1 flex flex-col min-h-0 border rounded-md overflow-hidden">
+                      {selectedVersion ? (
+                        <>
+                          <div className="px-4 py-3 border-b bg-muted/30 shrink-0 flex items-center justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-medium">{getVersionLabel(selectedVersion)}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {new Date(selectedVersion.createdAt).toLocaleString()}
+                              </p>
+                            </div>
+                            <Button
+                              size="sm"
+                              className="gap-1.5 shrink-0"
+                              onClick={() => restoreVersionMutation.mutate(selectedVersion.id)}
+                              disabled={restoreVersionMutation.isPending}
+                              data-testid="button-restore-version"
+                            >
+                              {restoreVersionMutation.isPending ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <RotateCcw className="w-3.5 h-3.5" />
+                              )}
+                              Restore this version
+                            </Button>
+                          </div>
+                          <ScrollArea className="flex-1 p-4">
+                            <div className="prose prose-sm max-w-none dark:prose-invert whitespace-pre-wrap text-sm text-foreground leading-relaxed font-mono" data-testid="version-preview-content">
+                              {selectedVersion.content}
+                            </div>
+                          </ScrollArea>
+                        </>
+                      ) : (
+                        <div className="flex-1 flex items-center justify-center">
+                          <div className="text-center">
+                            <History className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+                            <p className="text-sm text-muted-foreground">Select a version to preview its content</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            <Dialog open={refinementOpen} onOpenChange={setRefinementOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline" className="gap-2" data-testid="button-refine">
                   <RefreshCw className="w-4 h-4" />
@@ -861,7 +1008,9 @@ export default function ResultPage() {
                   </Button>
                 </DialogFooter>
               </DialogContent>
-            </Dialog>}
+            </Dialog>
+            </div>
+            )}
           </CardHeader>
           <CardContent>
             <ScrollArea className="h-[600px] pr-4">
