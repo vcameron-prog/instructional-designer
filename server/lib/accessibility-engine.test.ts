@@ -1777,6 +1777,16 @@ describe("ensureAltText", () => {
     expect(result).not.toMatch(/alt="[^"]*&[^a-z#][^"]*"/);
     expect(result).toContain('alt="Image: sales&amp;marketing"');
   });
+
+  it('escapes all four special characters when src uses single quotes and filename contains &, ", <, and >', () => {
+    const html = `<img src='a&b<"c">d.png'>`;
+    const result = ensureAltText(html, []);
+    expect(result).toContain("&amp;");
+    expect(result).toContain("&quot;");
+    expect(result).toContain("&lt;");
+    expect(result).toContain("&gt;");
+    expect(result).toContain('alt="Image: a&amp;b&lt;&quot;c&quot;&gt;d"');
+  });
 });
 
 // ---------------------------------------------------------------------------

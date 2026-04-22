@@ -173,7 +173,7 @@ export function ensureAltText(html: string, images: ExtractedImage[]): string {
   const altAttrRegex = /(?:^|\s)alt\s*=\s*(?:"([^"]*)"|'([^']*)')/i;
 
   return html.replace(
-    /<img\s([^>]*)>/gi,
+    /<img\s((?:[^>"']|"[^"]*"|'[^']*')*?)>/gi,
     (_match, attrs: string) => {
       const altMatch = attrs.match(altAttrRegex);
       const existingAlt = altMatch ? (altMatch[1] ?? altMatch[2] ?? "") : null;
