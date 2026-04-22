@@ -3921,7 +3921,7 @@ describe("fixComplianceIssue – multi-fix sequences and report accumulation", (
 
     // Fix 3: h1 heading — uses AI; mock only this response
     const html3 = result2.accessibleHtml.replace(
-      "<h2>Form W-99: Household Income Verification Request</h2>",
+      /<h2>Form W-99: Household Income Verification Request<\/h2>/i,
       "<h1>Form W-99: Household Income Verification Request</h1>"
     );
     mockAiResponse(`<!DOCTYPE html>\n${html3}`);
@@ -4091,6 +4091,193 @@ describe("fixComplianceIssue – multi-fix sequences and report accumulation", (
 
     // fixedCount accumulates: 2 total
     expect(result2.complianceReport.fixedCount).toBe(2);
+  });
+
+  // ---------------------------------------------------------------------------
+  // No-regression: originally-passing issues must not flip to fail/warning
+  // ---------------------------------------------------------------------------
+
+  it("no originally-passing issue regresses after applying an AI fix on the government-form fixture", async () => {
+    const initialIssues = runDeterministicChecks(fixtureHtml);
+    const initialReport = makeReport(initialIssues);
+
+    // Record which issues were "pass" at baseline
+    const originallyPassing = initialIssues
+      .map((issue, idx) => ({ issue, idx }))
+      .filter(({ issue }) => issue.status === "pass");
+
+    // Sanity: there must be at least one passing issue to make this test meaningful
+    expect(originallyPassing.length).toBeGreaterThan(0);
+
+    // Fix lang (3.1.1) — mock AI returns valid HTML that only adds lang="en"
+    const fixedHtml = fixtureHtml.replace("<html>", '<html lang="en">');
+    mockAiResponse(`<!DOCTYPE html>\n${fixedHtml}`);
+
+    const langIssue = initialIssues.find((i) => i.criterion === "3.1.1")!;
+    const result = await fixComplianceIssue(
+      fixtureHtml,
+      langIssue,
+      initialIssues.indexOf(langIssue),
+      initialReport
+    );
+
+    // Every issue that was originally "pass" must still be "pass" or "fixed"
+    for (const { issue, idx } of originallyPassing) {
+      const afterIssue = result.complianceReport.issues[idx];
+      expect(
+        afterIssue.status === "pass" || afterIssue.status === "fixed",
+        `Issue ${afterIssue.criterion} "${afterIssue.title}" (index ${idx}) was originally "pass" but became "${afterIssue.status}" after the fix`
+      ).toBe(true);
+    }
+  });
+
+  it("no originally-passing issue regresses after two sequential AI fixes on the government-form fixture", async () => {
+    const initialIssues = runDeterministicChecks(fixtureHtml);
+    const initialReport = makeReport(initialIssues);
+
+    const originallyPassing = initialIssues
+      .map((issue, idx) => ({ issue, idx }))
+      .filter(({ issue }) => issue.status === "pass");
+
+    expect(originallyPassing.length).toBeGreaterThan(0);
+
+    // Fix 1: lang
+    const html1 = fixtureHtml.replace("<html>", '<html lang="en">');
+    mockAiResponse(`<!DOCTYPE html>\n${html1}`);
+    const langIssue = initialIssues.find((i) => i.criterion === "3.1.1")!;
+    const result1 = await fixComplianceIssue(
+      fixtureHtml,
+      langIssue,
+      initialIssues.indexOf(langIssue),
+      initialReport
+    );
+
+    for (const { issue, idx } of originallyPassing) {
+      const afterIssue = result1.complianceReport.issues[idx];
+      expect(
+        afterIssue.status === "pass" || afterIssue.status === "fixed",
+        `After fix 1: issue ${afterIssue.criterion} "${afterIssue.title}" (index ${idx}) was originally "pass" but became "${afterIssue.status}"`
+      ).toBe(true);
+    }
+
+    // Fix 2: page title, chained from fix 1
+    const html2 = html1.replace("<title></title>", "<title>Form W-99</title>");
+    mockAiResponse(`<!DOCTYPE html>\n${html2}`);
+    const titleIssue = result1.complianceReport.issues.find((i) => i.criterion === "2.4.2")!;
+    const result2 = await fixComplianceIssue(
+      result1.accessibleHtml,
+      titleIssue,
+      result1.complianceReport.issues.indexOf(titleIssue),
+      result1.complianceReport
+    );
+
+    for (const { issue, idx } of originallyPassing) {
+      const afterIssue = result2.complianceReport.issues[idx];
+      expect(
+        afterIssue.status === "pass" || afterIssue.status === "fixed",
+        `After fix 2: issue ${afterIssue.criterion} "${afterIssue.title}" (index ${idx}) was originally "pass" but became "${afterIssue.status}"`
+      ).toBe(true);
+    }
+  });
+
+  it("no originally-passing issue regresses after a deterministic ARIA fix on a custom minimal HTML", async () => {
+    // Custom minimal HTML: several issues pass at baseline; one ARIA link role issue warns
+    const customHtml = `<!DOCTYPE html>
+<html lang="en">
+<head><title>My Test Page</title></head>
+<body>
+<main>
+  <h1>Welcome</h1>
+  <p>Some content with no images.</p>
+  <div role="link" tabindex="0" onclick="navigate()">Go somewhere</div>
+</main>
+</body>
+</html>`;
+
+    const initialIssues = runDeterministicChecks(customHtml);
+    const initialReport = makeReport(initialIssues);
+
+    const originallyPassing = initialIssues
+      .map((issue, idx) => ({ issue, idx }))
+      .filter(({ issue }) => issue.status === "pass");
+
+    expect(originallyPassing.length).toBeGreaterThan(0);
+
+    // The ARIA Link Role fix is deterministic — no AI call needed
+    const ariaLinkIssue = initialIssues.find(
+      (i) => i.criterion === "4.1.2" && i.title === "ARIA Link Role on Non-Anchor Element"
+    )!;
+    expect(ariaLinkIssue).toBeDefined();
+    expect(ariaLinkIssue.status).toBe("warning");
+
+    const result = await fixComplianceIssue(
+      customHtml,
+      ariaLinkIssue,
+      initialIssues.indexOf(ariaLinkIssue),
+      initialReport
+    );
+
+    // The targeted issue must now be fixed
+    expect(
+      result.complianceReport.issues[initialIssues.indexOf(ariaLinkIssue)].status
+    ).toBe("fixed");
+
+    // Every originally-passing issue must still be "pass" or "fixed"
+    for (const { issue, idx } of originallyPassing) {
+      const afterIssue = result.complianceReport.issues[idx];
+      expect(
+        afterIssue.status === "pass" || afterIssue.status === "fixed",
+        `Issue ${afterIssue.criterion} "${afterIssue.title}" (index ${idx}) was originally "pass" but became "${afterIssue.status}" after the deterministic fix`
+      ).toBe(true);
+    }
+  });
+
+  it("no originally-passing issue regresses when a malformed AI response only changes the targeted element on a custom minimal HTML", async () => {
+    // Minimal HTML with one failing issue (missing lang) and several passing ones
+    const customHtml = `<!DOCTYPE html>
+<html>
+<head><title>Report</title></head>
+<body>
+<main>
+  <h1>Annual Report</h1>
+  <p>No images, no absolutely positioned divs.</p>
+</main>
+</body>
+</html>`;
+
+    const initialIssues = runDeterministicChecks(customHtml);
+    const initialReport = makeReport(initialIssues);
+
+    const originallyPassing = initialIssues
+      .map((issue, idx) => ({ issue, idx }))
+      .filter(({ issue }) => issue.status === "pass");
+
+    expect(originallyPassing.length).toBeGreaterThan(0);
+
+    // Fix lang (3.1.1) — the AI response correctly adds lang="en" without touching anything else
+    const fixedHtml = customHtml.replace("<html>", '<html lang="en">');
+    mockAiResponse(`<!DOCTYPE html>\n${fixedHtml}`);
+
+    const langIssue = initialIssues.find((i) => i.criterion === "3.1.1")!;
+    expect(langIssue.status).toBe("fail");
+
+    const result = await fixComplianceIssue(
+      customHtml,
+      langIssue,
+      initialIssues.indexOf(langIssue),
+      initialReport
+    );
+
+    expect(result.complianceReport.issues[initialIssues.indexOf(langIssue)].status).toBe("fixed");
+
+    // No previously-passing issue should regress
+    for (const { issue, idx } of originallyPassing) {
+      const afterIssue = result.complianceReport.issues[idx];
+      expect(
+        afterIssue.status === "pass" || afterIssue.status === "fixed",
+        `Issue ${afterIssue.criterion} "${afterIssue.title}" (index ${idx}) was originally "pass" but became "${afterIssue.status}" after the fix`
+      ).toBe(true);
+    }
   });
 });
 
