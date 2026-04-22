@@ -176,6 +176,70 @@ const checkAccessibility = (content: string): AccessibilityIssue[] => {
     });
   }
 
+  // Check for heading level skips (e.g., h1 → h3 without h2)
+  const headingLevelMatches = [...content.matchAll(/^(#{1,6})\s/gm)];
+  if (headingLevelMatches.length > 1) {
+    let prevLevel = headingLevelMatches[0][1].length;
+    for (let h = 1; h < headingLevelMatches.length; h++) {
+      const currentLevel = headingLevelMatches[h][1].length;
+      if (currentLevel > prevLevel + 1) {
+        issues.push({
+          type: "structure",
+          severity: "warning",
+          message: `Heading level skipped: h${prevLevel} jumps to h${currentLevel} — screen readers may lose context`,
+          fix: `Add an h${prevLevel + 1} heading between the h${prevLevel} and h${currentLevel} headings to maintain a logical hierarchy`,
+        });
+        break;
+      }
+      prevLevel = currentLevel;
+    }
+  }
+
+  // Check for residual markdown tables that were not converted
+  if (/^\|[\s\S]*?\|[\s\S]*?\n\|[\s\-:|]+\|/m.test(content)) {
+    issues.push({
+      type: "accessibility",
+      severity: "warning",
+      message: "Markdown pipe table detected — may not be accessible to screen readers",
+      fix: "Replace markdown tables (| col | col |) with HTML <table> elements that include <caption> and <th scope> attributes",
+    });
+  }
+
+  // Check for HTML tables missing <caption> or <thead>
+  const tableMatches = [...content.matchAll(/<table[\s>]/gi)];
+  let reportedMissingCaption = false;
+  let reportedMissingThead = false;
+  for (const tableMatch of tableMatches) {
+    const tableStart = tableMatch.index ?? 0;
+    // Find the closing </table> tag to scope the check to this table only
+    const tableEnd = content.indexOf("</table>", tableStart);
+    const tableBlock = tableEnd > tableStart
+      ? content.slice(tableStart, tableEnd + 8)
+      : content.slice(tableStart, tableStart + 600);
+
+    if (!reportedMissingCaption && !/<caption[\s>]/i.test(tableBlock)) {
+      issues.push({
+        type: "accessibility",
+        severity: "warning",
+        message: "HTML table found without a <caption> element",
+        fix: "Add a <caption> element immediately after <table> to describe the table's purpose for screen reader users",
+      });
+      reportedMissingCaption = true;
+    }
+
+    if (!reportedMissingThead && !/<thead[\s>]/i.test(tableBlock)) {
+      issues.push({
+        type: "accessibility",
+        severity: "warning",
+        message: "HTML table found without a <thead> element",
+        fix: "Add a <thead> with <th scope=\"col\"> for each column so screen readers can identify column headers",
+      });
+      reportedMissingThead = true;
+    }
+
+    if (reportedMissingCaption && reportedMissingThead) break;
+  }
+
   return issues;
 };
 
@@ -581,7 +645,9 @@ export default function ResultPage() {
                       <div>
                         <CardTitle className="text-lg">Accessibility Check</CardTitle>
                         <CardDescription>
-                          {accessibilityIssues.length} suggestion{accessibilityIssues.length !== 1 ? "s" : ""} to improve accessibility
+                          {accessibilityIssues.some(i => i.severity === "warning")
+                            ? `${accessibilityIssues.length} issue${accessibilityIssues.length !== 1 ? "s" : ""} found — review before distributing`
+                            : `${accessibilityIssues.length} suggestion${accessibilityIssues.length !== 1 ? "s" : ""} to improve accessibility`}
                         </CardDescription>
                       </div>
                     </div>

@@ -1074,6 +1074,92 @@ Additional Context: ${toolData.additionalContext || "None"}`,
   return prompts[toolId] || baseContext;
 }
 
+/**
+ * Converts any markdown pipe tables in the given text to accessible HTML tables.
+ * Adds <caption>, <thead> with <th scope="col">, and <tbody> with <td>.
+ * The caption is derived from the nearest preceding heading, or "Data table" as fallback.
+ */
+function convertMarkdownTablesToHtml(text: string): string {
+  const lines = text.split("\n");
+  const result: string[] = [];
+  let i = 0;
+  let insideCodeFence = false;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    // Track fenced code blocks so we never transform table-like text inside them
+    if (/^```/.test(line.trim())) {
+      insideCodeFence = !insideCodeFence;
+      result.push(line);
+      i++;
+      continue;
+    }
+
+    if (insideCodeFence) {
+      result.push(line);
+      i++;
+      continue;
+    }
+
+    // Detect a markdown table: a line where most |-separated tokens look like table cells
+    // A separator line looks like |---|---| or | --- | --- |
+    const isTableRow = (l: string) => /^\|.+\|$/.test(l.trim());
+    const isSeparatorRow = (l: string) => /^\|[\s\-:|]+\|$/.test(l.trim().replace(/[^|:\-\s]/g, ""));
+
+    if (isTableRow(line) && i + 1 < lines.length && isSeparatorRow(lines[i + 1])) {
+      // Find the caption from the most recent heading line in result[]
+      let caption = "Data table";
+      for (let r = result.length - 1; r >= 0; r--) {
+        const headingMatch = result[r].match(/^#{1,6}\s+(.+)$/) ||
+          result[r].match(/<h[1-6][^>]*>([^<]+)<\/h[1-6]>/i);
+        if (headingMatch) {
+          caption = headingMatch[1].replace(/[*_`]/g, "").trim();
+          break;
+        }
+      }
+
+      // Parse header row
+      const headerCells = line.trim().replace(/^\||\|$/g, "").split("|").map(c => c.trim());
+
+      // Skip separator row
+      i += 2;
+
+      // Collect body rows
+      const bodyRows: string[][] = [];
+      while (i < lines.length && isTableRow(lines[i])) {
+        const cells = lines[i].trim().replace(/^\||\|$/g, "").split("|").map(c => c.trim());
+        bodyRows.push(cells);
+        i++;
+      }
+
+      // Build HTML table
+      const thCells = headerCells.map(h => `<th scope="col">${h}</th>`).join("");
+      const tbodyRows = bodyRows.map(row => {
+        const tdCells = row.map(c => `<td>${c}</td>`).join("");
+        return `<tr>${tdCells}</tr>`;
+      }).join("\n      ");
+
+      const htmlTable = `<table>
+  <caption>${caption}</caption>
+  <thead>
+    <tr>${thCells}</tr>
+  </thead>
+  <tbody>
+    ${tbodyRows}
+  </tbody>
+</table>`;
+
+      result.push(htmlTable);
+    } else {
+      result.push(line);
+      i++;
+    }
+  }
+
+  return result.join("\n");
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express,
@@ -1599,10 +1685,12 @@ export async function registerRoutes(
           messages: [{ role: "user", content: prompt }],
         });
 
-        const generatedText = message.content
+        const rawGeneratedText = message.content
           .filter((item): item is Anthropic.TextBlock => item.type === "text")
           .map((item) => item.text)
           .join("\n\n");
+
+        const generatedText = convertMarkdownTablesToHtml(rawGeneratedText);
 
         const content = await storage.createContent({
           courseId,
@@ -1660,10 +1748,12 @@ export async function registerRoutes(
           messages: [{ role: "user", content: prompt }],
         });
 
-        const generatedText = message.content
+        const rawGeneratedTextStandalone = message.content
           .filter((item): item is Anthropic.TextBlock => item.type === "text")
           .map((item) => item.text)
           .join("\n\n");
+
+        const generatedText = convertMarkdownTablesToHtml(rawGeneratedTextStandalone);
 
         if (userId) {
           const content = await storage.createContent({
@@ -1778,10 +1868,12 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           messages: [{ role: "user", content: refinementPrompt }],
         });
 
-        const refinedText = message.content
+        const rawRefinedText = message.content
           .filter((item): item is Anthropic.TextBlock => item.type === "text")
           .map((item) => item.text)
           .join("\n\n");
+
+        const refinedText = convertMarkdownTablesToHtml(rawRefinedText);
 
         const updated = await storage.updateContent(id, refinedText);
         res.json(updated);
