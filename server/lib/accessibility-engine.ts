@@ -981,9 +981,14 @@ export function applyAriaCheckboxRoleFix(html: string): string {
         .replace(/^<input/i, '<input type="checkbox"');
       result = result.replace(outerHtml, replacement);
     } else {
-      const labelText = (el.text ?? "").trim();
-      const ariaLabel = labelText ? ` aria-label="${labelText.replace(/"/g, "&quot;")}"` : "";
-      result = result.replace(outerHtml, `<input type="checkbox"${ariaLabel}>`);
+      const innerHtml = el.innerHTML ?? "";
+      if (innerHtml.includes("<")) {
+        result = result.replace(outerHtml, `<label><input type="checkbox"> ${innerHtml}</label>`);
+      } else {
+        const labelText = innerHtml.trim();
+        const ariaLabel = labelText ? ` aria-label="${labelText.replace(/"/g, "&quot;")}"` : "";
+        result = result.replace(outerHtml, `<input type="checkbox"${ariaLabel}>`);
+      }
     }
   }
 
@@ -1015,9 +1020,14 @@ export function applyAriaRadioRoleFix(html: string): string {
         .replace(/^<input/i, '<input type="radio"');
       result = result.replace(outerHtml, replacement);
     } else {
-      const labelText = (el.text ?? "").trim();
-      const ariaLabel = labelText ? ` aria-label="${labelText.replace(/"/g, "&quot;")}"` : "";
-      result = result.replace(outerHtml, `<input type="radio"${ariaLabel}>`);
+      const innerHtml = el.innerHTML ?? "";
+      if (innerHtml.includes("<")) {
+        result = result.replace(outerHtml, `<label><input type="radio"> ${innerHtml}</label>`);
+      } else {
+        const labelText = innerHtml.trim();
+        const ariaLabel = labelText ? ` aria-label="${labelText.replace(/"/g, "&quot;")}"` : "";
+        result = result.replace(outerHtml, `<input type="radio"${ariaLabel}>`);
+      }
     }
   }
 

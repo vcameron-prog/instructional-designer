@@ -2877,6 +2877,22 @@ describe("applyAriaCheckboxRoleFix", () => {
     const after = runDeterministicChecks(fixed);
     expect(after.find((i) => i.title === "ARIA Checkbox Role on Non-Input Element")).toBeUndefined();
   });
+
+  it("wraps input and rich inner HTML in a <label> when content contains HTML tags", () => {
+    const html = `<div role="checkbox"><strong>Important</strong> option</div>`;
+    const result = applyAriaCheckboxRoleFix(html);
+    expect(result).toBe(`<label><input type="checkbox"> <strong>Important</strong> option</label>`);
+    expect(result).not.toContain('aria-label');
+    expect(result).not.toContain("<div");
+    expect(result).not.toContain('role="checkbox"');
+  });
+
+  it("preserves plain-text-only elements with aria-label (no unnecessary label wrapper)", () => {
+    const html = `<div role="checkbox">Plain text only</div>`;
+    const result = applyAriaCheckboxRoleFix(html);
+    expect(result).toBe(`<input type="checkbox" aria-label="Plain text only">`);
+    expect(result).not.toContain("<label");
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -2928,6 +2944,22 @@ describe("applyAriaRadioRoleFix", () => {
     const fixed = applyAriaRadioRoleFix(html);
     const after = runDeterministicChecks(fixed);
     expect(after.find((i) => i.title === "ARIA Radio Role on Non-Input Element")).toBeUndefined();
+  });
+
+  it("wraps input and rich inner HTML in a <label> when content contains HTML tags", () => {
+    const html = `<div role="radio"><em>Option</em> A</div>`;
+    const result = applyAriaRadioRoleFix(html);
+    expect(result).toBe(`<label><input type="radio"> <em>Option</em> A</label>`);
+    expect(result).not.toContain('aria-label');
+    expect(result).not.toContain("<div");
+    expect(result).not.toContain('role="radio"');
+  });
+
+  it("preserves plain-text-only elements with aria-label (no unnecessary label wrapper)", () => {
+    const html = `<div role="radio">Plain text only</div>`;
+    const result = applyAriaRadioRoleFix(html);
+    expect(result).toBe(`<input type="radio" aria-label="Plain text only">`);
+    expect(result).not.toContain("<label");
   });
 });
 
