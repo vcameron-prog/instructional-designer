@@ -301,6 +301,7 @@ export default function PdfConversion() {
   const [expandedIssues, setExpandedIssues] = useState<Set<string>>(new Set());
   const [fixingIndex, setFixingIndex] = useState<number | null>(null);
   const [fixError, setFixError] = useState<string | null>(null);
+  const [copiedImageKeys, setCopiedImageKeys] = useState<Set<string>>(new Set());
   const [acceptingIndex, setAcceptingIndex] = useState<number | null>(null);
   const [revertingIndex, setRevertingIndex] = useState<number | null>(null);
   const [justificationText, setJustificationText] = useState("");
@@ -386,6 +387,21 @@ export default function PdfConversion() {
       }
     }, 50);
   }, [htmlViewMode]);
+
+  const copyImageFilename = useCallback((filename: string, key: string) => {
+    navigator.clipboard.writeText(filename).then(() => {
+      setCopiedImageKeys((prev) => new Set(prev).add(key));
+      setTimeout(() => {
+        setCopiedImageKeys((prev) => {
+          const next = new Set(prev);
+          next.delete(key);
+          return next;
+        });
+      }, 2000);
+    }).catch(() => {
+      toast({ title: "Copy failed", description: "Could not copy filename to clipboard.", variant: "destructive" });
+    });
+  }, [toast]);
 
   const handleFixIssue = useCallback(
     (issueIndex: number) => {
@@ -1348,6 +1364,19 @@ export default function PdfConversion() {
                                         >
                                           {item.label}
                                         </span>
+                                        <button
+                                          onClick={() => copyImageFilename(item.label, `${i}-${imgIdx}`)}
+                                          className="flex-shrink-0 inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-800/60 border border-amber-300 dark:border-amber-700 transition-colors"
+                                          data-testid={`button-copy-filename-${imgIdx}`}
+                                          title="Copy filename"
+                                          aria-label={`Copy filename: ${item.label}`}
+                                        >
+                                          {copiedImageKeys.has(`${i}-${imgIdx}`) ? (
+                                            <Check className="w-3 h-3" />
+                                          ) : (
+                                            <ClipboardCopy className="w-3 h-3" />
+                                          )}
+                                        </button>
                                         <button
                                           onClick={() => jumpToImage(item.originalIndex)}
                                           className="flex-shrink-0 inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-800/60 border border-amber-300 dark:border-amber-700 transition-colors"
