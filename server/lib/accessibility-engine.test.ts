@@ -2942,3 +2942,72 @@ describe("fixComplianceIssue – deterministic ARIA role fix dispatch", () => {
     expect(afterIssues.find((i) => i.title === "ARIA Listitem Role on Non-Listitem Element")).toBeUndefined();
   });
 });
+
+// ---------------------------------------------------------------------------
+// ARIA misuse warning card UI contract
+// These tests guard the exact title strings and issue shape that the results
+// panel uses to decide whether to show the "ARIA Role Misuse" callout.
+// Changing a title or status here would silently break the frontend callout.
+// ---------------------------------------------------------------------------
+
+describe("ARIA misuse warning card UI contract", () => {
+  describe("ARIA Button Role warning (criterion 4.1.2)", () => {
+    const html = `<html lang="en"><body><main><h1>Page</h1><div role="button">Click me</div></main></body></html>`;
+
+    it("emits a warning with the exact title the UI callout checks", () => {
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.criterion === "4.1.2" && i.status === "warning");
+      expect(issue).toBeDefined();
+      expect(issue!.title).toBe("ARIA Button Role on Non-Button Element");
+    });
+
+    it("has status 'warning' so the callout block is rendered (not 'fail' or 'pass')", () => {
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Button Role on Non-Button Element");
+      expect(issue!.status).toBe("warning");
+    });
+
+    it("includes the offending element tag in details so the callout has actionable context", () => {
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Button Role on Non-Button Element");
+      expect(issue!.details).toContain("<div>");
+      expect(issue!.details).toContain("<button>");
+    });
+
+    it("description mentions the native <button> element as the fix", () => {
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Button Role on Non-Button Element");
+      expect(issue!.description).toContain("<button>");
+    });
+  });
+
+  describe("ARIA Heading Role warning (criterion 1.3.1)", () => {
+    const html = `<html lang="en"><body><main><h1>Page</h1><div role="heading" aria-level="2">Section</div></main></body></html>`;
+
+    it("emits a warning with the exact title the UI callout checks", () => {
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.criterion === "1.3.1" && i.title === "ARIA Heading Role on Non-Heading Element");
+      expect(issue).toBeDefined();
+      expect(issue!.title).toBe("ARIA Heading Role on Non-Heading Element");
+    });
+
+    it("has status 'warning' so the callout block is rendered", () => {
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Heading Role on Non-Heading Element");
+      expect(issue!.status).toBe("warning");
+    });
+
+    it("includes the offending element tag in details so the callout has actionable context", () => {
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Heading Role on Non-Heading Element");
+      expect(issue!.details).toContain("<div>");
+      expect(issue!.details).toContain("<h1>");
+    });
+
+    it("description mentions native h1-h6 elements as the fix", () => {
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Heading Role on Non-Heading Element");
+      expect(issue!.description).toMatch(/h1.*h6|h1>.*<h6/i);
+    });
+  });
+});

@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   Cpu,
   Code,
+  Code2,
   ChevronDown,
   Wand2,
   Info,
@@ -1370,6 +1371,26 @@ export default function PdfConversion() {
                             <p className="text-sm text-foreground/80">
                               {issue.details}
                             </p>
+                            {(issue.title === "ARIA Button Role on Non-Button Element" ||
+                              issue.title === "ARIA Heading Role on Non-Heading Element") && (
+                                <div
+                                  className="rounded-lg border bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800 p-3 space-y-2"
+                                  data-testid={`aria-misuse-callout-${i}`}
+                                >
+                                  <p className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wide flex items-center gap-1.5">
+                                    <Code2 className="w-3.5 h-3.5" aria-hidden="true" />
+                                    ARIA Role Misuse
+                                  </p>
+                                  <p
+                                    className="text-sm text-amber-900 dark:text-amber-200 font-medium"
+                                    data-testid={`aria-misuse-recommendation-${i}`}
+                                  >
+                                    {issue.title === "ARIA Button Role on Non-Button Element"
+                                      ? "Replace non-button elements using role=\"button\" with a native <button> element for full keyboard and screen reader support."
+                                      : "Replace non-heading elements using role=\"heading\" with the appropriate native <h1>–<h6> element for correct document structure."}
+                                  </p>
+                                </div>
+                              )}
                             {issue.criterion === "1.1.1" &&
                               issue.imageItems &&
                               issue.imageItems.length > 0 && (
