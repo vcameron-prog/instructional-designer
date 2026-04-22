@@ -648,7 +648,34 @@ export default function ResultPage() {
                         </div>
                       )}
                       <div>
-                        <CardTitle className="text-lg">Accessibility Check</CardTitle>
+                        <div className="flex items-center gap-2">
+                          <CardTitle className="text-lg">Accessibility Check</CardTitle>
+                          {accessibilityIssues.length === 0 ? (
+                            <Badge
+                              className="bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/30 hover:bg-green-500/15"
+                              variant="outline"
+                              data-testid="badge-accessibility-all-clear"
+                            >
+                              ✓ All Clear
+                            </Badge>
+                          ) : accessibilityIssues.some(i => i.severity === "warning") ? (
+                            <Badge
+                              className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/15"
+                              variant="outline"
+                              data-testid="badge-accessibility-count"
+                            >
+                              {accessibilityIssues.length} issue{accessibilityIssues.length !== 1 ? "s" : ""}
+                            </Badge>
+                          ) : (
+                            <Badge
+                              className="bg-primary/10 text-primary border-primary/30 hover:bg-primary/10"
+                              variant="outline"
+                              data-testid="badge-accessibility-count"
+                            >
+                              {accessibilityIssues.length} suggestion{accessibilityIssues.length !== 1 ? "s" : ""}
+                            </Badge>
+                          )}
+                        </div>
                         <CardDescription>
                           {accessibilityIssues.length === 0
                             ? "Looks good! No accessibility issues detected."
