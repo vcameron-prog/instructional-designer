@@ -482,6 +482,25 @@ export function runDeterministicChecks(html: string): ComplianceIssue[] {
         details: `Found ${tablesWithTdOnlyFirstRow.length} table(s) whose first row uses only <td> cells. If these cells act as column headers, replace them with <th scope="col"> for proper accessibility.`,
       });
     }
+
+    const tablesWithAriaRoleHeaders = allTableNodes.filter((table) => {
+      const tds = table.querySelectorAll("td");
+      return tds.some((td) => {
+        const role = td.getAttribute("role");
+        return role === "columnheader" || role === "rowheader";
+      });
+    });
+
+    if (tablesWithAriaRoleHeaders.length > 0) {
+      issues.push({
+        criterion: "1.3.1",
+        title: "ARIA Role on Table Data Cell",
+        level: "A",
+        status: "warning",
+        description: "Using role=\"columnheader\" or role=\"rowheader\" on <td> elements indicates headers that should instead use native <th> markup.",
+        details: `Found ${tablesWithAriaRoleHeaders.length} table(s) with <td> cells using ARIA header roles. Replace these cells with <th scope="col"> or <th scope="row"> for proper semantic markup.`,
+      });
+    }
   }
 
   // 2.4.6 / 1.3.1 – Heading order: detect skipped heading levels

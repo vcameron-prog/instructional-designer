@@ -416,6 +416,51 @@ describe("runDeterministicChecks", () => {
       );
       expect(markupIssue).toBeUndefined();
     });
+
+    it("warns when a table uses <td role=\"columnheader\"> instead of <th>", () => {
+      const html = `<html lang="en"><body>
+        <table>
+          <tr>
+            <td role="columnheader">Name</td>
+            <td role="columnheader">Score</td>
+          </tr>
+          <tr><td>Alice</td><td>95</td></tr>
+        </table>
+      </body></html>`;
+      const issues = runDeterministicChecks(html);
+      const ariaIssue = issues.find(
+        (i) => i.criterion === "1.3.1" && i.title === "ARIA Role on Table Data Cell"
+      );
+      expect(ariaIssue).toBeDefined();
+      expect(ariaIssue!.status).toBe("warning");
+      expect(ariaIssue!.details).toContain("1 table(s)");
+    });
+
+    it("warns when a table uses <td role=\"rowheader\"> instead of <th>", () => {
+      const html = `<html lang="en"><body>
+        <table>
+          <tr><td role="rowheader">Alice</td><td>95</td></tr>
+          <tr><td role="rowheader">Bob</td><td>88</td></tr>
+        </table>
+      </body></html>`;
+      const issues = runDeterministicChecks(html);
+      const ariaIssue = issues.find(
+        (i) => i.criterion === "1.3.1" && i.title === "ARIA Role on Table Data Cell"
+      );
+      expect(ariaIssue).toBeDefined();
+      expect(ariaIssue!.status).toBe("warning");
+    });
+
+    it("does not warn about ARIA Role on Table Data Cell when proper <th> elements are used", () => {
+      const html = `<html lang="en"><body>
+        <table><thead><tr><th scope="col">Name</th><th scope="col">Score</th></tr></thead><tbody><tr><td>Alice</td><td>95</td></tr></tbody></table>
+      </body></html>`;
+      const issues = runDeterministicChecks(html);
+      const ariaIssue = issues.find(
+        (i) => i.criterion === "1.3.1" && i.title === "ARIA Role on Table Data Cell"
+      );
+      expect(ariaIssue).toBeUndefined();
+    });
   });
 
   // All issues have required fields
