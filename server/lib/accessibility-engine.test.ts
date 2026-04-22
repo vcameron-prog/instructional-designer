@@ -4508,6 +4508,156 @@ describe("fixComplianceIssue – multi-fix sequences and report accumulation", (
   });
 });
 
+// fixComplianceIssue — partial AI response propagation in multi-fix chains
+// ---------------------------------------------------------------------------
+// These tests feed the (potentially corrupted) document returned by a first
+// fixComplianceIssue call directly into a second call, verifying that the
+// engine degrades consistently rather than silently producing worse output.
+// ---------------------------------------------------------------------------
+
+describe("fixComplianceIssue – partial AI response propagation in multi-fix chains", () => {
+  beforeEach(() => {
+    mockCreate.mockReset();
+  });
+
+  it("round 1 throws when AI returns truncated HTML missing </body> and </html>, blocking the chain at the boundary", async () => {
+    // This test documents that corrupted output cannot silently propagate to step 2:
+    // the hardened validation in fixComplianceIssue rejects it before any result is
+    // returned, making it impossible to call a second fix with the corrupted document
+    // via the normal execution path.
+    // Note: the engine retries once on an invalid response, so both the first attempt
+    // and the retry must return truncated HTML for the throw to be reached.
+    const html = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h2>Section</h2></main></body></html>`;
+    const issues = runDeterministicChecks(html);
+    const report = makeReport(issues);
+
+    const headingIssue = issues.find((i) => i.criterion === "2.4.6")!;
+
+    const truncatedResponse = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>Section</h1></main>`;
+    mockCreate.mockResolvedValueOnce({ content: [{ type: "text", text: truncatedResponse }] });
+    mockCreate.mockResolvedValueOnce({ content: [{ type: "text", text: truncatedResponse }] });
+
+    await expect(
+      fixComplianceIssue(html, headingIssue, issues.indexOf(headingIssue), report)
+    ).rejects.toThrow("AI failed to produce a valid HTML fix");
+  });
+
+  it("round 1 throws when AI returns head-only HTML with no <body>, blocking the chain at the boundary", async () => {
+    // Same boundary test for the head-only shape: the caller never receives a result and
+    // therefore cannot feed a corrupted document into a subsequent fixComplianceIssue call.
+    // Both the initial attempt and the retry return head-only HTML to reach the throw.
+    const html = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h2>Section</h2></main></body></html>`;
+    const issues = runDeterministicChecks(html);
+    const report = makeReport(issues);
+
+    const headingIssue = issues.find((i) => i.criterion === "2.4.6")!;
+
+    const headOnlyResponse = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head></html>`;
+    mockCreate.mockResolvedValueOnce({ content: [{ type: "text", text: headOnlyResponse }] });
+    mockCreate.mockResolvedValueOnce({ content: [{ type: "text", text: headOnlyResponse }] });
+
+    await expect(
+      fixComplianceIssue(html, headingIssue, issues.indexOf(headingIssue), report)
+    ).rejects.toThrow("AI failed to produce a valid HTML fix");
+  });
+
+  it("deterministic lang fix succeeds when applied to a truncated document — simulates step 2 in a chain where step 1 leaked corrupted output", async () => {
+    // Directly construct the corrupted document that step 2 would receive if step 1 had
+    // returned truncated HTML without being rejected (e.g. before hardening was applied).
+    const truncatedInput = `<!DOCTYPE html><html><head><title></title></head><body><main><h1>No H1 Here</h1></main>`;
+    const issues = runDeterministicChecks(truncatedInput);
+    const prevReport = makeReport(issues);
+
+    // The lang issue must still be detectable even in truncated HTML
+    const langIssue = issues.find((i) => i.criterion === "3.1.1")!;
+    expect(langIssue.status).toBe("fail");
+    const langIndex = issues.indexOf(langIssue);
+
+    // Deterministic fix — no AI call queued; must not throw even though input is truncated
+    const result = await fixComplianceIssue(truncatedInput, langIssue, langIndex, prevReport);
+
+    expect(result.accessibleHtml).toContain('lang="en"');
+    expect(result.complianceReport.issues[langIndex].status).toBe("fixed");
+  });
+
+  it("deterministic lang fix succeeds when applied to a head-only document — simulates step 2 in a chain where step 1 leaked corrupted output", async () => {
+    // Directly construct a head-only document that step 2 would receive if step 1 had
+    // returned head-only HTML without being rejected (e.g. before hardening was applied).
+    const headOnlyInput = `<!DOCTYPE html><html><head><title></title></head></html>`;
+    const issues = runDeterministicChecks(headOnlyInput);
+    const prevReport = makeReport(issues);
+
+    // The lang issue must still be detectable in head-only HTML
+    const langIssue = issues.find((i) => i.criterion === "3.1.1")!;
+    expect(langIssue.status).toBe("fail");
+    const langIndex = issues.indexOf(langIssue);
+
+    // Deterministic fix — no AI call queued; must not throw even though input has no <body>
+    const result = await fixComplianceIssue(headOnlyInput, langIssue, langIndex, prevReport);
+
+    expect(result.accessibleHtml).toContain('lang="en"');
+    expect(result.complianceReport.issues[langIndex].status).toBe("fixed");
+  });
+
+  it("round 2 throws when its AI returns truncated HTML, consistent with single-call behaviour (chain with valid round 1)", async () => {
+    // Use HTML that has a heading issue (AI path) AND an image without alt (AI path for round 2).
+    const htmlWithImg = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h2>Section</h2><img src="photo.jpg"></main></body></html>`;
+    const initialIssues = runDeterministicChecks(htmlWithImg);
+    const initialReport = makeReport(initialIssues);
+
+    // Round 1: AI fixes the heading issue (2.4.6) and returns VALID, complete HTML.
+    const validAfterRound1 = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>Section</h1><img src="photo.jpg"></main></body></html>`;
+    mockCreate.mockResolvedValueOnce({ content: [{ type: "text", text: validAfterRound1 }] });
+
+    const headingIssue = initialIssues.find((i) => i.criterion === "2.4.6")!;
+    const result1 = await fixComplianceIssue(htmlWithImg, headingIssue, initialIssues.indexOf(headingIssue), initialReport);
+    expect(result1.accessibleHtml).toBe(validAfterRound1);
+
+    // Round 2: AI fix for alt text (1.1.1) — AI path; AI returns truncated HTML on both
+    // the initial attempt and the retry, causing the engine to throw.
+    const truncatedRound2Response = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>Section</h1><img src="photo.jpg" alt="Photo"></main>`;
+    mockCreate.mockResolvedValueOnce({ content: [{ type: "text", text: truncatedRound2Response }] });
+    mockCreate.mockResolvedValueOnce({ content: [{ type: "text", text: truncatedRound2Response }] });
+
+    const altIssue = result1.complianceReport.issues.find((i) => i.criterion === "1.1.1")!;
+    const altIndex = result1.complianceReport.issues.indexOf(altIssue);
+
+    // Round 2 must reject the truncated AI response, consistent with single-call behaviour.
+    await expect(
+      fixComplianceIssue(result1.accessibleHtml, altIssue, altIndex, result1.complianceReport)
+    ).rejects.toThrow("AI failed to produce a valid HTML fix");
+  });
+
+  it("round 2 throws when its AI returns head-only HTML, consistent with single-call behaviour (chain with valid round 1)", async () => {
+    // Use HTML that has a heading issue (AI path) AND an image without alt (AI path for round 2).
+    const htmlWithImg = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h2>Section</h2><img src="photo.jpg"></main></body></html>`;
+    const initialIssues = runDeterministicChecks(htmlWithImg);
+    const initialReport = makeReport(initialIssues);
+
+    // Round 1: AI fixes the heading issue (2.4.6) and returns VALID, complete HTML.
+    const validAfterRound1 = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>Section</h1><img src="photo.jpg"></main></body></html>`;
+    mockCreate.mockResolvedValueOnce({ content: [{ type: "text", text: validAfterRound1 }] });
+
+    const headingIssue = initialIssues.find((i) => i.criterion === "2.4.6")!;
+    const result1 = await fixComplianceIssue(htmlWithImg, headingIssue, initialIssues.indexOf(headingIssue), initialReport);
+    expect(result1.accessibleHtml).toBe(validAfterRound1);
+
+    // Round 2: AI fix for alt text (1.1.1) — AI returns head-only HTML on both the initial
+    // attempt and the retry, causing the engine to throw.
+    const headOnlyRound2Response = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head></html>`;
+    mockCreate.mockResolvedValueOnce({ content: [{ type: "text", text: headOnlyRound2Response }] });
+    mockCreate.mockResolvedValueOnce({ content: [{ type: "text", text: headOnlyRound2Response }] });
+
+    const altIssue = result1.complianceReport.issues.find((i) => i.criterion === "1.1.1")!;
+    const altIndex = result1.complianceReport.issues.indexOf(altIssue);
+
+    // Round 2 must reject the head-only AI response, consistent with single-call behaviour.
+    await expect(
+      fixComplianceIssue(result1.accessibleHtml, altIssue, altIndex, result1.complianceReport)
+    ).rejects.toThrow("AI failed to produce a valid HTML fix");
+  });
+});
+
 // fixComplianceIssue — partial / truncated AI response edge cases
 // ---------------------------------------------------------------------------
 
