@@ -10,6 +10,12 @@ const anthropic = new Anthropic({
   maxRetries: 2,
 });
 
+const imageItemSchema = z.object({
+  label: z.string(),
+  src: z.string().optional(),
+  originalIndex: z.number(),
+});
+
 const complianceIssueSchema = z.object({
   criterion: z.string(),
   title: z.string(),
@@ -19,7 +25,14 @@ const complianceIssueSchema = z.object({
   details: z.string(),
   justification: z.string().optional(),
   previousStatus: z.enum(["fail", "warning"]).optional(),
+  imageItems: z.array(imageItemSchema).optional(),
 });
+
+export interface ImageItem {
+  label: string;
+  src?: string;
+  originalIndex: number;
+}
 
 export interface ComplianceIssue {
   criterion: string;
@@ -30,6 +43,7 @@ export interface ComplianceIssue {
   details: string;
   justification?: string;
   previousStatus?: "fail" | "warning";
+  imageItems?: ImageItem[];
 }
 
 export const complianceReportSchema = z.object({
@@ -357,17 +371,21 @@ export function runDeterministicChecks(html: string): ComplianceIssue[] {
   });
 
   const imgTags = html.match(/<img\s[^>]*>/gi) || [];
-  const imgsWithoutAlt = imgTags.filter(
-    (tag) => !/\salt\s*=\s*["'][^"']*["']/i.test(tag)
-  );
+  const imgsWithoutAlt: Array<{ tag: string; originalIndex: number }> = [];
+  imgTags.forEach((tag, originalIndex) => {
+    if (!/\salt\s*=\s*["'][^"']*["']/i.test(tag)) {
+      imgsWithoutAlt.push({ tag, originalIndex });
+    }
+  });
 
   let altDetails: string;
+  let imageItems: ImageItem[] | undefined;
   if (imgTags.length === 0) {
     altDetails = "No images were found in the document.";
   } else if (imgsWithoutAlt.length === 0) {
     altDetails = `All ${imgTags.length} image(s) have text descriptions.`;
   } else {
-    const failingImageDescriptions = imgsWithoutAlt.map((tag, idx) => {
+    const failingImageDescriptions = imgsWithoutAlt.map(({ tag, originalIndex }, idx) => {
       const srcMatch = tag.match(/\ssrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i);
       const src = srcMatch ? (srcMatch[1] ?? srcMatch[2] ?? srcMatch[3] ?? "") : "";
       if (src && !src.startsWith("data:")) {
@@ -377,6 +395,17 @@ export function runDeterministicChecks(html: string): ComplianceIssue[] {
       return `Image ${idx + 1} (no src)`;
     });
     altDetails = `${imgsWithoutAlt.length} of ${imgTags.length} image(s) are missing text descriptions: ${failingImageDescriptions.join(", ")}.`;
+
+    imageItems = imgsWithoutAlt.map(({ tag, originalIndex }, idx) => {
+      const srcMatch = tag.match(/\ssrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i);
+      const src = srcMatch ? (srcMatch[1] ?? srcMatch[2] ?? srcMatch[3] ?? "") : "";
+      const isDataUrl = src.startsWith("data:");
+      if (src && !isDataUrl) {
+        const filename = src.split("/").pop() ?? src;
+        return { label: `Image ${idx + 1} ("${filename}")`, src, originalIndex };
+      }
+      return { label: `Image ${idx + 1} (no src)`, originalIndex };
+    });
   }
 
   issues.push({
@@ -391,6 +420,7 @@ export function runDeterministicChecks(html: string): ComplianceIssue[] {
           : "fail",
     description: "Every image must have a text description so people who can't see the image understand what it shows.",
     details: altDetails,
+    imageItems,
   });
 
   const hasSemantic =

@@ -348,6 +348,7 @@ export default function PdfConversion() {
   }, [conversion?.accessibleHtml]);
 
   const autoStartedRef = useRef<number | null>(null);
+  const htmlPreviewRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (
@@ -367,6 +368,24 @@ export default function PdfConversion() {
       return next;
     });
   }, []);
+
+  const jumpToImage = useCallback((originalIndex: number) => {
+    if (htmlViewMode !== "preview") {
+      setHtmlViewMode("preview");
+    }
+    setTimeout(() => {
+      if (!htmlPreviewRef.current) return;
+      const imgs = htmlPreviewRef.current.querySelectorAll("img");
+      const target = imgs[originalIndex];
+      if (target) {
+        target.scrollIntoView({ behavior: "smooth", block: "center" });
+        target.classList.add("ring-2", "ring-amber-500", "ring-offset-2");
+        setTimeout(() => {
+          target.classList.remove("ring-2", "ring-amber-500", "ring-offset-2");
+        }, 2000);
+      }
+    }, 50);
+  }, [htmlViewMode]);
 
   const handleFixIssue = useCallback(
     (issueIndex: number) => {
@@ -1122,6 +1141,7 @@ export default function PdfConversion() {
                   </div>
                   {htmlViewMode === "preview" ? (
                     <div
+                      ref={htmlPreviewRef}
                       className="p-6 max-h-[500px] overflow-y-auto"
                       tabIndex={0}
                       role="region"
@@ -1292,6 +1312,55 @@ export default function PdfConversion() {
                             <p className="text-sm text-foreground/80">
                               {issue.details}
                             </p>
+                            {issue.criterion === "1.1.1" &&
+                              issue.imageItems &&
+                              issue.imageItems.length > 0 && (
+                                <div className="rounded-lg border bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800 p-3 space-y-2">
+                                  <p className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wide">
+                                    Images missing alt text
+                                  </p>
+                                  <ul className="space-y-1.5" data-testid="missing-alt-image-list">
+                                    {issue.imageItems.map((item: any, imgIdx: number) => (
+                                      <li
+                                        key={imgIdx}
+                                        className="flex items-center gap-2"
+                                        data-testid={`missing-alt-image-item-${imgIdx}`}
+                                      >
+                                        {item.src ? (
+                                          <img
+                                            src={item.src}
+                                            alt=""
+                                            aria-hidden="true"
+                                            className="w-10 h-10 object-cover rounded border border-amber-300 dark:border-amber-700 flex-shrink-0 bg-muted"
+                                            data-testid={`missing-alt-thumbnail-${imgIdx}`}
+                                          />
+                                        ) : (
+                                          <div
+                                            className="w-10 h-10 rounded border border-amber-300 dark:border-amber-700 flex-shrink-0 bg-muted flex items-center justify-center"
+                                            aria-hidden="true"
+                                          >
+                                            <FileText className="w-4 h-4 text-muted-foreground" />
+                                          </div>
+                                        )}
+                                        <span
+                                          className="text-sm text-foreground/80 flex-1 truncate"
+                                          data-testid={`missing-alt-label-${imgIdx}`}
+                                        >
+                                          {item.label}
+                                        </span>
+                                        <button
+                                          onClick={() => jumpToImage(item.originalIndex)}
+                                          className="flex-shrink-0 inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-800/60 border border-amber-300 dark:border-amber-700 transition-colors"
+                                          data-testid={`button-jump-to-image-${imgIdx}`}
+                                        >
+                                          <Eye className="w-3 h-3" />
+                                          Jump to
+                                        </button>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
                             {issue.status === "accepted" &&
                               issue.justification && (
                                 <div className="bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-800 rounded-lg p-3">

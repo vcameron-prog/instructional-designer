@@ -197,6 +197,70 @@ describe("runDeterministicChecks", () => {
       expect(altCheck!.status).toBe("fail");
       expect(altCheck!.details).toContain("no src");
     });
+
+    it("does not populate imageItems when all images have alt text", () => {
+      const html = `<html lang="en"><body><img src="photo.jpg" alt="A cat"></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const altCheck = issues.find((i) => i.criterion === "1.1.1");
+      expect(altCheck!.status).toBe("pass");
+      expect(altCheck!.imageItems).toBeUndefined();
+    });
+
+    it("does not populate imageItems when there are no images", () => {
+      const html = `<html lang="en"><body><p>No images</p></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const altCheck = issues.find((i) => i.criterion === "1.1.1");
+      expect(altCheck!.status).toBe("pass");
+      expect(altCheck!.imageItems).toBeUndefined();
+    });
+
+    it("populates imageItems with correct label and src for missing-alt images", () => {
+      const html = `<html lang="en"><body>
+        <img src="/assets/logo.png">
+        <img src="/assets/hero.jpg">
+      </body></html>`;
+      const issues = runDeterministicChecks(html);
+      const altCheck = issues.find((i) => i.criterion === "1.1.1");
+      expect(altCheck!.status).toBe("fail");
+      expect(altCheck!.imageItems).toHaveLength(2);
+      expect(altCheck!.imageItems![0]).toMatchObject({
+        label: 'Image 1 ("logo.png")',
+        src: "/assets/logo.png",
+        originalIndex: 0,
+      });
+      expect(altCheck!.imageItems![1]).toMatchObject({
+        label: 'Image 2 ("hero.jpg")',
+        src: "/assets/hero.jpg",
+        originalIndex: 1,
+      });
+    });
+
+    it("sets correct originalIndex when only some images are missing alt text", () => {
+      const html = `<html lang="en"><body>
+        <img src="a.jpg" alt="Image A">
+        <img src="b.jpg">
+        <img src="c.jpg">
+      </body></html>`;
+      const issues = runDeterministicChecks(html);
+      const altCheck = issues.find((i) => i.criterion === "1.1.1");
+      expect(altCheck!.status).toBe("fail");
+      expect(altCheck!.imageItems).toHaveLength(2);
+      expect(altCheck!.imageItems![0].originalIndex).toBe(1);
+      expect(altCheck!.imageItems![1].originalIndex).toBe(2);
+    });
+
+    it("omits src from imageItems for data URL images and uses positional label", () => {
+      const html = `<html lang="en"><body>
+        <img src="data:image/png;base64,abc123">
+      </body></html>`;
+      const issues = runDeterministicChecks(html);
+      const altCheck = issues.find((i) => i.criterion === "1.1.1");
+      expect(altCheck!.status).toBe("fail");
+      expect(altCheck!.imageItems).toHaveLength(1);
+      expect(altCheck!.imageItems![0].src).toBeUndefined();
+      expect(altCheck!.imageItems![0].label).toBe("Image 1 (no src)");
+      expect(altCheck!.imageItems![0].originalIndex).toBe(0);
+    });
   });
 
   // 1.3.1 Document Structure
