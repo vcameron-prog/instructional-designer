@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { eq, desc, and, isNull } from "drizzle-orm";
+import { eq, desc, and, isNull, notInArray } from "drizzle-orm";
 import { 
   courses, 
   generatedContent, 
@@ -39,6 +39,7 @@ export interface IStorage {
   createVersion(version: InsertContentVersion): Promise<ContentVersion>;
   getVersionsByContent(contentId: number): Promise<ContentVersion[]>;
   getVersionById(id: number): Promise<ContentVersion | undefined>;
+  pruneOldVersions(contentId: number, keepCount: number): Promise<void>;
   
   // Saved Content Library
   getAllSavedContent(): Promise<SavedContent[]>;
@@ -163,6 +164,27 @@ export class DatabaseStorage implements IStorage {
       .from(contentVersions)
       .where(eq(contentVersions.id, id));
     return version;
+  }
+
+  async pruneOldVersions(contentId: number, keepCount: number): Promise<void> {
+    const toKeep = await db
+      .select({ id: contentVersions.id })
+      .from(contentVersions)
+      .where(eq(contentVersions.generatedContentId, contentId))
+      .orderBy(desc(contentVersions.createdAt))
+      .limit(keepCount);
+
+    if (toKeep.length < keepCount) return;
+
+    const keepIds = toKeep.map((v) => v.id);
+    await db
+      .delete(contentVersions)
+      .where(
+        and(
+          eq(contentVersions.generatedContentId, contentId),
+          notInArray(contentVersions.id, keepIds),
+        ),
+      );
   }
 
   // Saved Content Library
