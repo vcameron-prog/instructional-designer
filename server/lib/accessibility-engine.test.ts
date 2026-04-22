@@ -274,6 +274,39 @@ describe("runDeterministicChecks", () => {
       expect(altCheck!.imageItems![0].label).toBe("Image 1 (no src)");
       expect(altCheck!.imageItems![0].originalIndex).toBe(0);
     });
+
+    it("decodes percent-encoded emoji filename in imageItems label", () => {
+      const html = `<html lang="en"><body>
+        <img src="/images/%F0%9F%98%80.png">
+      </body></html>`;
+      const issues = runDeterministicChecks(html);
+      const altCheck = issues.find((i) => i.criterion === "1.1.1");
+      expect(altCheck!.status).toBe("fail");
+      expect(altCheck!.imageItems).toHaveLength(1);
+      expect(altCheck!.imageItems![0].label).toBe('Image 1 ("😀.png")');
+    });
+
+    it("decodes percent-encoded CJK filename in imageItems label", () => {
+      const html = `<html lang="en"><body>
+        <img src="/images/%E6%96%87%E4%BB%B6.png">
+      </body></html>`;
+      const issues = runDeterministicChecks(html);
+      const altCheck = issues.find((i) => i.criterion === "1.1.1");
+      expect(altCheck!.status).toBe("fail");
+      expect(altCheck!.imageItems).toHaveLength(1);
+      expect(altCheck!.imageItems![0].label).toBe('Image 1 ("文件.png")');
+    });
+
+    it("leaves undecodable percent-encoded filenames as-is in imageItems label", () => {
+      const html = `<html lang="en"><body>
+        <img src="/images/%ZZ.png">
+      </body></html>`;
+      const issues = runDeterministicChecks(html);
+      const altCheck = issues.find((i) => i.criterion === "1.1.1");
+      expect(altCheck!.status).toBe("fail");
+      expect(altCheck!.imageItems).toHaveLength(1);
+      expect(altCheck!.imageItems![0].label).toBe('Image 1 ("%ZZ.png")');
+    });
   });
 
   // 1.3.1 Document Structure

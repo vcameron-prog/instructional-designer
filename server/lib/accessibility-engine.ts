@@ -176,6 +176,14 @@ function escapeHtmlAttr(str: string): string {
   return str.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
+function safeDecodeURIComponent(str: string): string {
+  try {
+    return decodeURIComponent(str);
+  } catch {
+    return str;
+  }
+}
+
 function escapeHtmlText(str: string): string {
   return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
@@ -412,7 +420,7 @@ export function runDeterministicChecks(html: string): ComplianceIssue[] {
       const srcMatch = tag.match(/\ssrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i);
       const src = srcMatch ? (srcMatch[1] ?? srcMatch[2] ?? srcMatch[3] ?? "") : "";
       if (src && !src.startsWith("data:")) {
-        const filename = src.split("/").pop() ?? src;
+        const filename = safeDecodeURIComponent(src.split("/").pop() ?? src);
         return `Image ${idx + 1} ("${filename}")`;
       }
       return `Image ${idx + 1} (no src)`;
@@ -424,7 +432,7 @@ export function runDeterministicChecks(html: string): ComplianceIssue[] {
       const src = srcMatch ? (srcMatch[1] ?? srcMatch[2] ?? srcMatch[3] ?? "") : "";
       const isDataUrl = src.startsWith("data:");
       if (src && !isDataUrl) {
-        const filename = src.split("/").pop() ?? src;
+        const filename = safeDecodeURIComponent(src.split("/").pop() ?? src);
         return { label: `Image ${idx + 1} ("${filename}")`, src, originalIndex };
       }
       return { label: `Image ${idx + 1} (no src)`, originalIndex };
