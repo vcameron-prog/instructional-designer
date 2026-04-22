@@ -1121,6 +1121,13 @@ export function applyLangAttributeFix(html: string): string {
   return html.replace(/<html([^>]*)>/i, (_match, attrs: string) => `<html${attrs} lang="en">`);
 }
 
+export function applyBypassBlocksFix(html: string): string {
+  if (/<main[\s>]/i.test(html) || /role\s*=\s*["']main["']/i.test(html)) return html;
+  return html.replace(/(<body[^>]*>)([\s\S]*?)(<\/body>)/i, (_match, open, inner, close) => {
+    return `${open}<main>${inner}</main>${close}`;
+  });
+}
+
 export function applyPageTitleFix(html: string): string {
   function extractHeadingTitle(): string {
     const h1Match = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
@@ -1216,6 +1223,7 @@ type DeterministicFixer = (html: string) => string;
 const deterministicFixerRegistry: Record<string, DeterministicFixer> = {
   "1.3.1::ARIA Role on Table Data Cell": applyAriaRoleHeaderFix,
   "3.1.1::Language of Page": applyLangAttributeFix,
+  "2.4.1::Bypass Blocks": applyBypassBlocksFix,
   "2.4.2::Page Titled": applyPageTitleFix,
   "1.3.1::ARIA Combobox Role on Non-Combobox Element": applyAriaComboboxRoleFix,
   "1.3.1::ARIA Grid Role on Non-Table Element": applyAriaGridRoleFix,

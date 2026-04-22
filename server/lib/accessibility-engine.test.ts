@@ -17,6 +17,7 @@ import {
   applyAriaRadioRoleFix,
   applyAriaListRoleFix,
   applyAriaListitemRoleFix,
+  applyBypassBlocksFix,
   applyLangAttributeFix,
   applyPageTitleFix,
   parseHexColor,
@@ -3739,6 +3740,66 @@ describe("applyPageTitleFix", () => {
     const html = `<!DOCTYPE html><html lang="en"><head><title></title></head><body><h1><span>Products</span></h1></body></html>`;
     const result = applyPageTitleFix(html);
     expect(result).toContain("<title>Products</title>");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// applyBypassBlocksFix
+// ---------------------------------------------------------------------------
+
+describe("applyBypassBlocksFix", () => {
+  beforeEach(() => {
+    mockCreate.mockReset();
+  });
+
+  it("wraps body content in <main> when no landmark exists", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><h1>Hello</h1><p>World</p></body></html>`;
+    const result = applyBypassBlocksFix(html);
+    expect(result).toContain("<main>");
+    expect(result).toContain("</main>");
+    expect(result).toMatch(/<body[^>]*><main>/i);
+  });
+
+  it("does not modify HTML when a <main> element already exists", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><main><h1>Hello</h1></main></body></html>`;
+    const result = applyBypassBlocksFix(html);
+    expect(result).toBe(html);
+  });
+
+  it("does not modify HTML when role=\"main\" already exists", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><div role="main"><h1>Hello</h1></div></body></html>`;
+    const result = applyBypassBlocksFix(html);
+    expect(result).toBe(html);
+  });
+
+  it("does not duplicate <main> when already present", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><main><p>Content</p></main></body></html>`;
+    const result = applyBypassBlocksFix(html);
+    const mainCount = (result.match(/<main/gi) ?? []).length;
+    expect(mainCount).toBe(1);
+  });
+
+  it("fixed HTML no longer triggers the 2.4.1 Bypass Blocks warning", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><h1>Hello</h1></body></html>`;
+    const before = runDeterministicChecks(html);
+    expect(before.find((i) => i.criterion === "2.4.1")!.status).toBe("warning");
+
+    const fixed = applyBypassBlocksFix(html);
+    const after = runDeterministicChecks(fixed);
+    expect(after.find((i) => i.criterion === "2.4.1")!.status).toBe("pass");
+  });
+
+  it("routes 2.4.1 Bypass Blocks through the deterministic fixer and does not call AI", async () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><h1>Hello</h1></body></html>`;
+    const issues = runDeterministicChecks(html);
+    const bypassIssue = issues.find((i) => i.criterion === "2.4.1" && i.title === "Bypass Blocks")!;
+    expect(bypassIssue).toBeDefined();
+
+    const report = makeReport(issues);
+    const result = await fixComplianceIssue(html, bypassIssue, issues.indexOf(bypassIssue), report);
+
+    expect(mockCreate).not.toHaveBeenCalled();
+    expect(result.accessibleHtml).toContain("<main>");
   });
 });
 
