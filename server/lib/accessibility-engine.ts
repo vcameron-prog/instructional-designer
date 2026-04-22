@@ -132,7 +132,13 @@ export function injectImageData(html: string, images: ExtractedImage[]): string 
       const src = dq ?? sq ?? uq ?? "";
       if (src.startsWith("data:")) return match;
 
-      const srcLower = src.toLowerCase();
+      let decodedSrc: string;
+      try {
+        decodedSrc = decodeURIComponent(src);
+      } catch {
+        decodedSrc = src;
+      }
+      const srcLower = decodedSrc.toLowerCase();
       const dataUrl = imageMap.get(srcLower);
       if (dataUrl) {
         return `<img ${before}src="${dataUrl}"${after}>`;
@@ -214,7 +220,13 @@ export function ensureMissingImages(html: string, images: ExtractedImage[]): str
     if (src.startsWith("data:")) {
       matchedDataUrls.add(src);
     } else {
-      matchedNames.add(src.toLowerCase());
+      let decodedSrc: string;
+      try {
+        decodedSrc = decodeURIComponent(src);
+      } catch {
+        decodedSrc = src;
+      }
+      matchedNames.add(decodedSrc.toLowerCase());
     }
   }
 

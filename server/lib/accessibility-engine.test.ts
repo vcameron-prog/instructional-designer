@@ -1763,6 +1763,50 @@ describe("injectImageData", () => {
       expect(result).toContain(`src="${TRANSPARENT_PIXEL}"`);
     });
   });
+
+  describe("URL-encoded filenames", () => {
+    it("matches when src uses %28 and %29 for parentheses (e.g. image%281%29.png vs image(1).png)", () => {
+      const img = makeImage("image(1).png", "data:image/png;base64,encodedparen");
+      const html = `<img src="image%281%29.png" alt="Image">`;
+      const result = injectImageData(html, [img]);
+      expect(result).toContain('src="data:image/png;base64,encodedparen"');
+    });
+
+    it("matches when src uses %2B for plus sign (e.g. photo%2Bcaption.png vs photo+caption.png)", () => {
+      const img = makeImage("photo+caption.png", "data:image/png;base64,encodedplus");
+      const html = `<img src="photo%2Bcaption.png" alt="Photo">`;
+      const result = injectImageData(html, [img]);
+      expect(result).toContain('src="data:image/png;base64,encodedplus"');
+    });
+
+    it("matches when src mixes encoded and unencoded special chars (e.g. chart%28v2.0%2Bfinal%29.png)", () => {
+      const img = makeImage("chart(v2.0+final).png", "data:image/png;base64,mixedencoded");
+      const html = `<img src="chart%28v2.0%2Bfinal%29.png" alt="Chart">`;
+      const result = injectImageData(html, [img]);
+      expect(result).toContain('src="data:image/png;base64,mixedencoded"');
+    });
+
+    it("partial match works when encoded src contains the decoded image name", () => {
+      const img = makeImage("image(1)", "data:image/png;base64,partialencoded");
+      const html = `<img src="report-image%281%29-2024" alt="Report">`;
+      const result = injectImageData(html, [img]);
+      expect(result).toContain('src="data:image/png;base64,partialencoded"');
+    });
+
+    it("case-insensitive match works with URL-encoded filenames", () => {
+      const img = makeImage("Chart(1).PNG", "data:image/png;base64,caseencoded");
+      const html = `<img src="chart%281%29.png" alt="Chart">`;
+      const result = injectImageData(html, [img]);
+      expect(result).toContain('src="data:image/png;base64,caseencoded"');
+    });
+
+    it("falls back to transparent pixel when encoded src decodes to a non-matching name", () => {
+      const img = makeImage("image(1).png", "data:image/png;base64,parendata");
+      const html = `<img src="image%282%29.png" alt="Other">`;
+      const result = injectImageData(html, [img]);
+      expect(result).toContain(`src="${TRANSPARENT_PIXEL}"`);
+    });
+  });
 });
 
 // ensureMissingImages
@@ -1949,6 +1993,44 @@ describe("ensureMissingImages", () => {
       const html = `<html><body><p>No images</p></body></html>`;
       const result = ensureMissingImages(html, [img]);
       expect(result).toContain(`src="data:image/png;base64,DOTMISSURL"`);
+    });
+  });
+
+  describe("URL-encoded filenames – already-present detection", () => {
+    it("does not re-inject when src is %28/%29-encoded and matches image name with parentheses", () => {
+      const img = makeImage("image(1).png", "data:image/png;base64,ENCPAREN");
+      const html = `<html><body><img src="image%281%29.png" alt="Image 1"></body></html>`;
+      const result = ensureMissingImages(html, [img]);
+      expect(result).toBe(html);
+    });
+
+    it("does not re-inject when src uses %2B and matches image name with plus sign", () => {
+      const img = makeImage("photo+caption.png", "data:image/png;base64,ENCPLUS");
+      const html = `<html><body><img src="photo%2Bcaption.png" alt="Photo"></body></html>`;
+      const result = ensureMissingImages(html, [img]);
+      expect(result).toBe(html);
+    });
+
+    it("does not re-inject when src mixes encoded and literal special chars", () => {
+      const img = makeImage("chart(v2.0+final).png", "data:image/png;base64,ENCMIXED");
+      const html = `<html><body><img src="chart%28v2.0%2Bfinal%29.png" alt="Chart"></body></html>`;
+      const result = ensureMissingImages(html, [img]);
+      expect(result).toBe(html);
+    });
+
+    it("case-insensitive match still works when src is URL-encoded", () => {
+      const img = makeImage("Report(Final).PNG", "data:image/png;base64,ENCCASE");
+      const html = `<html><body><img src="report%28final%29.png" alt="Report"></body></html>`;
+      const result = ensureMissingImages(html, [img]);
+      expect(result).toBe(html);
+    });
+
+    it("still injects when the encoded src decodes to a different name than the image", () => {
+      const img = { ...makeImage("image(1).png", "data:image/png;base64,ENCMISS"), pageNumber: 1 };
+      const html = `<html><body><img src="image%282%29.png" alt="Image 2"></body></html>`;
+      const result = ensureMissingImages(html, [img]);
+      expect(result).toContain(`src="data:image/png;base64,ENCMISS"`);
+      expect(result).toContain("Additional document images");
     });
   });
 });
