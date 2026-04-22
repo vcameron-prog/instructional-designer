@@ -1103,15 +1103,12 @@ function fixAllCaps(text: string): string {
 
 /**
  * Inserts a placeholder <caption>Table summary</caption> after the opening
- * tag of the FIRST HTML table that is missing a <caption>.
+ * tag of every HTML table that is missing a <caption>.
  * Correctly handles opening tags that carry attributes (e.g. <table class="x">).
  */
 function fixHtmlTableCaption(text: string): string {
-  let fixed = false;
   return text.replace(/<table(?:\s[^>]*)?>[\s\S]*?<\/table>/gi, (tableBlock) => {
-    if (fixed) return tableBlock;
     if (/<caption[\s>]/i.test(tableBlock)) return tableBlock;
-    fixed = true;
     return tableBlock.replace(/(<table(?:\s[^>]*)?>)/i, "$1<caption>Table summary</caption>\n");
   });
 }
@@ -1128,17 +1125,14 @@ function _convertRowToHeaderCells(row: string): string {
 
 /**
  * Wraps the first <tr> in a <thead> (converting its <td> cells to
- * <th scope="col">) for the FIRST HTML table that is missing a <thead>.
+ * <th scope="col">) for every HTML table that is missing a <thead>.
  * When the table already uses a <tbody>, the first row is extracted from
  * <tbody> and re-inserted as a direct <thead> child of <table> so the
  * resulting structure is valid HTML.
  */
 function fixHtmlTableThead(text: string): string {
-  let fixed = false;
   return text.replace(/<table(?:\s[^>]*)?>[\s\S]*?<\/table>/gi, (tableBlock) => {
-    if (fixed) return tableBlock;
     if (/<thead[\s>]/i.test(tableBlock)) return tableBlock;
-    fixed = true;
 
     if (/<tbody[\s>]/i.test(tableBlock)) {
       // Pull the first <tr> out of <tbody> and make it a standalone <thead>
