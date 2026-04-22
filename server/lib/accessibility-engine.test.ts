@@ -4061,7 +4061,6 @@ describe("fixComplianceIssue – multi-fix sequences and report accumulation", (
   });
 });
 
-// ---------------------------------------------------------------------------
 // fixComplianceIssue — partial / truncated AI response edge cases
 // ---------------------------------------------------------------------------
 
@@ -4117,5 +4116,138 @@ describe("fixComplianceIssue – partial or truncated AI HTML responses", () => 
     const report = makeReport(issues);
     const result = await fixComplianceIssue(baseHtml, headingIssue, issues.indexOf(headingIssue), report);
     expect(result.accessibleHtml).toBe(headOnlyHtml);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Angle-bracket-in-attribute-value robustness tests
+// These verify that the robust (?:[^>"']|"[^"]*"|'[^']*')* pattern correctly
+// handles attribute values that contain literal '>' characters, which would
+// cause the naive [^>]* pattern to terminate the match prematurely.
+// ---------------------------------------------------------------------------
+
+describe("runDeterministicChecks – angle bracket in attribute value", () => {
+  it("correctly detects lang attribute on <html> even when an earlier attribute value contains literal '>'", () => {
+    const htmlWithLang = `<!DOCTYPE html><html data-info="a>b" lang="en"><head><title>T</title></head><body><main><h1>T</h1></main></body></html>`;
+    const issues = runDeterministicChecks(htmlWithLang);
+    const langIssue = issues.find((i) => i.criterion === "3.1.1");
+    expect(langIssue).toBeDefined();
+    expect(langIssue!.status).toBe("pass");
+  });
+
+  it("reports lang as missing when <html> has '>' in an attribute value but no lang", () => {
+    const htmlNoLang = `<!DOCTYPE html><html data-info="a>b"><head><title>T</title></head><body><main><h1>T</h1></main></body></html>`;
+    const issues = runDeterministicChecks(htmlNoLang);
+    const langIssue = issues.find((i) => i.criterion === "3.1.1");
+    expect(langIssue).toBeDefined();
+    expect(langIssue!.status).toBe("fail");
+  });
+});
+
+describe("applyLangAttributeFix – angle bracket in attribute value", () => {
+  it("adds lang attribute when <html> tag contains a double-quoted attribute value with '>'", () => {
+    const html = `<!DOCTYPE html><html data-info="a>b"><head><title>T</title></head><body></body></html>`;
+    const result = applyLangAttributeFix(html);
+    expect(result).toMatch(/lang="en"/i);
+  });
+
+  it("adds lang attribute when <html> tag contains a single-quoted attribute value with '>'", () => {
+    const html = `<!DOCTYPE html><html data-info='a>b'><head><title>T</title></head><body></body></html>`;
+    const result = applyLangAttributeFix(html);
+    expect(result).toMatch(/lang="en"/i);
+  });
+
+  it("does not add lang when lang is already present, even with '>' in an earlier attribute value", () => {
+    const html = `<!DOCTYPE html><html data-info="a>b" lang="fr"><head><title>T</title></head><body></body></html>`;
+    const result = applyLangAttributeFix(html);
+    expect(result).toBe(html);
+  });
+});
+
+describe("applyPageTitleFix – angle bracket in attribute value", () => {
+  it("inserts <title> into <head> when <head> tag has a double-quoted attribute value containing '>'", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head data-meta="x>y"></head><body></body></html>`;
+    const result = applyPageTitleFix(html);
+    expect(result).toContain("<title>");
+  });
+
+  it("inserts <head><title> after <html> tag when no <head> present and <html> has '>' in attribute value", () => {
+    const html = `<!DOCTYPE html><html lang="en" data-info="a>b"><body></body></html>`;
+    const result = applyPageTitleFix(html);
+    expect(result).toContain("<title>");
+  });
+
+  it("replaces empty <title> even when <head> tag has '>' in attribute value", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head data-x="p>q"><title></title></head><body></body></html>`;
+    const result = applyPageTitleFix(html);
+    expect(result).not.toContain("<title></title>");
+    expect(result).toContain("<title>");
+  });
+});
+
+describe("runDeterministicChecks – angle bracket in attribute value", () => {
+  it("correctly detects lang attribute on <html> even when an earlier attribute value contains literal '>'", () => {
+    const htmlWithLang = `<!DOCTYPE html><html data-info="a>b" lang="en"><head><title>T</title></head><body><main><h1>T</h1></main></body></html>`;
+    const issues = runDeterministicChecks(htmlWithLang);
+    const langIssue = issues.find((i) => i.criterion === "3.1.1");
+    expect(langIssue).toBeDefined();
+    expect(langIssue!.status).toBe("pass");
+  });
+
+  it("reports lang as missing when <html> has '>' in an attribute value but no lang", () => {
+    const htmlNoLang = `<!DOCTYPE html><html data-info="a>b"><head><title>T</title></head><body><main><h1>T</h1></main></body></html>`;
+    const issues = runDeterministicChecks(htmlNoLang);
+    const langIssue = issues.find((i) => i.criterion === "3.1.1");
+    expect(langIssue).toBeDefined();
+    expect(langIssue!.status).toBe("fail");
+  });
+});
+
+describe("applyAriaRoleHeaderFix – angle bracket in attribute value", () => {
+  it("converts td[role=columnheader] to <th scope=col> when td has an attribute value containing literal '>'", () => {
+    const html = `<table><tr><td role="columnheader" data-info="a>b">Header</td></tr></table>`;
+    const result = applyAriaRoleHeaderFix(html);
+    expect(result).toContain('<th scope="col"');
+    expect(result).not.toContain('role="columnheader"');
+  });
+});
+
+describe("applyAriaLinkRoleFix – angle bracket in attribute value", () => {
+  it("converts div[role=link] to <a> when an attribute value contains literal '>'", () => {
+    const html = `<div role="link" title="Click > here" tabindex="0">Go</div>`;
+    const result = applyAriaLinkRoleFix(html);
+    expect(result).toContain("<a ");
+    expect(result).not.toContain('role="link"');
+    expect(result).toContain("Go");
+  });
+});
+
+describe("applyAriaListRoleFix – angle bracket in attribute value", () => {
+  it("converts div[role=list] to <ul> when an attribute value contains literal '>'", () => {
+    const html = `<div role="list" data-label="items > 0"><li>A</li></div>`;
+    const result = applyAriaListRoleFix(html);
+    expect(result).toContain("<ul");
+    expect(result).not.toContain('role="list"');
+    expect(result).toContain("<li>A</li>");
+  });
+});
+
+describe("applyAriaListitemRoleFix – angle bracket in attribute value", () => {
+  it("converts div[role=listitem] to <li> when an attribute value contains literal '>'", () => {
+    const html = `<ul><div role="listitem" data-label="item > 1">Entry</div></ul>`;
+    const result = applyAriaListitemRoleFix(html);
+    expect(result).toContain("<li");
+    expect(result).not.toContain('role="listitem"');
+    expect(result).toContain("Entry");
+  });
+});
+
+describe("replaceAriaRoleElements (via applyAriaComboboxRoleFix) – angle bracket in attribute value", () => {
+  it("converts div[role=combobox] to <select> when an attribute value contains literal '>'", () => {
+    const html = `<div role="combobox" data-label="opt > 0"><option>A</option></div>`;
+    const result = applyAriaComboboxRoleFix(html);
+    expect(result).toContain("<select");
+    expect(result).not.toContain('role="combobox"');
+    expect(result).toContain("<option>A</option>");
   });
 });

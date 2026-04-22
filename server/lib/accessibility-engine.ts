@@ -342,7 +342,7 @@ export function checkHeadingOrder(html: string): {
 export function runDeterministicChecks(html: string): ComplianceIssue[] {
   const issues: ComplianceIssue[] = [];
 
-  const hasLang = /<html[^>]*\slang\s*=/i.test(html);
+  const hasLang = /<html(?:[^>"']|"[^"]*"|'[^']*')*\slang\s*=/i.test(html);
   issues.push({
     criterion: "3.1.1",
     title: "Language of Page",
@@ -937,7 +937,7 @@ export function applyAriaLinkRoleFix(html: string): string {
   for (const el of nonAnchors) {
     const outerHtml = el.outerHTML;
     const tag = el.tagName?.toLowerCase() ?? "div";
-    const openTagMatch = outerHtml.match(new RegExp(`^<${tag}([^>]*)>`, "i"));
+    const openTagMatch = outerHtml.match(new RegExp(`^<${tag}((?:[^>"']|"[^"]*"|'[^']*')*)>`, "i"));
     if (!openTagMatch) continue;
     const innerHtml = outerHtml.slice(
       openTagMatch[0].length,
@@ -1047,7 +1047,7 @@ export function applyAriaListRoleFix(html: string): string {
   for (const el of nonLists) {
     const outerHtml = el.outerHTML;
     const tag = el.tagName?.toLowerCase() ?? "div";
-    const openTagMatch = outerHtml.match(new RegExp(`^<${tag}([^>]*)>`, "i"));
+    const openTagMatch = outerHtml.match(new RegExp(`^<${tag}((?:[^>"']|"[^"]*"|'[^']*')*)>`, "i"));
     if (!openTagMatch) continue;
     const innerHtml = outerHtml.slice(
       openTagMatch[0].length,
@@ -1073,7 +1073,7 @@ export function applyAriaListitemRoleFix(html: string): string {
   for (const el of nonListitems) {
     const outerHtml = el.outerHTML;
     const tag = el.tagName?.toLowerCase() ?? "div";
-    const openTagMatch = outerHtml.match(new RegExp(`^<${tag}([^>]*)>`, "i"));
+    const openTagMatch = outerHtml.match(new RegExp(`^<${tag}((?:[^>"']|"[^"]*"|'[^']*')*)>`, "i"));
     if (!openTagMatch) continue;
     const innerHtml = outerHtml.slice(
       openTagMatch[0].length,
@@ -1102,7 +1102,7 @@ export function applyAriaRoleHeaderFix(html: string): string {
   ];
 
   for (const { outerHtml, scope } of entries) {
-    const openTagMatch = outerHtml.match(/^<td([^>]*)>/i);
+    const openTagMatch = outerHtml.match(/^<td((?:[^>"']|"[^"]*"|'[^']*')*)>/i);
     if (!openTagMatch) continue;
     const innerHtml = outerHtml.slice(openTagMatch[0].length, outerHtml.lastIndexOf("</td>"));
     const attrs = openTagMatch[1]
@@ -1117,8 +1117,8 @@ export function applyAriaRoleHeaderFix(html: string): string {
 }
 
 export function applyLangAttributeFix(html: string): string {
-  if (/<html[^>]*\slang\s*=/i.test(html)) return html;
-  return html.replace(/<html([^>]*)>/i, (_match, attrs: string) => `<html${attrs} lang="en">`);
+  if (/<html(?:[^>"']|"[^"]*"|'[^']*')*\slang\s*=/i.test(html)) return html;
+  return html.replace(/<html((?:[^>"']|"[^"]*"|'[^']*')*)>/i, (_match, attrs: string) => `<html${attrs} lang="en">`);
 }
 
 export function applyBypassBlocksFix(html: string): string {
@@ -1148,10 +1148,10 @@ export function applyPageTitleFix(html: string): string {
   }
   if (!/<title>[^<]+<\/title>/i.test(html)) {
     const title = extractHeadingTitle();
-    if (/<head[^>]*>/i.test(html)) {
-      return html.replace(/(<head[^>]*>)/i, `$1<title>${title}</title>`);
+    if (/<head(?:[^>"']|"[^"]*"|'[^']*')*>/i.test(html)) {
+      return html.replace(/(<head(?:[^>"']|"[^"]*"|'[^']*')*>)/i, `$1<title>${title}</title>`);
     }
-    return html.replace(/(<html[^>]*>)/i, `$1<head><title>${title}</title></head>`);
+    return html.replace(/(<html(?:[^>"']|"[^"]*"|'[^']*')*>)/i, `$1<head><title>${title}</title></head>`);
   }
   return html;
 }
@@ -1172,7 +1172,7 @@ function replaceAriaRoleElements(
   for (const el of targets) {
     const outerHtml = el.outerHTML;
     const tag = el.tagName?.toLowerCase() ?? "div";
-    const openTagRegex = new RegExp(`^<${tag}([^>]*)>`, "i");
+    const openTagRegex = new RegExp(`^<${tag}((?:[^>"']|"[^"]*"|'[^']*')*)>`, "i");
     const openTagMatch = outerHtml.match(openTagRegex);
     if (!openTagMatch) continue;
     const closeTagIdx = outerHtml.lastIndexOf(`</${tag}>`);
@@ -1466,7 +1466,7 @@ function ensureMissingTables(html: string, tables: ExtractedTable[]): string {
     const rows: string[][] = [];
     for (const rowHtml of rowMatches) {
       const cells: string[] = [];
-      const cellRegex = /<(?:td|th)[^>]*>([\s\S]*?)<\/(?:td|th)>/gi;
+      const cellRegex = /<(?:td|th)(?:[^>"']|"[^"]*"|'[^']*')*>([\s\S]*?)<\/(?:td|th)>/gi;
       let cellMatch;
       while ((cellMatch = cellRegex.exec(rowHtml)) !== null) {
         cells.push(cellMatch[1].replace(/<[^>]*>/g, "").trim());
@@ -1517,22 +1517,22 @@ function mergeChunksIntoDocument(
   let lang = "en";
 
   for (const chunk of chunks) {
-    const langMatch = chunk.match(/<html[^>]*\slang=["']([^"']+)["']/i);
+    const langMatch = chunk.match(/<html(?:[^>"']|"[^"]*"|'[^']*')*\slang=["']([^"']+)["']/i);
     if (langMatch) lang = langMatch[1];
 
-    const headMatch = chunk.match(/<head[^>]*>([\s\S]*?)<\/head>/i);
+    const headMatch = chunk.match(/<head(?:[^>"']|"[^"]*"|'[^']*')*>([\s\S]*?)<\/head>/i);
     if (headMatch && !headContent) headContent = headMatch[1];
 
-    const bodyMatch = chunk.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+    const bodyMatch = chunk.match(/<body(?:[^>"']|"[^"]*"|'[^']*')*>([\s\S]*?)<\/body>/i);
     if (bodyMatch) {
       bodyContents.push(bodyMatch[1]);
     } else {
       const cleaned = chunk
-        .replace(/<!DOCTYPE[^>]*>/i, "")
-        .replace(/<html[^>]*>/i, "")
+        .replace(/<!DOCTYPE(?:[^>"']|"[^"]*"|'[^']*')*>/i, "")
+        .replace(/<html(?:[^>"']|"[^"]*"|'[^']*')*>/i, "")
         .replace(/<\/html>/i, "")
-        .replace(/<head[^>]*>[\s\S]*?<\/head>/i, "")
-        .replace(/<body[^>]*>/i, "")
+        .replace(/<head(?:[^>"']|"[^"]*"|'[^']*')*>[\s\S]*?<\/head>/i, "")
+        .replace(/<body(?:[^>"']|"[^"]*"|'[^']*')*>/i, "")
         .replace(/<\/body>/i, "")
         .trim();
       if (cleaned) bodyContents.push(cleaned);
