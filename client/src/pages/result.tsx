@@ -939,6 +939,7 @@ export default function ResultPage() {
                     }
 
                     const isOpen = expandedSections[idx] ?? false;
+                    const sectionWordCount = section.body.trim().split(/\s+/).filter(Boolean).length;
                     return (
                       <Collapsible key={idx} open={isOpen} onOpenChange={(open) => setExpandedSections(prev => ({ ...prev, [idx]: open }))}>
                         <CollapsibleTrigger asChild>
@@ -948,6 +949,13 @@ export default function ResultPage() {
                           >
                             <ChevronRight className={`w-4 h-4 text-primary transition-transform shrink-0 ${isOpen ? "rotate-90" : ""}`} />
                             <h2 className="text-xl font-bold text-primary">{section.heading}</h2>
+                            <Badge
+                              className="bg-primary/10 text-primary border-primary/30 hover:bg-primary/10 ml-1 shrink-0"
+                              variant="outline"
+                              data-testid={`badge-section-wordcount-${idx}`}
+                            >
+                              {sectionWordCount} word{sectionWordCount !== 1 ? "s" : ""}
+                            </Badge>
                           </button>
                         </CollapsibleTrigger>
                         <CollapsibleContent>
