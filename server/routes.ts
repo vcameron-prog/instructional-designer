@@ -1075,6 +1075,40 @@ Additional Context: ${toolData.additionalContext || "None"}`,
   return prompts[toolId] || baseContext;
 }
 
+/**
+ * Finds the first heading level skip in the content and inserts a placeholder
+ * heading at the missing level to maintain a logical hierarchy.
+ */
+function fixHeadingSkip(text: string): string {
+  const lines = text.split("\n");
+  const headings: Array<{ lineIdx: number; level: number }> = [];
+  let insideCodeFence = false;
+
+  lines.forEach((line, lineIdx) => {
+    if (/^```/.test(line.trim())) insideCodeFence = !insideCodeFence;
+    if (!insideCodeFence) {
+      const match = line.match(/^(#{1,6})\s/);
+      if (match) headings.push({ lineIdx, level: match[1].length });
+    }
+  });
+
+  if (headings.length <= 1) return text;
+
+  let prevLevel = headings[0].level;
+  for (let h = 1; h < headings.length; h++) {
+    const { level, lineIdx } = headings[h];
+    if (level > prevLevel + 1) {
+      const missingLevel = prevLevel + 1;
+      const hashes = "#".repeat(missingLevel);
+      lines.splice(lineIdx, 0, `${hashes} Section`);
+      break;
+    }
+    prevLevel = level;
+  }
+
+  return lines.join("\n");
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express,
@@ -1795,6 +1829,55 @@ Please generate an IMPROVED version that incorporates the requested changes whil
       } catch (error) {
         console.error("Error refining content:", error);
         res.status(500).json({ error: "Failed to refine content" });
+      }
+    },
+  );
+
+  // Fix accessibility issue in-place
+  app.post(
+    "/api/content/:id/fix-accessibility",
+    optionalAuth,
+    async (req: Request, res: Response) => {
+      try {
+        const id = parseInt(req.params.id);
+        const { fixType } = req.body;
+        if (!fixType) {
+          return res.status(400).json({ error: "fixType is required" });
+        }
+
+        const content = await storage.getContent(id);
+        if (!content) {
+          return res.status(404).json({ error: "Content not found" });
+        }
+
+        const userId = getUserId(req);
+        if (content.courseId) {
+          if (!userId) return res.status(403).json({ error: "Unauthorized" });
+          const course = await storage.getCourse(content.courseId, userId);
+          if (!course) return res.status(404).json({ error: "Content not found" });
+        } else if (content.userId && content.userId !== userId) {
+          return res.status(403).json({ error: "Unauthorized" });
+        }
+
+        let fixedContent = content.content;
+
+        if (fixType === "convert-markdown-tables") {
+          fixedContent = convertMarkdownTablesToHtml(content.content);
+        } else if (fixType === "fix-heading-skip") {
+          fixedContent = fixHeadingSkip(content.content);
+        } else {
+          return res.status(400).json({ error: "Unknown fix type" });
+        }
+
+        if (fixedContent === content.content) {
+          return res.json(content);
+        }
+
+        const updated = await storage.updateContent(id, fixedContent);
+        res.json(updated);
+      } catch (error) {
+        console.error("Error fixing accessibility issue:", error);
+        res.status(500).json({ error: "Failed to apply fix" });
       }
     },
   );

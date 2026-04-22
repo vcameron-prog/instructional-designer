@@ -122,6 +122,7 @@ interface AccessibilityIssue {
   severity: "warning" | "suggestion";
   message: string;
   fix: string;
+  fixType?: string;
 }
 
 const checkAccessibility = (content: string): AccessibilityIssue[] => {
@@ -188,6 +189,7 @@ const checkAccessibility = (content: string): AccessibilityIssue[] => {
           severity: "warning",
           message: `Heading level skipped: h${prevLevel} jumps to h${currentLevel} — screen readers may lose context`,
           fix: `Add an h${prevLevel + 1} heading between the h${prevLevel} and h${currentLevel} headings to maintain a logical hierarchy`,
+          fixType: "fix-heading-skip",
         });
         break;
       }
@@ -202,6 +204,7 @@ const checkAccessibility = (content: string): AccessibilityIssue[] => {
       severity: "warning",
       message: "Markdown pipe table detected — may not be accessible to screen readers",
       fix: "Replace markdown tables (| col | col |) with HTML <table> elements that include <caption> and <th scope> attributes",
+      fixType: "convert-markdown-tables",
     });
   }
 
@@ -265,6 +268,7 @@ export default function ResultPage() {
   const [libraryTitle, setLibraryTitle] = useState("");
   const [libraryDescription, setLibraryDescription] = useState("");
   const [expandedSections, setExpandedSections] = useState<Record<number, boolean>>({});
+  const [fixingIssue, setFixingIssue] = useState<string | null>(null);
 
   useEffect(() => {
     setExpandedSections({});
@@ -357,6 +361,28 @@ export default function ResultPage() {
       toast({ title: "Failed to update", description: error.message, variant: "destructive" });
     },
   });
+
+  const applyFixMutation = useMutation({
+    mutationFn: async (fixType: string) => {
+      const response = await apiRequest("POST", `/api/content/${contentId}/fix-accessibility`, { fixType });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/content", contentId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/standalone-content", contentId] });
+      setFixingIssue(null);
+      toast({ title: "Fix applied successfully!" });
+    },
+    onError: (error) => {
+      toast({ title: "Fix failed", description: error.message, variant: "destructive" });
+      setFixingIssue(null);
+    },
+  });
+
+  const handleApplyFix = (fixType: string) => {
+    setFixingIssue(fixType);
+    applyFixMutation.mutate(fixType);
+  };
 
   const handleCopy = async () => {
     if (!content) return;
@@ -699,17 +725,42 @@ export default function ResultPage() {
                           ? "bg-secondary/10 border-secondary"
                           : "bg-primary/5 border-primary"
                       }`}
+                      data-testid={`accessibility-issue-${index}`}
                     >
                       <div className="flex items-start gap-3">
                         {issue.severity === "warning" ? (
-                          <AlertTriangle className="w-5 h-5 text-secondary mt-0.5" />
+                          <AlertTriangle className="w-5 h-5 text-secondary mt-0.5 shrink-0" />
                         ) : (
-                          <Lightbulb className="w-5 h-5 text-primary mt-0.5" />
+                          <Lightbulb className="w-5 h-5 text-primary mt-0.5 shrink-0" />
                         )}
-                        <div>
-                          <Badge variant="outline" className="mb-2 text-xs">
-                            {issue.type}
-                          </Badge>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-3 flex-wrap">
+                            <Badge variant="outline" className="mb-2 text-xs">
+                              {issue.type}
+                            </Badge>
+                            {issue.fixType && !isAnon && contentId && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="mb-2 gap-1.5 text-xs h-7 px-2"
+                                disabled={fixingIssue === issue.fixType || applyFixMutation.isPending}
+                                onClick={() => handleApplyFix(issue.fixType!)}
+                                data-testid={`button-fix-${issue.fixType}`}
+                              >
+                                {fixingIssue === issue.fixType ? (
+                                  <>
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                    Fixing…
+                                  </>
+                                ) : (
+                                  <>
+                                    <CheckCircle className="w-3 h-3" />
+                                    Fix this
+                                  </>
+                                )}
+                              </Button>
+                            )}
+                          </div>
                           <p className="font-medium">{issue.message}</p>
                           <p className="text-sm text-muted-foreground mt-1">
                             <strong>Fix:</strong> {issue.fix}
