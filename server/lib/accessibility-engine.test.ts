@@ -683,6 +683,187 @@ describe("runDeterministicChecks", () => {
     });
   });
 
+  // 4.1.2 ARIA Link Role on Non-Anchor Element
+  describe("criterion 4.1.2 – ARIA Link Role on Non-Anchor Element", () => {
+    it("warns when a <div> uses role=\"link\"", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1><div role="link" tabindex="0">Go somewhere</div></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Link Role on Non-Anchor Element");
+      expect(issue).toBeDefined();
+      expect(issue!.criterion).toBe("4.1.2");
+      expect(issue!.status).toBe("warning");
+      expect(issue!.details).toContain("1 element(s)");
+      expect(issue!.details).toContain("<div>");
+    });
+
+    it("warns when a <span> uses role=\"link\"", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1><span role="link">Click me</span></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Link Role on Non-Anchor Element");
+      expect(issue).toBeDefined();
+      expect(issue!.status).toBe("warning");
+      expect(issue!.details).toContain("<span>");
+    });
+
+    it("does not warn when a native <a> uses role=\"link\" (redundant but acceptable)", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1><a href="#" role="link">Link</a></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Link Role on Non-Anchor Element");
+      expect(issue).toBeUndefined();
+    });
+
+    it("does not warn when no role=\"link\" is present", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1><a href="#">Native link</a></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Link Role on Non-Anchor Element");
+      expect(issue).toBeUndefined();
+    });
+  });
+
+  // 4.1.2 ARIA Checkbox Role on Non-Input Element
+  describe("criterion 4.1.2 – ARIA Checkbox Role on Non-Input Element", () => {
+    it("warns when a <div> uses role=\"checkbox\"", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1><div role="checkbox" aria-checked="false">Option</div></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Checkbox Role on Non-Input Element");
+      expect(issue).toBeDefined();
+      expect(issue!.criterion).toBe("4.1.2");
+      expect(issue!.status).toBe("warning");
+      expect(issue!.details).toContain("1 element(s)");
+      expect(issue!.details).toContain("<div>");
+    });
+
+    it("warns when an <input type=\"radio\"> uses role=\"checkbox\"", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1><input type="radio" role="checkbox"/></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Checkbox Role on Non-Input Element");
+      expect(issue).toBeDefined();
+      expect(issue!.status).toBe("warning");
+    });
+
+    it("does not warn when a native <input type=\"checkbox\"> is used", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1><input type="checkbox"/></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Checkbox Role on Non-Input Element");
+      expect(issue).toBeUndefined();
+    });
+
+    it("does not warn when <input type=\"checkbox\"> also carries role=\"checkbox\" (redundant)", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1><input type="checkbox" role="checkbox"/></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Checkbox Role on Non-Input Element");
+      expect(issue).toBeUndefined();
+    });
+  });
+
+  // 4.1.2 ARIA Radio Role on Non-Input Element
+  describe("criterion 4.1.2 – ARIA Radio Role on Non-Input Element", () => {
+    it("warns when a <span> uses role=\"radio\"", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1><span role="radio" aria-checked="false">Choice</span></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Radio Role on Non-Input Element");
+      expect(issue).toBeDefined();
+      expect(issue!.criterion).toBe("4.1.2");
+      expect(issue!.status).toBe("warning");
+      expect(issue!.details).toContain("1 element(s)");
+      expect(issue!.details).toContain("<span>");
+    });
+
+    it("warns when an <input type=\"checkbox\"> uses role=\"radio\"", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1><input type="checkbox" role="radio"/></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Radio Role on Non-Input Element");
+      expect(issue).toBeDefined();
+      expect(issue!.status).toBe("warning");
+    });
+
+    it("does not warn when a native <input type=\"radio\"> is used", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1><input type="radio"/></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Radio Role on Non-Input Element");
+      expect(issue).toBeUndefined();
+    });
+
+    it("does not warn when <input type=\"radio\"> also carries role=\"radio\" (redundant)", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1><input type="radio" role="radio"/></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Radio Role on Non-Input Element");
+      expect(issue).toBeUndefined();
+    });
+  });
+
+  // 1.3.1 ARIA List Role on Non-List Element
+  describe("criterion 1.3.1 – ARIA List Role on Non-List Element", () => {
+    it("warns when a <div> uses role=\"list\"", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1><div role="list"><div role="listitem">Item</div></div></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA List Role on Non-List Element");
+      expect(issue).toBeDefined();
+      expect(issue!.criterion).toBe("1.3.1");
+      expect(issue!.status).toBe("warning");
+      expect(issue!.details).toContain("1 element(s)");
+      expect(issue!.details).toContain("<div>");
+    });
+
+    it("does not warn when a native <ul> is used", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1><ul><li>Item</li></ul></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA List Role on Non-List Element");
+      expect(issue).toBeUndefined();
+    });
+
+    it("does not warn when a native <ol> is used", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1><ol><li>Item</li></ol></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA List Role on Non-List Element");
+      expect(issue).toBeUndefined();
+    });
+
+    it("does not warn when <ul> also carries role=\"list\" (redundant but acceptable)", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1><ul role="list"><li>Item</li></ul></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA List Role on Non-List Element");
+      expect(issue).toBeUndefined();
+    });
+  });
+
+  // 1.3.1 ARIA Listitem Role on Non-Listitem Element
+  describe("criterion 1.3.1 – ARIA Listitem Role on Non-Listitem Element", () => {
+    it("warns when a <div> uses role=\"listitem\"", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1><ul><div role="listitem">Item</div></ul></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Listitem Role on Non-Listitem Element");
+      expect(issue).toBeDefined();
+      expect(issue!.criterion).toBe("1.3.1");
+      expect(issue!.status).toBe("warning");
+      expect(issue!.details).toContain("1 element(s)");
+      expect(issue!.details).toContain("<div>");
+    });
+
+    it("warns when a <span> uses role=\"listitem\"", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1><ul><span role="listitem">Item</span></ul></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Listitem Role on Non-Listitem Element");
+      expect(issue).toBeDefined();
+      expect(issue!.status).toBe("warning");
+      expect(issue!.details).toContain("<span>");
+    });
+
+    it("does not warn when a native <li> is used", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1><ul><li>Item</li></ul></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Listitem Role on Non-Listitem Element");
+      expect(issue).toBeUndefined();
+    });
+
+    it("does not warn when <li> also carries role=\"listitem\" (redundant but acceptable)", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1><ul><li role="listitem">Item</li></ul></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Listitem Role on Non-Listitem Element");
+      expect(issue).toBeUndefined();
+    });
+  });
+
   // All issues have required fields
   describe("issue shape", () => {
     it("every issue has criterion, title, level, status, description, and details", () => {

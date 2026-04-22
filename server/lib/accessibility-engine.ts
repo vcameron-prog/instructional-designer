@@ -595,6 +595,119 @@ export function runDeterministicChecks(html: string): ComplianceIssue[] {
     });
   }
 
+  // 4.1.2 – ARIA role="link" on non-anchor elements
+  const linkRoleNodes = parsedDoc.querySelectorAll("[role='link']");
+  const nonAnchorsWithLinkRole = linkRoleNodes.filter((el) => {
+    const tag = el.tagName?.toLowerCase();
+    return tag !== "a";
+  });
+  if (nonAnchorsWithLinkRole.length > 0) {
+    const tagList = nonAnchorsWithLinkRole
+      .slice(0, 5)
+      .map((el) => `<${el.tagName?.toLowerCase()}>`)
+      .join(", ");
+    issues.push({
+      criterion: "4.1.2",
+      title: "ARIA Link Role on Non-Anchor Element",
+      level: "A",
+      status: "warning",
+      description: "Using role=\"link\" on a non-anchor element (e.g. <div> or <span>) is a misuse of ARIA. Use a native <a> element with an href attribute instead.",
+      details: `Found ${nonAnchorsWithLinkRole.length} element(s) with role="link" that are not native anchor elements (e.g. ${tagList}). Replace them with <a href="..."> for built-in keyboard and accessibility support.`,
+    });
+  }
+
+  // 4.1.2 – ARIA role="checkbox" on non-input elements
+  const checkboxRoleNodes = parsedDoc.querySelectorAll("[role='checkbox']");
+  const nonCheckboxesWithCheckboxRole = checkboxRoleNodes.filter((el) => {
+    const tag = el.tagName?.toLowerCase();
+    if (tag === "input") {
+      const type = (el.getAttribute("type") ?? "").toLowerCase();
+      return type !== "checkbox";
+    }
+    return true;
+  });
+  if (nonCheckboxesWithCheckboxRole.length > 0) {
+    const tagList = nonCheckboxesWithCheckboxRole
+      .slice(0, 5)
+      .map((el) => `<${el.tagName?.toLowerCase()}>`)
+      .join(", ");
+    issues.push({
+      criterion: "4.1.2",
+      title: "ARIA Checkbox Role on Non-Input Element",
+      level: "A",
+      status: "warning",
+      description: "Using role=\"checkbox\" on a non-input element (e.g. <div> or <span>) is a misuse of ARIA. Use a native <input type=\"checkbox\"> instead.",
+      details: `Found ${nonCheckboxesWithCheckboxRole.length} element(s) with role="checkbox" that are not native checkbox inputs (e.g. ${tagList}). Replace them with <input type="checkbox"> for built-in keyboard and accessibility support.`,
+    });
+  }
+
+  // 4.1.2 – ARIA role="radio" on non-input elements
+  const radioRoleNodes = parsedDoc.querySelectorAll("[role='radio']");
+  const nonRadiosWithRadioRole = radioRoleNodes.filter((el) => {
+    const tag = el.tagName?.toLowerCase();
+    if (tag === "input") {
+      const type = (el.getAttribute("type") ?? "").toLowerCase();
+      return type !== "radio";
+    }
+    return true;
+  });
+  if (nonRadiosWithRadioRole.length > 0) {
+    const tagList = nonRadiosWithRadioRole
+      .slice(0, 5)
+      .map((el) => `<${el.tagName?.toLowerCase()}>`)
+      .join(", ");
+    issues.push({
+      criterion: "4.1.2",
+      title: "ARIA Radio Role on Non-Input Element",
+      level: "A",
+      status: "warning",
+      description: "Using role=\"radio\" on a non-input element (e.g. <div> or <span>) is a misuse of ARIA. Use a native <input type=\"radio\"> instead.",
+      details: `Found ${nonRadiosWithRadioRole.length} element(s) with role="radio" that are not native radio inputs (e.g. ${tagList}). Replace them with <input type="radio"> for built-in keyboard and accessibility support.`,
+    });
+  }
+
+  // 1.3.1 – ARIA role="list" on non-list elements
+  const listRoleNodes = parsedDoc.querySelectorAll("[role='list']");
+  const nonListsWithListRole = listRoleNodes.filter((el) => {
+    const tag = el.tagName?.toLowerCase();
+    return tag !== "ul" && tag !== "ol";
+  });
+  if (nonListsWithListRole.length > 0) {
+    const tagList = nonListsWithListRole
+      .slice(0, 5)
+      .map((el) => `<${el.tagName?.toLowerCase()}>`)
+      .join(", ");
+    issues.push({
+      criterion: "1.3.1",
+      title: "ARIA List Role on Non-List Element",
+      level: "A",
+      status: "warning",
+      description: "Using role=\"list\" on a non-list element (e.g. <div>) is a misuse of ARIA. Use a native <ul> or <ol> element instead.",
+      details: `Found ${nonListsWithListRole.length} element(s) with role="list" that are not native list elements (e.g. ${tagList}). Replace them with <ul> or <ol> for proper semantics.`,
+    });
+  }
+
+  // 1.3.1 – ARIA role="listitem" on non-listitem elements
+  const listitemRoleNodes = parsedDoc.querySelectorAll("[role='listitem']");
+  const nonListitemsWithListitemRole = listitemRoleNodes.filter((el) => {
+    const tag = el.tagName?.toLowerCase();
+    return tag !== "li";
+  });
+  if (nonListitemsWithListitemRole.length > 0) {
+    const tagList = nonListitemsWithListitemRole
+      .slice(0, 5)
+      .map((el) => `<${el.tagName?.toLowerCase()}>`)
+      .join(", ");
+    issues.push({
+      criterion: "1.3.1",
+      title: "ARIA Listitem Role on Non-Listitem Element",
+      level: "A",
+      status: "warning",
+      description: "Using role=\"listitem\" on a non-listitem element (e.g. <div> or <span>) is a misuse of ARIA. Use a native <li> element inside a <ul> or <ol> instead.",
+      details: `Found ${nonListitemsWithListitemRole.length} element(s) with role="listitem" that are not native list item elements (e.g. ${tagList}). Replace them with <li> for proper semantics.`,
+    });
+  }
+
   // 2.4.6 / 1.3.1 – Heading order: detect skipped heading levels
   const headingOrder = checkHeadingOrder(html);
   if (headingOrder.levels.length > 0) {
