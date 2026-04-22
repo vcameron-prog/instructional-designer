@@ -3320,3 +3320,265 @@ describe("applyPageTitleFix", () => {
     expect(after.find((i) => i.criterion === "2.4.2")!.status).toBe("pass");
   });
 });
+
+// ---------------------------------------------------------------------------
+// fixComplianceIssue — multi-fix sequence and report accumulation tests
+// ---------------------------------------------------------------------------
+
+describe("fixComplianceIssue – multi-fix sequences and report accumulation", () => {
+  const fixtureHtml = loadFixture("government-form.html");
+
+  beforeEach(() => {
+    mockCreate.mockReset();
+  });
+
+  it("score strictly increases after each fix in a two-fix chain (3.1.1 then 2.4.2)", async () => {
+    const initialIssues = runDeterministicChecks(fixtureHtml);
+    const initialReport = makeReport(initialIssues);
+    const initialScore = initialReport.overallScore;
+
+    // Fix 1: add lang="en" to resolve criterion 3.1.1
+    const html1 = fixtureHtml.replace("<html>", '<html lang="en">');
+    mockAiResponse(`<!DOCTYPE html>\n${html1}`);
+
+    const langIssue = initialIssues.find((i) => i.criterion === "3.1.1")!;
+    const langIndex = initialIssues.indexOf(langIssue);
+
+    const result1 = await fixComplianceIssue(fixtureHtml, langIssue, langIndex, initialReport);
+    const scoreAfterFix1 = result1.complianceReport.overallScore;
+    expect(scoreAfterFix1).toBeGreaterThan(initialScore);
+
+    // Fix 2: add a proper title to resolve criterion 2.4.2, chained from fix 1 output
+    const html2 = html1.replace("<title></title>", "<title>Form W-99: Household Income Verification</title>");
+    mockAiResponse(`<!DOCTYPE html>\n${html2}`);
+
+    const titleIssue = result1.complianceReport.issues.find((i) => i.criterion === "2.4.2")!;
+    const titleIndex = result1.complianceReport.issues.indexOf(titleIssue);
+
+    const result2 = await fixComplianceIssue(result1.accessibleHtml, titleIssue, titleIndex, result1.complianceReport);
+    const scoreAfterFix2 = result2.complianceReport.overallScore;
+    expect(scoreAfterFix2).toBeGreaterThan(scoreAfterFix1);
+  });
+
+  it("previously-fixed issue stays 'fixed' after a second fix targets a different issue", async () => {
+    const initialIssues = runDeterministicChecks(fixtureHtml);
+    const initialReport = makeReport(initialIssues);
+
+    // Fix 1: resolve 3.1.1 (lang)
+    const html1 = fixtureHtml.replace("<html>", '<html lang="en">');
+    mockAiResponse(`<!DOCTYPE html>\n${html1}`);
+
+    const langIssue = initialIssues.find((i) => i.criterion === "3.1.1")!;
+    const langIndex = initialIssues.indexOf(langIssue);
+
+    const result1 = await fixComplianceIssue(fixtureHtml, langIssue, langIndex, initialReport);
+    expect(result1.complianceReport.issues[langIndex].status).toBe("fixed");
+
+    // Fix 2: resolve 2.4.2 (page title) using the report and HTML from fix 1
+    const html2 = html1.replace("<title></title>", "<title>W-99 Form</title>");
+    mockAiResponse(`<!DOCTYPE html>\n${html2}`);
+
+    const titleIssue = result1.complianceReport.issues.find((i) => i.criterion === "2.4.2")!;
+    const titleIndex = result1.complianceReport.issues.indexOf(titleIssue);
+
+    const result2 = await fixComplianceIssue(result1.accessibleHtml, titleIssue, titleIndex, result1.complianceReport);
+
+    // The issue fixed in round 1 must still be "fixed" in the round 2 report
+    expect(result2.complianceReport.issues[langIndex].status).toBe("fixed");
+    // The issue fixed in round 2 must now also be "fixed"
+    expect(result2.complianceReport.issues[titleIndex].status).toBe("fixed");
+  });
+
+  it("both targeted issues are reported as 'fixed' and overall score only increases across a three-fix chain", async () => {
+    const initialIssues = runDeterministicChecks(fixtureHtml);
+    const initialReport = makeReport(initialIssues);
+    const initialScore = initialReport.overallScore;
+
+    // Fix 1: lang attribute
+    const html1 = fixtureHtml.replace("<html>", '<html lang="en">');
+    mockAiResponse(`<!DOCTYPE html>\n${html1}`);
+    const langIssue = initialIssues.find((i) => i.criterion === "3.1.1")!;
+    const result1 = await fixComplianceIssue(fixtureHtml, langIssue, initialIssues.indexOf(langIssue), initialReport);
+    expect(result1.complianceReport.overallScore).toBeGreaterThanOrEqual(initialScore);
+
+    // Fix 2: page title
+    const html2 = html1.replace("<title></title>", "<title>Form W-99</title>");
+    mockAiResponse(`<!DOCTYPE html>\n${html2}`);
+    const titleIssue2 = result1.complianceReport.issues.find((i) => i.criterion === "2.4.2")!;
+    const result2 = await fixComplianceIssue(result1.accessibleHtml, titleIssue2, result1.complianceReport.issues.indexOf(titleIssue2), result1.complianceReport);
+    expect(result2.complianceReport.overallScore).toBeGreaterThanOrEqual(result1.complianceReport.overallScore);
+
+    // Fix 3: h1 heading
+    const html3 = html2.replace(
+      "<h2>Form W-99: Household Income Verification Request</h2>",
+      "<h1>Form W-99: Household Income Verification Request</h1>"
+    );
+    mockAiResponse(`<!DOCTYPE html>\n${html3}`);
+    const headingIssue3 = result2.complianceReport.issues.find((i) => i.criterion === "2.4.6")!;
+    const result3 = await fixComplianceIssue(result2.accessibleHtml, headingIssue3, result2.complianceReport.issues.indexOf(headingIssue3), result2.complianceReport);
+    expect(result3.complianceReport.overallScore).toBeGreaterThanOrEqual(result2.complianceReport.overallScore);
+
+    // All three fixed issues must carry status "fixed" in the final report
+    const finalIssues = result3.complianceReport.issues;
+    expect(finalIssues.find((i) => i.criterion === "3.1.1")!.status).toBe("fixed");
+    expect(finalIssues.find((i) => i.criterion === "2.4.2")!.status).toBe("fixed");
+    expect(finalIssues.find((i) => i.criterion === "2.4.6")!.status).toBe("fixed");
+
+    // Overall score must be higher than the initial score
+    expect(result3.complianceReport.overallScore).toBeGreaterThan(initialScore);
+  });
+
+  it("fixCount in the report accumulates correctly across a fix chain", async () => {
+    const initialIssues = runDeterministicChecks(fixtureHtml);
+    const initialReport = makeReport(initialIssues);
+    expect(initialReport.fixedCount).toBe(0);
+
+    // Fix 1: lang
+    const html1 = fixtureHtml.replace("<html>", '<html lang="en">');
+    mockAiResponse(`<!DOCTYPE html>\n${html1}`);
+    const langIssue = initialIssues.find((i) => i.criterion === "3.1.1")!;
+    const result1 = await fixComplianceIssue(fixtureHtml, langIssue, initialIssues.indexOf(langIssue), initialReport);
+    expect(result1.complianceReport.fixedCount).toBe(1);
+
+    // Fix 2: title, chained from fix 1
+    const html2 = html1.replace("<title></title>", "<title>W-99</title>");
+    mockAiResponse(`<!DOCTYPE html>\n${html2}`);
+    const titleIssue = result1.complianceReport.issues.find((i) => i.criterion === "2.4.2")!;
+    const result2 = await fixComplianceIssue(result1.accessibleHtml, titleIssue, result1.complianceReport.issues.indexOf(titleIssue), result1.complianceReport);
+    expect(result2.complianceReport.fixedCount).toBe(2);
+  });
+
+  it("issueIndex alignment stays correct when the targeted issue is not at index 0 and a prior fix changed other issue statuses", async () => {
+    const initialIssues = runDeterministicChecks(fixtureHtml);
+    const initialReport = makeReport(initialIssues);
+
+    // Fix 1: resolve alt text (1.1.1) — not the first issue in the list
+    const html1 = fixtureHtml
+      .replace('<img src="agency-logo.png">', '<img src="agency-logo.png" alt="Agency logo">')
+      .replace('<img src="seal.png">', '<img src="seal.png" alt="Official seal">');
+    mockAiResponse(`<!DOCTYPE html>\n${html1}`);
+
+    const altIssue = initialIssues.find((i) => i.criterion === "1.1.1")!;
+    const altIndex = initialIssues.indexOf(altIssue);
+    expect(altIndex).toBeGreaterThan(0); // confirm it's not at index 0
+
+    const result1 = await fixComplianceIssue(fixtureHtml, altIssue, altIndex, initialReport);
+
+    // After fix 1, the alt issue must be "fixed" at the same index
+    expect(result1.complianceReport.issues[altIndex].status).toBe("fixed");
+    expect(result1.complianceReport.issues[altIndex].criterion).toBe("1.1.1");
+
+    // Fix 2: resolve lang (3.1.1) using the chained report — its index must still be correct
+    const html2 = html1.replace("<html>", '<html lang="en">');
+    mockAiResponse(`<!DOCTYPE html>\n${html2}`);
+
+    const langIssueInChain = result1.complianceReport.issues.find((i) => i.criterion === "3.1.1")!;
+    const langIndexInChain = result1.complianceReport.issues.indexOf(langIssueInChain);
+
+    const result2 = await fixComplianceIssue(result1.accessibleHtml, langIssueInChain, langIndexInChain, result1.complianceReport);
+
+    // Both issues must now be "fixed", at their respective original indices
+    expect(result2.complianceReport.issues[altIndex].criterion).toBe("1.1.1");
+    expect(result2.complianceReport.issues[altIndex].status).toBe("fixed");
+    expect(result2.complianceReport.issues[langIndexInChain].criterion).toBe("3.1.1");
+    expect(result2.complianceReport.issues[langIndexInChain].status).toBe("fixed");
+  });
+
+  it("issueIndex in the chain report diverges from a fresh runDeterministicChecks index after a conditional issue disappears — chained index correctly targets the right issue", async () => {
+    // Build HTML that produces TWO conditional issues:
+    //   (A) "ARIA Role on Table Data Cell" warning  (conditional — only when td[role] present)
+    //   (B) "Heading Order" warning                 (conditional — only when headings are present)
+    // Order produced by runDeterministicChecks:
+    //   idx 0-6: seven unconditional checks
+    //   idx 7  : Table Headers (fail — td role is not th)
+    //   idx 8  : Table Header Markup (warning — td-only first row)
+    //   idx 9  : ARIA Role on Table Data Cell (warning)   ← (A)
+    //   idx 10 : Heading Order (warning — h1→h3 skips h2) ← (B)
+    const customHtml = `<!DOCTYPE html>
+<html>
+<head><title>Multi-Fix Index Test</title></head>
+<body>
+<h1>Main Heading</h1>
+<h3>Sub Section</h3>
+<table>
+  <tr>
+    <td role="columnheader">Name</td>
+    <td role="columnheader">Score</td>
+  </tr>
+  <tr><td>Alice</td><td>95</td></tr>
+</table>
+</body>
+</html>`;
+
+    const initialIssues = runDeterministicChecks(customHtml);
+    const initialReport = makeReport(initialIssues);
+
+    const ariaIssue = initialIssues.find(
+      (i) => i.criterion === "1.3.1" && i.title === "ARIA Role on Table Data Cell"
+    )!;
+    expect(ariaIssue).toBeDefined();
+    const ariaIndex = initialIssues.indexOf(ariaIssue);
+
+    const headingOrderIssue = initialIssues.find(
+      (i) => i.criterion === "1.3.1" && i.title === "Heading Order"
+    )!;
+    expect(headingOrderIssue).toBeDefined();
+    expect(headingOrderIssue.status).toBe("warning");
+    const headingOrderIndexInitial = initialIssues.indexOf(headingOrderIssue);
+
+    // The ARIA issue must appear BEFORE Heading Order so its removal will shift the heading order index
+    expect(ariaIndex).toBeLessThan(headingOrderIndexInitial);
+
+    // Fix 1: resolve ARIA Role issue — this fix is applied deterministically (no AI call needed)
+    // so we do NOT queue a mock response here.
+    const result1 = await fixComplianceIssue(customHtml, ariaIssue, ariaIndex, initialReport);
+    expect(result1.complianceReport.issues[ariaIndex].status).toBe("fixed");
+
+    // After fix 1, a fresh re-check no longer contains "ARIA Role on Table Data Cell"
+    // or "Table Header Markup" (first row now has <th>).  The "Heading Order" issue
+    // therefore shifts to a LOWER index in the fresh output.
+    const freshAfterFix1 = runDeterministicChecks(result1.accessibleHtml);
+    expect(
+      freshAfterFix1.find((i) => i.criterion === "1.3.1" && i.title === "ARIA Role on Table Data Cell")
+    ).toBeUndefined();
+
+    const headingOrderIndexInFresh = freshAfterFix1.findIndex(
+      (i) => i.criterion === "1.3.1" && i.title === "Heading Order"
+    );
+    const headingOrderIndexInChain = result1.complianceReport.issues.findIndex(
+      (i) => i.criterion === "1.3.1" && i.title === "Heading Order"
+    );
+
+    // The indices must differ — this is the index shift the test is designed to expose
+    expect(headingOrderIndexInFresh).toBeGreaterThanOrEqual(0);
+    expect(headingOrderIndexInChain).toBeGreaterThanOrEqual(0);
+    expect(headingOrderIndexInFresh).not.toBe(headingOrderIndexInChain);
+
+    // Fix 2: target "Heading Order" using the CHAIN-derived index.
+    // Simulate the AI fixing the heading skip: h1 → h3 becomes h1 → h2.
+    // We derive html2 from result1.accessibleHtml (the actual post-fix-1 HTML).
+    const html2 = result1.accessibleHtml.replace("<h3>Sub Section</h3>", "<h2>Sub Section</h2>");
+    mockAiResponse(`<!DOCTYPE html>\n${html2}`);
+
+    const result2 = await fixComplianceIssue(
+      result1.accessibleHtml,
+      result1.complianceReport.issues[headingOrderIndexInChain],
+      headingOrderIndexInChain,
+      result1.complianceReport
+    );
+
+    // The Heading Order issue at the chain-derived index is now fixed
+    const finalIssueAtChainIdx = result2.complianceReport.issues[headingOrderIndexInChain];
+    expect(finalIssueAtChainIdx.criterion).toBe("1.3.1");
+    expect(finalIssueAtChainIdx.title).toBe("Heading Order");
+    expect(finalIssueAtChainIdx.status).toBe("fixed");
+
+    // The ARIA issue fixed in round 1 must still be "fixed"
+    expect(result2.complianceReport.issues[ariaIndex].criterion).toBe("1.3.1");
+    expect(result2.complianceReport.issues[ariaIndex].title).toBe("ARIA Role on Table Data Cell");
+    expect(result2.complianceReport.issues[ariaIndex].status).toBe("fixed");
+
+    // fixedCount accumulates: 2 total
+    expect(result2.complianceReport.fixedCount).toBe(2);
+  });
+});
