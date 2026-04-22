@@ -403,6 +403,31 @@ export default function PdfConversion() {
     });
   }, [toast]);
 
+  const highlightImage = useCallback((originalIndex: number) => {
+    if (!htmlPreviewRef.current) return;
+    const imgs = htmlPreviewRef.current.querySelectorAll("img");
+    const target = imgs[originalIndex];
+    if (target) {
+      target.classList.add("ring-2", "ring-amber-500", "ring-offset-2");
+    }
+  }, []);
+
+  const unhighlightImage = useCallback((originalIndex: number) => {
+    if (!htmlPreviewRef.current) return;
+    const imgs = htmlPreviewRef.current.querySelectorAll("img");
+    const target = imgs[originalIndex];
+    if (target) {
+      target.classList.remove("ring-2", "ring-amber-500", "ring-offset-2");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!htmlPreviewRef.current) return;
+    htmlPreviewRef.current.querySelectorAll("img").forEach((img) => {
+      img.classList.remove("ring-2", "ring-amber-500", "ring-offset-2");
+    });
+  }, [htmlViewMode, expandedIssues]);
+
   const handleFixIssue = useCallback(
     (issueIndex: number) => {
       setFixingIndex(issueIndex);
@@ -1339,8 +1364,10 @@ export default function PdfConversion() {
                                     {issue.imageItems.map((item: any, imgIdx: number) => (
                                       <li
                                         key={imgIdx}
-                                        className="flex items-center gap-2"
+                                        className="flex items-center gap-2 rounded px-1 -mx-1 transition-colors hover:bg-amber-100/60 dark:hover:bg-amber-900/20 cursor-default"
                                         data-testid={`missing-alt-image-item-${imgIdx}`}
+                                        onMouseEnter={() => highlightImage(item.originalIndex)}
+                                        onMouseLeave={() => unhighlightImage(item.originalIndex)}
                                       >
                                         {item.src ? (
                                           <img
