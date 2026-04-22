@@ -1681,6 +1681,64 @@ describe("injectImageData", () => {
     expect(result).toContain('src="data:image/png;base64,photo"');
     expect(result).toContain('src="data:image/png;base64,icon"');
   });
+
+  describe("special characters in filenames", () => {
+    it("matches exactly when filename contains dots (e.g. report.v2.0.png)", () => {
+      const img = makeImage("report.v2.0.png", "data:image/png;base64,dotdata");
+      const html = `<img src="report.v2.0.png" alt="Report">`;
+      const result = injectImageData(html, [img]);
+      expect(result).toContain('src="data:image/png;base64,dotdata"');
+    });
+
+    it("matches exactly when filename contains plus signs (e.g. photo+caption.png)", () => {
+      const img = makeImage("photo+caption.png", "data:image/png;base64,plusdata");
+      const html = `<img src="photo+caption.png" alt="Photo">`;
+      const result = injectImageData(html, [img]);
+      expect(result).toContain('src="data:image/png;base64,plusdata"');
+    });
+
+    it("matches exactly when filename contains parentheses (e.g. image(1).png)", () => {
+      const img = makeImage("image(1).png", "data:image/png;base64,parendata");
+      const html = `<img src="image(1).png" alt="Image">`;
+      const result = injectImageData(html, [img]);
+      expect(result).toContain('src="data:image/png;base64,parendata"');
+    });
+
+    it("matches exactly when filename contains all four special chars (e.g. chart(v2.0+final).png)", () => {
+      const img = makeImage("chart(v2.0+final).png", "data:image/png;base64,allspecial");
+      const html = `<img src="chart(v2.0+final).png" alt="Chart">`;
+      const result = injectImageData(html, [img]);
+      expect(result).toContain('src="data:image/png;base64,allspecial"');
+    });
+
+    it("case-insensitive exact match works with parentheses (Chart(1).PNG vs chart(1).png)", () => {
+      const img = makeImage("Chart(1).PNG", "data:image/png;base64,casedata");
+      const html = `<img src="chart(1).png" alt="Chart">`;
+      const result = injectImageData(html, [img]);
+      expect(result).toContain('src="data:image/png;base64,casedata"');
+    });
+
+    it("partial match works when src contains a filename with dots and plus signs", () => {
+      const img = makeImage("v2.0+final", "data:image/png;base64,partialdata");
+      const html = `<img src="report-v2.0+final-2024" alt="Report">`;
+      const result = injectImageData(html, [img]);
+      expect(result).toContain('src="data:image/png;base64,partialdata"');
+    });
+
+    it("partial match works when image name contains src with parentheses", () => {
+      const img = makeImage("full-image(1).png", "data:image/png;base64,fullparendata");
+      const html = `<img src="image(1)" alt="Image">`;
+      const result = injectImageData(html, [img]);
+      expect(result).toContain('src="data:image/png;base64,fullparendata"');
+    });
+
+    it("falls back to transparent pixel when special-char filename has no match", () => {
+      const img = makeImage("image(1).png", "data:image/png;base64,parendata");
+      const html = `<img src="image(2).png" alt="Other">`;
+      const result = injectImageData(html, [img]);
+      expect(result).toContain(`src="${TRANSPARENT_PIXEL}"`);
+    });
+  });
 });
 
 // ensureMissingImages
@@ -1808,6 +1866,66 @@ describe("ensureMissingImages", () => {
     const result = ensureMissingImages(html, [img]);
     expect(result).toContain(`alt="Image: A &amp; B &lt;&quot;quoted&quot;&gt; (page 4)"`);
     expect(result).toContain(`<figcaption>A &amp; B &lt;"quoted"&gt;</figcaption>`);
+  });
+
+  describe("special characters in filenames – already-present detection", () => {
+    it("does not re-inject an image whose name contains dots when already matched by name", () => {
+      const img = makeImage("report.v2.0.png", "data:image/png;base64,DOTURL");
+      const html = `<html><body><img src="report.v2.0.png" alt="Report"></body></html>`;
+      const result = ensureMissingImages(html, [img]);
+      expect(result).not.toContain("Additional document images");
+      expect(result).toBe(html);
+    });
+
+    it("does not re-inject an image whose name contains plus signs when already matched by name", () => {
+      const img = makeImage("photo+caption.png", "data:image/png;base64,PLUSURL");
+      const html = `<html><body><img src="photo+caption.png" alt="Photo"></body></html>`;
+      const result = ensureMissingImages(html, [img]);
+      expect(result).toBe(html);
+    });
+
+    it("does not re-inject an image whose name contains parentheses when already matched by name", () => {
+      const img = makeImage("image(1).png", "data:image/png;base64,PARENURL");
+      const html = `<html><body><img src="image(1).png" alt="Image 1"></body></html>`;
+      const result = ensureMissingImages(html, [img]);
+      expect(result).toBe(html);
+    });
+
+    it("does not re-inject when name contains all four special chars and is matched by name", () => {
+      const img = makeImage("chart(v2.0+final).png", "data:image/png;base64,ALLURL");
+      const html = `<html><body><img src="chart(v2.0+final).png" alt="Chart"></body></html>`;
+      const result = ensureMissingImages(html, [img]);
+      expect(result).toBe(html);
+    });
+
+    it("case-insensitive name match prevents re-injection for names with parentheses and dots", () => {
+      const img = makeImage("Chart(V2.0).PNG", "data:image/png;base64,CASEURL");
+      const html = `<html><body><img src="chart(v2.0).png" alt="Chart"></body></html>`;
+      const result = ensureMissingImages(html, [img]);
+      expect(result).toBe(html);
+    });
+
+    it("injects image with parentheses in name when absent from HTML", () => {
+      const img = { ...makeImage("figure(a).png", "data:image/png;base64,FIGURL"), pageNumber: 2 };
+      const html = `<html><body><p>No images</p></body></html>`;
+      const result = ensureMissingImages(html, [img]);
+      expect(result).toContain(`src="data:image/png;base64,FIGURL"`);
+      expect(result).toContain("Additional document images");
+    });
+
+    it("injects image with plus signs in name when absent from HTML", () => {
+      const img = { ...makeImage("a+b.png", "data:image/png;base64,PLUSMISSURL"), pageNumber: 1 };
+      const html = `<html><body><p>No images</p></body></html>`;
+      const result = ensureMissingImages(html, [img]);
+      expect(result).toContain(`src="data:image/png;base64,PLUSMISSURL"`);
+    });
+
+    it("injects image with multi-dot name when absent from HTML", () => {
+      const img = { ...makeImage("v1.2.3.png", "data:image/png;base64,DOTMISSURL"), pageNumber: 3 };
+      const html = `<html><body><p>No images</p></body></html>`;
+      const result = ensureMissingImages(html, [img]);
+      expect(result).toContain(`src="data:image/png;base64,DOTMISSURL"`);
+    });
   });
 });
 
