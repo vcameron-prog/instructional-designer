@@ -14,6 +14,8 @@ import {
   applyAriaRadioRoleFix,
   applyAriaListRoleFix,
   applyAriaListitemRoleFix,
+  applyLangAttributeFix,
+  applyPageTitleFix,
   parseHexColor,
   relativeLuminance,
   contrastRatio,
@@ -2314,9 +2316,6 @@ describe("fixComplianceIssue – fixture-based regression tests", () => {
     const langIssue = issues.find((i) => i.criterion === "3.1.1")!;
     expect(langIssue.status).toBe("fail");
 
-    const fixedHtml = fixtureHtml.replace("<html>", '<html lang="en">');
-    mockAiResponse(`<!DOCTYPE html>\n${fixedHtml}`);
-
     const report = makeReport(issues);
     const result = await fixComplianceIssue(fixtureHtml, langIssue, issues.indexOf(langIssue), report);
 
@@ -2325,13 +2324,19 @@ describe("fixComplianceIssue – fixture-based regression tests", () => {
     expect(afterLang.status).toBe("pass");
   });
 
+  it("does not call the AI when fixing the Language of Page issue (3.1.1)", async () => {
+    const issues = runDeterministicChecks(fixtureHtml);
+    const langIssue = issues.find((i) => i.criterion === "3.1.1")!;
+    const report = makeReport(issues);
+    mockCreate.mockClear();
+    await fixComplianceIssue(fixtureHtml, langIssue, issues.indexOf(langIssue), report);
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
   it("fixes criterion 2.4.2 (Page Titled): returned HTML passes the title check", async () => {
     const issues = runDeterministicChecks(fixtureHtml);
     const titleIssue = issues.find((i) => i.criterion === "2.4.2")!;
     expect(titleIssue.status).toBe("fail");
-
-    const fixedHtml = fixtureHtml.replace("<title></title>", "<title>Form W-99: Household Income Verification Request</title>");
-    mockAiResponse(`<!DOCTYPE html>\n${fixedHtml}`);
 
     const report = makeReport(issues);
     const result = await fixComplianceIssue(fixtureHtml, titleIssue, issues.indexOf(titleIssue), report);
@@ -2339,6 +2344,15 @@ describe("fixComplianceIssue – fixture-based regression tests", () => {
     const afterIssues = runDeterministicChecks(result.accessibleHtml);
     const afterTitle = afterIssues.find((i) => i.criterion === "2.4.2")!;
     expect(afterTitle.status).toBe("pass");
+  });
+
+  it("does not call the AI when fixing the Page Titled issue (2.4.2)", async () => {
+    const issues = runDeterministicChecks(fixtureHtml);
+    const titleIssue = issues.find((i) => i.criterion === "2.4.2")!;
+    const report = makeReport(issues);
+    mockCreate.mockClear();
+    await fixComplianceIssue(fixtureHtml, titleIssue, issues.indexOf(titleIssue), report);
+    expect(mockCreate).not.toHaveBeenCalled();
   });
 
   it("fixes criterion 2.4.6 (Headings and Labels): returned HTML passes the h1 check", async () => {
@@ -2421,9 +2435,6 @@ describe("fixComplianceIssue – fixture-based regression tests", () => {
     const langIssue = issues.find((i) => i.criterion === "3.1.1")!;
     const issueIndex = issues.indexOf(langIssue);
 
-    const fixedHtml = fixtureHtml.replace("<html>", '<html lang="en">');
-    mockAiResponse(`<!DOCTYPE html>\n${fixedHtml}`);
-
     const report = makeReport(issues);
     const result = await fixComplianceIssue(fixtureHtml, langIssue, issueIndex, report);
 
@@ -2434,7 +2445,7 @@ describe("fixComplianceIssue – fixture-based regression tests", () => {
 
   it("throws when the AI returns output that does not start with <!DOCTYPE html>", async () => {
     const issues = runDeterministicChecks(fixtureHtml);
-    const langIssue = issues.find((i) => i.criterion === "3.1.1")!;
+    const headingIssue = issues.find((i) => i.criterion === "2.4.6")!;
 
     mockCreate.mockResolvedValueOnce({
       content: [{ type: "text", text: "Sorry, I cannot fix that." }],
@@ -2442,7 +2453,7 @@ describe("fixComplianceIssue – fixture-based regression tests", () => {
 
     const report = makeReport(issues);
     await expect(
-      fixComplianceIssue(fixtureHtml, langIssue, issues.indexOf(langIssue), report)
+      fixComplianceIssue(fixtureHtml, headingIssue, issues.indexOf(headingIssue), report)
     ).rejects.toThrow("AI failed to produce a valid HTML fix");
   });
 
@@ -2455,9 +2466,6 @@ describe("fixComplianceIssue – fixture-based regression tests", () => {
       idx === 1 ? { ...issue, status: "fixed" } : issue
     );
 
-    const fixedHtml = fixtureHtml.replace("<html>", '<html lang="en">');
-    mockAiResponse(`<!DOCTYPE html>\n${fixedHtml}`);
-
     const report = makeReport(issuesWithPriorFix);
     const result = await fixComplianceIssue(fixtureHtml, langIssue, langIndex, report);
 
@@ -2467,10 +2475,11 @@ describe("fixComplianceIssue – fixture-based regression tests", () => {
 
   it("strips and restores data URIs so the AI never receives large base64 blobs", async () => {
     const dataUri = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
-    const htmlWithDataUri = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>Doc</h1><img src="${dataUri}" alt="Pixel"></main></body></html>`;
+    const htmlWithDataUri = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><img src="${dataUri}" alt="Pixel"></main></body></html>`;
 
     const issues = runDeterministicChecks(htmlWithDataUri);
-    const titleIssue = issues.find((i) => i.criterion === "2.4.2")!;
+    const headingIssue = issues.find((i) => i.criterion === "2.4.6")!;
+    expect(headingIssue.status).toBe("fail");
 
     let capturedInput = "";
     mockCreate.mockImplementationOnce(async ({ messages }: { messages: Array<{ content: string }> }) => {
@@ -2479,7 +2488,7 @@ describe("fixComplianceIssue – fixture-based regression tests", () => {
     });
 
     const report = makeReport(issues);
-    await fixComplianceIssue(htmlWithDataUri, titleIssue, issues.indexOf(titleIssue), report);
+    await fixComplianceIssue(htmlWithDataUri, headingIssue, issues.indexOf(headingIssue), report);
 
     expect(capturedInput).not.toContain("data:image/png;base64,iVBOR");
     expect(capturedInput).toContain("__IMG_PLACEHOLDER_");
@@ -3175,5 +3184,107 @@ describe("ARIA misuse warning card UI contract", () => {
       const issue = issues.find((i) => i.title === "ARIA Heading Role on Non-Heading Element");
       expect(issue!.description).toMatch(/h1.*h6|h1>.*<h6/i);
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// applyLangAttributeFix
+// ---------------------------------------------------------------------------
+
+describe("applyLangAttributeFix", () => {
+  it("adds lang=\"en\" to <html> when no lang attribute is present", () => {
+    const html = `<!DOCTYPE html><html><head><title>T</title></head><body></body></html>`;
+    const result = applyLangAttributeFix(html);
+    expect(result).toContain('<html lang="en">');
+    expect(result).not.toContain("<html>");
+  });
+
+  it("preserves existing attributes on <html> when adding lang", () => {
+    const html = `<!DOCTYPE html><html class="no-js"><head></head><body></body></html>`;
+    const result = applyLangAttributeFix(html);
+    expect(result).toContain('class="no-js"');
+    expect(result).toContain('lang="en"');
+  });
+
+  it("does not modify the HTML when lang attribute is already present", () => {
+    const html = `<!DOCTYPE html><html lang="fr"><head><title>T</title></head><body></body></html>`;
+    const result = applyLangAttributeFix(html);
+    expect(result).toBe(html);
+    expect(result).toContain('lang="fr"');
+  });
+
+  it("does not duplicate lang when lang attribute already exists with a value", () => {
+    const html = `<!DOCTYPE html><html lang="en-GB"><head></head><body></body></html>`;
+    const result = applyLangAttributeFix(html);
+    const langCount = (result.match(/\slang=/g) ?? []).length;
+    expect(langCount).toBe(1);
+  });
+
+  it("fixed HTML no longer triggers the 3.1.1 Language of Page failure", () => {
+    const html = `<!DOCTYPE html><html><head><title>T</title></head><body><main><h1>T</h1></main></body></html>`;
+    const before = runDeterministicChecks(html);
+    expect(before.find((i) => i.criterion === "3.1.1")!.status).toBe("fail");
+
+    const fixed = applyLangAttributeFix(html);
+    const after = runDeterministicChecks(fixed);
+    expect(after.find((i) => i.criterion === "3.1.1")!.status).toBe("pass");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// applyPageTitleFix
+// ---------------------------------------------------------------------------
+
+describe("applyPageTitleFix", () => {
+  it("fills an empty <title> with 'Document'", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title></title></head><body></body></html>`;
+    const result = applyPageTitleFix(html);
+    expect(result).toContain("<title>Document</title>");
+    expect(result).not.toMatch(/<title>\s*<\/title>/);
+  });
+
+  it("fills a whitespace-only <title> with 'Document'", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>   </title></head><body></body></html>`;
+    const result = applyPageTitleFix(html);
+    expect(result).toContain("<title>Document</title>");
+  });
+
+  it("inserts a <title> into <head> when the title element is missing", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head></head><body></body></html>`;
+    const result = applyPageTitleFix(html);
+    expect(result).toContain("<title>Document</title>");
+    expect(/<title>[^<]+<\/title>/i.test(result)).toBe(true);
+  });
+
+  it("inserts <head> and <title> when neither is present", () => {
+    const html = `<!DOCTYPE html><html lang="en"><body></body></html>`;
+    const result = applyPageTitleFix(html);
+    expect(result).toContain("<title>Document</title>");
+  });
+
+  it("does not modify HTML when a non-empty title already exists", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>My Document</title></head><body></body></html>`;
+    const result = applyPageTitleFix(html);
+    expect(result).toBe(html);
+  });
+
+  it("fixed HTML no longer triggers the 2.4.2 Page Titled failure (empty title)", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title></title></head><body><main><h1>T</h1></main></body></html>`;
+    const before = runDeterministicChecks(html);
+    expect(before.find((i) => i.criterion === "2.4.2")!.status).toBe("fail");
+
+    const fixed = applyPageTitleFix(html);
+    const after = runDeterministicChecks(fixed);
+    expect(after.find((i) => i.criterion === "2.4.2")!.status).toBe("pass");
+  });
+
+  it("fixed HTML no longer triggers the 2.4.2 Page Titled failure (missing title)", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head></head><body><main><h1>T</h1></main></body></html>`;
+    const before = runDeterministicChecks(html);
+    expect(before.find((i) => i.criterion === "2.4.2")!.status).toBe("fail");
+
+    const fixed = applyPageTitleFix(html);
+    const after = runDeterministicChecks(fixed);
+    expect(after.find((i) => i.criterion === "2.4.2")!.status).toBe("pass");
   });
 });

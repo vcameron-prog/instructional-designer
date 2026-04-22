@@ -1106,34 +1106,31 @@ export function applyAriaRoleHeaderFix(html: string): string {
   return result;
 }
 
+export function applyLangAttributeFix(html: string): string {
+  if (/<html[^>]*\slang\s*=/i.test(html)) return html;
+  return html.replace(/<html([^>]*)>/i, (_match, attrs: string) => `<html${attrs} lang="en">`);
+}
+
+export function applyPageTitleFix(html: string): string {
+  if (/<title>\s*<\/title>/i.test(html)) {
+    return html.replace(/<title>\s*<\/title>/i, "<title>Document</title>");
+  }
+  if (!/<title>[^<]+<\/title>/i.test(html)) {
+    if (/<head[^>]*>/i.test(html)) {
+      return html.replace(/(<head[^>]*>)/i, "$1<title>Document</title>");
+    }
+    return html.replace(/(<html[^>]*>)/i, "$1<head><title>Document</title></head>");
+  }
+  return html;
+}
+
 type DeterministicFixer = (html: string) => string;
 
 const deterministicFixerRegistry: Record<string, DeterministicFixer> = {
   "1.3.1::ARIA Role on Table Data Cell": applyAriaRoleHeaderFix,
+  "3.1.1::Language of Page": applyLangAttributeFix,
+  "2.4.2::Page Titled": applyPageTitleFix,
 };
-
-function stripDataUris(html: string): { stripped: string; uris: Map<string, string> } {
-  const uris = new Map<string, string>();
-  let counter = 0;
-  const stripped = html.replace(
-    /src\s*=\s*(?:"(data:[^"]+)"|'(data:[^']+)')/gi,
-    (_match, dq: string | undefined, sq: string | undefined) => {
-      const dataUri = dq ?? sq ?? "";
-      const placeholder = `__IMG_PLACEHOLDER_${counter++}__`;
-      uris.set(placeholder, dataUri);
-      return `src="${placeholder}"`;
-    }
-  );
-  return { stripped, uris };
-}
-
-function restoreDataUris(html: string, uris: Map<string, string>): string {
-  let result = html;
-  for (const [placeholder, dataUri] of uris) {
-    result = result.replaceAll(placeholder, dataUri);
-  }
-  return result;
-}
 
 export function applyDeterministicReport(
   fixedHtml: string,
@@ -1166,6 +1163,29 @@ export function applyDeterministicReport(
       }
     }
   }
+}
+
+function stripDataUris(html: string): { stripped: string; uris: Map<string, string> } {
+  const uris = new Map<string, string>();
+  let counter = 0;
+  const stripped = html.replace(
+    /src\s*=\s*(?:"(data:[^"]+)"|'(data:[^']+)')/gi,
+    (_match, dq: string | undefined, sq: string | undefined) => {
+      const dataUri = dq ?? sq ?? "";
+      const placeholder = `__IMG_PLACEHOLDER_${counter++}__`;
+      uris.set(placeholder, dataUri);
+      return `src="${placeholder}"`;
+    }
+  );
+  return { stripped, uris };
+}
+
+function restoreDataUris(html: string, uris: Map<string, string>): string {
+  let result = html;
+  for (const [placeholder, dataUri] of uris) {
+    result = result.replaceAll(placeholder, dataUri);
+  }
+  return result;
 }
 
 export async function fixComplianceIssue(
@@ -1263,11 +1283,7 @@ ${stripped}`,
 
   const updatedIssues = [...existingReport.issues];
   applyDeterministicReport(fixedHtml, issue, issueIndex, updatedIssues);
-
-  return {
-    accessibleHtml: fixedHtml,
-    complianceReport: buildComplianceReport(updatedIssues),
-  };
+  return { accessibleHtml: fixedHtml, complianceReport: buildComplianceReport(updatedIssues) };
 }
 
 export type ProgressCallback = (message: string) => Promise<void>;
