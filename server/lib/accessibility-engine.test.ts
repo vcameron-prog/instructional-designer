@@ -1626,6 +1626,30 @@ describe("ensureAltText", () => {
     expect(result).not.toContain('alt="image"');
     expect(result).toContain('alt="A meaningful description"');
   });
+
+  it("escapes & in the image name when building fallback alt text from a data URI", () => {
+    const img = makeImage("sales&marketing.png");
+    const html = `<img src="${img.dataUrl}">`;
+    const result = ensureAltText(html, [img]);
+    expect(result).toContain("&amp;");
+    expect(result).not.toMatch(/alt="[^"]*&[^a-z#][^"]*"/);
+  });
+
+  it('escapes " in the image name when building fallback alt text from a non-data src', () => {
+    const html = `<img src='say"cheese".png'>`;
+    const result = ensureAltText(html, []);
+    expect(result).toContain("&quot;");
+    expect(result).not.toContain('alt="Image: say"');
+  });
+
+  it("escapes < and > in the image name when building fallback alt text from a data URI", () => {
+    const img = makeImage("before<arrow>after.png", "data:image/png;base64,cleandata");
+    const html = `<img src="${img.dataUrl}">`;
+    const result = ensureAltText(html, [img]);
+    expect(result).toContain("&lt;");
+    expect(result).toContain("&gt;");
+    expect(result).not.toContain("<arrow>");
+  });
 });
 
 // ---------------------------------------------------------------------------
