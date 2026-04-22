@@ -12,6 +12,7 @@ import {
   checkHeadingOrder,
   ensureAltText,
   injectImageData,
+  ensureMissingImages,
   type ComplianceIssue,
 } from "./accessibility-engine.js";
 import type { ExtractedImage } from "./pdf-processor.js";
@@ -1059,5 +1060,100 @@ describe("injectImageData", () => {
     const result = injectImageData(html, [img1, img2]);
     expect(result).toContain('src="data:image/png;base64,photo"');
     expect(result).toContain('src="data:image/png;base64,icon"');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ensureMissingImages
+// ---------------------------------------------------------------------------
+
+describe("ensureMissingImages", () => {
+  it("returns the HTML unchanged when the images array is empty", () => {
+    const html = `<html><body><p>No images expected</p></body></html>`;
+    expect(ensureMissingImages(html, [])).toBe(html);
+  });
+
+  it("is a no-op when all images are already present by data URL", () => {
+    const imgA = makeImage("figure-1.png", "data:image/png;base64,AAA");
+    const imgB = makeImage("figure-2.png", "data:image/png;base64,BBB");
+    const html = `<html><body>
+      <img src="data:image/png;base64,AAA" alt="Figure 1">
+      <img src="data:image/png;base64,BBB" alt="Figure 2">
+    </body></html>`;
+    expect(ensureMissingImages(html, [imgA, imgB])).toBe(html);
+  });
+
+  it("is a no-op when all images are already present by name", () => {
+    const imgA = makeImage("diagram.png", "data:image/png;base64,CCC");
+    const html = `<html><body><img src="diagram.png" alt="A diagram"></body></html>`;
+    expect(ensureMissingImages(html, [imgA])).toBe(html);
+  });
+
+  it("injects a single missing image with figure/figcaption markup and correct alt", () => {
+    const img = { ...makeImage("chart-revenue.png", "data:image/png;base64,REV"), pageNumber: 5 };
+    const html = `<html><body><p>Content</p></body></html>`;
+    const result = ensureMissingImages(html, [img]);
+    expect(result).toContain(`src="data:image/png;base64,REV"`);
+    expect(result).toContain(`alt="Image: chart revenue (page 5)"`);
+    expect(result).toContain("<figure>");
+    expect(result).toContain("<figcaption>chart revenue</figcaption>");
+    expect(result).toContain(`aria-label="Additional document images"`);
+    expect(result).toContain("<h2>Additional Images</h2>");
+  });
+
+  it("injects multiple missing images each with correct alt text and figure/figcaption", () => {
+    const imgA = { ...makeImage("photo_one.jpg", "data:image/png;base64,ONE"), pageNumber: 1 };
+    const imgB = { ...makeImage("photo_two.jpg", "data:image/png;base64,TWO"), pageNumber: 2 };
+    const imgC = { ...makeImage("photo_three.jpg", "data:image/png;base64,THREE"), pageNumber: 3 };
+    const html = `<html><body><p>No images yet</p></body></html>`;
+    const result = ensureMissingImages(html, [imgA, imgB, imgC]);
+    expect(result).toContain(`src="data:image/png;base64,ONE"`);
+    expect(result).toContain(`alt="Image: photo one (page 1)"`);
+    expect(result).toContain("<figcaption>photo one</figcaption>");
+    expect(result).toContain(`src="data:image/png;base64,TWO"`);
+    expect(result).toContain(`alt="Image: photo two (page 2)"`);
+    expect(result).toContain("<figcaption>photo two</figcaption>");
+    expect(result).toContain(`src="data:image/png;base64,THREE"`);
+    expect(result).toContain(`alt="Image: photo three (page 3)"`);
+    expect(result).toContain("<figcaption>photo three</figcaption>");
+    const figureCount = (result.match(/<figure>/g) ?? []).length;
+    expect(figureCount).toBe(3);
+  });
+
+  it("only injects the images that are missing, leaving already-present ones untouched", () => {
+    const imgA = makeImage("present.png", "data:image/png;base64,PRES");
+    const imgB = makeImage("missing.png", "data:image/png;base64,MISS");
+    const html = `<html><body><img src="data:image/png;base64,PRES" alt="Already here"></body></html>`;
+    const result = ensureMissingImages(html, [imgA, imgB]);
+    expect(result).toContain(`src="data:image/png;base64,MISS"`);
+    const presCount = (result.match(/base64,PRES/g) ?? []).length;
+    expect(presCount).toBe(1);
+  });
+
+  it("inserts the section before </body> when that tag is present", () => {
+    const img = makeImage("photo.png", "data:image/png;base64,XYZ");
+    const html = `<html><body><p>Content</p></body></html>`;
+    const result = ensureMissingImages(html, [img]);
+    const sectionIdx = result.indexOf(`aria-label="Additional document images"`);
+    const bodyCloseIdx = result.indexOf("</body>");
+    expect(sectionIdx).toBeGreaterThan(-1);
+    expect(sectionIdx).toBeLessThan(bodyCloseIdx);
+  });
+
+  it("inserts the section before </main> when there is no </body>", () => {
+    const img = makeImage("photo.png", "data:image/png;base64,XYZ");
+    const html = `<main><p>Content</p></main>`;
+    const result = ensureMissingImages(html, [img]);
+    const sectionIdx = result.indexOf(`aria-label="Additional document images"`);
+    const mainCloseIdx = result.indexOf("</main>");
+    expect(sectionIdx).toBeGreaterThan(-1);
+    expect(sectionIdx).toBeLessThan(mainCloseIdx);
+  });
+
+  it("appends the section at the very end when neither </body> nor </main> is present", () => {
+    const img = makeImage("photo.png", "data:image/png;base64,XYZ");
+    const html = `<div><p>Content</p></div>`;
+    const result = ensureMissingImages(html, [img]);
+    expect(result.endsWith("</section>")).toBe(true);
   });
 });

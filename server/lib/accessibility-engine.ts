@@ -187,7 +187,7 @@ export function ensureAltText(html: string, images: ExtractedImage[]): string {
   );
 }
 
-function ensureMissingImages(html: string, images: ExtractedImage[]): string {
+export function ensureMissingImages(html: string, images: ExtractedImage[]): string {
   if (images.length === 0) return html;
 
   const matchedDataUrls = new Set<string>();
