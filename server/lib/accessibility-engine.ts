@@ -1369,6 +1369,10 @@ export function registerDeterministicFixer(key: string, fn: DeterministicFixer):
   deterministicFixerRegistry[key] = fn;
 }
 
+export function getDeterministicFixerKeys(): string[] {
+  return Object.keys(deterministicFixerRegistry);
+}
+
 export function applyDeterministicReport(
   fixedHtml: string,
   issue: ComplianceIssue,

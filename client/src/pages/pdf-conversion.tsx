@@ -15,6 +15,7 @@ import {
   Code2,
   ChevronDown,
   Wand2,
+  Zap,
   Info,
   Upload,
   ClipboardCopy,
@@ -203,6 +204,16 @@ export default function PdfConversion() {
         : false;
     },
   });
+
+  const { data: deterministicFixersData } = useQuery<{ keys: string[] }>({
+    queryKey: ["/api/deterministic-fixers"],
+    staleTime: Infinity,
+  });
+
+  const deterministicFixerKeys = useMemo(
+    () => new Set(deterministicFixersData?.keys ?? []),
+    [deterministicFixersData],
+  );
 
   const processMutation = useMutation({
     mutationFn: async (id: number) => {
@@ -1327,6 +1338,7 @@ export default function PdfConversion() {
                     const isFixable =
                       issue.status === "fail" || issue.status === "warning";
                     const isFixing = fixingIndex === i;
+                    const isInstant = deterministicFixerKeys.has(`${issue.criterion}::${issue.title}`);
 
                     return (
                       <div
@@ -1492,10 +1504,12 @@ export default function PdfConversion() {
                                 >
                                   {isFixing ? (
                                     <Loader2 className="w-4 h-4 animate-spin" />
+                                  ) : isInstant ? (
+                                    <Zap className="w-4 h-4" />
                                   ) : (
                                     <Wand2 className="w-4 h-4" />
                                   )}
-                                  {isFixing ? "Fixing..." : "Fix with AI"}
+                                  {isFixing ? "Fixing..." : isInstant ? "Fix instantly" : "Fix with AI"}
                                 </button>
                                 {showAcceptForm !== i && (
                                   <button

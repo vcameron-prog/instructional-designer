@@ -16,6 +16,7 @@ import { db } from "./db";
 import { eq, and, desc, isNull, sql, inArray } from "drizzle-orm";
 import { convertMarkdownTablesToHtml } from "./markdownTableConverter.js";
 import { fixHtmlTableCaption, fixHtmlTableThead, editHtmlTableCaption } from "./lib/table-fixers.js";
+import { getDeterministicFixerKeys } from "./lib/accessibility-engine";
 
 function getUserId(req: Request): string | null {
   return (req.user as any)?.claims?.sub ?? null;
@@ -1162,6 +1163,10 @@ export async function registerRoutes(
 
   app.get("/api/config", (_req: Request, res: Response) => {
     res.json({ versionHistoryLimit: VERSION_HISTORY_LIMIT });
+  });
+
+  app.get("/api/deterministic-fixers", (_req: Request, res: Response) => {
+    res.json({ keys: getDeterministicFixerKeys().sort() });
   });
 
   app.get("/api/admin/check", isAuthenticated, (req: Request, res: Response) => {
