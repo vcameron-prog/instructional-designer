@@ -495,6 +495,9 @@ export default function ResultPage() {
       const preFixVersionId: number | null = data?.preFixVersionId ?? null;
       toast({
         title: "Fix applied successfully!",
+        description: appConfig
+          ? `Up to ${appConfig.versionHistoryLimit} versions are kept.`
+          : undefined,
         action: preFixVersionId
           ? (
             <ToastAction
