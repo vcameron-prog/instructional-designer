@@ -1970,6 +1970,54 @@ describe("injectImageData", () => {
       expect(result).toContain(`src="${TRANSPARENT_PIXEL}"`);
     });
   });
+
+  describe("space-encoded and Unicode filenames", () => {
+    it("matches when src uses %20 for spaces (e.g. my%20image.png vs my image.png)", () => {
+      const img = makeImage("my image.png", "data:image/png;base64,spacedata");
+      const html = `<img src="my%20image.png" alt="My image">`;
+      const result = injectImageData(html, [img]);
+      expect(result).toContain('src="data:image/png;base64,spacedata"');
+    });
+
+    it("matches when src uses + for spaces (e.g. my+image.png vs my image.png)", () => {
+      const img = makeImage("my image.png", "data:image/png;base64,plusspacedata");
+      const html = `<img src="my+image.png" alt="My image">`;
+      const result = injectImageData(html, [img]);
+      expect(result).toContain('src="data:image/png;base64,plusspacedata"');
+    });
+
+    it("matches when src has multiple spaces encoded as %20", () => {
+      const img = makeImage("annual report 2024.png", "data:image/png;base64,multispace");
+      const html = `<img src="annual%20report%202024.png" alt="Annual report">`;
+      const result = injectImageData(html, [img]);
+      expect(result).toContain('src="data:image/png;base64,multispace"');
+    });
+
+    it("matches NFC src against NFD image name (accented characters)", () => {
+      const nfdName = "re\u0301sume\u0301.png";
+      const nfcSrc = "r\u00e9sum\u00e9.png";
+      const img = makeImage(nfdName, "data:image/png;base64,accentnfd");
+      const html = `<img src="${nfcSrc}" alt="Resume">`;
+      const result = injectImageData(html, [img]);
+      expect(result).toContain('src="data:image/png;base64,accentnfd"');
+    });
+
+    it("matches NFD src against NFC image name (accented characters)", () => {
+      const nfcName = "r\u00e9sum\u00e9.png";
+      const nfdSrc = "re\u0301sume\u0301.png";
+      const img = makeImage(nfcName, "data:image/png;base64,accentnfc");
+      const html = `<img src="${nfdSrc}" alt="Resume">`;
+      const result = injectImageData(html, [img]);
+      expect(result).toContain('src="data:image/png;base64,accentnfc"');
+    });
+
+    it("matches when space-encoded src also contains percent-encoded special chars", () => {
+      const img = makeImage("file (1) copy.png", "data:image/png;base64,spaceparen");
+      const html = `<img src="file%20%281%29%20copy.png" alt="File">`;
+      const result = injectImageData(html, [img]);
+      expect(result).toContain('src="data:image/png;base64,spaceparen"');
+    });
+  });
 });
 
 // ensureMissingImages
@@ -2193,6 +2241,48 @@ describe("ensureMissingImages", () => {
       const html = `<html><body><img src="image%282%29.png" alt="Image 2"></body></html>`;
       const result = ensureMissingImages(html, [img]);
       expect(result).toContain(`src="data:image/png;base64,ENCMISS"`);
+      expect(result).toContain("Additional document images");
+    });
+  });
+
+  describe("space-encoded and Unicode filenames – already-present detection", () => {
+    it("does not re-inject when src uses %20 for spaces and matches image name with spaces", () => {
+      const img = makeImage("my image.png", "data:image/png;base64,SPACEENC");
+      const html = `<html><body><img src="my%20image.png" alt="My image"></body></html>`;
+      const result = ensureMissingImages(html, [img]);
+      expect(result).toBe(html);
+    });
+
+    it("does not re-inject when src uses + for spaces and matches image name with spaces", () => {
+      const img = makeImage("my image.png", "data:image/png;base64,PLUSSPACEENC");
+      const html = `<html><body><img src="my+image.png" alt="My image"></body></html>`;
+      const result = ensureMissingImages(html, [img]);
+      expect(result).toBe(html);
+    });
+
+    it("does not re-inject when NFC-encoded src matches NFD image name", () => {
+      const nfdName = "re\u0301sume\u0301.png";
+      const nfcSrc = "r\u00e9sum\u00e9.png";
+      const img = makeImage(nfdName, "data:image/png;base64,NFCNFDENC");
+      const html = `<html><body><img src="${nfcSrc}" alt="Resume"></body></html>`;
+      const result = ensureMissingImages(html, [img]);
+      expect(result).toBe(html);
+    });
+
+    it("does not re-inject when NFD src matches NFC image name", () => {
+      const nfcName = "r\u00e9sum\u00e9.png";
+      const nfdSrc = "re\u0301sume\u0301.png";
+      const img = makeImage(nfcName, "data:image/png;base64,NFDNFCENC");
+      const html = `<html><body><img src="${nfdSrc}" alt="Resume"></body></html>`;
+      const result = ensureMissingImages(html, [img]);
+      expect(result).toBe(html);
+    });
+
+    it("still injects accented image when src is a completely different name", () => {
+      const img = { ...makeImage("r\u00e9sum\u00e9.png", "data:image/png;base64,ACCENTMISS"), pageNumber: 2 };
+      const html = `<html><body><img src="other.png" alt="Other"></body></html>`;
+      const result = ensureMissingImages(html, [img]);
+      expect(result).toContain(`src="data:image/png;base64,ACCENTMISS"`);
       expect(result).toContain("Additional document images");
     });
   });

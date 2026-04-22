@@ -118,12 +118,35 @@ function buildStructuralSummary(
 
 const TRANSPARENT_PIXEL = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
 
+/**
+ * Normalise an image src value for comparison:
+ * 1. Replace literal `+` with `%20` so space-encoded filenames are decoded correctly.
+ * 2. Percent-decode the result.
+ * 3. Replace any remaining `+` (from `%2B`) with a space for uniform treatment.
+ * 4. Apply NFC Unicode normalisation so NFC/NFD variants match.
+ * 5. Lowercase for case-insensitive comparison.
+ */
+function normalizeImageSrc(src: string): string {
+  const withPlusAsSpace = src.replace(/\+/g, "%20");
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(withPlusAsSpace);
+  } catch {
+    try {
+      decoded = decodeURIComponent(src);
+    } catch {
+      decoded = src;
+    }
+  }
+  return decoded.replace(/\+/g, " ").normalize("NFC").toLowerCase();
+}
+
 export function injectImageData(html: string, images: ExtractedImage[]): string {
   if (images.length === 0) return html;
 
   const imageMap = new Map<string, string>();
   for (const img of images) {
-    imageMap.set(img.name.toLowerCase(), img.dataUrl);
+    imageMap.set(normalizeImageSrc(img.name), img.dataUrl);
   }
 
   return html.replace(
@@ -132,20 +155,14 @@ export function injectImageData(html: string, images: ExtractedImage[]): string 
       const src = dq ?? sq ?? uq ?? "";
       if (src.startsWith("data:")) return match;
 
-      let decodedSrc: string;
-      try {
-        decodedSrc = decodeURIComponent(src);
-      } catch {
-        decodedSrc = src;
-      }
-      const srcLower = decodedSrc.toLowerCase();
-      const dataUrl = imageMap.get(srcLower);
+      const srcNorm = normalizeImageSrc(src);
+      const dataUrl = imageMap.get(srcNorm);
       if (dataUrl) {
         return `<img ${before}src="${dataUrl}"${after}>`;
       }
 
       for (const [name, url] of imageMap) {
-        if (srcLower.includes(name) || name.includes(srcLower)) {
+        if (srcNorm.includes(name) || name.includes(srcNorm)) {
           return `<img ${before}src="${url}"${after}>`;
         }
       }
@@ -220,18 +237,12 @@ export function ensureMissingImages(html: string, images: ExtractedImage[]): str
     if (src.startsWith("data:")) {
       matchedDataUrls.add(src);
     } else {
-      let decodedSrc: string;
-      try {
-        decodedSrc = decodeURIComponent(src);
-      } catch {
-        decodedSrc = src;
-      }
-      matchedNames.add(decodedSrc.toLowerCase());
+      matchedNames.add(normalizeImageSrc(src));
     }
   }
 
   const missingImages = images.filter(
-    (img) => !matchedDataUrls.has(img.dataUrl) && !matchedNames.has(img.name.toLowerCase())
+    (img) => !matchedDataUrls.has(img.dataUrl) && !matchedNames.has(normalizeImageSrc(img.name))
   );
 
   if (missingImages.length === 0) return html;
