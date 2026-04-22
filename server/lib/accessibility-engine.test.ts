@@ -2847,6 +2847,23 @@ describe("deterministicFixerRegistry – dispatch", () => {
     expect(mockCreate).toHaveBeenCalledTimes(1);
     expect(result.accessibleHtml).not.toContain("position: absolute");
   });
+
+  it("marks the targeted issue as 'fixed' in the returned complianceReport after a deterministic fix", async () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>Table</h1><table><thead><tr><td role="columnheader">Name</td><td role="columnheader">Score</td></tr></thead><tbody><tr><td>Alice</td><td>95</td></tr></tbody></table></main></body></html>`;
+    const issues = runDeterministicChecks(html);
+    const ariaIssue = issues.find(
+      (i) => i.criterion === "1.3.1" && i.title === "ARIA Role on Table Data Cell"
+    )!;
+    expect(ariaIssue).toBeDefined();
+    const issueIndex = issues.indexOf(ariaIssue);
+
+    const report = makeReport(issues);
+    const result = await fixComplianceIssue(html, ariaIssue, issueIndex, report);
+
+    expect(mockCreate).not.toHaveBeenCalled();
+    expect(result.complianceReport.issues[issueIndex].status).toBe("fixed");
+    expect(result.complianceReport.issues[issueIndex].criterion).toBe("1.3.1");
+  });
 });
 
 // ---------------------------------------------------------------------------
