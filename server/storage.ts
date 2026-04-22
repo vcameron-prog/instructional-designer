@@ -38,6 +38,7 @@ export interface IStorage {
   // Content Versions
   createVersion(version: InsertContentVersion): Promise<ContentVersion>;
   getVersionsByContent(contentId: number): Promise<ContentVersion[]>;
+  getVersionById(id: number): Promise<ContentVersion | undefined>;
   
   // Saved Content Library
   getAllSavedContent(): Promise<SavedContent[]>;
@@ -154,6 +155,14 @@ export class DatabaseStorage implements IStorage {
       .from(contentVersions)
       .where(eq(contentVersions.generatedContentId, contentId))
       .orderBy(desc(contentVersions.createdAt));
+  }
+
+  async getVersionById(id: number): Promise<ContentVersion | undefined> {
+    const [version] = await db
+      .select()
+      .from(contentVersions)
+      .where(eq(contentVersions.id, id));
+    return version;
   }
 
   // Saved Content Library

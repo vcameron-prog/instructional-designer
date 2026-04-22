@@ -1870,14 +1870,60 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         }
 
         if (fixedContent === content.content) {
-          return res.json(content);
+          return res.json({ ...content, preFixVersionId: null });
         }
 
+        const savedVersion = await storage.createVersion({
+          generatedContentId: id,
+          content: content.content,
+          refinementRequest: "accessibility-fix-snapshot",
+        });
+
         const updated = await storage.updateContent(id, fixedContent);
-        res.json(updated);
+        res.json({ ...updated, preFixVersionId: savedVersion.id });
       } catch (error) {
         console.error("Error fixing accessibility issue:", error);
         res.status(500).json({ error: "Failed to apply fix" });
+      }
+    },
+  );
+
+  // Restore content to a previous version (used for undo accessibility fix)
+  app.post(
+    "/api/content/:id/restore-version",
+    optionalAuth,
+    async (req: Request, res: Response) => {
+      try {
+        const id = parseInt(req.params.id);
+        const { versionId } = req.body;
+        if (!versionId) {
+          return res.status(400).json({ error: "versionId is required" });
+        }
+
+        const content = await storage.getContent(id);
+        if (!content) {
+          return res.status(404).json({ error: "Content not found" });
+        }
+
+        const userId = getUserId(req);
+        if (content.courseId) {
+          if (!userId) return res.status(403).json({ error: "Unauthorized" });
+          const course = await storage.getCourse(content.courseId, userId);
+          if (!course) return res.status(404).json({ error: "Content not found" });
+        } else if (content.userId && content.userId !== userId) {
+          return res.status(403).json({ error: "Unauthorized" });
+        }
+
+        const version = await storage.getVersionById(versionId);
+        if (!version || version.generatedContentId !== id) {
+          return res.status(404).json({ error: "Version not found" });
+        }
+
+        const restored = await storage.updateContent(id, version.content);
+        res.json(restored);
+      } catch (error) {
+        console.error("Error restoring version:", error);
+        res.status(500).json({ error: "Failed to restore version" });
       }
     },
   );

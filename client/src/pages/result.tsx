@@ -47,6 +47,7 @@ import { Label } from "@/components/ui/label";
 import { TOOLS, LOADING_MESSAGES } from "@/lib/constants";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useAuth } from "@/hooks/use-auth";
 import type { Course, GeneratedContent } from "@shared/schema";
@@ -362,16 +363,45 @@ export default function ResultPage() {
     },
   });
 
-  const applyFixMutation = useMutation({
-    mutationFn: async (fixType: string) => {
-      const response = await apiRequest("POST", `/api/content/${contentId}/fix-accessibility`, { fixType });
+  const undoFixMutation = useMutation({
+    mutationFn: async (versionId: number) => {
+      const response = await apiRequest("POST", `/api/content/${contentId}/restore-version`, { versionId });
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/content", contentId] });
       queryClient.invalidateQueries({ queryKey: ["/api/standalone-content", contentId] });
+      toast({ title: "Fix undone", description: "Content restored to the version before the fix." });
+    },
+    onError: (error) => {
+      toast({ title: "Undo failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const applyFixMutation = useMutation({
+    mutationFn: async (fixType: string) => {
+      const response = await apiRequest("POST", `/api/content/${contentId}/fix-accessibility`, { fixType });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/content", contentId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/standalone-content", contentId] });
       setFixingIssue(null);
-      toast({ title: "Fix applied successfully!" });
+      const preFixVersionId: number | null = data?.preFixVersionId ?? null;
+      toast({
+        title: "Fix applied successfully!",
+        action: preFixVersionId
+          ? (
+            <ToastAction
+              altText="Undo fix"
+              onClick={() => undoFixMutation.mutate(preFixVersionId)}
+              data-testid="button-undo-fix"
+            >
+              Undo
+            </ToastAction>
+          )
+          : undefined,
+      });
     },
     onError: (error) => {
       toast({ title: "Fix failed", description: error.message, variant: "destructive" });
