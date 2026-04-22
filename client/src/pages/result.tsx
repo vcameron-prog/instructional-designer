@@ -632,22 +632,29 @@ export default function ResultPage() {
             </div>
           </CardContent>
         </Card>
-        {accessibilityIssues.length > 0 && (
-          <Collapsible open={showAccessibility} onOpenChange={setShowAccessibility} className="mb-6">
-            <Card className="border-primary">
+        <Collapsible open={showAccessibility} onOpenChange={setShowAccessibility} className="mb-6">
+            <Card className={accessibilityIssues.length === 0 ? "border-green-500" : "border-primary"}>
               <CollapsibleTrigger asChild>
                 <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-                        <Lightbulb className="w-5 h-5 text-primary" />
-                      </div>
+                      {accessibilityIssues.length === 0 ? (
+                        <div className="w-10 h-10 bg-green-500/10 rounded-lg flex items-center justify-center" data-testid="icon-accessibility-all-clear">
+                          <CheckCircle className="w-5 h-5 text-green-500" />
+                        </div>
+                      ) : (
+                        <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+                          <Lightbulb className="w-5 h-5 text-primary" />
+                        </div>
+                      )}
                       <div>
                         <CardTitle className="text-lg">Accessibility Check</CardTitle>
                         <CardDescription>
-                          {accessibilityIssues.some(i => i.severity === "warning")
-                            ? `${accessibilityIssues.length} issue${accessibilityIssues.length !== 1 ? "s" : ""} found — review before distributing`
-                            : `${accessibilityIssues.length} suggestion${accessibilityIssues.length !== 1 ? "s" : ""} to improve accessibility`}
+                          {accessibilityIssues.length === 0
+                            ? "Looks good! No accessibility issues detected."
+                            : accessibilityIssues.some(i => i.severity === "warning")
+                              ? `${accessibilityIssues.length} issue${accessibilityIssues.length !== 1 ? "s" : ""} found — review before distributing`
+                              : `${accessibilityIssues.length} suggestion${accessibilityIssues.length !== 1 ? "s" : ""} to improve accessibility`}
                         </CardDescription>
                       </div>
                     </div>
@@ -688,7 +695,6 @@ export default function ResultPage() {
               </CollapsibleContent>
             </Card>
           </Collapsible>
-        )}
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between gap-4 space-y-0">
