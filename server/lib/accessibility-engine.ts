@@ -1713,7 +1713,12 @@ export async function generateAccessibleDocument(
     metadata.title || originalFilename.replace(/\.pdf$/i, "");
 
   const CHUNK_THRESHOLD = 8000;
-  const chunks = splitTextByPages(extractedText, CHUNK_THRESHOLD);
+  const MAX_CHUNKS = 20;
+  const allChunks = splitTextByPages(extractedText, CHUNK_THRESHOLD);
+  if (allChunks.length > MAX_CHUNKS) {
+    console.warn(`[accessibility-engine] Document split into ${allChunks.length} chunks; capping at ${MAX_CHUNKS} to limit AI API usage.`);
+  }
+  const chunks = allChunks.slice(0, MAX_CHUNKS);
   const needsChunking = chunks.length > 1;
 
   const systemPrompt = `You are an accessibility expert specializing in ADA Title II compliance and WCAG 2.1 Level AA standards.

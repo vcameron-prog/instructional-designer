@@ -51,8 +51,14 @@ export async function extractPdfContent(
     // metadata not available
   }
 
+  const MAX_PAGES_TO_PROCESS = 200;
+  const effectivePageCount = Math.min(pageCount, MAX_PAGES_TO_PROCESS);
+  if (pageCount > MAX_PAGES_TO_PROCESS) {
+    console.warn(`[pdf-processor] Document has ${pageCount} pages; processing capped at ${MAX_PAGES_TO_PROCESS} to limit resource usage.`);
+  }
+
   const tables: ExtractedTable[] = [];
-  for (let i = 1; i <= pageCount; i++) {
+  for (let i = 1; i <= effectivePageCount; i++) {
     try {
       const pageTables = await (parser as any).getPageTables(i);
       if (pageTables && Array.isArray(pageTables)) {

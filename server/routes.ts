@@ -38,7 +38,10 @@ const anthropic = new Anthropic({
   maxRetries: 2,
 });
 
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024, files: 1 },
+});
 
 const anonRateLimits = new Map<string, { count: number; resetAt: number }>();
 const ANON_RATE_LIMIT = 10;
@@ -89,6 +92,40 @@ setInterval(
   },
   10 * 60 * 1000,
 );
+
+// Heavy-operation rate limiting (applies to both anonymous and authenticated users)
+const heavyOpRateLimits = new Map<string, { count: number; resetAt: number }>();
+const HEAVY_OP_RATE_LIMIT = parseInt(process.env.HEAVY_OP_RATE_LIMIT ?? "5", 10) || 5;
+const HEAVY_OP_RATE_WINDOW_MS = 60 * 60 * 1000;
+
+function checkHeavyOpRateLimit(key: string): boolean {
+  const now = Date.now();
+  const entry = heavyOpRateLimits.get(key);
+  if (!entry || now > entry.resetAt) {
+    heavyOpRateLimits.set(key, { count: 1, resetAt: now + HEAVY_OP_RATE_WINDOW_MS });
+    return true;
+  }
+  if (entry.count >= HEAVY_OP_RATE_LIMIT) return false;
+  entry.count++;
+  return true;
+}
+
+setInterval(
+  () => {
+    const now = Date.now();
+    for (const [key, entry] of heavyOpRateLimits) {
+      if (now > entry.resetAt) heavyOpRateLimits.delete(key);
+    }
+  },
+  10 * 60 * 1000,
+);
+
+// Concurrency guards for expensive background operations
+let activeProcessingJobs = 0;
+const MAX_CONCURRENT_PROCESSING = parseInt(process.env.MAX_CONCURRENT_PROCESSING ?? "3", 10) || 3;
+
+let activePdfExports = 0;
+const MAX_CONCURRENT_PDF_EXPORTS = parseInt(process.env.MAX_CONCURRENT_PDF_EXPORTS ?? "2", 10) || 2;
 
 // Generate prompt based on tool and course info
 function generatePrompt(
@@ -2807,14 +2844,36 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         return;
       }
 
-      await db
-        .update(conversions)
-        .set({
-          status: "processing",
-          statusMessage: "Starting conversion…",
-          updatedAt: new Date(),
-        })
-        .where(eq(conversions.id, id));
+      // Rate-limit heavy processing (per-user or per-IP)
+      const rateLimitKey = userId ? `user:${userId}` : `ip:${req.ip || req.socket.remoteAddress || "unknown"}`;
+      if (!checkHeavyOpRateLimit(`process:${rateLimitKey}`)) {
+        res.status(429).json({ error: "Too many processing requests. Please wait before submitting another document." });
+        return;
+      }
+
+      // Global concurrency cap to prevent CPU/memory exhaustion.
+      // Increment the slot counter synchronously before any await so that
+      // concurrent requests that pass the >= check cannot all race through
+      // before any of them increments.
+      if (activeProcessingJobs >= MAX_CONCURRENT_PROCESSING) {
+        res.status(503).json({ error: "Server is busy processing other documents. Please try again shortly." });
+        return;
+      }
+      activeProcessingJobs++;
+
+      try {
+        await db
+          .update(conversions)
+          .set({
+            status: "processing",
+            statusMessage: "Starting conversion…",
+            updatedAt: new Date(),
+          })
+          .where(eq(conversions.id, id));
+      } catch (err) {
+        activeProcessingJobs--;
+        throw err;
+      }
 
       const { pdfData: _pdfData, ...safeConversion } = conversion;
       res.json({
@@ -2941,6 +3000,8 @@ Please generate an IMPROVED version that incorporates the requested changes whil
               updatedAt: new Date(),
             })
             .where(eq(conversions.id, id));
+        } finally {
+          activeProcessingJobs--;
         }
       })();
     },
@@ -3436,6 +3497,20 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         return;
       }
 
+      // Rate-limit PDF export (per-user or per-IP)
+      const pdfRateLimitKey = userId ? `user:${userId}` : `ip:${req.ip || req.socket.remoteAddress || "unknown"}`;
+      if (!checkHeavyOpRateLimit(`pdf:${pdfRateLimitKey}`)) {
+        res.status(429).json({ error: "Too many PDF export requests. Please wait before trying again." });
+        return;
+      }
+
+      // Global concurrency cap to prevent exhausting Chromium workers
+      if (activePdfExports >= MAX_CONCURRENT_PDF_EXPORTS) {
+        res.status(503).json({ error: "Server is busy generating PDFs. Please try again shortly." });
+        return;
+      }
+      activePdfExports++;
+
       let html = conversion.accessibleHtml;
       const updatedDate = conversion.updatedAt
         ? new Date(conversion.updatedAt)
@@ -3505,6 +3580,8 @@ Please generate an IMPROVED version that incorporates the requested changes whil
       } catch (err) {
         console.error("PDF conversion error:", err);
         res.status(500).json({ error: "Failed to generate PDF file" });
+      } finally {
+        activePdfExports--;
       }
     },
   );
