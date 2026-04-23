@@ -4,6 +4,8 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import { seedDatabase } from "./seed";
 import { trimAllOversizedVersions } from "./lib/trimVersions";
+import { db } from "./db";
+import { sql } from "drizzle-orm";
 
 const app = express();
 const httpServer = createServer(app);
@@ -50,7 +52,25 @@ app.use((req, res, next) => {
   next();
 });
 
+async function runStartupMigrations() {
+  try {
+    await db.execute(sql`
+      ALTER TABLE conversions ADD COLUMN IF NOT EXISTS visitor_token varchar;
+    `);
+    await db.execute(sql`
+      ALTER TABLE saved_content ADD COLUMN IF NOT EXISTS user_id varchar NOT NULL DEFAULT '';
+    `);
+    log("Startup migrations applied successfully", "startup");
+  } catch (err) {
+    console.error("Startup migration failed:", err);
+    throw err;
+  }
+}
+
 (async () => {
+  // Apply any pending schema migrations before starting
+  await runStartupMigrations();
+
   // Seed database with sample data
   await seedDatabase();
 
