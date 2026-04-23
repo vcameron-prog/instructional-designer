@@ -147,8 +147,14 @@ export default function PdfHistory() {
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {conv.sourceType && (
-                        <span className="uppercase font-semibold mr-1">
-                          {conv.sourceType}
+                        <span className="font-semibold mr-1">
+                          {conv.sourceType === "google-doc"
+                            ? "Google Doc"
+                            : conv.sourceType === "google-sheet"
+                              ? "Google Sheet"
+                              : conv.sourceType === "docx"
+                                ? "DOCX"
+                                : conv.sourceType.toUpperCase()}
                         </span>
                       )}
                       {formatBytes(conv.fileSize)}

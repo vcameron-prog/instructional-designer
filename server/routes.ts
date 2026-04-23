@@ -2846,6 +2846,205 @@ Please generate an IMPROVED version that incorporates the requested changes whil
   );
 
   app.post(
+    "/api/conversions/import-google-sheet",
+    optionalAuth,
+    async (req: Request, res: Response) => {
+      const userId = getUserId(req);
+
+      if (!userId) {
+        const ip = req.ip || req.socket.remoteAddress || "unknown";
+        if (!checkAnonRateLimit(ip)) {
+          return res
+            .status(429)
+            .json({
+              error:
+                "Rate limit exceeded. Please sign in for unlimited access or try again later.",
+            });
+        }
+      }
+
+      const { url } = req.body;
+      if (!url || typeof url !== "string") {
+        return res
+          .status(400)
+          .json({ error: "A Google Sheets URL is required." });
+      }
+
+      let parsedUrl: URL;
+      try {
+        parsedUrl = new URL(url);
+      } catch {
+        return res
+          .status(400)
+          .json({
+            error: "Invalid URL format. Please paste a Google Sheets link.",
+          });
+      }
+      if (
+        parsedUrl.hostname !== "docs.google.com" ||
+        !parsedUrl.pathname.startsWith("/spreadsheets/d/")
+      ) {
+        return res
+          .status(400)
+          .json({
+            error:
+              "Invalid Google Sheets URL. Please paste a link like https://docs.google.com/spreadsheets/d/...",
+          });
+      }
+      const sheetIdMatch = parsedUrl.pathname.match(
+        /\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/,
+      );
+      if (!sheetIdMatch) {
+        return res
+          .status(400)
+          .json({ error: "Could not extract spreadsheet ID from URL." });
+      }
+      const sheetId = sheetIdMatch[1];
+
+      try {
+        const exportUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=xlsx`;
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 30000);
+
+        let response: globalThis.Response | null = null;
+        let lastStatus = 0;
+
+        try {
+          const attempt = await fetch(exportUrl, {
+            signal: controller.signal,
+            redirect: "follow",
+            headers: { "User-Agent": "Mozilla/5.0" },
+          });
+          lastStatus = attempt.status;
+          if (attempt.ok) {
+            response = attempt;
+          }
+        } catch (fetchErr: any) {
+          if (fetchErr.name === "AbortError") {
+            return res
+              .status(504)
+              .json({
+                error:
+                  "Download timed out. The spreadsheet may be too large or Google is not responding.",
+              });
+          }
+        } finally {
+          clearTimeout(timeout);
+        }
+
+        if (!response) {
+          if (lastStatus === 403 || lastStatus === 401) {
+            return res
+              .status(403)
+              .json({
+                error:
+                  'This spreadsheet is not publicly shared. Set sharing to "Anyone with the link" in Google Sheets, then try again.',
+              });
+          }
+          if (lastStatus === 404) {
+            return res
+              .status(404)
+              .json({
+                error: "Spreadsheet not found. Check that the URL is correct.",
+              });
+          }
+          return res
+            .status(502)
+            .json({
+              error: `Could not download the spreadsheet (status ${lastStatus}). The spreadsheet may not be publicly shared.`,
+            });
+        }
+
+        const contentLength = response.headers.get("content-length");
+        if (contentLength && parseInt(contentLength, 10) > 20 * 1024 * 1024) {
+          return res
+            .status(413)
+            .json({ error: "Spreadsheet is too large (max 20 MB)." });
+        }
+
+        const arrayBuffer = await response.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+
+        if (buffer.length > 20 * 1024 * 1024) {
+          return res
+            .status(413)
+            .json({ error: "Spreadsheet is too large (max 20 MB)." });
+        }
+        if (buffer.length < 100) {
+          return res
+            .status(502)
+            .json({
+              error:
+                "Downloaded file appears empty. The spreadsheet may not be publicly shared.",
+            });
+        }
+
+        const zipSignature = buffer.slice(0, 4).toString("hex");
+        if (zipSignature !== "504b0304") {
+          return res
+            .status(502)
+            .json({
+              error:
+                "The downloaded file is not a valid spreadsheet. The Google Sheet may not be publicly shared.",
+            });
+        }
+
+        const titleHeader = response.headers.get("content-disposition");
+        let filename = "Google Sheet.xlsx";
+        if (titleHeader) {
+          const filenameMatch = titleHeader.match(
+            /filename\*?=(?:UTF-8''|"?)([^";]+)/i,
+          );
+          if (filenameMatch) {
+            filename = decodeURIComponent(filenameMatch[1].replace(/"/g, ""));
+            if (!filename.endsWith(".xlsx")) filename += ".xlsx";
+          }
+        }
+
+        const googleSheetVisitorToken = userId ? null : ensureVisitorToken(req);
+        const fileBase64 = buffer.toString("base64");
+        const [created] = await db
+          .insert(conversions)
+          .values({
+            originalFilename: filename,
+            fileSize: buffer.length,
+            sourceType: "google-sheet",
+            status: "uploaded",
+            pdfData: fileBase64,
+            userId: userId || null,
+            visitorToken: googleSheetVisitorToken,
+          })
+          .returning({
+            id: conversions.id,
+            originalFilename: conversions.originalFilename,
+            fileSize: conversions.fileSize,
+            sourceType: conversions.sourceType,
+            status: conversions.status,
+            createdAt: conversions.createdAt,
+          });
+
+        res.json(created);
+      } catch (err: any) {
+        if (err.name === "AbortError") {
+          return res
+            .status(504)
+            .json({
+              error:
+                "Download timed out. The spreadsheet may be too large or Google is not responding.",
+            });
+        }
+        console.error("Google Sheet import error:", err);
+        res
+          .status(500)
+          .json({
+            error:
+              "Failed to import the Google Sheet. Please check the URL and try again.",
+          });
+      }
+    },
+  );
+
+  app.post(
     "/api/conversions/:id/process",
     optionalAuth,
     async (req: Request, res: Response) => {
@@ -2929,7 +3128,11 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           let extraction: import("./lib/pdf-processor").PdfExtraction;
           let ocrApplied = false;
 
-          if (srcType === "docx" || srcType === "google-doc") {
+          if (srcType === "google-sheet") {
+            await updateStatusMessage("Extracting Google Sheet content…");
+            const { extractXlsxContent } = await import("./lib/xlsx-extractor");
+            extraction = await extractXlsxContent(fileBuffer);
+          } else if (srcType === "docx" || srcType === "google-doc") {
             await updateStatusMessage(
               srcType === "google-doc"
                 ? "Extracting Google Doc content…"
