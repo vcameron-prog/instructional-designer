@@ -512,7 +512,12 @@ export default function ResultPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/content", contentId] });
       queryClient.invalidateQueries({ queryKey: ["/api/standalone-content", contentId] });
       queryClient.invalidateQueries({ queryKey: ["/api/content", contentId, "versions"] });
-      toast({ title: "Fix undone", description: "Content restored to the version before the fix." });
+      toast({
+        title: "Fix undone",
+        description: appConfig
+          ? `Content restored to the version before the fix. Up to ${appConfig.versionHistoryLimit} versions are kept.`
+          : "Content restored to the version before the fix.",
+      });
     },
     onError: (error) => {
       toast({ title: "Undo failed", description: error.message, variant: "destructive" });
