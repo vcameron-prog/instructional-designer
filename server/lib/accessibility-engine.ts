@@ -1511,6 +1511,9 @@ ${stripped}`,
 
   let rawOutput = await callAi(false);
   if (!validateOutput(rawOutput)) {
+    console.warn(
+      `[accessibility-engine] AI returned incomplete HTML on first attempt — retrying with strict prompt. criterion="${issue.criterion}" title="${issue.title}"`
+    );
     rawOutput = await callAi(true);
     if (!validateOutput(rawOutput)) {
       throw new Error("AI failed to produce a valid HTML fix. Please try again.");
