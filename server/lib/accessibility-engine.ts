@@ -3,6 +3,11 @@ import { z } from "zod";
 import { parse as parseHtml } from "node-html-parser";
 import type { ExtractedImage, ExtractedTable } from "./pdf-processor";
 
+/** Escape all regex metacharacters in a string so it can be safely embedded in a RegExp pattern. */
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 const anthropic = new Anthropic({
   apiKey: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
   baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL,
@@ -945,7 +950,7 @@ export function applyAriaLinkRoleFix(html: string): string {
   for (const el of nonAnchors) {
     const outerHtml = el.outerHTML;
     const tag = el.tagName?.toLowerCase() ?? "div";
-    const openTagMatch = outerHtml.match(new RegExp(`^<${tag}((?:[^>"']|"[^"]*"|'[^']*')*)>`, "i"));
+    const openTagMatch = outerHtml.match(new RegExp(`^<${escapeRegex(tag)}((?:[^>"']|"[^"]*"|'[^']*')*)>`, "i"));
     if (!openTagMatch) continue;
     const innerHtml = outerHtml.slice(
       openTagMatch[0].length,
@@ -1055,7 +1060,7 @@ export function applyAriaListRoleFix(html: string): string {
   for (const el of nonLists) {
     const outerHtml = el.outerHTML;
     const tag = el.tagName?.toLowerCase() ?? "div";
-    const openTagMatch = outerHtml.match(new RegExp(`^<${tag}((?:[^>"']|"[^"]*"|'[^']*')*)>`, "i"));
+    const openTagMatch = outerHtml.match(new RegExp(`^<${escapeRegex(tag)}((?:[^>"']|"[^"]*"|'[^']*')*)>`, "i"));
     if (!openTagMatch) continue;
     const innerHtml = outerHtml.slice(
       openTagMatch[0].length,
@@ -1081,7 +1086,7 @@ export function applyAriaListitemRoleFix(html: string): string {
   for (const el of nonListitems) {
     const outerHtml = el.outerHTML;
     const tag = el.tagName?.toLowerCase() ?? "div";
-    const openTagMatch = outerHtml.match(new RegExp(`^<${tag}((?:[^>"']|"[^"]*"|'[^']*')*)>`, "i"));
+    const openTagMatch = outerHtml.match(new RegExp(`^<${escapeRegex(tag)}((?:[^>"']|"[^"]*"|'[^']*')*)>`, "i"));
     if (!openTagMatch) continue;
     const innerHtml = outerHtml.slice(
       openTagMatch[0].length,
@@ -1180,14 +1185,14 @@ function replaceAriaRoleElements(
   for (const el of targets) {
     const outerHtml = el.outerHTML;
     const tag = el.tagName?.toLowerCase() ?? "div";
-    const openTagRegex = new RegExp(`^<${tag}((?:[^>"']|"[^"]*"|'[^']*')*)>`, "i");
+    const openTagRegex = new RegExp(`^<${escapeRegex(tag)}((?:[^>"']|"[^"]*"|'[^']*')*)>`, "i");
     const openTagMatch = outerHtml.match(openTagRegex);
     if (!openTagMatch) continue;
     const closeTagIdx = outerHtml.lastIndexOf(`</${tag}>`);
     if (closeTagIdx === -1) continue;
     const innerHtml = outerHtml.slice(openTagMatch[0].length, closeTagIdx);
     const attrs = openTagMatch[1]
-      .replace(new RegExp(`\\s*role\\s*=\\s*["']${roleValue}["']`, "gi"), "")
+      .replace(new RegExp(`\\s*role\\s*=\\s*["']${escapeRegex(roleValue)}["']`, "gi"), "")
       .trim();
     const replacement = `${buildOpenTag(attrs)}${innerHtml}</${newTag}>`;
     result = result.replace(outerHtml, replacement);
@@ -1222,7 +1227,7 @@ export function applyAriaButtonRoleFix(html: string): string {
       continue;
     }
 
-    const openTagMatch = outerHtml.match(new RegExp(`^<${tag}((?:[^>"']|"[^"]*"|'[^']*')*)>`, "i"));
+    const openTagMatch = outerHtml.match(new RegExp(`^<${escapeRegex(tag)}((?:[^>"']|"[^"]*"|'[^']*')*)>`, "i"));
     if (!openTagMatch) continue;
     const closeTagIdx = outerHtml.lastIndexOf(`</${tag}>`);
     if (closeTagIdx === -1) continue;
@@ -1250,7 +1255,7 @@ export function applyAriaHeadingRoleFix(html: string): string {
   for (const el of targets) {
     const outerHtml = el.outerHTML;
     const tag = el.tagName?.toLowerCase() ?? "div";
-    const openTagMatch = outerHtml.match(new RegExp(`^<${tag}((?:[^>"']|"[^"]*"|'[^']*')*)>`, "i"));
+    const openTagMatch = outerHtml.match(new RegExp(`^<${escapeRegex(tag)}((?:[^>"']|"[^"]*"|'[^']*')*)>`, "i"));
     if (!openTagMatch) continue;
     const closeTagIdx = outerHtml.lastIndexOf(`</${tag}>`);
     if (closeTagIdx === -1) continue;

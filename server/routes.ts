@@ -57,6 +57,17 @@ const VERSION_HISTORY_LIMIT: number = (() => {
   return _parsedVersionHistoryLimit;
 })();
 
+/**
+ * Strip characters that would break a Content-Disposition filename="..." header:
+ * null bytes, newlines (header-injection), double quotes (value terminator).
+ * Truncates to 200 chars to prevent excessively long headers.
+ */
+function sanitizeHeaderFilename(filename: string): string {
+  return filename
+    .replace(/[\x00\r\n"]/g, "_")
+    .slice(0, 200);
+}
+
 function checkAnonRateLimit(ip: string): boolean {
   const now = Date.now();
   const entry = anonRateLimits.get(ip);
@@ -2399,7 +2410,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
 
         const buffer = await Packer.toBuffer(doc);
 
-        const filename = `${content.toolName.replace(/\s+/g, "_")}_${course?.courseNumber || "export"}.docx`;
+        const filename = sanitizeHeaderFilename(`${content.toolName.replace(/\s+/g, "_")}_${course?.courseNumber || "export"}.docx`);
 
         res.setHeader(
           "Content-Type",
@@ -3292,8 +3303,9 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           html.slice(bodyCloseIdx);
       }
 
-      const filename =
-        conversion.originalFilename.replace(/\.pdf$/i, "") + "-accessible.html";
+      const filename = sanitizeHeaderFilename(
+        conversion.originalFilename.replace(/\.pdf$/i, "") + "-accessible.html"
+      );
       res.setHeader("Content-Type", "text/html; charset=utf-8");
       res.setHeader(
         "Content-Disposition",
@@ -3372,10 +3384,11 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           author: "Accessibility Converter",
         });
 
-        const filename =
+        const filename = sanitizeHeaderFilename(
           conversion.originalFilename
             .replace(/\.pdf$/i, "")
-            .replace(/[^\w\s.-]/g, "_") + "-accessible.docx";
+            .replace(/[^\w\s.-]/g, "_") + "-accessible.docx"
+        );
         res.setHeader(
           "Content-Type",
           "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -3477,10 +3490,11 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           author: docAuthor,
         });
 
-        const filename =
+        const filename = sanitizeHeaderFilename(
           conversion.originalFilename
             .replace(/\.pdf$/i, "")
-            .replace(/[^\w\s.-]/g, "_") + "-accessible.pdf";
+            .replace(/[^\w\s.-]/g, "_") + "-accessible.pdf"
+        );
         res.setHeader("Content-Type", "application/pdf");
         res.setHeader(
           "Content-Disposition",
