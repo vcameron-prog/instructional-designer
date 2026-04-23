@@ -105,6 +105,7 @@ export type ContentVersion = typeof contentVersions.$inferSelect;
 // Saved content library (favorites)
 export const savedContent = pgTable("saved_content", {
   id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull(),
   title: text("title").notNull(),
   toolType: text("tool_type").notNull(),
   content: text("content").notNull(),
@@ -116,6 +117,7 @@ export const savedContent = pgTable("saved_content", {
 
 export const insertSavedContentSchema = createInsertSchema(savedContent).omit({
   id: true,
+  userId: true,
   createdAt: true,
 });
 
@@ -139,6 +141,7 @@ export const conversions = pgTable("conversions", {
   pdfData: text("pdf_data"),
   ocrApplied: boolean("ocr_applied").notNull().default(false),
   userId: varchar("user_id"),
+  visitorToken: varchar("visitor_token"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .default(sql`CURRENT_TIMESTAMP`)
     .notNull(),

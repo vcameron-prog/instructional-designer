@@ -41,11 +41,11 @@ export interface IStorage {
   getVersionById(id: number): Promise<ContentVersion | undefined>;
   pruneOldVersions(contentId: number, keepCount: number): Promise<void>;
   
-  // Saved Content Library
-  getAllSavedContent(): Promise<SavedContent[]>;
-  getSavedContent(id: number): Promise<SavedContent | undefined>;
-  createSavedContent(content: InsertSavedContent): Promise<SavedContent>;
-  deleteSavedContent(id: number): Promise<void>;
+  // Saved Content Library (user-scoped)
+  getAllSavedContent(userId: string): Promise<SavedContent[]>;
+  getSavedContent(id: number, userId: string): Promise<SavedContent | undefined>;
+  createSavedContent(content: InsertSavedContent, userId: string): Promise<SavedContent>;
+  deleteSavedContent(id: number, userId: string): Promise<void>;
   
   // Course Duplication (user-scoped)
   duplicateCourse(id: number, userId: string): Promise<Course | undefined>;
@@ -187,23 +187,23 @@ export class DatabaseStorage implements IStorage {
       );
   }
 
-  // Saved Content Library
-  async getAllSavedContent(): Promise<SavedContent[]> {
-    return db.select().from(savedContent).orderBy(desc(savedContent.createdAt));
+  // Saved Content Library (user-scoped)
+  async getAllSavedContent(userId: string): Promise<SavedContent[]> {
+    return db.select().from(savedContent).where(eq(savedContent.userId, userId)).orderBy(desc(savedContent.createdAt));
   }
 
-  async getSavedContent(id: number): Promise<SavedContent | undefined> {
-    const [content] = await db.select().from(savedContent).where(eq(savedContent.id, id));
+  async getSavedContent(id: number, userId: string): Promise<SavedContent | undefined> {
+    const [content] = await db.select().from(savedContent).where(and(eq(savedContent.id, id), eq(savedContent.userId, userId)));
     return content;
   }
 
-  async createSavedContent(content: InsertSavedContent): Promise<SavedContent> {
-    const [created] = await db.insert(savedContent).values(content).returning();
+  async createSavedContent(content: InsertSavedContent, userId: string): Promise<SavedContent> {
+    const [created] = await db.insert(savedContent).values({ ...content, userId }).returning();
     return created;
   }
 
-  async deleteSavedContent(id: number): Promise<void> {
-    await db.delete(savedContent).where(eq(savedContent.id, id));
+  async deleteSavedContent(id: number, userId: string): Promise<void> {
+    await db.delete(savedContent).where(and(eq(savedContent.id, id), eq(savedContent.userId, userId)));
   }
 
   // Course Duplication (user-scoped)

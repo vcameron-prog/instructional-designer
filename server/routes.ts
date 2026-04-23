@@ -1,5 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
+import { randomUUID } from "crypto";
 import { storage } from "./storage";
 import { insertCourseSchema, type Course, courses, conversions, generatedContent, contentVersions } from "@shared/schema";
 import { users } from "@shared/models/auth";
@@ -2167,13 +2168,14 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     },
   );
 
-  // Saved Content Library API (protected)
+  // Saved Content Library API (protected, user-scoped)
   app.get(
     "/api/library",
     isAuthenticated,
     async (req: Request, res: Response) => {
       try {
-        const savedContent = await storage.getAllSavedContent();
+        const userId = getUserId(req) as string;
+        const savedContent = await storage.getAllSavedContent(userId);
         res.json(savedContent);
       } catch (error) {
         console.error("Error fetching library:", error);
@@ -2187,13 +2189,14 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     isAuthenticated,
     async (req: Request, res: Response) => {
       try {
+        const userId = getUserId(req) as string;
         const { title, toolType, content, description } = req.body;
         const saved = await storage.createSavedContent({
           title,
           toolType,
           content,
           description,
-        });
+        }, userId);
         res.status(201).json(saved);
       } catch (error) {
         console.error("Error saving to library:", error);
@@ -2207,8 +2210,9 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     isAuthenticated,
     async (req: Request, res: Response) => {
       try {
+        const userId = getUserId(req) as string;
         const id = parseInt(req.params.id as string);
-        await storage.deleteSavedContent(id);
+        await storage.deleteSavedContent(id, userId);
         res.status(204).send();
       } catch (error) {
         console.error("Error deleting from library:", error);
@@ -2486,11 +2490,27 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     },
   });
 
-  function conversionOwnerFilter(id: number, userId: string | null) {
+  function getVisitorToken(req: Request): string | null {
+    return (req.session as any).visitorToken ?? null;
+  }
+
+  function ensureVisitorToken(req: Request): string {
+    const session = req.session as any;
+    if (!session.visitorToken) {
+      session.visitorToken = randomUUID();
+    }
+    return session.visitorToken;
+  }
+
+  function conversionOwnerFilter(id: number, userId: string | null, visitorToken?: string | null) {
     if (userId) {
       return and(eq(conversions.id, id), eq(conversions.userId, userId));
     }
-    return and(eq(conversions.id, id), isNull(conversions.userId));
+    if (visitorToken) {
+      return and(eq(conversions.id, id), isNull(conversions.userId), eq(conversions.visitorToken, visitorToken));
+    }
+    // No identity available — return a condition that never matches to deny access
+    return sql<boolean>`FALSE`;
   }
 
   app.get(
@@ -2548,7 +2568,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           updatedAt: conversions.updatedAt,
         })
         .from(conversions)
-        .where(conversionOwnerFilter(id, userId));
+        .where(conversionOwnerFilter(id, userId, getVisitorToken(req)));
 
       if (!conversion) {
         res.status(404).json({ error: "Conversion not found" });
@@ -2582,6 +2602,8 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         }
       }
 
+      const visitorToken = userId ? null : ensureVisitorToken(req);
+
       const fileBase64 = file.buffer.toString("base64");
       const explicitSourceType = req.body?.sourceType;
       const sourceType =
@@ -2601,6 +2623,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           status: "uploaded",
           pdfData: fileBase64,
           userId: userId || null,
+          visitorToken,
         })
         .returning({
           id: conversions.id,
@@ -2632,6 +2655,8 @@ Please generate an IMPROVED version that incorporates the requested changes whil
             });
         }
       }
+
+      const googleDocVisitorToken = userId ? null : ensureVisitorToken(req);
 
       const { url } = req.body;
       if (!url || typeof url !== "string") {
@@ -2788,6 +2813,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
             status: "uploaded",
             pdfData: fileBase64,
             userId: userId || null,
+            visitorToken: googleDocVisitorToken,
           })
           .returning({
             id: conversions.id,
@@ -2833,7 +2859,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
       const [conversion] = await db
         .select()
         .from(conversions)
-        .where(conversionOwnerFilter(id, userId));
+        .where(conversionOwnerFilter(id, userId, getVisitorToken(req)));
 
       if (!conversion) {
         res.status(404).json({ error: "Conversion not found" });
@@ -3018,7 +3044,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         return;
       }
 
-      await db.delete(conversions).where(conversionOwnerFilter(id, userId));
+      await db.delete(conversions).where(conversionOwnerFilter(id, userId, getVisitorToken(req)));
       res.json({ success: true });
     },
   );
@@ -3043,7 +3069,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
       const [conversion] = await db
         .select()
         .from(conversions)
-        .where(conversionOwnerFilter(id, userId));
+        .where(conversionOwnerFilter(id, userId, getVisitorToken(req)));
 
       if (!conversion) {
         res.status(404).json({ error: "Conversion not found" });
@@ -3122,7 +3148,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
       const [conversion] = await db
         .select()
         .from(conversions)
-        .where(conversionOwnerFilter(id, userId));
+        .where(conversionOwnerFilter(id, userId, getVisitorToken(req)));
 
       if (!conversion) {
         res.status(404).json({ error: "Conversion not found" });
@@ -3192,7 +3218,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
       const [conversion] = await db
         .select()
         .from(conversions)
-        .where(conversionOwnerFilter(id, userId));
+        .where(conversionOwnerFilter(id, userId, getVisitorToken(req)));
 
       if (!conversion) {
         res.status(404).json({ error: "Conversion not found" });
@@ -3267,7 +3293,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
       const [conversion] = await db
         .select({ id: conversions.id, status: conversions.status })
         .from(conversions)
-        .where(conversionOwnerFilter(id, userId));
+        .where(conversionOwnerFilter(id, userId, getVisitorToken(req)));
 
       if (!conversion) {
         res.status(404).json({ error: "Conversion not found" });
@@ -3321,7 +3347,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           updatedAt: conversions.updatedAt,
         })
         .from(conversions)
-        .where(conversionOwnerFilter(id, userId));
+        .where(conversionOwnerFilter(id, userId, getVisitorToken(req)));
 
       if (!conversion) {
         res.status(404).json({ error: "Conversion not found" });
@@ -3395,7 +3421,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           updatedAt: conversions.updatedAt,
         })
         .from(conversions)
-        .where(conversionOwnerFilter(id, userId));
+        .where(conversionOwnerFilter(id, userId, getVisitorToken(req)));
 
       if (!conversion) {
         res.status(404).json({ error: "Conversion not found" });
@@ -3486,7 +3512,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           updatedAt: conversions.updatedAt,
         })
         .from(conversions)
-        .where(conversionOwnerFilter(id, userId));
+        .where(conversionOwnerFilter(id, userId, getVisitorToken(req)));
 
       if (!conversion) {
         res.status(404).json({ error: "Conversion not found" });
