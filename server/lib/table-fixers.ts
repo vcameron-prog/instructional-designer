@@ -42,14 +42,26 @@ export function fixHtmlTableCaption(text: string, captionTexts: string | string[
 }
 
 /**
- * Replaces the text of every existing <caption>…</caption> element with a
- * new caption string.  Tables that already have a caption are updated in-place;
- * tables without a caption are left untouched.
+ * Replaces the text of a specific <caption>…</caption> element identified by
+ * its 0-based index in document order.  When captionIndex is omitted every
+ * caption is updated (legacy behaviour).  Tables without a caption are left
+ * untouched.
  */
-export function editHtmlTableCaption(text: string, newCaption: string): string {
+export function editHtmlTableCaption(text: string, newCaption: string, captionIndex?: number): string {
   const safeCaption = newCaption.trim() || "Table summary";
-  return text.replace(/<caption([^>]*)>([\s\S]*?)<\/caption>/gi, (_match, attrs) => {
-    return `<caption${attrs}>${safeCaption}</caption>`;
+  if (captionIndex === undefined) {
+    return text.replace(/<caption([^>]*)>([\s\S]*?)<\/caption>/gi, (_match, attrs) => {
+      return `<caption${attrs}>${safeCaption}</caption>`;
+    });
+  }
+  let count = 0;
+  return text.replace(/<caption([^>]*)>([\s\S]*?)<\/caption>/gi, (match, attrs) => {
+    if (count === captionIndex) {
+      count++;
+      return `<caption${attrs}>${safeCaption}</caption>`;
+    }
+    count++;
+    return match;
   });
 }
 

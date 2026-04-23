@@ -1974,7 +1974,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     async (req: Request, res: Response) => {
       try {
         const id = parseInt(req.params.id as string);
-        const { fixType, captionText, captionTexts } = req.body;
+        const { fixType, captionText, captionTexts, captionIndex } = req.body;
         if (!fixType) {
           return res.status(400).json({ error: "fixType is required" });
         }
@@ -2006,7 +2006,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         } else if (fixType === "fix-html-table-caption") {
           fixedContent = fixHtmlTableCaption(content.content, captionTexts ?? captionText);
         } else if (fixType === "edit-html-table-caption") {
-          fixedContent = editHtmlTableCaption(content.content, captionText ?? "Table summary");
+          fixedContent = editHtmlTableCaption(content.content, captionText ?? "Table summary", captionIndex !== undefined ? Number(captionIndex) : undefined);
         } else if (fixType === "fix-html-table-thead") {
           fixedContent = fixHtmlTableThead(content.content);
         } else {

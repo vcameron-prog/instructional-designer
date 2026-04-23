@@ -395,6 +395,7 @@ export default function ResultPage() {
   const [captionEditMode, setCaptionEditMode] = useState<"add" | "edit">("add");
   const [captionStep, setCaptionStep] = useState<"input" | "preview">("input");
   const [captionTablePreviews, setCaptionTablePreviews] = useState<string[][]>([]);
+  const [captionEditIndex, setCaptionEditIndex] = useState<number>(0);
 
   useEffect(() => {
     setExpandedSections({});
@@ -545,10 +546,11 @@ export default function ResultPage() {
   });
 
   const applyFixMutation = useMutation({
-    mutationFn: async ({ fixType, captionTexts, captionText }: { fixType: string; captionTexts?: string[]; captionText?: string }) => {
+    mutationFn: async ({ fixType, captionTexts, captionText, captionIndex }: { fixType: string; captionTexts?: string[]; captionText?: string; captionIndex?: number }) => {
       const body: Record<string, unknown> = { fixType };
       if (captionTexts !== undefined) body.captionTexts = captionTexts;
       if (captionText !== undefined) body.captionText = captionText;
+      if (captionIndex !== undefined) body.captionIndex = captionIndex;
       const response = await apiRequest("POST", `/api/content/${contentId}/fix-accessibility`, body);
       return response.json();
     },
@@ -630,9 +632,10 @@ export default function ResultPage() {
     applyFixMutation.mutate({ fixType });
   };
 
-  const handleEditCaption = (currentCaption: string) => {
+  const handleEditCaption = (currentCaption: string, captionIndex: number) => {
     setCaptionEditMode("edit");
     setCaptionEditText(currentCaption);
+    setCaptionEditIndex(captionIndex);
     setCaptionDialogOpen(true);
   };
 
@@ -640,7 +643,7 @@ export default function ResultPage() {
     setCaptionDialogOpen(false);
     if (captionEditMode === "edit") {
       setFixingIssue("edit-html-table-caption");
-      applyFixMutation.mutate({ fixType: "edit-html-table-caption", captionText: captionEditText });
+      applyFixMutation.mutate({ fixType: "edit-html-table-caption", captionText: captionEditText, captionIndex: captionEditIndex });
     } else {
       setFixingIssue("fix-html-table-caption");
       applyFixMutation.mutate({ fixType: "fix-html-table-caption", captionTexts });
@@ -1280,89 +1283,115 @@ export default function ResultPage() {
               <div className="prose prose-sm max-w-none dark:prose-invert prose-headings:text-primary prose-headings:font-bold prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-p:text-foreground prose-li:text-foreground prose-strong:text-foreground prose-table:text-sm">
                 {(() => {
                   const sections = splitContentIntoSections(content.content);
-                  const markdownComponents: Components = {
-                    table: ({ node, children, ...props }) => (
-                      <div className="overflow-x-auto my-4">
-                        <table {...props} className="min-w-full border-collapse border border-border">
-                          {children}
-                        </table>
-                      </div>
-                    ),
-                    caption: ({ node, children, ...props }) => {
-                      const captionText = extractChildrenText(children);
-                      return (
-                        <caption {...props} className="text-sm text-muted-foreground mb-2 caption-top group/cap">
-                          {children}
-                          {!isAnon && contentId && (
-                            <button
-                              className="ml-1.5 opacity-0 group-hover/cap:opacity-100 transition-opacity inline-flex items-center text-muted-foreground hover:text-foreground focus:opacity-100 focus:outline-none"
-                              onClick={(e) => { e.preventDefault(); handleEditCaption(captionText); }}
-                              title="Edit caption"
-                              type="button"
-                              data-testid="button-edit-caption"
-                              aria-label="Edit table caption"
-                            >
-                              <Pencil className="w-3 h-3" />
-                            </button>
-                          )}
-                        </caption>
-                      );
+
+                  // Compute how many captions each section contributes (from the
+                  // source HTML) so that every section's caption counter starts at
+                  // the correct global document-order offset.  This makes caption
+                  // index assignment reliable even when earlier sections are
+                  // collapsed/unmounted and even when two captions share the same
+                  // text.
+                  const sectionCaptionCounts = sections.map(
+                    (s) => [...s.body.matchAll(/<caption[^>]*>/gi)].length,
+                  );
+                  const sectionStartIndices = sectionCaptionCounts.reduce(
+                    (acc, count, i) => {
+                      acc.push(i === 0 ? 0 : acc[i - 1] + sectionCaptionCounts[i - 1]);
+                      return acc;
                     },
-                    thead: ({ node, children, ...props }) => (
-                      <thead {...props} className="bg-muted">{children}</thead>
-                    ),
-                    th: ({ node, children, ...props }) => (
-                      <th {...props} className="border border-border px-3 py-2 text-left font-semibold text-foreground">
-                        {children}
-                      </th>
-                    ),
-                    td: ({ node, children, ...props }) => (
-                      <td {...props} className="border border-border px-3 py-2 text-foreground">
-                        {children}
-                      </td>
-                    ),
-                    h1: ({ children }) => (
-                      <h1 className="text-2xl font-bold text-primary mt-6 mb-3">{children}</h1>
-                    ),
-                    h2: ({ children }) => (
-                      <h2 className="text-xl font-bold text-primary mt-5 mb-2">{children}</h2>
-                    ),
-                    h3: ({ children }) => (
-                      <h3 className="text-lg font-semibold text-primary mt-4 mb-2">{children}</h3>
-                    ),
-                    ul: ({ children }) => (
-                      <ul className="list-disc pl-6 my-2 space-y-1">{children}</ul>
-                    ),
-                    ol: ({ children }) => (
-                      <ol className="list-decimal pl-6 my-2 space-y-1">{children}</ol>
-                    ),
-                    li: ({ children }) => (
-                      <li className="text-foreground">{children}</li>
-                    ),
-                    p: ({ children }) => (
-                      <p className="my-2 text-foreground leading-relaxed">{children}</p>
-                    ),
-                    strong: ({ children }) => (
-                      <strong className="font-semibold text-foreground">{children}</strong>
-                    ),
-                    hr: () => (
-                      <hr className="my-4 border-border" />
-                    ),
+                    [] as number[],
+                  );
+
+                  // Factory that creates a Components map whose caption renderer
+                  // uses a local counter offset by `startIdx`.
+                  const makeMarkdownComponents = (startIdx: number): Components => {
+                    const localCounter = { index: 0 };
+                    return {
+                      table: ({ node, children, ...props }) => (
+                        <div className="overflow-x-auto my-4">
+                          <table {...props} className="min-w-full border-collapse border border-border">
+                            {children}
+                          </table>
+                        </div>
+                      ),
+                      caption: ({ node, children, ...props }) => {
+                        const globalIndex = startIdx + localCounter.index++;
+                        const captionText = extractChildrenText(children);
+                        return (
+                          <caption {...props} className="text-sm text-muted-foreground mb-2 caption-top group/cap">
+                            {children}
+                            {!isAnon && contentId && (
+                              <button
+                                className="ml-1.5 opacity-0 group-hover/cap:opacity-100 transition-opacity inline-flex items-center text-muted-foreground hover:text-foreground focus:opacity-100 focus:outline-none"
+                                onClick={(e) => { e.preventDefault(); handleEditCaption(captionText, globalIndex); }}
+                                title="Edit caption"
+                                type="button"
+                                data-testid="button-edit-caption"
+                                aria-label="Edit table caption"
+                              >
+                                <Pencil className="w-3 h-3" />
+                              </button>
+                            )}
+                          </caption>
+                        );
+                      },
+                      thead: ({ node, children, ...props }) => (
+                        <thead {...props} className="bg-muted">{children}</thead>
+                      ),
+                      th: ({ node, children, ...props }) => (
+                        <th {...props} className="border border-border px-3 py-2 text-left font-semibold text-foreground">
+                          {children}
+                        </th>
+                      ),
+                      td: ({ node, children, ...props }) => (
+                        <td {...props} className="border border-border px-3 py-2 text-foreground">
+                          {children}
+                        </td>
+                      ),
+                      h1: ({ children }) => (
+                        <h1 className="text-2xl font-bold text-primary mt-6 mb-3">{children}</h1>
+                      ),
+                      h2: ({ children }) => (
+                        <h2 className="text-xl font-bold text-primary mt-5 mb-2">{children}</h2>
+                      ),
+                      h3: ({ children }) => (
+                        <h3 className="text-lg font-semibold text-primary mt-4 mb-2">{children}</h3>
+                      ),
+                      ul: ({ children }) => (
+                        <ul className="list-disc pl-6 my-2 space-y-1">{children}</ul>
+                      ),
+                      ol: ({ children }) => (
+                        <ol className="list-decimal pl-6 my-2 space-y-1">{children}</ol>
+                      ),
+                      li: ({ children }) => (
+                        <li className="text-foreground">{children}</li>
+                      ),
+                      p: ({ children }) => (
+                        <p className="my-2 text-foreground leading-relaxed">{children}</p>
+                      ),
+                      strong: ({ children }) => (
+                        <strong className="font-semibold text-foreground">{children}</strong>
+                      ),
+                      hr: () => (
+                        <hr className="my-4 border-border" />
+                      ),
+                    };
                   };
 
                   if (sections.length <= 1) {
                     return (
-                      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema]]} components={markdownComponents}>
+                      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema]]} components={makeMarkdownComponents(0)}>
                         {content.content}
                       </ReactMarkdown>
                     );
                   }
 
                   return sections.map((section, idx) => {
+                    const sectionComponents = makeMarkdownComponents(sectionStartIndices[idx]);
+
                     if (!section.heading) {
                       return (
                         <div key={idx} data-testid={`section-intro-${idx}`}>
-                          <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema]]} components={markdownComponents}>
+                          <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema]]} components={sectionComponents}>
                             {section.body}
                           </ReactMarkdown>
                         </div>
@@ -1373,7 +1402,7 @@ export default function ResultPage() {
                       return (
                         <div key={idx} data-testid={`section-expanded-${idx}`}>
                           <h2 className="text-xl font-bold text-primary mt-5 mb-2">{section.heading}</h2>
-                          <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema]]} components={markdownComponents}>
+                          <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema]]} components={sectionComponents}>
                             {section.body}
                           </ReactMarkdown>
                         </div>
@@ -1404,7 +1433,7 @@ export default function ResultPage() {
                         </div>
                         <CollapsibleContent>
                           <div data-testid={`collapsible-content-${idx}`}>
-                            <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema]]} components={markdownComponents}>
+                            <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema]]} components={sectionComponents}>
                               {section.body}
                             </ReactMarkdown>
                           </div>
