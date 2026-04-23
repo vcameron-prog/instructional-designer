@@ -393,6 +393,8 @@ export default function ResultPage() {
   const [captionTexts, setCaptionTexts] = useState<string[]>(["Table summary"]);
   const [captionEditText, setCaptionEditText] = useState("Table summary");
   const [captionEditMode, setCaptionEditMode] = useState<"add" | "edit">("add");
+  const [captionStep, setCaptionStep] = useState<"input" | "preview">("input");
+  const [captionTablePreviews, setCaptionTablePreviews] = useState<string[][]>([]);
 
   useEffect(() => {
     setExpandedSections({});
@@ -590,9 +592,32 @@ export default function ResultPage() {
     return count;
   };
 
+  const extractTablePreviews = (html: string): string[][] => {
+    const tableRegex = /<table(?:\s[^>]*)?>[\s\S]*?<\/table>/gi;
+    const previews: string[][] = [];
+    let match;
+    while ((match = tableRegex.exec(html)) !== null) {
+      if (!/<caption[\s>]/i.test(match[0])) {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(match[0], "text/html");
+        const rows = Array.from(doc.querySelectorAll("tr")).slice(0, 3);
+        const rowTexts = rows.map((row) =>
+          Array.from(row.querySelectorAll("th, td"))
+            .map((cell) => cell.textContent?.trim() ?? "")
+            .filter((t) => t.length > 0)
+        ).filter((r) => r.length > 0);
+        previews.push(rowTexts.length > 0 ? rowTexts.flat().slice(0, 6) : []);
+      }
+    }
+    return previews;
+  };
+
   const openCaptionDialog = () => {
     const count = content ? countTablesWithoutCaptions(content.content) : 1;
     setCaptionTexts(Array(Math.max(1, count)).fill("Table summary"));
+    setCaptionTablePreviews(content ? extractTablePreviews(content.content) : []);
+    setCaptionEditMode("add");
+    setCaptionStep("input");
     setCaptionDialogOpen(true);
   };
 
@@ -1520,68 +1545,126 @@ export default function ResultPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={captionDialogOpen} onOpenChange={(open) => { if (!open) setCaptionDialogOpen(false); }}>
-        <DialogContent className="sm:max-w-md">
+      <Dialog open={captionDialogOpen} onOpenChange={(open) => { if (!open) { setCaptionDialogOpen(false); setCaptionStep("input"); } }}>
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>
-              {captionEditMode === "edit" ? "Edit Table Caption" : `Set Table ${captionTexts.length > 1 ? "Captions" : "Caption"}`}
+              {captionEditMode === "edit"
+                ? "Edit Table Caption"
+                : captionStep === "preview"
+                  ? `Preview ${captionTexts.length > 1 ? "Captions" : "Caption"}`
+                  : `Set Table ${captionTexts.length > 1 ? "Captions" : "Caption"}`}
             </DialogTitle>
             <DialogDescription>
               {captionEditMode === "edit"
                 ? "Update the caption to better describe what this table contains. Captions help screen reader users understand the table's purpose."
-                : captionTexts.length > 1
-                  ? `Enter a meaningful caption for each of the ${captionTexts.length} tables missing a caption. Good captions help screen reader users understand each table's purpose.`
-                  : "Enter a meaningful caption that describes what this table contains. A good caption helps screen reader users understand the table's purpose."}
+                : captionStep === "preview"
+                  ? `Review how each caption will appear with its table. Click "Back" to make changes or "Apply" to confirm.`
+                  : captionTexts.length > 1
+                    ? `Enter a meaningful caption for each of the ${captionTexts.length} tables missing a caption. Good captions help screen reader users understand each table's purpose.`
+                    : "Enter a meaningful caption that describes what this table contains. A good caption helps screen reader users understand the table's purpose."}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 max-h-72 overflow-y-auto pr-1">
-            {captionEditMode === "edit" ? (
-              <div className="space-y-1">
-                <Label htmlFor="caption-input-edit">Caption text</Label>
-                <Input
-                  id="caption-input-edit"
-                  value={captionEditText}
-                  onChange={(e) => setCaptionEditText(e.target.value)}
-                  placeholder="e.g., Weekly assignment schedule"
-                  onKeyDown={(e) => { if (e.key === "Enter") handleApplyCaptionFix(); }}
-                  data-testid="input-caption-text"
-                  autoFocus
-                />
-              </div>
-            ) : captionTexts.map((text, index) => (
-              <div key={index} className="space-y-1">
-                <Label htmlFor={`caption-input-${index}`}>
-                  {captionTexts.length > 1 ? `Table ${index + 1} caption` : "Caption text"}
-                </Label>
-                <Input
-                  id={`caption-input-${index}`}
-                  value={text}
-                  onChange={(e) => {
-                    const updated = [...captionTexts];
-                    updated[index] = e.target.value;
-                    setCaptionTexts(updated);
-                  }}
-                  placeholder="e.g., Weekly assignment schedule"
-                  onKeyDown={(e) => { if (e.key === "Enter" && index === captionTexts.length - 1) handleApplyCaptionFix(); }}
-                  data-testid={`input-caption-text-${index}`}
-                  autoFocus={index === 0}
-                />
-              </div>
-            ))}
-          </div>
+
+          {captionStep === "preview" && captionEditMode === "add" ? (
+            <div className="space-y-4 max-h-80 overflow-y-auto pr-1">
+              {captionTexts.map((text, index) => {
+                const cells = captionTablePreviews[index] ?? [];
+                return (
+                  <div key={index} className="rounded-md border border-border overflow-hidden text-sm">
+                    <div className="bg-muted/60 px-3 py-2 font-medium text-foreground flex items-center gap-2">
+                      <span className="text-xs uppercase tracking-wide text-muted-foreground">Caption</span>
+                      <span data-testid={`preview-caption-${index}`} className="font-semibold">{text || <span className="italic text-muted-foreground">No caption entered</span>}</span>
+                    </div>
+                    {cells.length > 0 ? (
+                      <div className="px-3 py-2 bg-background">
+                        <p className="text-xs text-muted-foreground mb-1">Table {index + 1} content preview:</p>
+                        <div className="flex flex-wrap gap-1">
+                          {cells.map((cell, ci) => (
+                            <span key={ci} className="inline-block bg-muted rounded px-2 py-0.5 text-xs text-muted-foreground max-w-[16ch] truncate" title={cell}>
+                              {cell}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="px-3 py-2 bg-background text-xs text-muted-foreground italic">
+                        Table {index + 1} — no preview available
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="space-y-4 max-h-72 overflow-y-auto pr-1">
+              {captionEditMode === "edit" ? (
+                <div className="space-y-1">
+                  <Label htmlFor="caption-input-edit">Caption text</Label>
+                  <Input
+                    id="caption-input-edit"
+                    value={captionEditText}
+                    onChange={(e) => setCaptionEditText(e.target.value)}
+                    placeholder="e.g., Weekly assignment schedule"
+                    onKeyDown={(e) => { if (e.key === "Enter") handleApplyCaptionFix(); }}
+                    data-testid="input-caption-text"
+                    autoFocus
+                  />
+                </div>
+              ) : captionTexts.map((text, index) => (
+                <div key={index} className="space-y-1">
+                  <Label htmlFor={`caption-input-${index}`}>
+                    {captionTexts.length > 1 ? `Table ${index + 1} caption` : "Caption text"}
+                  </Label>
+                  <Input
+                    id={`caption-input-${index}`}
+                    value={text}
+                    onChange={(e) => {
+                      const updated = [...captionTexts];
+                      updated[index] = e.target.value;
+                      setCaptionTexts(updated);
+                    }}
+                    placeholder="e.g., Weekly assignment schedule"
+                    onKeyDown={(e) => { if (e.key === "Enter" && index === captionTexts.length - 1 && captionTexts.every((t) => t.trim())) setCaptionStep("preview"); }}
+                    data-testid={`input-caption-text-${index}`}
+                    autoFocus={index === 0}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCaptionDialogOpen(false)} data-testid="button-cancel-caption">
-              Cancel
-            </Button>
-            <Button
-              onClick={handleApplyCaptionFix}
-              className="gap-2"
-              disabled={captionEditMode === "edit" ? !captionEditText.trim() : captionTexts.some((t) => !t.trim())}
-              data-testid="button-apply-caption"
-            >
-              <CheckCircle className="w-4 h-4" />
-              {captionEditMode === "edit" ? "Save Caption" : `Apply ${captionTexts.length > 1 ? "Captions" : "Caption"}`}
-            </Button>
+            {captionStep === "preview" && captionEditMode === "add" ? (
+              <>
+                <Button variant="outline" onClick={() => setCaptionStep("input")} data-testid="button-back-caption">
+                  Back
+                </Button>
+                <Button
+                  onClick={handleApplyCaptionFix}
+                  className="gap-2"
+                  data-testid="button-apply-caption"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  Apply {captionTexts.length > 1 ? "Captions" : "Caption"}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="outline" onClick={() => { setCaptionDialogOpen(false); setCaptionStep("input"); }} data-testid="button-cancel-caption">
+                  Cancel
+                </Button>
+                <Button
+                  onClick={captionEditMode === "edit" ? handleApplyCaptionFix : () => setCaptionStep("preview")}
+                  className="gap-2"
+                  disabled={captionEditMode === "edit" ? !captionEditText.trim() : captionTexts.some((t) => !t.trim())}
+                  data-testid="button-apply-caption"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  {captionEditMode === "edit" ? "Save Caption" : `Preview ${captionTexts.length > 1 ? "Captions" : "Caption"}`}
+                </Button>
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
