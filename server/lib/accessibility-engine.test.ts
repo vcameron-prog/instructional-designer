@@ -3284,6 +3284,66 @@ describe("applyAriaHeadingRoleFix", () => {
     const updatedIssue = result.complianceReport.issues[issueIndex];
     expect(updatedIssue.status).toBe("fixed");
   });
+
+  it("infers level from preceding h1 when aria-level is absent", () => {
+    const html = `<h1>Page Title</h1><div role="heading">Section</div>`;
+    const result = applyAriaHeadingRoleFix(html);
+    expect(result).toContain("<h1>Section</h1>");
+    expect(result).not.toContain('role="heading"');
+  });
+
+  it("infers level from preceding h2 when aria-level is absent", () => {
+    const html = `<h2>Chapter</h2><span role="heading">Subsection</span>`;
+    const result = applyAriaHeadingRoleFix(html);
+    expect(result).toContain("<h2>Subsection</h2>");
+    expect(result).not.toContain('role="heading"');
+  });
+
+  it("each element without aria-level independently uses the last preceding native heading", () => {
+    const html = `<h1>Title</h1><div role="heading">First</div><h3>Sub</h3><div role="heading">Second</div>`;
+    const result = applyAriaHeadingRoleFix(html);
+    expect(result).toContain("<h1>First</h1>");
+    expect(result).toContain("<h3>Second</h3>");
+    expect(result).not.toContain('role="heading"');
+  });
+
+  it("falls back to h2 when no preceding heading context exists", () => {
+    const html = `<div role="heading">Orphan</div>`;
+    const result = applyAriaHeadingRoleFix(html);
+    expect(result).toContain("<h2>Orphan</h2>");
+  });
+
+  it("does not use a heading that follows the target as context", () => {
+    const html = `<div role="heading">First</div><h3>Later Heading</h3>`;
+    const result = applyAriaHeadingRoleFix(html);
+    expect(result).toContain("<h2>First</h2>");
+  });
+
+  it("infers correct level for duplicate outerHTML targets based on DOM position", () => {
+    const html = `<h1>A</h1><div role="heading">X</div><h3>B</h3><div role="heading">X</div>`;
+    const result = applyAriaHeadingRoleFix(html);
+    const firstIdx = result.indexOf("<h1>X</h1>");
+    const thirdIdx = result.indexOf("<h3>X</h3>");
+    expect(firstIdx).toBeGreaterThanOrEqual(0);
+    expect(thirdIdx).toBeGreaterThan(firstIdx);
+    expect(result).not.toContain('role="heading"');
+  });
+
+  it("inherits level from a preceding ARIA heading with explicit aria-level", () => {
+    const html = `<div role="heading" aria-level="4">Section</div><span role="heading">Subsection</span>`;
+    const result = applyAriaHeadingRoleFix(html);
+    expect(result).toContain("<h4>Section</h4>");
+    expect(result).toContain("<h4>Subsection</h4>");
+    expect(result).not.toContain('role="heading"');
+  });
+
+  it("chains inferred levels across consecutive ARIA-only headings", () => {
+    const html = `<h2>Chapter</h2><div role="heading">First</div><div role="heading">Second</div>`;
+    const result = applyAriaHeadingRoleFix(html);
+    expect(result).toContain("<h2>First</h2>");
+    expect(result).toContain("<h2>Second</h2>");
+    expect(result).not.toContain('role="heading"');
+  });
 });
 
 // ---------------------------------------------------------------------------

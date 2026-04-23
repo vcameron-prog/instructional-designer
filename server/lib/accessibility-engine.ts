@@ -1252,7 +1252,41 @@ export function applyAriaHeadingRoleFix(html: string): string {
     return !/^h[1-6]$/.test(tag ?? "");
   });
 
-  for (const el of targets) {
+  if (targets.length === 0) return result;
+
+  // Walk the DOM in document order (DFS pre-order) to assign a stable ordinal
+  // to every node.  Using node object identity as the key means the mapping is
+  // correct even when multiple elements share the same outerHTML string.
+  const nodeOrder = new Map<object, number>();
+  let ordinal = 0;
+  function walkDocumentOrder(node: { childNodes?: object[] }): void {
+    nodeOrder.set(node, ordinal++);
+    for (const child of node.childNodes ?? []) {
+      walkDocumentOrder(child as { childNodes?: object[] });
+    }
+  }
+  walkDocumentOrder(root);
+
+  // Seed the context pool with native headings (h1-h6).  As each target is
+  // processed below it is also added to the pool so that later targets can
+  // inherit context from earlier ARIA headings (explicit or inferred).
+  const contextPool: Array<{ level: number; ordinal: number }> = [];
+  for (let lvl = 1; lvl <= 6; lvl++) {
+    for (const hEl of root.querySelectorAll(`h${lvl}`)) {
+      const ord = nodeOrder.get(hEl);
+      if (ord !== undefined) {
+        contextPool.push({ level: lvl, ordinal: ord });
+      }
+    }
+  }
+
+  // Process targets in document order so each resolved element can contribute
+  // context to those that follow.
+  const sortedTargets = [...targets].sort(
+    (a, b) => (nodeOrder.get(a) ?? 0) - (nodeOrder.get(b) ?? 0)
+  );
+
+  for (const el of sortedTargets) {
     const outerHtml = el.outerHTML;
     const tag = el.tagName?.toLowerCase() ?? "div";
     const openTagMatch = outerHtml.match(new RegExp(`^<${escapeRegex(tag)}((?:[^>"']|"[^"]*"|'[^']*')*)>`, "i"));
@@ -1262,9 +1296,25 @@ export function applyAriaHeadingRoleFix(html: string): string {
     const innerHtml = outerHtml.slice(openTagMatch[0].length, closeTagIdx);
 
     const ariaLevel = el.getAttribute("aria-level");
-    const level = ariaLevel ? Math.min(Math.max(parseInt(ariaLevel, 10) || 2, 1), 6) : 2;
-    const headingTag = `h${level}`;
+    const targetOrdinal = nodeOrder.get(el) ?? -1;
+    let level: number;
+    if (ariaLevel) {
+      level = Math.min(Math.max(parseInt(ariaLevel, 10) || 2, 1), 6);
+    } else {
+      // Infer from the last heading (native or ARIA) that precedes this element
+      // in document order.  Falls back to h2 when no prior heading exists.
+      const preceding = contextPool
+        .filter((h) => h.ordinal < targetOrdinal)
+        .sort((a, b) => b.ordinal - a.ordinal);
+      level = preceding.length > 0 ? preceding[0].level : 2;
+    }
 
+    // Register this element so later siblings can use its resolved level.
+    if (targetOrdinal >= 0) {
+      contextPool.push({ level, ordinal: targetOrdinal });
+    }
+
+    const headingTag = `h${level}`;
     const attrs = openTagMatch[1]
       .replace(/\s*role\s*=\s*["']heading["']/gi, "")
       .replace(/\s*aria-level\s*=\s*["'][^"']*["']/gi, "")
