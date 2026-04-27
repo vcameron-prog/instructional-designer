@@ -1481,7 +1481,7 @@ export async function registerRoutes(
         const now = new Date();
         const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
-        const [coursesResult, contentResult, conversionsResult] = await Promise.all([
+        const [coursesResult, contentResult, conversionsResult, accessibilityChecksResult] = await Promise.all([
           db.select({ count: sql<number>`count(*)` })
             .from(courses)
             .where(sql`to_char(created_at, 'YYYY-MM') = ${month}`),
@@ -1491,6 +1491,9 @@ export async function registerRoutes(
           db.select({ count: sql<number>`count(*)` })
             .from(conversions)
             .where(sql`to_char(created_at, 'YYYY-MM') = ${month}`),
+          db.select({ count: sql<number>`count(*)` })
+            .from(conversions)
+            .where(sql`to_char(created_at, 'YYYY-MM') = ${month} AND compliance_report IS NOT NULL`),
         ]);
 
         res.json({
@@ -1498,6 +1501,7 @@ export async function registerRoutes(
           coursesCreated: Number(coursesResult[0]?.count ?? 0),
           contentGenerated: Number(contentResult[0]?.count ?? 0),
           documentsConverted: Number(conversionsResult[0]?.count ?? 0),
+          accessibilityChecksRun: Number(accessibilityChecksResult[0]?.count ?? 0),
           totalActivity:
             Number(coursesResult[0]?.count ?? 0) +
             Number(contentResult[0]?.count ?? 0) +
