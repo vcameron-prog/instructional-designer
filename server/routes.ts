@@ -1139,11 +1139,41 @@ Additional Context: ${toolData.additionalContext || "None"}`,
   return prompts[toolId] || baseContext;
 }
 
-function fixVagueLinkText(text: string): string {
-  return text
-    .replace(/\[click here\]/gi, "[click here — describe destination]")
-    .replace(/\[here\]/gi, "[here — describe destination]")
-    .replace(/\[link\]/gi, "[describe destination]");
+async function fixVagueLinkTextAI(text: string): Promise<string> {
+  const message = await anthropic.messages.create({
+    model: "claude-sonnet-4-5",
+    max_tokens: 8192,
+    messages: [
+      {
+        role: "user",
+        content: `You are an accessibility editor. Your task is to fix vague link text in the following markdown content.
+
+Vague link text includes phrases like "click here", "here", "link", or similar non-descriptive labels.
+
+Rules:
+1. For each vague link that has a URL, replace ONLY the link label with a short, descriptive phrase that accurately reflects the link destination based on surrounding context. Preserve the URL exactly as-is.
+   - Example: \`[click here](https://bsu.edu/calendar)\` → \`[BSU Academic Calendar](https://bsu.edu/calendar)\`
+2. For vague links with NO URL (bare links like \`[click here]\` or \`[here]\`), replace the entire link with the editorial placeholder: \`[** Describe link destination **]\`
+3. Do NOT change any other content — only fix the vague link labels.
+4. Return the complete updated markdown with no additional commentary, explanations, or code fences.
+
+Here is the markdown content to fix:
+
+${text}`,
+      },
+    ],
+  });
+
+  const result = message.content
+    .filter((item): item is Anthropic.TextBlock => item.type === "text")
+    .map((item) => item.text)
+    .join("");
+
+  const trimmed = result.trim();
+  if (!trimmed) {
+    throw new Error("AI returned an empty response for vague link fix; original content preserved.");
+  }
+  return trimmed;
 }
 
 function fixAllCaps(text: string): string {
@@ -1956,7 +1986,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         } else if (fixType === "fix-heading-skip") {
           fixedContent = fixHeadingSkip(content.content);
         } else if (fixType === "fix-vague-link-text") {
-          fixedContent = fixVagueLinkText(content.content);
+          fixedContent = await fixVagueLinkTextAI(content.content);
         } else if (fixType === "fix-all-caps") {
           fixedContent = fixAllCaps(content.content);
         } else {
@@ -2004,7 +2034,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         } else if (fixType === "fix-heading-skip") {
           fixedContent = fixHeadingSkip(content.content);
         } else if (fixType === "fix-vague-link-text") {
-          fixedContent = fixVagueLinkText(content.content);
+          fixedContent = await fixVagueLinkTextAI(content.content);
         } else if (fixType === "fix-all-caps") {
           fixedContent = fixAllCaps(content.content);
         } else if (fixType === "fix-html-table-caption") {

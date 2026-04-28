@@ -1120,6 +1120,11 @@ export default function ResultPage() {
                           <p className="text-sm text-muted-foreground mt-1">
                             <strong>Fix:</strong> {issue.fix}
                           </p>
+                          {issue.fixType === "fix-vague-link-text" && (
+                            <div className="mt-2 px-3 py-2 rounded-md bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-xs text-blue-800 dark:text-blue-300">
+                              <strong>Title II notice:</strong> When applied, this fix will update your link text to meet Title II accessibility requirements using AI-generated descriptions based on surrounding context. The destination URLs are preserved — please verify each link still points to the correct location after applying.
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
