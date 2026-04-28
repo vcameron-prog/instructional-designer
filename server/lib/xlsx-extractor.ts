@@ -1,31 +1,45 @@
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import type { PdfExtraction, ExtractedTable } from "./pdf-processor";
 
+function cellToString(cell: ExcelJS.CellValue): string {
+  if (cell === null || cell === undefined) return "";
+  if (typeof cell === "string") return cell;
+  if (typeof cell === "number" || typeof cell === "boolean") return String(cell);
+  if (cell instanceof Date) return cell.toISOString();
+  const obj = cell as unknown as Record<string, unknown>;
+  if ("richText" in obj && Array.isArray(obj.richText)) {
+    return (obj.richText as Array<{ text?: string }>).map((r) => r.text ?? "").join("");
+  }
+  if ("text" in obj && typeof obj.text === "string") return obj.text;
+  if ("result" in obj) return obj.result !== undefined ? String(obj.result) : "";
+  return "";
+}
+
 export async function extractXlsxContent(buffer: Buffer): Promise<PdfExtraction> {
-  const workbook = XLSX.read(buffer, { type: "buffer" });
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(buffer);
 
   const tables: ExtractedTable[] = [];
   const textParts: string[] = [];
 
-  const sheetsToProcess = workbook.SheetNames.slice(0, 1);
+  const sheetsToProcess = workbook.worksheets.slice(0, 1);
 
-  for (const sheetName of sheetsToProcess) {
-    const sheet = workbook.Sheets[sheetName];
-    const rows: string[][] = XLSX.utils.sheet_to_json<string[]>(sheet, {
-      header: 1,
-      defval: "",
-      raw: false,
-    }) as string[][];
+  for (const worksheet of sheetsToProcess) {
+    const rows: string[][] = [];
 
-    const nonEmptyRows = rows.filter((row) =>
-      row.some((cell) => String(cell).trim().length > 0)
-    );
+    worksheet.eachRow({ includeEmpty: false }, (row) => {
+      const values = row.values as ExcelJS.CellValue[];
+      const cells = values.slice(1).map(cellToString);
+      if (cells.some((c) => c.trim().length > 0)) {
+        rows.push(cells);
+      }
+    });
 
-    if (nonEmptyRows.length > 0) {
-      tables.push({ pageNumber: 1, rows: nonEmptyRows.map((r) => r.map(String)) });
+    if (rows.length > 0) {
+      tables.push({ pageNumber: 1, rows: rows.map((r) => r.map(String)) });
 
-      const sheetText = nonEmptyRows.map((row) => row.join("\t")).join("\n");
-      textParts.push(`Sheet: ${sheetName}\n${sheetText}`);
+      const sheetText = rows.map((row) => row.join("\t")).join("\n");
+      textParts.push(`Sheet: ${worksheet.name}\n${sheetText}`);
     }
   }
 
