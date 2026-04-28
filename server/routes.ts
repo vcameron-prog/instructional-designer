@@ -1,4 +1,4 @@
-import type { Express, Request, Response } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { randomUUID } from "crypto";
 import { storage } from "./storage";
@@ -116,6 +116,60 @@ setInterval(
     const now = Date.now();
     for (const [key, entry] of heavyOpRateLimits) {
       if (now > entry.resetAt) heavyOpRateLimits.delete(key);
+    }
+  },
+  10 * 60 * 1000,
+);
+
+// Per-user AI generation rate limiting
+const aiGenRateLimits = new Map<string, { count: number; resetAt: number }>();
+const AI_GEN_RATE_LIMIT = parseInt(process.env.AI_GEN_RATE_LIMIT ?? "20", 10) || 20;
+const AI_GEN_RATE_WINDOW_MS = 60 * 60 * 1000;
+
+function checkAiGenRateLimit(key: string): boolean {
+  const now = Date.now();
+  const entry = aiGenRateLimits.get(key);
+  if (!entry || now > entry.resetAt) {
+    aiGenRateLimits.set(key, { count: 1, resetAt: now + AI_GEN_RATE_WINDOW_MS });
+    return true;
+  }
+  if (entry.count >= AI_GEN_RATE_LIMIT) return false;
+  entry.count++;
+  return true;
+}
+
+setInterval(
+  () => {
+    const now = Date.now();
+    for (const [key, entry] of aiGenRateLimits) {
+      if (now > entry.resetAt) aiGenRateLimits.delete(key);
+    }
+  },
+  10 * 60 * 1000,
+);
+
+// Per-user conversion upload rate limiting
+const uploadRateLimits = new Map<string, { count: number; resetAt: number }>();
+const UPLOAD_RATE_LIMIT = parseInt(process.env.UPLOAD_RATE_LIMIT ?? "30", 10) || 30;
+const UPLOAD_RATE_WINDOW_MS = 60 * 60 * 1000;
+
+function checkUploadRateLimit(key: string): boolean {
+  const now = Date.now();
+  const entry = uploadRateLimits.get(key);
+  if (!entry || now > entry.resetAt) {
+    uploadRateLimits.set(key, { count: 1, resetAt: now + UPLOAD_RATE_WINDOW_MS });
+    return true;
+  }
+  if (entry.count >= UPLOAD_RATE_LIMIT) return false;
+  entry.count++;
+  return true;
+}
+
+setInterval(
+  () => {
+    const now = Date.now();
+    for (const [key, entry] of uploadRateLimits) {
+      if (now > entry.resetAt) uploadRateLimits.delete(key);
     }
   },
   10 * 60 * 1000,
@@ -1745,6 +1799,10 @@ export async function registerRoutes(
           return res.status(404).json({ error: "Course not found" });
         }
 
+        if (!checkAiGenRateLimit(userId)) {
+          return res.status(429).json({ error: "AI generation rate limit exceeded. Please try again later." });
+        }
+
         const prompt = generatePrompt(toolId, formData, course);
 
         const message = await anthropic.messages.create({
@@ -1793,6 +1851,10 @@ export async function registerRoutes(
                 error:
                   "Rate limit exceeded. Please sign in for unlimited access or try again later.",
               });
+          }
+        } else {
+          if (!checkAiGenRateLimit(userId)) {
+            return res.status(429).json({ error: "AI generation rate limit exceeded. Please try again later." });
           }
         }
 
@@ -1913,6 +1975,10 @@ export async function registerRoutes(
           return res.status(404).json({ error: "Content not found" });
         }
 
+        if (!checkAiGenRateLimit(userId)) {
+          return res.status(429).json({ error: "AI generation rate limit exceeded. Please try again later." });
+        }
+
         // Save current version
         await storage.createVersion({
           generatedContentId: id,
@@ -1986,6 +2052,11 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         } else if (fixType === "fix-heading-skip") {
           fixedContent = fixHeadingSkip(content.content);
         } else if (fixType === "fix-vague-link-text") {
+          const rateLimitKey = userId ?? (req.ip || req.socket.remoteAddress || "unknown");
+          const rateLimitFn = userId ? checkAiGenRateLimit : checkAnonRateLimit;
+          if (!rateLimitFn(rateLimitKey)) {
+            return res.status(429).json({ error: "Rate limit exceeded. Please try again later." });
+          }
           fixedContent = await fixVagueLinkTextAI(content.content);
         } else if (fixType === "fix-all-caps") {
           fixedContent = fixAllCaps(content.content);
@@ -2034,6 +2105,11 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         } else if (fixType === "fix-heading-skip") {
           fixedContent = fixHeadingSkip(content.content);
         } else if (fixType === "fix-vague-link-text") {
+          const rateLimitKey = userId ?? (req.ip || req.socket.remoteAddress || "unknown");
+          const rateLimitFn = userId ? checkAiGenRateLimit : checkAnonRateLimit;
+          if (!rateLimitFn(rateLimitKey)) {
+            return res.status(429).json({ error: "Rate limit exceeded. Please try again later." });
+          }
           fixedContent = await fixVagueLinkTextAI(content.content);
         } else if (fixType === "fix-all-caps") {
           fixedContent = fixAllCaps(content.content);
@@ -2140,6 +2216,13 @@ Please generate an IMPROVED version that incorporates the requested changes whil
   // File upload for syllabus
   app.post(
     "/api/upload-syllabus",
+    (req: Request, res: Response, next: NextFunction) => {
+      const ip = req.ip || req.socket.remoteAddress || "unknown";
+      if (!checkAnonRateLimit(ip)) {
+        return res.status(429).json({ error: "Rate limit exceeded. Please try again later." });
+      }
+      next();
+    },
     upload.single("file"),
     async (req: Request, res: Response) => {
       try {
@@ -2624,16 +2707,10 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         return;
       }
 
-      if (!userId) {
-        const ip = req.ip || req.socket.remoteAddress || "unknown";
-        if (!checkAnonRateLimit(ip)) {
-          return res
-            .status(429)
-            .json({
-              error:
-                "Rate limit exceeded. Please sign in for unlimited access or try again later.",
-            });
-        }
+      const uploadRateLimitKey = userId ?? (req.ip || req.socket.remoteAddress || "unknown");
+      const uploadRateLimitFn = userId ? checkUploadRateLimit : checkAnonRateLimit;
+      if (!uploadRateLimitFn(uploadRateLimitKey)) {
+        return res.status(429).json({ error: "Upload rate limit exceeded. Please try again later." });
       }
 
       const visitorToken = userId ? null : ensureVisitorToken(req);
@@ -2678,16 +2755,10 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     async (req: Request, res: Response) => {
       const userId = getUserId(req);
 
-      if (!userId) {
-        const ip = req.ip || req.socket.remoteAddress || "unknown";
-        if (!checkAnonRateLimit(ip)) {
-          return res
-            .status(429)
-            .json({
-              error:
-                "Rate limit exceeded. Please sign in for unlimited access or try again later.",
-            });
-        }
+      const googleDocRateLimitKey = userId ?? (req.ip || req.socket.remoteAddress || "unknown");
+      const googleDocRateLimitFn = userId ? checkUploadRateLimit : checkAnonRateLimit;
+      if (!googleDocRateLimitFn(googleDocRateLimitKey)) {
+        return res.status(429).json({ error: "Upload rate limit exceeded. Please try again later." });
       }
 
       const googleDocVisitorToken = userId ? null : ensureVisitorToken(req);
@@ -2885,16 +2956,10 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     async (req: Request, res: Response) => {
       const userId = getUserId(req);
 
-      if (!userId) {
-        const ip = req.ip || req.socket.remoteAddress || "unknown";
-        if (!checkAnonRateLimit(ip)) {
-          return res
-            .status(429)
-            .json({
-              error:
-                "Rate limit exceeded. Please sign in for unlimited access or try again later.",
-            });
-        }
+      const sheetRateLimitKey = userId ?? (req.ip || req.socket.remoteAddress || "unknown");
+      const sheetRateLimitFn = userId ? checkUploadRateLimit : checkAnonRateLimit;
+      if (!sheetRateLimitFn(sheetRateLimitKey)) {
+        return res.status(429).json({ error: "Upload rate limit exceeded. Please try again later." });
       }
 
       const { url } = req.body;
