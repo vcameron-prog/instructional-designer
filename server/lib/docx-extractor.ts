@@ -1,5 +1,6 @@
 import mammoth from "mammoth";
 import { parse } from "node-html-parser";
+import { inspectZip } from "./zip-guard";
 import type {
   PdfExtraction,
   ExtractedImage,
@@ -9,6 +10,8 @@ import type {
 export async function extractDocxContent(
   buffer: Buffer,
 ): Promise<PdfExtraction> {
+  inspectZip(buffer, "DOCX");
+
   const result = await mammoth.convertToHtml({ buffer });
   const htmlContent = result.value;
 

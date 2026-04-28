@@ -16,18 +16,39 @@ function findChromiumPath(): string {
 
 const CHROMIUM_PATH = findChromiumPath();
 
+const MAX_HTML_BYTES = 5 * 1024 * 1024;
+
+function stripDangerousElements(html: string): string {
+  return html
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "")
+    .replace(/<script\b[^>]*\/>/gi, "")
+    .replace(/<object\b[^>]*>[\s\S]*?<\/object>/gi, "")
+    .replace(/<embed\b[^>]*\/?>/gi, "")
+    .replace(/<iframe\b[^>]*>[\s\S]*?<\/iframe>/gi, "")
+    .replace(/<iframe\b[^>]*\/>/gi, "")
+    .replace(/<link\b[^>]*\/?>/gi, "")
+    .replace(/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi, "");
+}
+
 export async function buildPdf(
   html: string,
   metadata: { title: string; lang: string; author?: string },
 ): Promise<Buffer> {
+  const byteLength = Buffer.byteLength(html, "utf8");
+  if (byteLength > MAX_HTML_BYTES) {
+    throw new Error(
+      `HTML input too large (${Math.round(byteLength / 1024)} KB; limit ${MAX_HTML_BYTES / 1024} KB)`,
+    );
+  }
+
+  const sanitizedHtml = stripDangerousElements(html);
+
   let browser;
   try {
     browser = await puppeteer.launch({
       executablePath: CHROMIUM_PATH,
       headless: true,
       args: [
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
         "--disable-dev-shm-usage",
         "--disable-gpu",
         "--font-render-hinting=none",
@@ -52,7 +73,7 @@ export async function buildPdf(
 
     await page.setJavaScriptEnabled(false);
 
-    const styledHtml = injectPrintStyles(html, metadata);
+    const styledHtml = injectPrintStyles(sanitizedHtml, metadata);
     await page.setContent(styledHtml, {
       waitUntil: "domcontentloaded",
       timeout: 30000,
