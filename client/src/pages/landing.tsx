@@ -268,19 +268,7 @@ export default function LandingPage() {
             </span>
           </div>
         )}
-        {!isAuthenticated && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-2"
-            onClick={() => window.location.href = "/api/login"}
-            data-testid="button-login-header"
-          >
-            <SiGoogle size={14} />
-            Sign In
-          </Button>
-        )}
-        <HeaderControls showLogout={isAuthenticated} />
+        <HeaderControls showLogout={isAuthenticated} showLogin={false} />
       </nav>
       
       <div className="relative z-10 container mx-auto px-4 py-12 md:py-20">

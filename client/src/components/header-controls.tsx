@@ -13,6 +13,7 @@ interface HeaderControlsProps {
   showHelp?: boolean;
   showSettings?: boolean;
   showLogout?: boolean;
+  showLogin?: boolean;
 }
 
 export function HeaderControls({
@@ -22,6 +23,7 @@ export function HeaderControls({
   showHelp = true,
   showSettings = true,
   showLogout = true,
+  showLogin = true,
 }: HeaderControlsProps) {
   const { isAuthenticated } = useAuth();
   const { theme, toggleTheme } = useTheme();
@@ -183,7 +185,7 @@ export function HeaderControls({
         </Tooltip>
       )}
 
-      {!isAuthenticated && (
+      {showLogin && !isAuthenticated && (
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
