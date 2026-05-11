@@ -15,6 +15,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { ArrowLeft, ArrowRight, Upload, FileText, Loader2, BookOpen } from "lucide-react";
 import { COURSE_LEVELS, CREDIT_OPTIONS, SEMESTER_TYPES, getSemesterYears, buildSemesterString, parseSemesterString } from "@/lib/constants";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { parseSyllabusUploadError } from "@/lib/upload-error-utils";
 import { useToast } from "@/hooks/use-toast";
 import { PoweredByFooter } from "@/components/powered-by-footer";
 import { HeaderControls } from "@/components/header-controls";
@@ -226,18 +227,7 @@ export default function CourseForm({ courseId }: { courseId?: number }) {
 
       if (!response.ok) {
         const text = await response.text();
-        const isHtml = text.trimStart().startsWith("<");
-        if (response.status === 401 || response.status === 403 || isHtml) {
-          throw new Error("Your session has expired. Please refresh the page and sign in again.");
-        }
-        let message = "Failed to upload file. Please try again.";
-        if (text && !isHtml) {
-          try {
-            const parsed = JSON.parse(text);
-            if (parsed.error) message = parsed.error;
-          } catch {}
-        }
-        throw new Error(message);
+        throw parseSyllabusUploadError(response.status, text);
       }
 
       const { content } = await response.json();

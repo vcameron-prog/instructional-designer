@@ -20,6 +20,7 @@ import { PoweredByFooter } from "@/components/powered-by-footer";
 import { format } from "date-fns";
 import { SiGoogledrive, SiGooglesheets } from "react-icons/si";
 import { apiRequest } from "@/lib/queryClient";
+import { parseConversionsUploadError } from "@/lib/upload-error-utils";
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 B";
@@ -56,17 +57,7 @@ export default function PdfUpload() {
       });
       if (!res.ok) {
         const text = await res.text();
-        const fallback = "Upload failed. Please try again. If the problem persists, try refreshing the page.";
-        let message = fallback;
-        if (text && !text.trimStart().startsWith("<")) {
-          try {
-            const parsed = JSON.parse(text);
-            if (parsed.error) message = parsed.error;
-          } catch {
-            message = fallback;
-          }
-        }
-        throw new Error(message);
+        throw parseConversionsUploadError(text);
       }
       return res.json();
     },
