@@ -2,7 +2,25 @@ import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { parse as parseHtml } from "node-html-parser";
 import type { ExtractedImage, ExtractedTable } from "./pdf-processor";
-import pLimit from "p-limit";
+
+/** Inline concurrency limiter — equivalent to p-limit but works in any bundle format. */
+function pLimit(concurrency: number) {
+  let active = 0;
+  const queue: Array<() => void> = [];
+  return function limit<T>(fn: () => Promise<T>): Promise<T> {
+    return new Promise((resolve, reject) => {
+      const run = () => {
+        active++;
+        fn().then(resolve, reject).finally(() => {
+          active--;
+          if (queue.length > 0) queue.shift()!();
+        });
+      };
+      if (active < concurrency) run();
+      else queue.push(run);
+    });
+  };
+}
 
 /** Escape all regex metacharacters in a string so it can be safely embedded in a RegExp pattern. */
 function escapeRegex(s: string): string {
