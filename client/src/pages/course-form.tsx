@@ -224,13 +224,28 @@ export default function CourseForm({ courseId }: { courseId?: number }) {
         body: formData,
       });
 
-      if (!response.ok) throw new Error("Upload failed");
+      if (!response.ok) {
+        const text = await response.text();
+        const isHtml = text.trimStart().startsWith("<");
+        if (response.status === 401 || response.status === 403 || isHtml) {
+          throw new Error("Your session has expired. Please refresh the page and sign in again.");
+        }
+        let message = "Failed to upload file. Please try again.";
+        if (text && !isHtml) {
+          try {
+            const parsed = JSON.parse(text);
+            if (parsed.error) message = parsed.error;
+          } catch {}
+        }
+        throw new Error(message);
+      }
 
       const { content } = await response.json();
       form.setValue("existingSyllabus", content);
       toast({ title: "Syllabus uploaded successfully!" });
-    } catch {
-      toast({ title: "Failed to upload file", variant: "destructive" });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to upload file. Please try again.";
+      toast({ title: message, variant: "destructive" });
       setUploadedFileName("");
     } finally {
       setIsUploading(false);
