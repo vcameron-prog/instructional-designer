@@ -56,7 +56,17 @@ export default function PdfUpload() {
       });
       if (!res.ok) {
         const text = await res.text();
-        throw new Error(text || "Upload failed");
+        const fallback = "Upload failed. Please try again. If the problem persists, try refreshing the page.";
+        let message = fallback;
+        if (text && !text.trimStart().startsWith("<")) {
+          try {
+            const parsed = JSON.parse(text);
+            if (parsed.error) message = parsed.error;
+          } catch {
+            message = fallback;
+          }
+        }
+        throw new Error(message);
       }
       return res.json();
     },
@@ -77,12 +87,16 @@ export default function PdfUpload() {
       navigate(`/pdf-accessibility/${data.id}`);
     },
     onError: (err: Error) => {
-      let message = err.message || "Import failed. Please try again.";
-      try {
-        const jsonPart = message.replace(/^\d+:\s*/, "");
-        const parsed = JSON.parse(jsonPart);
-        if (parsed.error) message = parsed.error;
-      } catch {}
+      const fallback = "Import failed. Please try again. If the problem persists, try refreshing the page.";
+      let message = fallback;
+      const raw = err.message || "";
+      if (!raw.trimStart().startsWith("<")) {
+        try {
+          const jsonPart = raw.replace(/^\d+:\s*/, "");
+          const parsed = JSON.parse(jsonPart);
+          if (parsed.error) message = parsed.error;
+        } catch {}
+      }
       setUploadError(message);
     },
   });
