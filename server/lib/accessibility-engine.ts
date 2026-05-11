@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { parse as parseHtml } from "node-html-parser";
 import type { ExtractedImage, ExtractedTable } from "./pdf-processor";
+import pLimit from "p-limit";
 
 /** Escape all regex metacharacters in a string so it can be safely embedded in a RegExp pattern. */
 function escapeRegex(s: string): string {
@@ -1762,7 +1763,7 @@ export async function generateAccessibleDocument(
   const documentTitle =
     metadata.title || originalFilename.replace(/\.pdf$/i, "");
 
-  const CHUNK_THRESHOLD = 8000;
+  const CHUNK_THRESHOLD = 12000;
   const MAX_CHUNKS = 20;
   const allChunks = splitTextByPages(extractedText, CHUNK_THRESHOLD);
   if (allChunks.length > MAX_CHUNKS) {
@@ -1807,34 +1808,34 @@ Output ONLY the HTML content for this chunk (no <!DOCTYPE>, no <html>, no <head>
 Just output the <body> content that will be merged into the full document.
 Do NOT repeat any content from previous chunks.`;
 
-  const chunkHtmlParts: string[] = [];
+  if (onProgress) {
+    await onProgress(
+      needsChunking
+        ? `Converting ${chunks.length} sections in parallel…`
+        : `Converting document…`
+    );
+  }
 
-  for (let i = 0; i < chunks.length; i++) {
-    const chunk = chunks[i];
-    const chunkImages = filterImagesForChunk(images, chunk.startPage, chunk.endPage);
-    const chunkTables = filterTablesForChunk(tables, chunk.startPage, chunk.endPage);
-    const structuralSummary = buildStructuralSummary(chunkImages, chunkTables);
+  const totalPages = pageCount || chunks[chunks.length - 1].endPage;
+  const chunkLimit = pLimit(4);
 
-    const totalPages = pageCount || chunks[chunks.length - 1].endPage;
-    const progressMsg = needsChunking
-      ? `Converting pages ${chunk.startPage}–${chunk.endPage} of ${totalPages} (chunk ${i + 1}/${chunks.length})…`
-      : `Converting ${totalPages} page document…`;
+  const chunkHtmlParts = await Promise.all(
+    chunks.map((chunk, i) =>
+      chunkLimit(async () => {
+        const chunkImages = filterImagesForChunk(images, chunk.startPage, chunk.endPage);
+        const chunkTables = filterTablesForChunk(tables, chunk.startPage, chunk.endPage);
+        const structuralSummary = buildStructuralSummary(chunkImages, chunkTables);
+        const isFirst = i === 0;
 
-    if (onProgress) {
-      await onProgress(progressMsg);
-    }
-
-    const isFirst = i === 0;
-
-    const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-5",
-      max_tokens: 16384,
-      system: isFirst ? systemPrompt : continuationSystemPrompt,
-      messages: [
-        {
-          role: "user",
-          content: isFirst
-            ? `Convert this extracted PDF content into an accessible HTML document.
+        const response = await anthropic.messages.create({
+          model: "claude-haiku-4-5",
+          max_tokens: 16384,
+          system: isFirst ? systemPrompt : continuationSystemPrompt,
+          messages: [
+            {
+              role: "user",
+              content: isFirst
+                ? `Convert this extracted PDF content into an accessible HTML document.
 
 Document title: ${documentTitle}
 Author: ${metadata.author || "Unknown"}
@@ -1844,7 +1845,7 @@ ${needsChunking ? `\nThis is chunk ${i + 1} of ${chunks.length} (pages ${chunk.s
 --- EXTRACTED TEXT ---
 ${chunk.text}
 ${structuralSummary}`
-            : `Continue converting this PDF document.
+                : `Continue converting this PDF document.
 
 Document title: ${documentTitle}
 This is chunk ${i + 1} of ${chunks.length} (pages ${chunk.startPage}–${chunk.endPage}).
@@ -1852,18 +1853,20 @@ This is chunk ${i + 1} of ${chunks.length} (pages ${chunk.startPage}–${chunk.e
 --- EXTRACTED TEXT (CONTINUATION) ---
 ${chunk.text}
 ${structuralSummary}`,
-        },
-      ],
-    });
+            },
+          ],
+        });
 
-    const rawHtml = response.content[0]?.type === "text" ? response.content[0].text : "";
-    let chunkHtml = injectImageData(rawHtml, chunkImages);
-    chunkHtml = ensureMissingImages(chunkHtml, chunkImages);
-    chunkHtml = ensureAltText(chunkHtml, chunkImages);
-    chunkHtml = ensureMissingTables(chunkHtml, chunkTables);
+        const rawHtml = response.content[0]?.type === "text" ? response.content[0].text : "";
+        let chunkHtml = injectImageData(rawHtml, chunkImages);
+        chunkHtml = ensureMissingImages(chunkHtml, chunkImages);
+        chunkHtml = ensureAltText(chunkHtml, chunkImages);
+        chunkHtml = ensureMissingTables(chunkHtml, chunkTables);
 
-    chunkHtmlParts.push(chunkHtml);
-  }
+        return chunkHtml;
+      })
+    )
+  );
 
   if (onProgress) {
     await onProgress("Running compliance checks…");
