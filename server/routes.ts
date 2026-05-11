@@ -3218,107 +3218,127 @@ Please generate an IMPROVED version that incorporates the requested changes whil
       };
 
       (async () => {
+        const conversionStart = Date.now();
+        const TIMEOUT_MS = 10 * 60 * 1000;
+        let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          timeoutId = setTimeout(
+            () => reject(new Error("Conversion timed out after 10 minutes. The document may be too large or complex. Please try a smaller file.")),
+            TIMEOUT_MS,
+          );
+        });
+
         try {
-          const { generateAccessibleDocument, evaluateOriginalDocument } =
-            await import("./lib/accessibility-engine");
-          const fileBuffer = Buffer.from(conversion.pdfData!, "base64");
-          const srcType = conversion.sourceType || "pdf";
+          await Promise.race([
+            (async () => {
+              const { generateAccessibleDocument, evaluateOriginalDocument } =
+                await import("./lib/accessibility-engine");
+              const fileBuffer = Buffer.from(conversion.pdfData!, "base64");
+              const srcType = conversion.sourceType || "pdf";
 
-          let extraction: import("./lib/pdf-processor").PdfExtraction;
-          let ocrApplied = false;
+              let extraction: import("./lib/pdf-processor").PdfExtraction;
+              let ocrApplied = false;
 
-          if (srcType === "google-sheet") {
-            await updateStatusMessage("Extracting Google Sheet content…");
-            const { extractXlsxContent } = await import("./lib/xlsx-extractor");
-            extraction = await extractXlsxContent(fileBuffer);
-          } else if (srcType === "docx" || srcType === "google-doc") {
-            await updateStatusMessage(
-              srcType === "google-doc"
-                ? "Extracting Google Doc content…"
-                : "Extracting Word document content…",
-            );
-            const { extractDocxContent } = await import("./lib/docx-extractor");
-            extraction = await extractDocxContent(fileBuffer);
-          } else {
-            await updateStatusMessage("Extracting PDF content…");
-            const { extractPdfContent, needsOcr } = await import(
-              "./lib/pdf-processor"
-            );
-            extraction = await extractPdfContent(fileBuffer);
-            ocrApplied = needsOcr(extraction.text, extraction.pageCount);
-          }
+              if (srcType === "google-sheet") {
+                await updateStatusMessage("Extracting Google Sheet content…");
+                const { extractXlsxContent } = await import("./lib/xlsx-extractor");
+                extraction = await extractXlsxContent(fileBuffer);
+              } else if (srcType === "docx" || srcType === "google-doc") {
+                await updateStatusMessage(
+                  srcType === "google-doc"
+                    ? "Extracting Google Doc content…"
+                    : "Extracting Word document content…",
+                );
+                const { extractDocxContent } = await import("./lib/docx-extractor");
+                extraction = await extractDocxContent(fileBuffer);
+              } else {
+                await updateStatusMessage("Extracting PDF content…");
+                const { extractPdfContent, needsOcr } = await import(
+                  "./lib/pdf-processor"
+                );
+                extraction = await extractPdfContent(fileBuffer);
+                ocrApplied = needsOcr(extraction.text, extraction.pageCount);
+              }
 
-          let finalText = extraction.text;
-          if (ocrApplied && extraction.images.length > 0) {
-            await updateStatusMessage("Running OCR on scanned pages…");
-            const ocrTexts: string[] = [];
-            for (const img of extraction.images.slice(0, 5)) {
-              try {
-                const ocrResponse = await anthropic.messages.create({
-                  model: "claude-sonnet-4-5",
-                  max_tokens: 2048,
-                  messages: [
-                    {
-                      role: "user",
-                      content: [
+              let finalText = extraction.text;
+              if (ocrApplied && extraction.images.length > 0) {
+                await updateStatusMessage("Running OCR on scanned pages…");
+                const ocrTexts: string[] = [];
+                for (const img of extraction.images.slice(0, 5)) {
+                  try {
+                    const ocrResponse = await anthropic.messages.create({
+                      model: "claude-sonnet-4-5",
+                      max_tokens: 2048,
+                      messages: [
                         {
-                          type: "image",
-                          source: {
-                            type: "base64",
-                            media_type: "image/png",
-                            data: img.dataUrl.split(",")[1] || "",
-                          },
-                        },
-                        {
-                          type: "text",
-                          text: "Extract all text from this scanned document page. Maintain the reading order and structure. Output only the extracted text.",
+                          role: "user",
+                          content: [
+                            {
+                              type: "image",
+                              source: {
+                                type: "base64",
+                                media_type: "image/png",
+                                data: img.dataUrl.split(",")[1] || "",
+                              },
+                            },
+                            {
+                              type: "text",
+                              text: "Extract all text from this scanned document page. Maintain the reading order and structure. Output only the extracted text.",
+                            },
+                          ],
                         },
                       ],
-                    },
-                  ],
-                });
-                const ocrText =
-                  ocrResponse.content[0]?.type === "text"
-                    ? ocrResponse.content[0].text
-                    : "";
-                if (ocrText) ocrTexts.push(ocrText);
-              } catch {}
-            }
-            if (ocrTexts.length > 0) {
-              finalText = ocrTexts.join("\n\n---\n\n");
-            }
-          }
+                    });
+                    const ocrText =
+                      ocrResponse.content[0]?.type === "text"
+                        ? ocrResponse.content[0].text
+                        : "";
+                    if (ocrText) ocrTexts.push(ocrText);
+                  } catch {}
+                }
+                if (ocrTexts.length > 0) {
+                  finalText = ocrTexts.join("\n\n---\n\n");
+                }
+              }
 
-          await updateStatusMessage("Evaluating original document…");
-          const originalReport = evaluateOriginalDocument(finalText);
+              await updateStatusMessage("Evaluating original document…");
+              const originalReport = evaluateOriginalDocument(finalText);
 
-          const result = await generateAccessibleDocument(
-            finalText,
-            conversion.originalFilename,
-            extraction.metadata,
-            extraction.images,
-            extraction.tables,
-            extraction.pageCount,
-            updateStatusMessage,
-          );
+              const result = await generateAccessibleDocument(
+                finalText,
+                conversion.originalFilename,
+                extraction.metadata,
+                extraction.images,
+                extraction.tables,
+                extraction.pageCount,
+                updateStatusMessage,
+              );
 
-          await db
-            .update(conversions)
-            .set({
-              status: "completed",
-              statusMessage: null,
-              pageCount: extraction.pageCount,
-              extractedText: finalText.substring(0, 50000),
-              accessibleHtml: result.accessibleHtml,
-              complianceReport: result.complianceReport,
-              originalComplianceReport: originalReport,
-              ocrApplied,
-              pdfData: null,
-              updatedAt: new Date(),
-            })
-            .where(eq(conversions.id, id));
+              await db
+                .update(conversions)
+                .set({
+                  status: "completed",
+                  statusMessage: null,
+                  pageCount: extraction.pageCount,
+                  extractedText: finalText.substring(0, 50000),
+                  accessibleHtml: result.accessibleHtml,
+                  complianceReport: result.complianceReport,
+                  originalComplianceReport: originalReport,
+                  ocrApplied,
+                  pdfData: null,
+                  updatedAt: new Date(),
+                })
+                .where(eq(conversions.id, id));
+
+              const elapsed = Math.round((Date.now() - conversionStart) / 1000);
+              console.log(`[conversion #${id}] completed in ${elapsed}s (${conversion.originalFilename})`);
+            })(),
+            timeoutPromise,
+          ]);
         } catch (err: any) {
-          console.error("Document processing error:", err);
+          const elapsed = Math.round((Date.now() - conversionStart) / 1000);
+          console.error(`[conversion #${id}] failed after ${elapsed}s: ${err.message}`);
           await db
             .update(conversions)
             .set({
@@ -3329,6 +3349,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
             })
             .where(eq(conversions.id, id));
         } finally {
+          clearTimeout(timeoutId);
           activeProcessingJobs--;
         }
       })();

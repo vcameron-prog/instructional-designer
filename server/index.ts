@@ -5,7 +5,8 @@ import { createServer } from "http";
 import { seedDatabase } from "./seed";
 import { trimAllOversizedVersions } from "./lib/trimVersions";
 import { db } from "./db";
-import { sql } from "drizzle-orm";
+import { sql, eq } from "drizzle-orm";
+import { conversions } from "../shared/schema";
 
 const app = express();
 const httpServer = createServer(app);
@@ -67,9 +68,32 @@ async function runStartupMigrations() {
   }
 }
 
+async function resetStaleProcessingJobs() {
+  try {
+    const result = await db
+      .update(conversions)
+      .set({
+        status: "failed",
+        statusMessage: null,
+        errorMessage: "Conversion interrupted by server restart. Please try again.",
+        updatedAt: new Date(),
+      })
+      .where(eq(conversions.status, "processing"));
+    const count = (result as any).rowCount ?? (result as any).count ?? 0;
+    if (count > 0) {
+      log(`Reset ${count} stale processing job(s) to failed`, "startup");
+    }
+  } catch (err) {
+    console.error("Failed to reset stale processing jobs:", err);
+  }
+}
+
 (async () => {
   // Apply any pending schema migrations before starting
   await runStartupMigrations();
+
+  // Mark any conversions left in "processing" state (e.g. from a previous crash/deploy) as failed
+  await resetStaleProcessingJobs();
 
   // Seed database with sample data
   await seedDatabase();
