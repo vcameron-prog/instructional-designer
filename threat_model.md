@@ -35,6 +35,7 @@ Production assumptions for this threat model:
   - Public/anonymous: `/api/generate-standalone`, `/api/upload-syllabus`, parts of `/api/conversions/*`, optionally `/api/stats/public`
   - Authenticated: `/api/courses/*`, `/api/content/*`, `/api/library`, `/api/conversions`
   - Admin: `/api/admin/check`, `/api/admin/stats`
+- **Current confirmed May 2026 risk concentration**: anonymous conversion upload and processing endpoints remain the most important DoS review area. Their controls must be validated carefully because upload throttling currently happens after multipart buffering and processing timeouts do not guarantee cancellation of background work.
 - **Current production auth assumption from code**: "authenticated user" currently means any Replit OIDC user. The code does not enforce a faculty-only allowlist or email-domain restriction.
 - **Currently unreachable unless route registration changes**: `server/replit_integrations/chat/*` is present in the repo but is not wired into `registerRoutes()` or startup.
 - **Usually dev-only**: `attached_assets/`, `server/vite.ts`, test files, build/test scripts.
