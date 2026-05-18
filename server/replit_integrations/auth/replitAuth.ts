@@ -35,6 +35,7 @@ export function getSession() {
     cookie: {
       httpOnly: true,
       secure: true,
+      sameSite: "lax",
       maxAge: sessionTtl,
     },
   });
@@ -118,14 +119,19 @@ export async function setupAuth(app: Express) {
     })(req, res, next);
   });
 
-  app.get("/api/logout", (req, res) => {
+  app.post("/api/logout", (req, res) => {
+    const expectedOrigin = `${req.protocol}://${req.hostname}`;
+    const requestOrigin = req.headers["origin"] ?? req.headers["referer"];
+    if (!requestOrigin || !requestOrigin.startsWith(expectedOrigin)) {
+      res.status(403).json({ message: "Forbidden" });
+      return;
+    }
     req.logout(() => {
-      res.redirect(
-        client.buildEndSessionUrl(config, {
-          client_id: process.env.REPL_ID!,
-          post_logout_redirect_uri: `${req.protocol}://${req.hostname}`,
-        }).href
-      );
+      const endSessionUrl = client.buildEndSessionUrl(config, {
+        client_id: process.env.REPL_ID!,
+        post_logout_redirect_uri: expectedOrigin,
+      }).href;
+      res.json({ redirectUrl: endSessionUrl });
     });
   });
 }
