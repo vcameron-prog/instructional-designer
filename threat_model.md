@@ -38,6 +38,7 @@ Production assumptions for this threat model:
 - **Current production auth assumption from code**: "authenticated user" currently means any Replit OIDC user. The code does not enforce a faculty-only allowlist or email-domain restriction.
 - **Currently unreachable unless route registration changes**: `server/replit_integrations/chat/*` is present in the repo but is not wired into `registerRoutes()` or startup.
 - **Usually dev-only**: `attached_assets/`, `server/vite.ts`, test files, build/test scripts.
+- **Exported artifact scope**: downloaded HTML/DOCX/PDF files are treated as user-authored outputs once they leave the app. Do not report arbitrary active content inside exported artifacts as an in-app vulnerability unless the application later re-renders that artifact to other users or serves it inline under an application-controlled origin.
 
 ## Threat Categories
 
