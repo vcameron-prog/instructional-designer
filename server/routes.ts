@@ -182,6 +182,13 @@ const MAX_CONCURRENT_PROCESSING = parseInt(process.env.MAX_CONCURRENT_PROCESSING
 let activePdfExports = 0;
 const MAX_CONCURRENT_PDF_EXPORTS = parseInt(process.env.MAX_CONCURRENT_PDF_EXPORTS ?? "2", 10) || 2;
 
+let activeFixJobs = 0;
+const MAX_CONCURRENT_FIXES = parseInt(process.env.MAX_CONCURRENT_FIXES ?? "3", 10) || 3;
+const activeFixKeys = new Set<string>();
+
+let activeDocxExports = 0;
+const MAX_CONCURRENT_DOCX_EXPORTS = parseInt(process.env.MAX_CONCURRENT_DOCX_EXPORTS ?? "3", 10) || 3;
+
 // Generate prompt based on tool and course info
 function generatePrompt(
   toolId: string,
@@ -3403,12 +3410,34 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         return;
       }
 
+      // Rate-limit AI fix calls (per-user or per-IP)
+      const fixRateLimitKey = userId ? `user:${userId}` : `ip:${req.ip || req.socket.remoteAddress || "unknown"}`;
+      if (!checkHeavyOpRateLimit(`fix:${fixRateLimitKey}`)) {
+        res.status(429).json({ error: "Too many fix requests. Please wait before trying again." });
+        return;
+      }
+
+      // Global concurrency cap to prevent exhausting AI quota and server resources
+      if (activeFixJobs >= MAX_CONCURRENT_FIXES) {
+        res.status(503).json({ error: "Server is busy processing fixes. Please try again shortly." });
+        return;
+      }
+
       const report = conversion.complianceReport as any;
       if (!report?.issues?.[issueIndex]) {
         res.status(400).json({ error: "Issue not found" });
         return;
       }
 
+      // Per-conversion/issue in-flight deduplication — reject duplicate concurrent fix requests
+      const fixDedupeKey = `${id}:${issueIndex}`;
+      if (activeFixKeys.has(fixDedupeKey)) {
+        res.status(409).json({ error: "A fix for this issue is already in progress. Please wait." });
+        return;
+      }
+
+      activeFixJobs++;
+      activeFixKeys.add(fixDedupeKey);
       try {
         const { fixComplianceIssue } = await import(
           "./lib/accessibility-engine"
@@ -3447,6 +3476,9 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         res.json(updated);
       } catch (err: any) {
         res.status(500).json({ error: err.message || "Fix failed" });
+      } finally {
+        activeFixJobs--;
+        activeFixKeys.delete(fixDedupeKey);
       }
     },
   );
@@ -3755,6 +3787,20 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         return;
       }
 
+      // Rate-limit DOCX export (per-user or per-IP)
+      const docxRateLimitKey = userId ? `user:${userId}` : `ip:${req.ip || req.socket.remoteAddress || "unknown"}`;
+      if (!checkHeavyOpRateLimit(`docx:${docxRateLimitKey}`)) {
+        res.status(429).json({ error: "Too many DOCX export requests. Please wait before trying again." });
+        return;
+      }
+
+      // Global concurrency cap to prevent CPU/memory exhaustion from parallel DOCX builds
+      if (activeDocxExports >= MAX_CONCURRENT_DOCX_EXPORTS) {
+        res.status(503).json({ error: "Server is busy generating DOCX files. Please try again shortly." });
+        return;
+      }
+      activeDocxExports++;
+
       let html = conversion.accessibleHtml;
       const updatedDate = conversion.updatedAt
         ? new Date(conversion.updatedAt)
@@ -3812,6 +3858,8 @@ Please generate an IMPROVED version that incorporates the requested changes whil
       } catch (err) {
         console.error("DOCX conversion error:", err);
         res.status(500).json({ error: "Failed to generate DOCX file" });
+      } finally {
+        activeDocxExports--;
       }
     },
   );
