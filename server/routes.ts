@@ -2702,9 +2702,21 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     },
   );
 
+  const uploadRateLimitGuard = (req: Request, res: Response, next: NextFunction) => {
+    const userId = getUserId(req);
+    const key = userId ?? (req.ip || req.socket.remoteAddress || "unknown");
+    const fn = userId ? checkUploadRateLimit : checkAnonRateLimit;
+    if (!fn(key)) {
+      res.status(429).json({ error: "Upload rate limit exceeded. Please try again later." });
+      return;
+    }
+    next();
+  };
+
   app.post(
     "/api/conversions/upload",
     optionalAuth,
+    uploadRateLimitGuard,
     docUpload.single("file"),
     async (req: Request, res: Response) => {
       const userId = getUserId(req);
@@ -2712,12 +2724,6 @@ Please generate an IMPROVED version that incorporates the requested changes whil
       if (!file) {
         res.status(400).json({ error: "No file uploaded" });
         return;
-      }
-
-      const uploadRateLimitKey = userId ?? (req.ip || req.socket.remoteAddress || "unknown");
-      const uploadRateLimitFn = userId ? checkUploadRateLimit : checkAnonRateLimit;
-      if (!uploadRateLimitFn(uploadRateLimitKey)) {
-        return res.status(429).json({ error: "Upload rate limit exceeded. Please try again later." });
       }
 
       const visitorToken = userId ? null : ensureVisitorToken(req);
@@ -3228,121 +3234,138 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         const conversionStart = Date.now();
         const TIMEOUT_MS = 10 * 60 * 1000;
         let timeoutId: ReturnType<typeof setTimeout> | undefined;
+        // aborted is set to true when the timeout fires so that the inner
+        // pipeline can bail out early and the completed-status write is
+        // suppressed, preventing a timed-out job from overwriting the
+        // failed status that the timeout handler already persisted.
+        let aborted = false;
 
         const timeoutPromise = new Promise<never>((_, reject) => {
-          timeoutId = setTimeout(
-            () => reject(new Error("Conversion timed out after 10 minutes. The document may be too large or complex. Please try a smaller file.")),
-            TIMEOUT_MS,
-          );
+          timeoutId = setTimeout(() => {
+            aborted = true;
+            reject(new Error("Conversion timed out after 10 minutes. The document may be too large or complex. Please try a smaller file."));
+          }, TIMEOUT_MS);
         });
 
-        try {
-          await Promise.race([
-            (async () => {
-              const { generateAccessibleDocument, evaluateOriginalDocument } =
-                await import("./lib/accessibility-engine");
-              const fileBuffer = Buffer.from(conversion.pdfData!, "base64");
-              const srcType = conversion.sourceType || "pdf";
+        const innerWorkPromise = (async () => {
+          const { generateAccessibleDocument, evaluateOriginalDocument } =
+            await import("./lib/accessibility-engine");
+          const fileBuffer = Buffer.from(conversion.pdfData!, "base64");
+          const srcType = conversion.sourceType || "pdf";
 
-              let extraction: import("./lib/pdf-processor").PdfExtraction;
-              let ocrApplied = false;
+          let extraction: import("./lib/pdf-processor").PdfExtraction;
+          let ocrApplied = false;
 
-              if (srcType === "google-sheet") {
-                await updateStatusMessage("Extracting Google Sheet content…");
-                const { extractXlsxContent } = await import("./lib/xlsx-extractor");
-                extraction = await extractXlsxContent(fileBuffer);
-              } else if (srcType === "docx" || srcType === "google-doc") {
-                await updateStatusMessage(
-                  srcType === "google-doc"
-                    ? "Extracting Google Doc content…"
-                    : "Extracting Word document content…",
-                );
-                const { extractDocxContent } = await import("./lib/docx-extractor");
-                extraction = await extractDocxContent(fileBuffer);
-              } else {
-                await updateStatusMessage("Extracting PDF content…");
-                const { extractPdfContent, needsOcr } = await import(
-                  "./lib/pdf-processor"
-                );
-                extraction = await extractPdfContent(fileBuffer);
-                ocrApplied = needsOcr(extraction.text, extraction.pageCount);
-              }
+          if (srcType === "google-sheet") {
+            await updateStatusMessage("Extracting Google Sheet content…");
+            const { extractXlsxContent } = await import("./lib/xlsx-extractor");
+            extraction = await extractXlsxContent(fileBuffer);
+          } else if (srcType === "docx" || srcType === "google-doc") {
+            await updateStatusMessage(
+              srcType === "google-doc"
+                ? "Extracting Google Doc content…"
+                : "Extracting Word document content…",
+            );
+            const { extractDocxContent } = await import("./lib/docx-extractor");
+            extraction = await extractDocxContent(fileBuffer);
+          } else {
+            await updateStatusMessage("Extracting PDF content…");
+            const { extractPdfContent, needsOcr } = await import(
+              "./lib/pdf-processor"
+            );
+            extraction = await extractPdfContent(fileBuffer);
+            ocrApplied = needsOcr(extraction.text, extraction.pageCount);
+          }
 
-              let finalText = extraction.text;
-              if (ocrApplied && extraction.images.length > 0) {
-                await updateStatusMessage("Running OCR on scanned pages…");
-                const ocrTexts: string[] = [];
-                for (const img of extraction.images.slice(0, 5)) {
-                  try {
-                    const ocrResponse = await anthropic.messages.create({
-                      model: "claude-sonnet-4-5",
-                      max_tokens: 2048,
-                      messages: [
+          // Bail out early if the timeout already fired during extraction.
+          if (aborted) throw new Error("aborted");
+
+          let finalText = extraction.text;
+          if (ocrApplied && extraction.images.length > 0) {
+            await updateStatusMessage("Running OCR on scanned pages…");
+            const ocrTexts: string[] = [];
+            for (const img of extraction.images.slice(0, 5)) {
+              // Stop OCR iteration if a timeout occurred mid-loop.
+              if (aborted) break;
+              try {
+                const ocrResponse = await anthropic.messages.create({
+                  model: "claude-sonnet-4-5",
+                  max_tokens: 2048,
+                  messages: [
+                    {
+                      role: "user",
+                      content: [
                         {
-                          role: "user",
-                          content: [
-                            {
-                              type: "image",
-                              source: {
-                                type: "base64",
-                                media_type: "image/png",
-                                data: img.dataUrl.split(",")[1] || "",
-                              },
-                            },
-                            {
-                              type: "text",
-                              text: "Extract all text from this scanned document page. Maintain the reading order and structure. Output only the extracted text.",
-                            },
-                          ],
+                          type: "image",
+                          source: {
+                            type: "base64",
+                            media_type: "image/png",
+                            data: img.dataUrl.split(",")[1] || "",
+                          },
+                        },
+                        {
+                          type: "text",
+                          text: "Extract all text from this scanned document page. Maintain the reading order and structure. Output only the extracted text.",
                         },
                       ],
-                    });
-                    const ocrText =
-                      ocrResponse.content[0]?.type === "text"
-                        ? ocrResponse.content[0].text
-                        : "";
-                    if (ocrText) ocrTexts.push(ocrText);
-                  } catch {}
-                }
-                if (ocrTexts.length > 0) {
-                  finalText = ocrTexts.join("\n\n---\n\n");
-                }
-              }
+                    },
+                  ],
+                });
+                const ocrText =
+                  ocrResponse.content[0]?.type === "text"
+                    ? ocrResponse.content[0].text
+                    : "";
+                if (ocrText) ocrTexts.push(ocrText);
+              } catch {}
+            }
+            if (ocrTexts.length > 0) {
+              finalText = ocrTexts.join("\n\n---\n\n");
+            }
+          }
 
-              await updateStatusMessage("Evaluating original document…");
-              const originalReport = evaluateOriginalDocument(finalText);
+          // Bail out before the most expensive AI step if already timed out.
+          if (aborted) throw new Error("aborted");
 
-              const result = await generateAccessibleDocument(
-                finalText,
-                conversion.originalFilename,
-                extraction.metadata,
-                extraction.images,
-                extraction.tables,
-                extraction.pageCount,
-                updateStatusMessage,
-              );
+          await updateStatusMessage("Evaluating original document…");
+          const originalReport = evaluateOriginalDocument(finalText);
 
-              await db
-                .update(conversions)
-                .set({
-                  status: "completed",
-                  statusMessage: null,
-                  pageCount: extraction.pageCount,
-                  extractedText: finalText.substring(0, 50000),
-                  accessibleHtml: result.accessibleHtml,
-                  complianceReport: result.complianceReport,
-                  originalComplianceReport: originalReport,
-                  ocrApplied,
-                  pdfData: null,
-                  updatedAt: new Date(),
-                })
-                .where(eq(conversions.id, id));
+          const result = await generateAccessibleDocument(
+            finalText,
+            conversion.originalFilename,
+            extraction.metadata,
+            extraction.images,
+            extraction.tables,
+            extraction.pageCount,
+            updateStatusMessage,
+          );
 
-              const elapsed = Math.round((Date.now() - conversionStart) / 1000);
-              console.log(`[conversion #${id}] completed in ${elapsed}s (${conversion.originalFilename})`);
-            })(),
-            timeoutPromise,
-          ]);
+          // Guard the success write: if the timeout fired while
+          // generateAccessibleDocument was running, the DB row was already
+          // marked failed; writing completed here would corrupt that state.
+          if (aborted) throw new Error("aborted");
+
+          await db
+            .update(conversions)
+            .set({
+              status: "completed",
+              statusMessage: null,
+              pageCount: extraction.pageCount,
+              extractedText: finalText.substring(0, 50000),
+              accessibleHtml: result.accessibleHtml,
+              complianceReport: result.complianceReport,
+              originalComplianceReport: originalReport,
+              ocrApplied,
+              pdfData: null,
+              updatedAt: new Date(),
+            })
+            .where(eq(conversions.id, id));
+
+          const elapsed = Math.round((Date.now() - conversionStart) / 1000);
+          console.log(`[conversion #${id}] completed in ${elapsed}s (${conversion.originalFilename})`);
+        })();
+
+        try {
+          await Promise.race([innerWorkPromise, timeoutPromise]);
         } catch (err: any) {
           const elapsed = Math.round((Date.now() - conversionStart) / 1000);
           console.error(`[conversion #${id}] failed after ${elapsed}s: ${err.message}`);
@@ -3357,6 +3380,13 @@ Please generate an IMPROVED version that incorporates the requested changes whil
             .where(eq(conversions.id, id));
         } finally {
           clearTimeout(timeoutId);
+          // If the timeout fired, the inner pipeline is still running in the
+          // background.  Hold the concurrency slot until the inner work
+          // actually settles so the cap cannot be bypassed by submitting
+          // documents that reliably exceed the timeout threshold.
+          if (aborted) {
+            try { await innerWorkPromise; } catch {}
+          }
           activeProcessingJobs--;
         }
       })();
