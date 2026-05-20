@@ -4,6 +4,7 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import { seedDatabase } from "./seed";
 import { trimAllOversizedVersions } from "./lib/trimVersions";
+import { scheduleDailySummary } from "./lib/daily-summary";
 import { db } from "./db";
 import { sql, eq } from "drizzle-orm";
 import { conversions } from "../shared/schema";
@@ -100,6 +101,9 @@ async function resetStaleProcessingJobs() {
 
   // Enforce version history limit on any pre-existing oversized rows
   await trimAllOversizedVersions();
+
+  // Schedule the daily health summary email (7am ET by default)
+  scheduleDailySummary();
 
   await registerRoutes(httpServer, app);
 

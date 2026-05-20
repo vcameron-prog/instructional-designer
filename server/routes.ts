@@ -1313,6 +1313,21 @@ export async function registerRoutes(
     res.json({ isAdmin: checkIsAdmin(req) });
   });
 
+  app.post(
+    "/api/admin/send-summary",
+    isAuthenticated,
+    isAdmin,
+    async (_req: Request, res: Response) => {
+      try {
+        const { sendDailySummary } = await import("./lib/daily-summary.js");
+        await sendDailySummary();
+        res.json({ ok: true, message: "Summary email sent." });
+      } catch (err: any) {
+        res.status(500).json({ ok: false, message: err.message || "Failed to send summary email." });
+      }
+    },
+  );
+
   app.get(
     "/api/admin/stats",
     isAuthenticated,
