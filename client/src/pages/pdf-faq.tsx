@@ -51,6 +51,11 @@ const FAQ_SECTIONS: FAQSection[] = [
           "No. Simply drag and drop your file, and the tool handles the rest. You'll get a downloadable Word document or HTML file that's ready to share with students.",
       },
       {
+        question: "How was this tool built?",
+        answer:
+          "This tool was developed through experimentation with Replit's vibe-coding platform, which makes it possible to build and deploy a full web application through a conversational AI interface — no traditional development environment required. It's been an interesting way to explore what's possible with AI-assisted development in a higher education context.",
+      },
+      {
         question: "What file types can I upload?",
         answer: [
           "The tool accepts the following formats:",

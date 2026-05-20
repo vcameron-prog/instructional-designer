@@ -222,6 +222,10 @@ const faqs = [
     question: "How long does PDF conversion take?",
     answer: "Most documents are processed within 1-2 minutes. Larger documents with many pages, complex tables, or numerous images may take longer. The converter uses AI to analyze content, generate alt text for images, restructure tables, and build proper document hierarchy — all of which contribute to a thorough remediation.",
   },
+  {
+    question: "How was this tool built?",
+    answer: "This tool was developed through experimentation with Replit's vibe-coding platform, which makes it possible to build and deploy a full web application through a conversational AI interface — no traditional development environment required. It's been an interesting way to explore what's possible with AI-assisted development in a higher education context.",
+  },
 ];
 
 const udlPrinciples = [
