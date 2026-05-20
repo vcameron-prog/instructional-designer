@@ -19,7 +19,9 @@ export function PoweredByFooter() {
         </p>
         <p className="text-center text-xs text-gray-700 dark:text-gray-400 flex items-center justify-center gap-2" style={{ textWrap: "balance" }} data-testid="text-privacy">
           <Shield className="w-3 h-3 flex-shrink-0" />
-          Your course information and generated content are stored securely and are not shared with other users. Content generation uses AI services but your data is not used to train AI models.
+          Your course information and generated content are stored securely and are not shared with other users. Content generation uses Anthropic's Claude API — see{" "}
+          <a href="https://www.anthropic.com/privacy" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80">Anthropic's privacy policy</a>{" "}
+          for details on how API data is handled.
         </p>
       </div>
     </footer>

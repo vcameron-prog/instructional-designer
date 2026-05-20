@@ -208,7 +208,7 @@ const faqs = [
   },
   {
     question: "Is my data private?",
-    answer: "Your course information and generated content are stored securely and are not shared with other users. Content generation uses AI services but your data is not used to train AI models.",
+    answer: (<>Your course information and generated content are stored securely and are not shared with other users. Content generation uses Anthropic's Claude API — see <a href="https://www.anthropic.com/privacy" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80">Anthropic's privacy policy</a> for details on data handling.</>),
   },
   {
     question: "What file types does the document converter support?",

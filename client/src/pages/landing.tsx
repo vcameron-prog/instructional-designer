@@ -182,7 +182,9 @@ function LoginPage() {
             Powered by AI to help BSU faculty create accessible, engaging course materials
           </p>
           <p className="text-center text-muted-foreground/70 text-xs" style={{ textWrap: "balance" }}>
-            Your data is not used to train AI models
+            Content generation uses Anthropic's Claude API — see{" "}
+            <a href="https://www.anthropic.com/privacy" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80">Anthropic's privacy policy</a>{" "}
+            for details on data handling.
           </p>
         </div>
       </div>

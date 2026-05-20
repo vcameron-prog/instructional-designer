@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, isValidElement } from "react";
+import React from "react";
 import { useLocation } from "wouter";
 import {
   ChevronDown,
@@ -14,7 +15,7 @@ import { PoweredByFooter } from "@/components/powered-by-footer";
 
 interface FAQItem {
   question: string;
-  answer: string | string[];
+  answer: string | string[] | React.ReactNode;
 }
 
 interface FAQSection {
@@ -168,7 +169,7 @@ const FAQ_SECTIONS: FAQSection[] = [
     items: [
       {
         question: "Is my document data secure?",
-        answer: "Yes. Your documents are processed securely on BSU's servers.",
+        answer: (<>Your documents are sent to Anthropic's Claude API for AI processing. Anthropic handles the data according to their privacy policy. For full details on how Anthropic uses API data, see <a href="https://www.anthropic.com/privacy" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80">Anthropic's privacy policy</a>.</>),
       },
       {
         question: "Who can see my uploaded documents?",
@@ -184,7 +185,8 @@ const FAQ_SECTIONS: FAQSection[] = [
 
 function FAQAccordionItem({ item, index }: { item: FAQItem; index: number }) {
   const [isOpen, setIsOpen] = useState(false);
-  const content = Array.isArray(item.answer) ? item.answer : [item.answer];
+  const isNode = isValidElement(item.answer);
+  const content = isNode ? [] : (Array.isArray(item.answer) ? item.answer as string[] : [item.answer as string]);
   const panelId = `faq-panel-${index}`;
   const buttonId = `faq-button-${index}`;
 
@@ -220,17 +222,21 @@ function FAQAccordionItem({ item, index }: { item: FAQItem; index: number }) {
           className="px-4 pb-4 pl-11"
         >
           <div className="text-sm text-muted-foreground space-y-2">
-            {content.map((line, i) => (
-              <p
-                key={i}
-                className={cn(
-                  line.startsWith("•") ? "ml-2" : "",
-                  /^\d+\./.test(line) ? "ml-2" : "",
-                )}
-              >
-                {line}
-              </p>
-            ))}
+            {isNode ? (
+              <p>{item.answer as React.ReactNode}</p>
+            ) : (
+              content.map((line, i) => (
+                <p
+                  key={i}
+                  className={cn(
+                    line.startsWith("•") ? "ml-2" : "",
+                    /^\d+\./.test(line) ? "ml-2" : "",
+                  )}
+                >
+                  {line}
+                </p>
+              ))
+            )}
           </div>
         </div>
       )}
