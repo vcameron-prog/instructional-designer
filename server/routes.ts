@@ -2822,6 +2822,9 @@ Please generate an IMPROVED version that incorporates the requested changes whil
 
         let response: globalThis.Response | null = null;
         let lastStatus = 0;
+        let buffer: Buffer | null = null;
+
+        const MAX_IMPORT_SIZE = 20 * 1024 * 1024;
 
         for (const exportUrl of exportUrls) {
           const controller = new AbortController();
@@ -2835,7 +2838,41 @@ Please generate an IMPROVED version that incorporates the requested changes whil
             });
             lastStatus = attempt.status;
             if (attempt.ok) {
+              // Reject early if content-length header already exceeds limit.
+              const contentLength = attempt.headers.get("content-length");
+              if (contentLength && parseInt(contentLength, 10) > MAX_IMPORT_SIZE) {
+                clearTimeout(timeout);
+                return res
+                  .status(413)
+                  .json({ error: "Document is too large (max 20 MB)." });
+              }
+
+              // Stream the body while the AbortController timeout is still
+              // active, so a slow or infinite body cannot stall the server
+              // indefinitely. Size is enforced incrementally on each chunk.
+              const chunks: Buffer[] = [];
+              let totalSize = 0;
+              const reader = attempt.body!.getReader();
+              try {
+                while (true) {
+                  const { done, value } = await reader.read();
+                  if (done) break;
+                  totalSize += value.length;
+                  if (totalSize > MAX_IMPORT_SIZE) {
+                    reader.cancel();
+                    clearTimeout(timeout);
+                    return res
+                      .status(413)
+                      .json({ error: "Document is too large (max 20 MB)." });
+                  }
+                  chunks.push(Buffer.from(value));
+                }
+              } finally {
+                reader.releaseLock();
+              }
+
               response = attempt;
+              buffer = Buffer.concat(chunks);
               break;
             }
           } catch (fetchErr: any) {
@@ -2852,7 +2889,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           }
         }
 
-        if (!response) {
+        if (!response || !buffer) {
           if (lastStatus === 403 || lastStatus === 401) {
             return res
               .status(403)
@@ -2873,22 +2910,6 @@ Please generate an IMPROVED version that incorporates the requested changes whil
             .json({
               error: `Could not download the document (status ${lastStatus}). The document may not be publicly shared.`,
             });
-        }
-
-        const contentLength = response.headers.get("content-length");
-        if (contentLength && parseInt(contentLength, 10) > 20 * 1024 * 1024) {
-          return res
-            .status(413)
-            .json({ error: "Document is too large (max 20 MB)." });
-        }
-
-        const arrayBuffer = await response.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
-
-        if (buffer.length > 20 * 1024 * 1024) {
-          return res
-            .status(413)
-            .json({ error: "Document is too large (max 20 MB)." });
         }
         if (buffer.length < 100) {
           return res
@@ -3020,6 +3041,9 @@ Please generate an IMPROVED version that incorporates the requested changes whil
 
         let response: globalThis.Response | null = null;
         let lastStatus = 0;
+        let buffer: Buffer | null = null;
+
+        const MAX_IMPORT_SIZE = 20 * 1024 * 1024;
 
         try {
           const attempt = await fetch(exportUrl, {
@@ -3029,7 +3053,41 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           });
           lastStatus = attempt.status;
           if (attempt.ok) {
+            // Reject early if content-length header already exceeds limit.
+            const contentLength = attempt.headers.get("content-length");
+            if (contentLength && parseInt(contentLength, 10) > MAX_IMPORT_SIZE) {
+              clearTimeout(timeout);
+              return res
+                .status(413)
+                .json({ error: "Spreadsheet is too large (max 20 MB)." });
+            }
+
+            // Stream the body while the AbortController timeout is still
+            // active, so a slow or infinite body cannot stall the server
+            // indefinitely. Size is enforced incrementally on each chunk.
+            const chunks: Buffer[] = [];
+            let totalSize = 0;
+            const reader = attempt.body!.getReader();
+            try {
+              while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                totalSize += value.length;
+                if (totalSize > MAX_IMPORT_SIZE) {
+                  reader.cancel();
+                  clearTimeout(timeout);
+                  return res
+                    .status(413)
+                    .json({ error: "Spreadsheet is too large (max 20 MB)." });
+                }
+                chunks.push(Buffer.from(value));
+              }
+            } finally {
+              reader.releaseLock();
+            }
+
             response = attempt;
+            buffer = Buffer.concat(chunks);
           }
         } catch (fetchErr: any) {
           if (fetchErr.name === "AbortError") {
@@ -3044,7 +3102,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           clearTimeout(timeout);
         }
 
-        if (!response) {
+        if (!response || !buffer) {
           if (lastStatus === 403 || lastStatus === 401) {
             return res
               .status(403)
@@ -3065,22 +3123,6 @@ Please generate an IMPROVED version that incorporates the requested changes whil
             .json({
               error: `Could not download the spreadsheet (status ${lastStatus}). The spreadsheet may not be publicly shared.`,
             });
-        }
-
-        const contentLength = response.headers.get("content-length");
-        if (contentLength && parseInt(contentLength, 10) > 20 * 1024 * 1024) {
-          return res
-            .status(413)
-            .json({ error: "Spreadsheet is too large (max 20 MB)." });
-        }
-
-        const arrayBuffer = await response.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
-
-        if (buffer.length > 20 * 1024 * 1024) {
-          return res
-            .status(413)
-            .json({ error: "Spreadsheet is too large (max 20 MB)." });
         }
         if (buffer.length < 100) {
           return res
@@ -3380,12 +3422,16 @@ Please generate an IMPROVED version that incorporates the requested changes whil
             .where(eq(conversions.id, id));
         } finally {
           clearTimeout(timeoutId);
-          // If the timeout fired, the inner pipeline is still running in the
-          // background.  Hold the concurrency slot until the inner work
-          // actually settles so the cap cannot be bypassed by submitting
-          // documents that reliably exceed the timeout threshold.
+          // Release the concurrency slot immediately, even when the timeout
+          // fired and the inner pipeline is still winding down.  Holding the
+          // slot open until the background work settles would let a few
+          // slow or adversarial documents monopolise all processing slots
+          // well beyond the advertised 10-minute timeout, blocking everyone
+          // else.  The inner work is allowed to finish (or error) on its own;
+          // it already guards all DB writes behind the `aborted` flag so
+          // settling after slot release is safe.
           if (aborted) {
-            try { await innerWorkPromise; } catch {}
+            innerWorkPromise.catch(() => {});
           }
           activeProcessingJobs--;
         }
