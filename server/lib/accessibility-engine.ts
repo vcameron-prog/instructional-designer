@@ -910,7 +910,7 @@ export function buildComplianceReport(allIssues: ComplianceIssue[]): ComplianceR
   };
 }
 
-async function runAiAudit(html: string): Promise<ComplianceIssue[]> {
+async function runAiAudit(html: string, signal?: AbortSignal): Promise<ComplianceIssue[]> {
   const AI_AUDIT_CHUNK_SIZE = 15000;
   const htmlToAudit = html.length > AI_AUDIT_CHUNK_SIZE ? html.substring(0, AI_AUDIT_CHUNK_SIZE) : html;
 
@@ -935,7 +935,7 @@ Output ONLY the JSON array.`,
         content: `Analyze this accessible HTML for additional WCAG compliance:\n${htmlToAudit}`,
       },
     ],
-  });
+  }, { signal } as any);
 
   try {
     const reportText = response.content[0]?.type === "text" ? response.content[0].text : "[]";
@@ -1606,7 +1606,7 @@ interface PageChunk {
 
 function splitTextByPages(text: string, maxChunkSize: number = 8000): PageChunk[] {
   const pageBreakRegex = /(?:^|\n)(?:[-=]{3,}|Page\s+\d+|---\s*Page\s*\d+\s*---|\f)/gi;
-  const parts: { pageNum: number; text: string }[] = [];
+  const rawParts: { pageNum: number; text: string }[] = [];
   let lastIdx = 0;
   let currentPage = 1;
   let match: RegExpExecArray | null;
@@ -1614,16 +1614,31 @@ function splitTextByPages(text: string, maxChunkSize: number = 8000): PageChunk[
   const regex = new RegExp(pageBreakRegex.source, "gi");
   while ((match = regex.exec(text)) !== null) {
     if (match.index > lastIdx) {
-      parts.push({ pageNum: currentPage, text: text.slice(lastIdx, match.index) });
+      rawParts.push({ pageNum: currentPage, text: text.slice(lastIdx, match.index) });
     }
     currentPage++;
     lastIdx = regex.lastIndex;
   }
   if (lastIdx < text.length) {
-    parts.push({ pageNum: currentPage, text: text.slice(lastIdx) });
+    rawParts.push({ pageNum: currentPage, text: text.slice(lastIdx) });
   }
-  if (parts.length === 0) {
-    parts.push({ pageNum: 1, text });
+  if (rawParts.length === 0) {
+    rawParts.push({ pageNum: 1, text });
+  }
+
+  // Hard-split any individual part that exceeds maxChunkSize so that a
+  // document without page markers cannot become one unbounded chunk.
+  const parts: { pageNum: number; text: string }[] = [];
+  for (const part of rawParts) {
+    if (part.text.length <= maxChunkSize) {
+      parts.push(part);
+    } else {
+      let offset = 0;
+      while (offset < part.text.length) {
+        parts.push({ pageNum: part.pageNum, text: part.text.slice(offset, offset + maxChunkSize) });
+        offset += maxChunkSize;
+      }
+    }
   }
 
   const chunks: PageChunk[] = [];
@@ -1776,7 +1791,8 @@ export async function generateAccessibleDocument(
   images: ExtractedImage[] = [],
   tables: ExtractedTable[] = [],
   pageCount?: number,
-  onProgress?: ProgressCallback
+  onProgress?: ProgressCallback,
+  signal?: AbortSignal
 ): Promise<AccessibilityResult> {
   const documentTitle =
     metadata.title || originalFilename.replace(/\.pdf$/i, "");
@@ -1840,6 +1856,7 @@ Do NOT repeat any content from previous chunks.`;
   const chunkHtmlParts = await Promise.all(
     chunks.map((chunk, i) =>
       chunkLimit(async () => {
+        if (signal?.aborted) throw new Error("aborted");
         const chunkImages = filterImagesForChunk(images, chunk.startPage, chunk.endPage);
         const chunkTables = filterTablesForChunk(tables, chunk.startPage, chunk.endPage);
         const structuralSummary = buildStructuralSummary(chunkImages, chunkTables);
@@ -1873,7 +1890,7 @@ ${chunk.text}
 ${structuralSummary}`,
             },
           ],
-        });
+        }, { signal } as any);
 
         const rawHtml = response.content[0]?.type === "text" ? response.content[0].text : "";
         let chunkHtml = injectImageData(rawHtml, chunkImages);
@@ -1895,7 +1912,7 @@ ${structuralSummary}`,
     : chunkHtmlParts[0];
 
   const deterministicIssues = runDeterministicChecks(accessibleHtml);
-  const aiIssues = await runAiAudit(accessibleHtml);
+  const aiIssues = await runAiAudit(accessibleHtml, signal);
   const allIssues = [...deterministicIssues, ...aiIssues];
 
   return {

@@ -179,6 +179,13 @@ setInterval(
 let activeProcessingJobs = 0;
 const MAX_CONCURRENT_PROCESSING = parseInt(process.env.MAX_CONCURRENT_PROCESSING ?? "3", 10) || 3;
 
+// Concurrency cap for concurrent file uploads to limit transient RAM pressure.
+// Each upload holds the full file buffer in memory plus a base64 copy before
+// the DB write completes, so even a handful of simultaneous maximum-size
+// uploads can exhaust available memory.
+let activeUploadJobs = 0;
+const MAX_CONCURRENT_UPLOADS = parseInt(process.env.MAX_CONCURRENT_UPLOADS ?? "5", 10) || 5;
+
 let activePdfExports = 0;
 const MAX_CONCURRENT_PDF_EXPORTS = parseInt(process.env.MAX_CONCURRENT_PDF_EXPORTS ?? "2", 10) || 2;
 
@@ -2728,10 +2735,38 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     next();
   };
 
+  // Concurrency guard that runs BEFORE multer buffers the file body.
+  // multer.memoryStorage() reads the entire multipart body into RAM before
+  // the route handler executes, so a guard placed inside the handler is too
+  // late to prevent memory exhaustion from many simultaneous large uploads.
+  // Acquiring the slot here (and releasing it on response close/finish) means
+  // excess connections are rejected before any file data is buffered.
+  const uploadConcurrencyGuard = (req: Request, res: Response, next: NextFunction) => {
+    if (activeUploadJobs >= MAX_CONCURRENT_UPLOADS) {
+      res.status(503).json({ error: "Server is busy. Please try again shortly." });
+      return;
+    }
+    activeUploadJobs++;
+    // Use a single-shot boolean so the counter is decremented exactly once
+    // even if both "finish" and "close" fire for the same response (which
+    // can happen in normal Express/Node response lifecycles).
+    let released = false;
+    const release = () => {
+      if (!released) {
+        released = true;
+        activeUploadJobs = Math.max(0, activeUploadJobs - 1);
+      }
+    };
+    res.once("finish", release);
+    res.once("close", release);
+    next();
+  };
+
   app.post(
     "/api/conversions/upload",
     optionalAuth,
     uploadRateLimitGuard,
+    uploadConcurrencyGuard,
     docUpload.single("file"),
     async (req: Request, res: Response) => {
       const userId = getUserId(req);
@@ -3297,9 +3332,17 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         // failed status that the timeout handler already persisted.
         let aborted = false;
 
+        // AbortController propagates cancellation into the Anthropic SDK so
+        // that in-flight HTTP requests are actually terminated when the
+        // 10-minute timeout fires.  Without this, the SDK keeps waiting for
+        // the model response even after the slot has been released, allowing
+        // zombie jobs to consume AI quota and CPU concurrently with new work.
+        const abortController = new AbortController();
+
         const timeoutPromise = new Promise<never>((_, reject) => {
           timeoutId = setTimeout(() => {
             aborted = true;
+            abortController.abort();
             reject(new Error("Conversion timed out after 10 minutes. The document may be too large or complex. Please try a smaller file."));
           }, TIMEOUT_MS);
         });
@@ -3367,7 +3410,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
                       ],
                     },
                   ],
-                });
+                }, { signal: abortController.signal } as any);
                 const ocrText =
                   ocrResponse.content[0]?.type === "text"
                     ? ocrResponse.content[0].text
@@ -3394,6 +3437,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
             extraction.tables,
             extraction.pageCount,
             updateStatusMessage,
+            abortController.signal,
           );
 
           // Guard the success write: if the timeout fired while
@@ -3437,18 +3481,21 @@ Please generate an IMPROVED version that incorporates the requested changes whil
             .where(eq(conversions.id, id));
         } finally {
           clearTimeout(timeoutId);
-          // Release the concurrency slot immediately, even when the timeout
-          // fired and the inner pipeline is still winding down.  Holding the
-          // slot open until the background work settles would let a few
-          // slow or adversarial documents monopolise all processing slots
-          // well beyond the advertised 10-minute timeout, blocking everyone
-          // else.  The inner work is allowed to finish (or error) on its own;
-          // it already guards all DB writes behind the `aborted` flag so
-          // settling after slot release is safe.
           if (aborted) {
-            innerWorkPromise.catch(() => {});
+            // The AbortController has already signalled cancellation, so all
+            // Anthropic calls will terminate promptly.  However, extraction
+            // steps (PDF/DOCX/XLSX parsing) are CPU-bound and not cancellable
+            // via AbortSignal; they will continue until the current operation
+            // finishes.  To prevent the processing-slot counter from being
+            // released while that non-cancellable work is still in flight
+            // (which would allow new jobs to start and exceed MAX_CONCURRENT),
+            // we hold the slot open until innerWorkPromise fully settles.
+            innerWorkPromise.catch(() => {}).finally(() => {
+              activeProcessingJobs = Math.max(0, activeProcessingJobs - 1);
+            });
+          } else {
+            activeProcessingJobs--;
           }
-          activeProcessingJobs--;
         }
       })();
     },
