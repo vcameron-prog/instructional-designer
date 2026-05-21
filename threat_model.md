@@ -8,6 +8,7 @@ Production assumptions for this threat model:
 - The mockup sandbox is never deployed to production.
 - In production, `NODE_ENV` is `production`.
 - TLS between clients and the deployed app is handled by the platform.
+- The current deployment under review is public and autoscaled, so any rate limit or concurrency guard that lives only in process memory should be treated as instance-local rather than global.
 
 ## Assets
 
@@ -35,7 +36,8 @@ Production assumptions for this threat model:
   - Public/anonymous: `/api/generate-standalone`, `/api/upload-syllabus`, parts of `/api/conversions/*`, optionally `/api/stats/public`
   - Authenticated: `/api/courses/*`, `/api/content/*`, `/api/library`, `/api/conversions`
   - Admin: `/api/admin/check`, `/api/admin/stats`
-- **Current confirmed May 2026 risk concentration**: public conversion import and processing endpoints remain the most important DoS review area. Local upload throttling now appears to run before multipart parsing, but Google Docs/Sheets imports still need careful review for unbounded upstream body buffering and processing timeouts still do not guarantee cancellation of underlying background work or prompt slot release.
+- **Current confirmed May 2026 risk concentration**: public conversion upload/import/process endpoints remain the highest-priority DoS area. Google Docs/Sheets imports now stream with size limits, but direct uploads still fully buffer accepted files in RAM before persistence, processing timeouts still do not cancel underlying background work before slots are released, and process-local rate/concurrency guards are weaker on a public autoscaled deployment.
+- **Current confirmed May 2026 auth/session concern**: server-side session lifetime handling in `server/replit_integrations/auth/replitAuth.ts` deserves priority review because cookie lifetime and PostgreSQL session-store TTL are configured through different units.
 - **Current production auth assumption from code**: "authenticated user" currently means any Replit OIDC user. The code does not enforce a faculty-only allowlist or email-domain restriction.
 - **Currently unreachable unless route registration changes**: `server/replit_integrations/chat/*` is present in the repo but is not wired into `registerRoutes()` or startup.
 - **Usually dev-only**: `attached_assets/`, `server/vite.ts`, test files, build/test scripts.
