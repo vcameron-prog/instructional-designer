@@ -14,7 +14,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import multer from "multer";
 import { z } from "zod";
 import { db } from "./db";
-import { eq, and, desc, isNull, sql, inArray } from "drizzle-orm";
+import { eq, and, desc, isNull, sql, inArray, ne } from "drizzle-orm";
 import { convertMarkdownTablesToHtml } from "./markdownTableConverter.js";
 import { fixHtmlTableCaption, fixHtmlTableThead, editHtmlTableCaption } from "./lib/table-fixers.js";
 import { getDeterministicFixerKeys } from "./lib/accessibility-engine";
@@ -3494,17 +3494,32 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         }
       }
 
-      // Global concurrency cap to prevent CPU/memory exhaustion.
-      // Increment the slot counter synchronously before any await so that
-      // concurrent requests that pass the >= check cannot all race through
-      // before any of them increments.
-      if (activeProcessingJobs >= MAX_CONCURRENT_PROCESSING) {
+      // Global concurrency cap: query the database so the limit is effective
+      // across all autoscaled instances, not just the local process.  Fall
+      // back to the in-process counter if the DB query fails (fail-closed).
+      let currentProcessingCount = activeProcessingJobs;
+      try {
+        const [row] = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(conversions)
+          .where(eq(conversions.status, "processing"));
+        currentProcessingCount = row?.count ?? activeProcessingJobs;
+      } catch {
+        // DB count unavailable; fall back to the in-process counter.
+      }
+
+      if (currentProcessingCount >= MAX_CONCURRENT_PROCESSING) {
         activeProcessingKeys.delete(processingKey);
         res.status(503).json({ error: "Server is busy processing other documents. Please try again shortly." });
         return;
       }
       activeProcessingJobs++;
+      activeProcessingKeys.add(processingKey);
 
+      // Atomically claim the conversion by only updating rows that are still
+      // in the "uploaded" state. If another request (on any instance) already
+      // flipped the row to "processing", returning() will be empty and we
+      // abort without launching duplicate work.
       try {
         // Atomic compare-and-set: only transition to "processing" if the row
         // is still in a startable state.  Using a conditional WHERE clause
@@ -3732,9 +3747,11 @@ Please generate an IMPROVED version that incorporates the requested changes whil
             // we hold the slot open until innerWorkPromise fully settles.
             innerWorkPromise.catch(() => {}).finally(() => {
               activeProcessingJobs = Math.max(0, activeProcessingJobs - 1);
+              activeProcessingKeys.delete(processingKey);
             });
           } else {
             activeProcessingJobs--;
+            activeProcessingKeys.delete(processingKey);
           }
         }
       })();
