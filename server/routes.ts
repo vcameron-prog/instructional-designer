@@ -2,7 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { randomUUID } from "crypto";
 import { storage } from "./storage";
-import { insertCourseSchema, type Course, courses, conversions, generatedContent, contentVersions } from "@shared/schema";
+import { insertCourseSchema, type Course, courses, conversions, generatedContent, contentVersions, rateLimitLog } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import {
   setupAuth,
@@ -94,6 +94,84 @@ setInterval(
   10 * 60 * 1000,
 );
 
+// Shared (cross-instance, cross-process) rate limiter backed by the
+// rate_limit_log PostgreSQL table.
+//
+// ATOMICITY: Uses a PostgreSQL transaction with pg_advisory_xact_lock to
+// serialize concurrent requests that share the same (key, action) pair.
+// The advisory lock is held for the duration of the transaction, so no
+// two concurrent calls can race to read the same count and both insert past
+// the limit (the classic TOCTOU issue with naive INSERT...SELECT WHERE count).
+//
+// ERROR HANDLING: On DB errors the caller-supplied `fallbackFn` is invoked.
+// If no fallback is provided the check fails CLOSED (denies the request)
+// rather than failing open — preventing silent disabling of throttles under
+// DB degradation.
+//
+// Rows are periodically cleaned up by the setInterval below.
+//
+// IMPORTANT: callers MUST use ensureVisitorToken() (not getVisitorToken())
+// so that a sticky token is always assigned before the check — preventing
+// bypass via cookie rotation.
+const SHARED_ANON_UPLOAD_RATE_LIMIT = parseInt(process.env.ANON_DB_RATE_LIMIT ?? "10", 10) || 10;
+const SHARED_HEAVY_OP_RATE_LIMIT = parseInt(process.env.HEAVY_OP_RATE_LIMIT ?? "5", 10) || 5;
+
+async function checkSharedRateLimit(
+  key: string,
+  action: string,
+  limit: number,
+  windowMs: number,
+  fallbackFn?: () => boolean,
+): Promise<boolean> {
+  const windowStart = new Date(Date.now() - windowMs);
+  // Use a composite string for the advisory lock key and convert to a 64-bit
+  // integer via hashtext so PostgreSQL can accept it as an advisory lock id.
+  // Two different (key, action) pairs will have different hashes and therefore
+  // different locks, so they do not block each other unnecessarily.
+  const lockKeyStr = `${key}:${action}`;
+  try {
+    return await db.transaction(async (tx) => {
+      // Acquire an exclusive session-level advisory lock for this (key, action).
+      // Any other transaction that calls pg_advisory_xact_lock with the same
+      // hash will block until this transaction commits or rolls back.
+      // This ensures that count + insert for the same key/action is atomic.
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${lockKeyStr}))`);
+
+      const [{ n }] = await tx
+        .select({ n: sql<number>`count(*)::int` })
+        .from(rateLimitLog)
+        .where(
+          and(
+            eq(rateLimitLog.key, key),
+            eq(rateLimitLog.action, action),
+            sql`${rateLimitLog.createdAt} >= ${windowStart}`,
+          ),
+        );
+
+      if (n >= limit) return false;
+
+      await tx.insert(rateLimitLog).values({ key, action });
+      return true;
+    });
+  } catch {
+    if (fallbackFn) return fallbackFn();
+    // Fail closed when no fallback is provided: deny the request rather than
+    // allowing unlimited work through a broken shared throttle.
+    return false;
+  }
+}
+
+// Periodic cleanup: remove rate_limit_log rows older than 2 hours so the
+// table does not grow without bound.  Runs every 15 minutes.
+setInterval(async () => {
+  try {
+    const cutoff = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    await db.delete(rateLimitLog).where(sql`${rateLimitLog.createdAt} < ${cutoff}`);
+  } catch {
+    // Non-critical; next interval will retry.
+  }
+}, 15 * 60 * 1000);
+
 // Heavy-operation rate limiting (applies to both anonymous and authenticated users)
 const heavyOpRateLimits = new Map<string, { count: number; resetAt: number }>();
 const HEAVY_OP_RATE_LIMIT = parseInt(process.env.HEAVY_OP_RATE_LIMIT ?? "5", 10) || 5;
@@ -176,13 +254,28 @@ setInterval(
 );
 
 // Concurrency guards for expensive background operations
+//
+// ARCHITECTURAL NOTE — AUTOSCALED DEPLOYMENT:
+// All concurrency counters and rate-limit Maps below are process-local. On a
+// public autoscaled deployment each instance starts with its own independent
+// counters, so the per-instance limits are not globally enforced. The
+// per-conversion deduplication keys (activeProcessingKeys, activeFixKeys) and
+// the DB-backed anonymous rate limit (checkAnonRateLimitDb) below are the
+// primary cross-instance guards for the most expensive public paths.
+// Authenticated-user rate limits rely on the process-local Maps; for a
+// fully global limit those would need to be moved to a shared store (e.g.
+// Redis or a PostgreSQL advisory-lock table).
 let activeProcessingJobs = 0;
 const MAX_CONCURRENT_PROCESSING = parseInt(process.env.MAX_CONCURRENT_PROCESSING ?? "3", 10) || 3;
+// Per-conversion in-flight deduplication — prevents the same document from
+// being processed multiple times in parallel across concurrent requests.
+const activeProcessingKeys = new Set<string>();
 
-// Concurrency cap for concurrent file uploads to limit transient RAM pressure.
-// Each upload holds the full file buffer in memory plus a base64 copy before
-// the DB write completes, so even a handful of simultaneous maximum-size
-// uploads can exhaust available memory.
+// Concurrency cap for concurrent file uploads and imports to limit transient
+// RAM pressure. Each upload/import holds the full file buffer in memory plus a
+// base64 copy before the DB write completes, so even a handful of simultaneous
+// maximum-size uploads can exhaust available memory. This guard is applied to
+// direct uploads AND to Google Doc/Sheet import routes.
 let activeUploadJobs = 0;
 const MAX_CONCURRENT_UPLOADS = parseInt(process.env.MAX_CONCURRENT_UPLOADS ?? "5", 10) || 5;
 
@@ -195,6 +288,11 @@ const activeFixKeys = new Set<string>();
 
 let activeDocxExports = 0;
 const MAX_CONCURRENT_DOCX_EXPORTS = parseInt(process.env.MAX_CONCURRENT_DOCX_EXPORTS ?? "3", 10) || 3;
+// Per-conversion export dedup keys — prevent the same completed document from
+// being exported multiple times concurrently on the same instance, which would
+// duplicate Chromium/DOCX-builder work and exhaust concurrency slots.
+const activeDocxExportKeys = new Set<string>();
+const activePdfExportKeys = new Set<string>();
 
 // Generate prompt based on tool and course info
 function generatePrompt(
@@ -2735,6 +2833,30 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     next();
   };
 
+  // Shared cross-instance rate limit for anonymous uploads/imports.
+  // Runs BEFORE the file is buffered so that over-quota sessions are rejected
+  // without consuming memory or Anthropic quota.
+  // Uses ensureVisitorToken (not getVisitorToken) so that a sticky token is
+  // always assigned — preventing bypass via fresh/missing cookies.
+  const anonDbUploadRateLimitGuard = async (req: Request, res: Response, next: NextFunction) => {
+    const userId = getUserId(req);
+    if (!userId) {
+      const vToken = ensureVisitorToken(req);
+      const ip = req.ip || req.socket.remoteAddress || "unknown";
+      // Key by IP so token-rotation attacks (deleting/rotating the visitor
+      // cookie to obtain a fresh token) cannot bypass the shared limit.
+      if (!await checkSharedRateLimit(
+        `ip:${ip}`, "upload", SHARED_ANON_UPLOAD_RATE_LIMIT, ANON_RATE_WINDOW_MS,
+        // Fallback to strict process-local IP check if DB is unavailable
+        () => checkAnonRateLimit(ip),
+      )) {
+        res.status(429).json({ error: "Upload rate limit exceeded. Please try again later." });
+        return;
+      }
+    }
+    next();
+  };
+
   // Concurrency guard that runs BEFORE multer buffers the file body.
   // multer.memoryStorage() reads the entire multipart body into RAM before
   // the route handler executes, so a guard placed inside the handler is too
@@ -2766,6 +2888,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     "/api/conversions/upload",
     optionalAuth,
     uploadRateLimitGuard,
+    anonDbUploadRateLimitGuard,
     uploadConcurrencyGuard,
     docUpload.single("file"),
     async (req: Request, res: Response) => {
@@ -2815,6 +2938,10 @@ Please generate an IMPROVED version that incorporates the requested changes whil
   app.post(
     "/api/conversions/import-google-doc",
     optionalAuth,
+    // uploadConcurrencyGuard runs before any remote download so that memory
+    // pressure from buffering large Google Doc responses is bounded the same
+    // way direct file uploads are.
+    uploadConcurrencyGuard,
     async (req: Request, res: Response) => {
       const userId = getUserId(req);
 
@@ -2822,6 +2949,21 @@ Please generate an IMPROVED version that incorporates the requested changes whil
       const googleDocRateLimitFn = userId ? checkUploadRateLimit : checkAnonRateLimit;
       if (!googleDocRateLimitFn(googleDocRateLimitKey)) {
         return res.status(429).json({ error: "Upload rate limit exceeded. Please try again later." });
+      }
+
+      // Shared cross-instance rate limit for anonymous sessions.
+      // ensureVisitorToken (not getVisitorToken) is used so a sticky token is
+      // always assigned — preventing bypass via fresh/missing cookies.
+      if (!userId) {
+        const vToken = ensureVisitorToken(req);
+        const ip = req.ip || req.socket.remoteAddress || "unknown";
+        // Key by IP so token-rotation attacks cannot bypass the shared limit.
+        if (!await checkSharedRateLimit(
+          `ip:${ip}`, "upload", SHARED_ANON_UPLOAD_RATE_LIMIT, ANON_RATE_WINDOW_MS,
+          () => checkAnonRateLimit(ip),
+        )) {
+          return res.status(429).json({ error: "Upload rate limit exceeded. Please try again later." });
+        }
       }
 
       const googleDocVisitorToken = userId ? null : ensureVisitorToken(req);
@@ -3037,6 +3179,10 @@ Please generate an IMPROVED version that incorporates the requested changes whil
   app.post(
     "/api/conversions/import-google-sheet",
     optionalAuth,
+    // uploadConcurrencyGuard runs before any remote download so that memory
+    // pressure from buffering large Google Sheet responses is bounded the same
+    // way direct file uploads are.
+    uploadConcurrencyGuard,
     async (req: Request, res: Response) => {
       const userId = getUserId(req);
 
@@ -3044,6 +3190,21 @@ Please generate an IMPROVED version that incorporates the requested changes whil
       const sheetRateLimitFn = userId ? checkUploadRateLimit : checkAnonRateLimit;
       if (!sheetRateLimitFn(sheetRateLimitKey)) {
         return res.status(429).json({ error: "Upload rate limit exceeded. Please try again later." });
+      }
+
+      // Shared cross-instance rate limit for anonymous sessions.
+      // ensureVisitorToken (not getVisitorToken) so that a sticky token is
+      // always assigned — preventing bypass via fresh/missing cookies.
+      if (!userId) {
+        const vToken = ensureVisitorToken(req);
+        const ip = req.ip || req.socket.remoteAddress || "unknown";
+        // Key by IP so token-rotation attacks cannot bypass the shared limit.
+        if (!await checkSharedRateLimit(
+          `ip:${ip}`, "upload", SHARED_ANON_UPLOAD_RATE_LIMIT, ANON_RATE_WINDOW_MS,
+          () => checkAnonRateLimit(ip),
+        )) {
+          return res.status(429).json({ error: "Upload rate limit exceeded. Please try again later." });
+        }
       }
 
       const { url } = req.body;
@@ -3273,11 +3434,64 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         return;
       }
 
-      // Rate-limit heavy processing (per-user or per-IP)
-      const rateLimitKey = userId ? `user:${userId}` : `ip:${req.ip || req.socket.remoteAddress || "unknown"}`;
-      if (!checkHeavyOpRateLimit(`process:${rateLimitKey}`)) {
-        res.status(429).json({ error: "Too many processing requests. Please wait before submitting another document." });
+      // Per-conversion in-flight deduplication.
+      // The status check above and the DB update below are not atomic, so
+      // concurrent requests that both observe the initial "uploaded" state can
+      // both pass the check and launch duplicate jobs.  The in-memory key set
+      // eliminates that race for requests handled by the same instance, and the
+      // DB-level status write (status: "processing") provides a last-resort
+      // guard for cross-instance duplicates.
+      const processingKey = String(id);
+      if (activeProcessingKeys.has(processingKey)) {
+        res.status(409).json({ error: "This document is already being processed. Please wait." });
         return;
+      }
+      activeProcessingKeys.add(processingKey);
+
+      // Rate-limit heavy processing (per-user or per-IP).
+      // For anonymous users, also enforce a shared cross-instance rate limit
+      // via the rate_limit_log table so that autoscaling does not multiply
+      // the effective quota.  ensureVisitorToken (not getVisitorToken) is used
+      // so a sticky token is always assigned before the limit check.
+      if (!userId) {
+        const vToken = ensureVisitorToken(req);
+        const ip = req.ip || req.socket.remoteAddress || "unknown";
+        // Key by IP so token-rotation attacks cannot bypass the shared limit.
+        if (!await checkSharedRateLimit(
+          `ip:${ip}`, "process", SHARED_HEAVY_OP_RATE_LIMIT, HEAVY_OP_RATE_WINDOW_MS,
+          () => checkHeavyOpRateLimit(`process:ip:${ip}`),
+        )) {
+          activeProcessingKeys.delete(processingKey);
+          res.status(429).json({ error: "Too many processing requests. Please wait before submitting another document." });
+          return;
+        }
+        // DB-backed active-job check: if ANY instance is already processing a
+        // document for this anonymous session, reject immediately.
+        try {
+          const [{ activeCount }] = await db
+            .select({ activeCount: sql<number>`count(*)::int` })
+            .from(conversions)
+            .where(
+              and(
+                eq(conversions.visitorToken, vToken),
+                eq(conversions.status, "processing"),
+              ),
+            );
+          if (activeCount > 0) {
+            activeProcessingKeys.delete(processingKey);
+            res.status(429).json({ error: "You already have a document being processed. Please wait for it to complete." });
+            return;
+          }
+        } catch {
+          // Fail open on transient DB errors.
+        }
+      } else {
+        const rateLimitKey = `user:${userId}`;
+        if (!checkHeavyOpRateLimit(`process:${rateLimitKey}`)) {
+          activeProcessingKeys.delete(processingKey);
+          res.status(429).json({ error: "Too many processing requests. Please wait before submitting another document." });
+          return;
+        }
       }
 
       // Global concurrency cap to prevent CPU/memory exhaustion.
@@ -3285,22 +3499,45 @@ Please generate an IMPROVED version that incorporates the requested changes whil
       // concurrent requests that pass the >= check cannot all race through
       // before any of them increments.
       if (activeProcessingJobs >= MAX_CONCURRENT_PROCESSING) {
+        activeProcessingKeys.delete(processingKey);
         res.status(503).json({ error: "Server is busy processing other documents. Please try again shortly." });
         return;
       }
       activeProcessingJobs++;
 
       try {
-        await db
+        // Atomic compare-and-set: only transition to "processing" if the row
+        // is still in a startable state.  Using a conditional WHERE clause
+        // (status IN ('uploaded', 'failed')) means exactly one instance wins
+        // the race across all autoscaled workers — whichever instance performs
+        // the update first claims the slot; subsequent concurrent requests
+        // from other instances will see rowCount = 0 and be rejected.
+        const updated = await db
           .update(conversions)
           .set({
             status: "processing",
             statusMessage: "Starting conversion…",
             updatedAt: new Date(),
           })
-          .where(eq(conversions.id, id));
+          .where(
+            and(
+              eq(conversions.id, id),
+              inArray(conversions.status, ["uploaded", "failed"]),
+            ),
+          )
+          .returning({ id: conversions.id });
+
+        if (updated.length === 0) {
+          // Another request (possibly on a different instance) already claimed
+          // this conversion for processing.
+          activeProcessingJobs--;
+          activeProcessingKeys.delete(processingKey);
+          res.status(409).json({ error: "This document has already started processing. Please wait for it to complete." });
+          return;
+        }
       } catch (err) {
         activeProcessingJobs--;
+        activeProcessingKeys.delete(processingKey);
         throw err;
       }
 
@@ -3481,6 +3718,9 @@ Please generate an IMPROVED version that incorporates the requested changes whil
             .where(eq(conversions.id, id));
         } finally {
           clearTimeout(timeoutId);
+          // Release the per-conversion dedup key so the same document can be
+          // reprocessed after a failure (e.g. to retry after a timeout).
+          activeProcessingKeys.delete(processingKey);
           if (aborted) {
             // The AbortController has already signalled cancellation, so all
             // Anthropic calls will terminate promptly.  However, extraction
@@ -3548,11 +3788,25 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         return;
       }
 
-      // Rate-limit AI fix calls (per-user or per-IP)
-      const fixRateLimitKey = userId ? `user:${userId}` : `ip:${req.ip || req.socket.remoteAddress || "unknown"}`;
-      if (!checkHeavyOpRateLimit(`fix:${fixRateLimitKey}`)) {
-        res.status(429).json({ error: "Too many fix requests. Please wait before trying again." });
-        return;
+      // Rate-limit AI fix calls. Anonymous users get a shared cross-instance
+      // limit; authenticated users use the process-local map.
+      if (!userId) {
+        const vToken = ensureVisitorToken(req);
+        const ip = req.ip || req.socket.remoteAddress || "unknown";
+        // Key by IP so token-rotation attacks cannot bypass the shared limit.
+        if (!await checkSharedRateLimit(
+          `ip:${ip}`, "fix", SHARED_HEAVY_OP_RATE_LIMIT, HEAVY_OP_RATE_WINDOW_MS,
+          () => checkHeavyOpRateLimit(`fix:ip:${ip}`),
+        )) {
+          res.status(429).json({ error: "Too many fix requests. Please wait before trying again." });
+          return;
+        }
+      } else {
+        const fixRateLimitKey = `user:${userId}`;
+        if (!checkHeavyOpRateLimit(`fix:${fixRateLimitKey}`)) {
+          res.status(429).json({ error: "Too many fix requests. Please wait before trying again." });
+          return;
+        }
       }
 
       // Global concurrency cap to prevent exhausting AI quota and server resources
@@ -3925,15 +4179,40 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         return;
       }
 
-      // Rate-limit DOCX export (per-user or per-IP)
-      const docxRateLimitKey = userId ? `user:${userId}` : `ip:${req.ip || req.socket.remoteAddress || "unknown"}`;
-      if (!checkHeavyOpRateLimit(`docx:${docxRateLimitKey}`)) {
-        res.status(429).json({ error: "Too many DOCX export requests. Please wait before trying again." });
+      // Rate-limit DOCX export. Anonymous users get a shared cross-instance
+      // limit; authenticated users use the process-local map.
+      if (!userId) {
+        const vToken = ensureVisitorToken(req);
+        const ip = req.ip || req.socket.remoteAddress || "unknown";
+        // Key by IP so token-rotation attacks cannot bypass the shared limit.
+        if (!await checkSharedRateLimit(
+          `ip:${ip}`, "docx_export", SHARED_HEAVY_OP_RATE_LIMIT, HEAVY_OP_RATE_WINDOW_MS,
+          () => checkHeavyOpRateLimit(`docx:ip:${ip}`),
+        )) {
+          res.status(429).json({ error: "Too many DOCX export requests. Please wait before trying again." });
+          return;
+        }
+      } else {
+        const docxRateLimitKey = `user:${userId}`;
+        if (!checkHeavyOpRateLimit(`docx:${docxRateLimitKey}`)) {
+          res.status(429).json({ error: "Too many DOCX export requests. Please wait before trying again." });
+          return;
+        }
+      }
+
+      // Per-conversion export dedup — prevents the same document from being
+      // exported multiple times in parallel on this instance, which would
+      // duplicate DOCX-builder work and exhaust concurrency slots.
+      const docxExportKey = String(id);
+      if (activeDocxExportKeys.has(docxExportKey)) {
+        res.status(409).json({ error: "A DOCX export for this document is already in progress. Please wait." });
         return;
       }
+      activeDocxExportKeys.add(docxExportKey);
 
       // Global concurrency cap to prevent CPU/memory exhaustion from parallel DOCX builds
       if (activeDocxExports >= MAX_CONCURRENT_DOCX_EXPORTS) {
+        activeDocxExportKeys.delete(docxExportKey);
         res.status(503).json({ error: "Server is busy generating DOCX files. Please try again shortly." });
         return;
       }
@@ -3998,6 +4277,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         res.status(500).json({ error: "Failed to generate DOCX file" });
       } finally {
         activeDocxExports--;
+        activeDocxExportKeys.delete(docxExportKey);
       }
     },
   );
@@ -4032,15 +4312,40 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         return;
       }
 
-      // Rate-limit PDF export (per-user or per-IP)
-      const pdfRateLimitKey = userId ? `user:${userId}` : `ip:${req.ip || req.socket.remoteAddress || "unknown"}`;
-      if (!checkHeavyOpRateLimit(`pdf:${pdfRateLimitKey}`)) {
-        res.status(429).json({ error: "Too many PDF export requests. Please wait before trying again." });
+      // Rate-limit PDF export. Anonymous users get a shared cross-instance
+      // limit; authenticated users use the process-local map.
+      if (!userId) {
+        const vToken = ensureVisitorToken(req);
+        const ip = req.ip || req.socket.remoteAddress || "unknown";
+        // Key by IP so token-rotation attacks cannot bypass the shared limit.
+        if (!await checkSharedRateLimit(
+          `ip:${ip}`, "pdf_export", SHARED_HEAVY_OP_RATE_LIMIT, HEAVY_OP_RATE_WINDOW_MS,
+          () => checkHeavyOpRateLimit(`pdf:ip:${ip}`),
+        )) {
+          res.status(429).json({ error: "Too many PDF export requests. Please wait before trying again." });
+          return;
+        }
+      } else {
+        const pdfRateLimitKey = `user:${userId}`;
+        if (!checkHeavyOpRateLimit(`pdf:${pdfRateLimitKey}`)) {
+          res.status(429).json({ error: "Too many PDF export requests. Please wait before trying again." });
+          return;
+        }
+      }
+
+      // Per-conversion export dedup — prevents the same document from being
+      // rendered to PDF multiple times in parallel on this instance, which
+      // would duplicate Chromium work and exhaust the PDF concurrency cap.
+      const pdfExportKey = String(id);
+      if (activePdfExportKeys.has(pdfExportKey)) {
+        res.status(409).json({ error: "A PDF export for this document is already in progress. Please wait." });
         return;
       }
+      activePdfExportKeys.add(pdfExportKey);
 
       // Global concurrency cap to prevent exhausting Chromium workers
       if (activePdfExports >= MAX_CONCURRENT_PDF_EXPORTS) {
+        activePdfExportKeys.delete(pdfExportKey);
         res.status(503).json({ error: "Server is busy generating PDFs. Please try again shortly." });
         return;
       }
@@ -4117,6 +4422,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         res.status(500).json({ error: "Failed to generate PDF file" });
       } finally {
         activePdfExports--;
+        activePdfExportKeys.delete(pdfExportKey);
       }
     },
   );

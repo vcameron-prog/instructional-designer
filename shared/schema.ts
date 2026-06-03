@@ -213,6 +213,20 @@ export const COURSE_TEMPLATES = {
 
 export type CourseTemplateId = keyof typeof COURSE_TEMPLATES;
 
+// Cross-instance rate-limit log.
+// Lightweight event log used to enforce shared (cross-process, cross-instance)
+// rate limits without requiring an external store such as Redis.  Each row
+// records one rate-limited event.  Rows outside the relevant time window are
+// periodically purged by a background setInterval in server/routes.ts.
+export const rateLimitLog = pgTable("rate_limit_log", {
+  id: serial("id").primaryKey(),
+  key: text("key").notNull(),
+  action: text("action").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .default(sql`CURRENT_TIMESTAMP`)
+    .notNull(),
+});
+
 // Chat integration tables
 export const conversations = pgTable("conversations", {
   id: serial("id").primaryKey(),
