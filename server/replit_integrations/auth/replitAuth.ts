@@ -165,6 +165,43 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
   }
 };
 
+// Requires authentication AND a @bridgew.edu email.
+// Applied to all instructional design and quick-tools routes.
+// Accessibility converter routes use optionalAuth and are open to everyone.
+export const isBsuAuthenticated: RequestHandler = async (req, res, next) => {
+  const user = req.user as any;
+
+  if (!req.isAuthenticated() || !user?.expires_at) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  if (now > user.expires_at) {
+    const refreshToken = user.refresh_token;
+    if (!refreshToken) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    try {
+      const config = await getOidcConfig();
+      const tokenResponse = await client.refreshTokenGrant(config, refreshToken);
+      updateUserSession(user, tokenResponse);
+    } catch {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+  }
+
+  const email: string = (user?.claims?.email ?? "").toLowerCase();
+  if (!email.endsWith("@bridgew.edu")) {
+    return res.status(403).json({
+      message:
+        "Access restricted to BSU faculty. Please sign in with your @bridgew.edu account.",
+      code: "BSU_EMAIL_REQUIRED",
+    });
+  }
+
+  return next();
+};
+
 export const optionalAuth: RequestHandler = async (req, _res, next) => {
   if (!req.isAuthenticated()) {
     return next();

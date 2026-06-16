@@ -4,11 +4,11 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { 
-  GraduationCap, 
-  Sparkles, 
-  FolderOpen, 
-  ArrowRight, 
+import {
+  GraduationCap,
+  Sparkles,
+  FolderOpen,
+  ArrowRight,
   HelpCircle,
   Library,
   FlaskConical,
@@ -22,7 +22,9 @@ import {
   TrendingUp,
   CheckCircle2,
   Clock,
-  ShieldCheck
+  ShieldCheck,
+  Lock,
+  Globe,
 } from "lucide-react";
 import { SiGoogle } from "react-icons/si";
 import bsuAiLogo from "@assets/Center_for_AI_Apparel_&_Promotional_Items-WHITE_(1)_1775653892158.png";
@@ -30,7 +32,6 @@ import { useAuth } from "@/hooks/use-auth";
 import { HeaderControls } from "@/components/header-controls";
 import { usePageTitle } from "@/hooks/use-page-title";
 import type { Course } from "@shared/schema";
-import { format } from "date-fns";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -112,84 +113,8 @@ function WhatsNewBanner({ onDismiss }: { onDismiss: () => void }) {
   );
 }
 
-function LoginPage() {
-  usePageTitle("Sign In");
-  return (
-    <main id="main-content" tabIndex={-1} className="min-h-screen bg-background relative overflow-hidden">
-      <div className="absolute top-4 right-4 z-20">
-        <HeaderControls showLogout={false} showLibrary={false} />
-      </div>
-
-      <div className="relative z-10 container mx-auto px-4 py-12 md:py-20 flex flex-col items-center justify-center min-h-screen">
-        <div className="text-center mb-12 animate-fade-in-up">
-          <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-primary to-accent rounded-3xl mb-8 shadow-2xl">
-            <GraduationCap className="w-14 h-14 text-white" />
-          </div>
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground mb-4 tracking-tight">
-            BSU Instructional Design Tool
-          </h1>
-          <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed mb-8" style={{ textWrap: "balance" }}>
-            Create comprehensive, UDL-aligned course materials ready for Blackboard Ultra
-          </p>
-        </div>
-
-        <Card className="max-w-md w-full bg-card border shadow-2xl">
-          <CardContent className="p-8 text-center">
-            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center mx-auto mb-6">
-              <User className="w-10 h-10 text-white" />
-            </div>
-            <CardTitle className="text-2xl mb-3">Welcome, Faculty</CardTitle>
-            <CardDescription className="text-base mb-6" style={{ textWrap: "balance" }}>
-              Sign in to create and manage your course materials. Your work is private and secure.
-            </CardDescription>
-            <Button 
-              size="lg" 
-              className="w-full gap-2" 
-              onClick={() => window.location.href = "/api/login"}
-              data-testid="button-login"
-            >
-              <SiGoogle size={18} />
-              Sign In with Google
-            </Button>
-            <div className="mt-6 flex items-center justify-center gap-2 text-sm text-muted-foreground">
-              <Shield className="w-4 h-4" />
-              <span>Secure authentication via Google</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4 max-w-3xl">
-          <div className="bg-card rounded-lg p-4 text-center border shadow-sm">
-            <Sparkles className="w-8 h-8 mx-auto mb-2 text-primary" />
-            <p className="font-medium text-foreground">AI-Powered</p>
-            <p className="text-sm text-muted-foreground" style={{ textWrap: "balance" }}>Generate complete course materials</p>
-          </div>
-          <div className="bg-card rounded-lg p-4 text-center border shadow-sm">
-            <Users className="w-8 h-8 mx-auto mb-2 text-primary" />
-            <p className="font-medium text-foreground">UDL-Aligned</p>
-            <p className="text-sm text-muted-foreground" style={{ textWrap: "balance" }}>Inclusive design principles</p>
-          </div>
-          <div className="bg-card rounded-lg p-4 text-center border shadow-sm">
-            <Shield className="w-8 h-8 mx-auto mb-2 text-primary" />
-            <p className="font-medium text-foreground">Private & Secure</p>
-            <p className="text-sm text-muted-foreground" style={{ textWrap: "balance" }}>Your data stays yours</p>
-          </div>
-        </div>
-
-        <div className="mt-10 flex flex-col items-center gap-4">
-          <img src={bsuAiLogo} alt="BSU Center for Artificial Intelligence" className="h-12 brightness-0 dark:brightness-100" data-testid="img-bsu-ai-logo" />
-          <p className="text-center text-muted-foreground text-sm" style={{ textWrap: "balance" }}>
-            Powered by AI to help BSU faculty create accessible, engaging course materials
-          </p>
-          <p className="text-center text-muted-foreground/70 text-xs" style={{ textWrap: "balance" }}>
-            Content generation uses Anthropic's Claude API — see{" "}
-            <a href="https://www.anthropic.com/privacy" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80">Anthropic's privacy policy</a>{" "}
-            for details on data handling.
-          </p>
-        </div>
-      </div>
-    </main>
-  );
+function isBsuEmail(email?: string | null): boolean {
+  return !!email && email.toLowerCase().endsWith("@bridgew.edu");
 }
 
 export default function LandingPage() {
@@ -207,9 +132,11 @@ export default function LandingPage() {
 
   useEffect(() => { window.scrollTo(0, 0); }, []);
 
+  const isBsu = isBsuEmail(user?.email);
+
   const { data: courses = [], isLoading } = useQuery<Course[]>({
     queryKey: ["/api/courses"],
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && isBsu,
   });
 
   const { data: adminCheck } = useQuery<{ isAdmin: boolean }>({
@@ -272,7 +199,7 @@ export default function LandingPage() {
         )}
         <HeaderControls showLogout={isAuthenticated} showLogin={false} />
       </nav>
-      
+
       <div className="relative z-10 container mx-auto px-4 py-12 md:py-20">
         <div className="text-center mb-12 animate-fade-in-up">
           <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-primary to-accent rounded-3xl mb-8 shadow-2xl">
@@ -282,7 +209,7 @@ export default function LandingPage() {
             BSU Instructional Design Tool
           </h1>
           <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed" style={{ textWrap: "balance" }}>
-            Create comprehensive, UDL-aligned course materials ready for Blackboard Ultra
+            AI-powered tools to create accessible, UDL-aligned course materials for Blackboard Ultra
           </p>
         </div>
 
@@ -290,172 +217,259 @@ export default function LandingPage() {
           <WhatsNewBanner onDismiss={dismissWhatsNew} />
         )}
 
-        {!isAuthenticated && (
-          <div className="mb-8 max-w-4xl mx-auto bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-xl p-4 flex items-center justify-between gap-4 flex-wrap" data-testid="banner-sign-in">
-            <div className="flex items-center gap-3">
-              <Shield className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
-              <p className="text-sm text-blue-800 dark:text-blue-200 font-medium" style={{ textWrap: "balance" }}>
-                You're using the tool as a guest. Sign in to save your courses, access history, and use all features.
+        {/* Non-BSU user warning */}
+        {isAuthenticated && !isBsu && (
+          <div
+            className="mb-8 max-w-4xl mx-auto bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-4 flex items-start gap-3"
+            role="alert"
+            data-testid="banner-non-bsu"
+          >
+            <Shield className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
+                Signed in as {user?.email}
+              </p>
+              <p className="text-sm text-amber-800 dark:text-amber-200 mt-0.5">
+                The instructional design tools and quick tools require a <strong>@bridgew.edu</strong> account. The Accessibility Converter below is open to everyone.
               </p>
             </div>
-            <Button
-              size="sm"
-              className="gap-2 flex-shrink-0"
-              onClick={() => window.location.href = "/api/login"}
-              data-testid="button-login-banner"
-            >
-              <SiGoogle size={14} />
-              Sign In with Google
-            </Button>
           </div>
         )}
 
-        <div className={`grid gap-6 max-w-4xl mx-auto ${isAuthenticated && courses.length > 0 ? "md:grid-cols-2" : "md:grid-cols-2 max-w-2xl"}`}>
-          <Card 
-            className="group cursor-pointer transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl bg-card border-0"
-            onClick={() => navigate("/quick-tools")}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate("/quick-tools"); } }}
-            tabIndex={0}
-            role="button"
-            aria-label="Quick Tools"
-            data-testid="card-quick-tools"
-          >
-            <CardContent className="p-8 text-center">
-              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-amber-500 to-yellow-400 flex items-center justify-center mx-auto mb-6 group-hover:scale-105 transition-transform">
-                <Zap className="w-10 h-10 text-white" />
-              </div>
-              <CardTitle className="text-2xl mb-3">Quick Tools</CardTitle>
-              <CardDescription className="text-base" style={{ textWrap: "balance" }}>
-                Create a one-off assignment, rubric, or other material without setting up a full course
-              </CardDescription>
-              <Button variant="outline" className="mt-6 gap-2" data-testid="button-quick-tools">
-                Browse Tools <ArrowRight className="w-4 h-4" />
-              </Button>
-            </CardContent>
-          </Card>
+        <div className="max-w-4xl mx-auto space-y-10">
 
-          <Card 
-            className="group cursor-pointer transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl bg-card border-0"
-            onClick={() => navigate("/accessibility")}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate("/accessibility"); } }}
-            tabIndex={0}
-            role="button"
-            aria-label="Accessibility Converter"
-            data-testid="card-pdf-accessibility"
-          >
-            <CardContent className="p-8 text-center">
-              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center mx-auto mb-6 group-hover:scale-105 transition-transform">
-                <Shield className="w-10 h-10 text-white" />
+          {/* ── Section 1: Open to Everyone ── */}
+          <section aria-labelledby="open-section-heading">
+            <div className="flex items-center gap-2.5 mb-4">
+              <div className="flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-full px-3 py-1 text-xs font-semibold">
+                <Globe className="w-3.5 h-3.5" aria-hidden="true" />
+                Open to everyone — no login needed
               </div>
-              <CardTitle className="text-2xl mb-3">Accessibility Converter</CardTitle>
-              <CardDescription className="text-base" style={{ textWrap: "balance" }}>
-                Convert PDFs into ADA Title II & WCAG 2.1 AA compliant accessible documents
-              </CardDescription>
-              <Button variant="outline" className="mt-6 gap-2" data-testid="button-pdf-accessibility">
-                Convert Document <ArrowRight className="w-4 h-4" />
-              </Button>
-            </CardContent>
-          </Card>
+            </div>
+            <h2 id="open-section-heading" className="sr-only">Open to Everyone</h2>
 
-          {isAuthenticated && <Card 
-            className="group cursor-pointer transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl bg-card border-0 md:col-span-2"
-            onClick={() => navigate("/new-course")}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate("/new-course"); } }}
-            tabIndex={0}
-            role="button"
-            aria-label="Design a new course"
-            data-testid="card-new-course"
-          >
-            <CardContent className="p-8 text-center">
-              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center mx-auto mb-6 group-hover:scale-105 transition-transform">
-                <Sparkles className="w-10 h-10 text-white" />
-              </div>
-              <CardTitle className="text-2xl mb-3">Design a New Course</CardTitle>
-              <CardDescription className="text-base" style={{ textWrap: "balance" }}>
-                Begin with course information and create materials from scratch
-              </CardDescription>
-              <Button className="mt-6 gap-2" data-testid="button-start-new">
-                Get Started <ArrowRight className="w-4 h-4" />
-              </Button>
-            </CardContent>
-          </Card>}
-
-          {isAuthenticated && courses.length > 0 && (
-            <Card className="bg-card border-0 md:col-span-2">
-              <CardHeader className="pb-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                    <FolderOpen className="w-6 h-6 text-primary" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-xl">Your Courses</CardTitle>
-                    <CardDescription>Resume or duplicate existing courses</CardDescription>
-                  </div>
+            <Card
+              className="group cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl bg-card border border-emerald-200/60 dark:border-emerald-800/40"
+              onClick={() => navigate("/accessibility")}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate("/accessibility"); } }}
+              tabIndex={0}
+              role="button"
+              aria-label="Accessibility Converter — open to everyone"
+              data-testid="card-pdf-accessibility"
+            >
+              <CardContent className="p-8 flex flex-col sm:flex-row items-center sm:items-start gap-6">
+                <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
+                  <Shield className="w-10 h-10 text-white" />
                 </div>
-              </CardHeader>
-              <CardContent className="space-y-2 max-h-96 overflow-y-auto">
-                {isLoading ? (
-                  <div className="space-y-2">
-                    {[1, 2].map(i => (
-                      <div key={i} className="h-20 bg-muted animate-pulse rounded-lg" />
-                    ))}
-                  </div>
-                ) : (
-                  courses.map((course) => (
-                    <CourseCard 
-                      key={course.id} 
-                      course={course} 
-                      onNavigate={() => navigate(`/course/${course.id}/tools`)}
-                      onDuplicate={() => duplicateMutation.mutate(course.id)}
-                      onDelete={() => deleteMutation.mutate(course.id)}
-                      isDuplicating={duplicateMutation.isPending}
-                    />
-                  ))
-                )}
+                <div className="text-center sm:text-left flex-1">
+                  <CardTitle className="text-2xl mb-2">Accessibility Converter</CardTitle>
+                  <CardDescription className="text-base mb-4" style={{ textWrap: "balance" }}>
+                    Convert PDFs, Word documents, and Google Docs into ADA Title II &amp; WCAG 2.1 AA compliant accessible documents. No account required.
+                  </CardDescription>
+                  <Button variant="outline" className="gap-2" data-testid="button-pdf-accessibility">
+                    Convert a Document <ArrowRight className="w-4 h-4" />
+                  </Button>
+                </div>
               </CardContent>
             </Card>
-          )}
+          </section>
+
+          {/* ── Section 2: BSU Faculty Tools ── */}
+          <section aria-labelledby="bsu-section-heading">
+            <div className="flex items-center gap-2.5 mb-4">
+              <div className="flex items-center gap-1.5 bg-primary/10 text-primary border border-primary/20 rounded-full px-3 py-1 text-xs font-semibold">
+                <Lock className="w-3.5 h-3.5" aria-hidden="true" />
+                BSU faculty — requires @bridgew.edu login
+              </div>
+            </div>
+            <h2 id="bsu-section-heading" className="sr-only">BSU Faculty Tools</h2>
+
+            {/* Signed in as BSU user — show the tools */}
+            {isBsu ? (
+              <div className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Card
+                    className="group cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl bg-card border-0"
+                    onClick={() => navigate("/quick-tools")}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate("/quick-tools"); } }}
+                    tabIndex={0}
+                    role="button"
+                    aria-label="Quick Tools"
+                    data-testid="card-quick-tools"
+                  >
+                    <CardContent className="p-8 text-center">
+                      <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-amber-500 to-yellow-400 flex items-center justify-center mx-auto mb-6 group-hover:scale-105 transition-transform">
+                        <Zap className="w-10 h-10 text-white" />
+                      </div>
+                      <CardTitle className="text-2xl mb-3">Quick Tools</CardTitle>
+                      <CardDescription className="text-base" style={{ textWrap: "balance" }}>
+                        Create a one-off assignment, rubric, or other material without setting up a full course
+                      </CardDescription>
+                      <Button variant="outline" className="mt-6 gap-2" data-testid="button-quick-tools">
+                        Browse Tools <ArrowRight className="w-4 h-4" />
+                      </Button>
+                    </CardContent>
+                  </Card>
+
+                  <Card
+                    className="group cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl bg-card border-0"
+                    onClick={() => navigate("/new-course")}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate("/new-course"); } }}
+                    tabIndex={0}
+                    role="button"
+                    aria-label="Design a new course"
+                    data-testid="card-new-course"
+                  >
+                    <CardContent className="p-8 text-center">
+                      <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center mx-auto mb-6 group-hover:scale-105 transition-transform">
+                        <Sparkles className="w-10 h-10 text-white" />
+                      </div>
+                      <CardTitle className="text-2xl mb-3">Design a New Course</CardTitle>
+                      <CardDescription className="text-base" style={{ textWrap: "balance" }}>
+                        Begin with course information and create complete course materials from scratch
+                      </CardDescription>
+                      <Button className="mt-6 gap-2" data-testid="button-start-new">
+                        Get Started <ArrowRight className="w-4 h-4" />
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {courses.length > 0 && (
+                  <Card className="bg-card border-0">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                          <FolderOpen className="w-6 h-6 text-primary" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-xl">Your Courses</CardTitle>
+                          <CardDescription>Resume or duplicate existing courses</CardDescription>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-2 max-h-96 overflow-y-auto">
+                      {isLoading ? (
+                        <div className="space-y-2">
+                          {[1, 2].map(i => (
+                            <div key={i} className="h-20 bg-muted animate-pulse rounded-lg" />
+                          ))}
+                        </div>
+                      ) : (
+                        courses.map((course) => (
+                          <CourseCard
+                            key={course.id}
+                            course={course}
+                            onNavigate={() => navigate(`/course/${course.id}/tools`)}
+                            onDuplicate={() => duplicateMutation.mutate(course.id)}
+                            onDelete={() => deleteMutation.mutate(course.id)}
+                            isDuplicating={duplicateMutation.isPending}
+                          />
+                        ))
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            ) : (
+              /* Not signed in (or non-BSU) — show locked preview cards with sign-in prompt */
+              <Card className="bg-card border border-dashed border-muted-foreground/30" data-testid="card-bsu-locked">
+                <CardContent className="p-8">
+                  <div className="grid gap-4 md:grid-cols-2 opacity-50 pointer-events-none select-none mb-8" aria-hidden="true">
+                    <div className="rounded-xl border bg-muted/30 p-6 text-center">
+                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-500 to-yellow-400 flex items-center justify-center mx-auto mb-4">
+                        <Zap className="w-8 h-8 text-white" />
+                      </div>
+                      <p className="font-semibold text-foreground">Quick Tools</p>
+                      <p className="text-sm text-muted-foreground mt-1">One-off assignments, rubrics &amp; more</p>
+                    </div>
+                    <div className="rounded-xl border bg-muted/30 p-6 text-center">
+                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center mx-auto mb-4">
+                        <Sparkles className="w-8 h-8 text-white" />
+                      </div>
+                      <p className="font-semibold text-foreground">Course Design</p>
+                      <p className="text-sm text-muted-foreground mt-1">Full course materials from scratch</p>
+                    </div>
+                  </div>
+
+                  <div className="text-center">
+                    <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/10 mb-4">
+                      <Lock className="w-7 h-7 text-primary" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-foreground mb-2">
+                      BSU Faculty Access Required
+                    </h3>
+                    <p className="text-muted-foreground text-sm max-w-sm mx-auto mb-6" style={{ textWrap: "balance" }}>
+                      These tools are available to Bridgewater State University faculty. Sign in with your <strong>@bridgew.edu</strong> Google account to get started.
+                    </p>
+                    <Button
+                      size="lg"
+                      className="gap-2"
+                      onClick={() => window.location.href = "/api/login"}
+                      data-testid="button-login-bsu"
+                    >
+                      <SiGoogle size={18} />
+                      Sign In with BSU Account
+                    </Button>
+                    <div className="mt-4 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                      <Shield className="w-3.5 h-3.5" />
+                      <span>Use your @bridgew.edu Google account</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </section>
         </div>
 
+        {/* Footer links */}
         <div className="mt-12 flex flex-wrap justify-center gap-3">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={() => navigate("/help")}
             data-testid="button-help-footer"
           >
             <HelpCircle className="w-4 h-4 mr-2" />
-            Help & Tips
+            Help &amp; Tips
           </Button>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={() => navigate("/research")}
             data-testid="button-research-footer"
           >
             <FlaskConical className="w-4 h-4 mr-2" />
-            Research & Theory
+            Research &amp; Theory
           </Button>
-          {isAuthenticated && <Button 
-            variant="outline" 
-            onClick={() => navigate("/library")}
-            data-testid="button-library-footer"
-          >
-            <Library className="w-4 h-4 mr-2" />
-            Content Library
-          </Button>}
-          {adminCheck?.isAdmin && <Button 
-            variant="outline" 
-            onClick={() => navigate("/admin")}
-            data-testid="button-admin-dashboard"
-          >
-            <LayoutDashboard className="w-4 h-4 mr-2" />
-            Admin Dashboard
-          </Button>}
+          {isBsu && (
+            <Button
+              variant="outline"
+              onClick={() => navigate("/library")}
+              data-testid="button-library-footer"
+            >
+              <Library className="w-4 h-4 mr-2" />
+              Content Library
+            </Button>
+          )}
+          {adminCheck?.isAdmin && (
+            <Button
+              variant="outline"
+              onClick={() => navigate("/admin")}
+              data-testid="button-admin-dashboard"
+            >
+              <LayoutDashboard className="w-4 h-4 mr-2" />
+              Admin Dashboard
+            </Button>
+          )}
         </div>
 
         <div className="mt-10 flex flex-col items-center gap-4">
           <img src={bsuAiLogo} alt="BSU Center for Artificial Intelligence" className="h-12 brightness-0 dark:brightness-100" data-testid="img-bsu-ai-logo-auth" />
           <p className="text-center text-muted-foreground text-sm" style={{ textWrap: "balance" }}>
             Powered by AI to help BSU faculty create accessible, engaging course materials
+          </p>
+          <p className="text-center text-muted-foreground/70 text-xs" style={{ textWrap: "balance" }}>
+            Content generation uses Anthropic's Claude API —{" "}
+            <a href="https://www.anthropic.com/privacy" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80">Anthropic's privacy policy</a>
           </p>
         </div>
       </div>

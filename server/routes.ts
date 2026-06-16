@@ -8,6 +8,7 @@ import {
   setupAuth,
   registerAuthRoutes,
   isAuthenticated,
+  isBsuAuthenticated,
   optionalAuth,
 } from "./replit_integrations/auth";
 import Anthropic from "@anthropic-ai/sdk";
@@ -1725,10 +1726,10 @@ export async function registerRoutes(
     },
   );
 
-  // Courses API (protected)
+  // Courses API (BSU faculty only)
   app.get(
     "/api/courses",
-    isAuthenticated,
+    isBsuAuthenticated,
     async (req: Request, res: Response) => {
       try {
         const userId = getUserId(req) as string;
@@ -1743,7 +1744,7 @@ export async function registerRoutes(
 
   app.get(
     "/api/courses/:id",
-    isAuthenticated,
+    isBsuAuthenticated,
     async (req: Request, res: Response) => {
       try {
         const userId = getUserId(req) as string;
@@ -1762,7 +1763,7 @@ export async function registerRoutes(
 
   app.post(
     "/api/courses",
-    isAuthenticated,
+    isBsuAuthenticated,
     async (req: Request, res: Response) => {
       try {
         const userId = getUserId(req) as string;
@@ -1781,7 +1782,7 @@ export async function registerRoutes(
 
   app.patch(
     "/api/courses/:id",
-    isAuthenticated,
+    isBsuAuthenticated,
     async (req: Request, res: Response) => {
       try {
         const userId = getUserId(req) as string;
@@ -1806,7 +1807,7 @@ export async function registerRoutes(
 
   app.delete(
     "/api/courses/:id",
-    isAuthenticated,
+    isBsuAuthenticated,
     async (req: Request, res: Response) => {
       try {
         const userId = getUserId(req) as string;
@@ -1820,10 +1821,10 @@ export async function registerRoutes(
     },
   );
 
-  // Generated Content API (protected with ownership verification)
+  // Generated Content API (BSU faculty only)
   app.get(
     "/api/courses/:id/content",
-    isAuthenticated,
+    isBsuAuthenticated,
     async (req: Request, res: Response) => {
       try {
         const userId = getUserId(req) as string;
@@ -1846,7 +1847,7 @@ export async function registerRoutes(
 
   app.get(
     "/api/content/:id",
-    isAuthenticated,
+    isBsuAuthenticated,
     async (req: Request, res: Response) => {
       try {
         const userId = getUserId(req) as string;
@@ -1876,7 +1877,7 @@ export async function registerRoutes(
   // Toggle content approval for connected materials
   app.patch(
     "/api/content/:id/approval",
-    isAuthenticated,
+    isBsuAuthenticated,
     async (req: Request, res: Response) => {
       try {
         const userId = getUserId(req) as string;
@@ -1911,10 +1912,10 @@ export async function registerRoutes(
     },
   );
 
-  // Generate content using AI
+  // Generate content using AI (BSU faculty only)
   app.post(
     "/api/courses/:id/generate",
-    isAuthenticated,
+    isBsuAuthenticated,
     async (req: Request, res: Response) => {
       try {
         const userId = getUserId(req) as string;
@@ -1963,26 +1964,14 @@ export async function registerRoutes(
 
   app.post(
     "/api/generate-standalone",
-    optionalAuth,
+    isBsuAuthenticated,
     async (req: Request, res: Response) => {
       try {
-        const userId = getUserId(req);
+        const userId = getUserId(req) as string;
         const { toolId, toolName, formData } = req.body;
 
-        if (!userId) {
-          const ip = req.ip || req.socket.remoteAddress || "unknown";
-          if (!checkAnonRateLimit(ip)) {
-            return res
-              .status(429)
-              .json({
-                error:
-                  "Rate limit exceeded. Please sign in for unlimited access or try again later.",
-              });
-          }
-        } else {
-          if (!checkAiGenRateLimit(userId)) {
-            return res.status(429).json({ error: "AI generation rate limit exceeded. Please try again later." });
-          }
+        if (!checkAiGenRateLimit(userId)) {
+          return res.status(429).json({ error: "AI generation rate limit exceeded. Please try again later." });
         }
 
         const allowedTools = [
@@ -2012,29 +2001,15 @@ export async function registerRoutes(
 
         const generatedText = convertMarkdownTablesToHtml(rawGeneratedTextStandalone);
 
-        if (userId) {
-          const content = await storage.createContent({
-            courseId: null,
-            userId,
-            toolType: toolId,
-            toolName,
-            formData,
-            content: generatedText,
-          });
-          return res.status(201).json(content);
-        }
-
-        res.status(201).json({
-          id: null,
+        const content = await storage.createContent({
           courseId: null,
-          userId: null,
+          userId,
           toolType: toolId,
           toolName,
           formData,
           content: generatedText,
-          isApproved: false,
-          createdAt: new Date().toISOString(),
         });
+        return res.status(201).json(content);
       } catch (error) {
         console.error("Error generating standalone content:", error);
         res.status(500).json({ error: "Failed to generate content" });
@@ -2042,10 +2017,10 @@ export async function registerRoutes(
     },
   );
 
-  // Get standalone content for user
+  // Get standalone content for user (BSU faculty only)
   app.get(
     "/api/standalone-content",
-    isAuthenticated,
+    isBsuAuthenticated,
     async (req: Request, res: Response) => {
       try {
         const userId = getUserId(req) as string;
@@ -2058,10 +2033,10 @@ export async function registerRoutes(
     },
   );
 
-  // Get single standalone content item
+  // Get single standalone content item (BSU faculty only)
   app.get(
     "/api/standalone-content/:id",
-    isAuthenticated,
+    isBsuAuthenticated,
     async (req: Request, res: Response) => {
       try {
         const userId = getUserId(req) as string;
@@ -2078,10 +2053,10 @@ export async function registerRoutes(
     },
   );
 
-  // Refine content
+  // Refine content (BSU faculty only)
   app.post(
     "/api/content/:id/refine",
-    isAuthenticated,
+    isBsuAuthenticated,
     async (req: Request, res: Response) => {
       try {
         const userId = getUserId(req) as string;
@@ -2392,10 +2367,10 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     },
   );
 
-  // Course duplication
+  // Course duplication (BSU faculty only)
   app.post(
     "/api/courses/:id/duplicate",
-    isAuthenticated,
+    isBsuAuthenticated,
     async (req: Request, res: Response) => {
       try {
         const userId = getUserId(req) as string;
@@ -2412,10 +2387,10 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     },
   );
 
-  // Saved Content Library API (protected, user-scoped)
+  // Saved Content Library API (BSU faculty only)
   app.get(
     "/api/library",
-    isAuthenticated,
+    isBsuAuthenticated,
     async (req: Request, res: Response) => {
       try {
         const userId = getUserId(req) as string;
@@ -2430,7 +2405,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
 
   app.post(
     "/api/library",
-    isAuthenticated,
+    isBsuAuthenticated,
     async (req: Request, res: Response) => {
       try {
         const userId = getUserId(req) as string;
@@ -2451,7 +2426,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
 
   app.delete(
     "/api/library/:id",
-    isAuthenticated,
+    isBsuAuthenticated,
     async (req: Request, res: Response) => {
       try {
         const userId = getUserId(req) as string;
@@ -2465,10 +2440,10 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     },
   );
 
-  // Word Document Export
+  // Word Document Export (BSU faculty only)
   app.get(
     "/api/content/:id/export-docx",
-    isAuthenticated,
+    isBsuAuthenticated,
     async (req: Request, res: Response) => {
       try {
         const userId = getUserId(req) as string;
