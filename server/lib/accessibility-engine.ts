@@ -883,6 +883,59 @@ export function runDeterministicChecks(html: string): ComplianceIssue[] {
     });
   }
 
+  // 2.4.4 – Vague link text
+  const vaguePattern = /^(click here|here|read more|more|learn more|link|this link|this|details|info|more info|click|download|view|see more|continue)$/i;
+  const linkTextRegex = /<a\s[^>]*>([\s\S]*?)<\/a>/gi;
+  const vagueLinks: string[] = [];
+  let vagueMatch: RegExpExecArray | null;
+  while ((vagueMatch = linkTextRegex.exec(html)) !== null) {
+    const linkText = vagueMatch[1].replace(/<[^>]+>/g, "").trim();
+    if (vaguePattern.test(linkText)) vagueLinks.push(`"${linkText}"`);
+  }
+  if (vagueLinks.length > 0) {
+    issues.push({
+      criterion: "2.4.4",
+      title: "Link Purpose",
+      level: "A",
+      status: "warning",
+      description: "Link text should describe where the link goes or what it does, so users can understand it without surrounding context.",
+      details: `Found ${vagueLinks.length} link(s) with vague text: ${vagueLinks.slice(0, 5).join(", ")}. Replace with descriptive text like "Download the BSU Accessibility Guide".`,
+    });
+  }
+
+  // 2.4.6 – Empty headings
+  const emptyHeadings: string[] = [];
+  const headingContentRegex = /<h([1-6])(?:[^>]*)>([\s\S]*?)<\/h[1-6]>/gi;
+  let hcMatch: RegExpExecArray | null;
+  while ((hcMatch = headingContentRegex.exec(html)) !== null) {
+    const text = hcMatch[2].replace(/<[^>]+>/g, "").trim();
+    if (!text) emptyHeadings.push(`<h${hcMatch[1]}>`);
+  }
+  if (emptyHeadings.length > 0) {
+    issues.push({
+      criterion: "2.4.6",
+      title: "Empty Headings",
+      level: "AA",
+      status: "fail",
+      description: "Headings must contain text. Empty headings confuse screen reader users who rely on headings to navigate documents.",
+      details: `Found ${emptyHeadings.length} empty heading element(s): ${emptyHeadings.slice(0, 5).join(", ")}.`,
+    });
+  }
+
+  // 1.3.1 – Fake lists (paragraphs using bullet characters instead of <ul>/<li>)
+  const fakeBulletRegex = /<p[^>]*>\s*[•·▪▸►▶→✓✗⚫●○▷◆◇▼▽\-\*]{1}\s+[^<\s]/gi;
+  const fakeBulletMatches = html.match(fakeBulletRegex) || [];
+  if (fakeBulletMatches.length >= 3) {
+    issues.push({
+      criterion: "1.3.1",
+      title: "List Markup",
+      level: "A",
+      status: "warning",
+      description: "Content formatted as a list should use proper <ul> or <ol> markup so screen readers can announce it correctly as a list.",
+      details: `Found ${fakeBulletMatches.length} paragraph(s) that appear to be list items (using bullet characters) but aren't marked up with <ul>/<li>. Convert these to proper list markup.`,
+    });
+  }
+
   return issues;
 }
 
@@ -1733,6 +1786,95 @@ function ensureMissingTables(html: string, tables: ExtractedTable[]): string {
   return html + sectionHtml;
 }
 
+/** Extract a heading outline from generated HTML to pass as context to continuation chunks. */
+function extractHeadingOutline(html: string): string {
+  const headingRegex = /<h([1-6])(?:[^>]*)>([\s\S]*?)<\/h[1-6]>/gi;
+  const headings: string[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = headingRegex.exec(html)) !== null) {
+    const level = parseInt(match[1], 10);
+    const text = match[2].replace(/<[^>]+>/g, "").trim().slice(0, 80);
+    if (text) headings.push(`${"  ".repeat(level - 1)}H${level}: ${text}`);
+  }
+  if (headings.length === 0) return "";
+  return `HEADING OUTLINE FROM PREVIOUS SECTIONS (maintain this hierarchy — do NOT restart at h1):\n${headings.join("\n")}`;
+}
+
+/**
+ * Use Claude vision (Haiku) to generate descriptive alt text for images that currently
+ * have weak or generic descriptions (e.g. "Document image", filename-based text, empty).
+ */
+async function generateVisionAltText(
+  html: string,
+  images: ExtractedImage[],
+  signal?: AbortSignal
+): Promise<string> {
+  const weakAltPattern = /^(document image|image[\s:\-]*\S{0,30}|photo|picture|img|icon|graphic|figure|untitled|\s*)$/i;
+
+  const candidates: Array<{ dataUrl: string }> = [];
+  const imgTagRegex = /<img\s([^>]*?)>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = imgTagRegex.exec(html)) !== null) {
+    const attrs = m[1];
+    const srcMatch = attrs.match(/src="(data:[^"]+)"/i);
+    const altMatch = attrs.match(/alt="([^"]*)"/i);
+    if (!srcMatch) continue;
+    const currentAlt = altMatch?.[1] ?? "";
+    if (!currentAlt || weakAltPattern.test(currentAlt.trim())) {
+      candidates.push({ dataUrl: srcMatch[1] });
+    }
+  }
+
+  if (candidates.length === 0) return html;
+
+  const MAX_VISION = 8;
+  const visionLimit = pLimit(3);
+  const altMap = new Map<string, string>();
+
+  await Promise.all(
+    candidates.slice(0, MAX_VISION).map(({ dataUrl }) =>
+      visionLimit(async () => {
+        if (signal?.aborted) return;
+        try {
+          const mediaTypeMatch = dataUrl.match(/^data:([^;]+);/);
+          const mediaType = (mediaTypeMatch?.[1] ?? "image/png") as "image/png" | "image/jpeg" | "image/gif" | "image/webp";
+          const data = dataUrl.split(",")[1] ?? "";
+          if (!data) return;
+          const resp = await anthropic.messages.create({
+            model: "claude-haiku-4-5",
+            max_tokens: 150,
+            messages: [{
+              role: "user",
+              content: [
+                { type: "image", source: { type: "base64", media_type: mediaType, data } },
+                { type: "text", text: "Write a concise, specific alt text for this image (1-2 sentences for screen reader users). Focus on what the image shows and its relevance to a document. Output ONLY the alt text, no quotes, no labels." },
+              ],
+            }],
+          }, { signal } as any);
+          const alt = resp.content[0]?.type === "text" ? resp.content[0].text.trim() : "";
+          if (alt) altMap.set(dataUrl, alt);
+        } catch {
+          // Vision failed for this image — keep existing alt text
+        }
+      })
+    )
+  );
+
+  if (altMap.size === 0) return html;
+
+  return html.replace(/<img\s([^>]*?)>/gi, (fullMatch: string, attrs: string) => {
+    const srcMatch = attrs.match(/src="(data:[^"]+)"/i);
+    if (!srcMatch) return fullMatch;
+    const newAlt = altMap.get(srcMatch[1]);
+    if (!newAlt) return fullMatch;
+    const escaped = escapeHtmlAttr(newAlt);
+    if (/\salt\s*=\s*"/i.test(attrs)) {
+      return `<img ${attrs.replace(/(\salt\s*=\s*")[^"]*(")/i, `$1${escaped}$2`)}>`;
+    }
+    return `<img ${attrs} alt="${escaped}">`;
+  });
+}
+
 function mergeChunksIntoDocument(
   chunks: string[],
   metadata: { title?: string; author?: string; subject?: string }
@@ -1794,8 +1936,7 @@ export async function generateAccessibleDocument(
   onProgress?: ProgressCallback,
   signal?: AbortSignal
 ): Promise<AccessibilityResult> {
-  const documentTitle =
-    metadata.title || originalFilename.replace(/\.pdf$/i, "");
+  const documentTitle = metadata.title || originalFilename.replace(/\.pdf$/i, "");
 
   const CHUNK_THRESHOLD = 12000;
   const MAX_CHUNKS = 20;
@@ -1811,105 +1952,130 @@ export async function generateAccessibleDocument(
 Your task is to convert extracted PDF content into a fully accessible HTML document. Follow these rules:
 
 1. DOCUMENT STRUCTURE: Use proper HTML5 semantic elements (header, nav, main, article, section, aside, footer)
-2. HEADINGS: Create a logical heading hierarchy (h1-h6) based on the content structure. Never skip heading levels.
-3. LISTS: Convert any list-like content into proper <ul>, <ol>, or <dl> elements
-4. TABLES: If tabular data is provided in the structural data below, you MUST reproduce EVERY table with ALL rows and ALL cell data — do NOT summarize, skip, or truncate any rows. Use proper <table> with <thead>, <tbody>, <th> (with scope="col" or scope="row"), and <caption>. Even if a cell appears empty in the source, include it as an empty <td>
-5. LANGUAGE: Include lang="en" attribute on the html element
-6. LINKS: Ensure all links have descriptive text (no "click here")
-7. IMAGES: You MUST include an <img> tag for EVERY image listed in the structural data. EVERY <img> tag MUST have a non-empty alt attribute with descriptive text. Set the src attribute to exactly the image name. NEVER omit the alt attribute.
-8. READING ORDER: Ensure the DOM order matches a logical linear reading order. Do not use absolute positioning.
-9. CONTRAST: Use inline CSS with colors that have at least 4.5:1 contrast ratio for normal text
-10. FOCUS: Ensure all interactive elements are keyboard accessible
-11. LANDMARKS: Use ARIA landmarks where appropriate
-12. PAGE TITLE: Include a descriptive <title> element
+2. HEADINGS: Create a logical heading hierarchy (h1-h6) based on the content structure. Never skip heading levels. Never output empty heading tags.
+3. LISTS: Convert ANY content with leading bullets (•, -, *, numbers) into proper <ul>/<ol>/<li> elements — NOT paragraphs with bullet characters.
+4. TABLES: Reproduce EVERY table from the structural data below with ALL rows and ALL cells:
+   a. Use <table> with a descriptive <caption>, <thead>, and <tbody>
+   b. Header cells MUST use <th scope="col"> (column) or <th scope="row"> (row)
+   c. Use colspan/rowspan for merged cells
+   d. Include ALL data — never truncate, summarize, or omit any cell (empty cells → empty <td>)
+5. LANGUAGE: Include lang="en" on the <html> element
+6. LINKS: All links MUST have descriptive anchor text. NEVER use "click here", "here", "read more", or "more" as link text.
+7. IMAGES: Include an <img> for EVERY image in the structural data. Every <img> MUST have a specific, descriptive alt attribute describing what the image shows. Set src to exactly the image name.
+8. READING ORDER: DOM order must match logical linear reading order. No absolute positioning.
+9. CONTRAST: Inline CSS colors must achieve at least 4.5:1 contrast ratio for normal text.
+10. LANDMARKS: Use ARIA landmarks where appropriate.
+11. PAGE TITLE: Include a descriptive <title> element.
 
 Output ONLY the complete HTML document, no markdown, no code fences. Start with <!DOCTYPE html>.
 Include inline CSS for basic readable styling that meets contrast requirements.`;
 
-  const continuationSystemPrompt = `You are an accessibility expert continuing the conversion of a multi-page PDF document into accessible HTML.
+  if (onProgress) {
+    await onProgress(needsChunking ? `Converting ${chunks.length} sections…` : `Converting document…`);
+  }
 
-You are receiving a CONTINUATION chunk of the same document. The previous chunks have already been converted.
-Your task is to convert THIS chunk into accessible HTML content that can be merged with the previous chunks.
+  const chunkLimit = pLimit(4);
+
+  async function processChunk(chunk: PageChunk, index: number, headingOutline: string): Promise<string> {
+    if (signal?.aborted) throw new Error("aborted");
+
+    const chunkImages = filterImagesForChunk(images, chunk.startPage, chunk.endPage);
+    const chunkTables = filterTablesForChunk(tables, chunk.startPage, chunk.endPage);
+    const structuralSummary = buildStructuralSummary(chunkImages, chunkTables);
+    const isFirst = index === 0;
+
+    const continuationSystemPrompt = `You are an accessibility expert continuing the conversion of a multi-page PDF document into accessible HTML.
+
+You are receiving a CONTINUATION chunk. The previous sections have already been converted.
+Convert THIS chunk into accessible HTML content that will be merged with the previous sections.
 
 Follow the same WCAG 2.1 Level AA rules:
 - Proper semantic HTML5 elements
-- Logical heading hierarchy (continue from where the previous chunk left off)
-- Proper lists, tables with headers, image alt text
-- TABLES: Reproduce EVERY table with ALL rows and ALL cell data — do NOT skip or summarize any rows
-- No absolute positioning
+- Logical heading hierarchy — continue from where the previous section left off. Do NOT restart at h1.
+- Use <ul>/<ol>/<li> for any bulleted or numbered items, NOT paragraph tags with bullet characters
+- Tables: <table><caption><thead><tbody> with <th scope="col|row"> for all header cells
+- TABLES: Reproduce EVERY table with ALL rows and ALL cell data — never truncate or omit
+- No absolute positioning. No empty heading tags.
 
-Output ONLY the HTML content for this chunk (no <!DOCTYPE>, no <html>, no <head>). 
-Just output the <body> content that will be merged into the full document.
-Do NOT repeat any content from previous chunks.`;
+${headingOutline}
 
-  if (onProgress) {
-    await onProgress(
-      needsChunking
-        ? `Converting ${chunks.length} sections in parallel…`
-        : `Converting document…`
-    );
-  }
+Output ONLY the <body> content (no <!DOCTYPE>, no <html>, no <head>).
+Do NOT repeat any content from previous sections.`;
 
-  const totalPages = pageCount || chunks[chunks.length - 1].endPage;
-  const chunkLimit = pLimit(4);
-
-  const chunkHtmlParts = await Promise.all(
-    chunks.map((chunk, i) =>
-      chunkLimit(async () => {
-        if (signal?.aborted) throw new Error("aborted");
-        const chunkImages = filterImagesForChunk(images, chunk.startPage, chunk.endPage);
-        const chunkTables = filterTablesForChunk(tables, chunk.startPage, chunk.endPage);
-        const structuralSummary = buildStructuralSummary(chunkImages, chunkTables);
-        const isFirst = i === 0;
-
-        const response = await anthropic.messages.create({
-          model: "claude-haiku-4-5",
-          max_tokens: 16384,
-          system: isFirst ? systemPrompt : continuationSystemPrompt,
-          messages: [
-            {
-              role: "user",
-              content: isFirst
-                ? `Convert this extracted PDF content into an accessible HTML document.
+    const response = await anthropic.messages.create({
+      model: "claude-sonnet-4-5",
+      max_tokens: 16384,
+      system: isFirst ? systemPrompt : continuationSystemPrompt,
+      messages: [
+        {
+          role: "user",
+          content: isFirst
+            ? `Convert this extracted PDF content into an accessible HTML document.
 
 Document title: ${documentTitle}
 Author: ${metadata.author || "Unknown"}
 Subject: ${metadata.subject || "Not specified"}
-${needsChunking ? `\nThis is chunk ${i + 1} of ${chunks.length} (pages ${chunk.startPage}–${chunk.endPage}).` : ""}
+${needsChunking ? `\nThis is chunk ${index + 1} of ${chunks.length} (pages ${chunk.startPage}–${chunk.endPage}).` : ""}
 
 --- EXTRACTED TEXT ---
 ${chunk.text}
 ${structuralSummary}`
-                : `Continue converting this PDF document.
+            : `Continue converting this PDF document.
 
 Document title: ${documentTitle}
-This is chunk ${i + 1} of ${chunks.length} (pages ${chunk.startPage}–${chunk.endPage}).
+This is chunk ${index + 1} of ${chunks.length} (pages ${chunk.startPage}–${chunk.endPage}).
 
 --- EXTRACTED TEXT (CONTINUATION) ---
 ${chunk.text}
 ${structuralSummary}`,
-            },
-          ],
-        }, { signal } as any);
+        },
+      ],
+    }, { signal } as any);
 
-        const rawHtml = response.content[0]?.type === "text" ? response.content[0].text : "";
-        let chunkHtml = injectImageData(rawHtml, chunkImages);
-        chunkHtml = ensureMissingImages(chunkHtml, chunkImages);
-        chunkHtml = ensureAltText(chunkHtml, chunkImages);
-        chunkHtml = ensureMissingTables(chunkHtml, chunkTables);
+    const rawHtml = response.content[0]?.type === "text" ? response.content[0].text : "";
+    let chunkHtml = injectImageData(rawHtml, chunkImages);
+    chunkHtml = ensureMissingImages(chunkHtml, chunkImages);
+    chunkHtml = ensureAltText(chunkHtml, chunkImages);
+    chunkHtml = ensureMissingTables(chunkHtml, chunkTables);
 
-        return chunkHtml;
-      })
-    )
-  );
-
-  if (onProgress) {
-    await onProgress("Running compliance checks…");
+    return chunkHtml;
   }
 
-  const accessibleHtml = needsChunking
+  let chunkHtmlParts: string[];
+
+  if (needsChunking) {
+    // Process chunk 0 first so we can extract the heading tree as context for all subsequent chunks
+    const chunk0Html = await processChunk(chunks[0], 0, "");
+    const headingOutline = extractHeadingOutline(chunk0Html);
+
+    // Process remaining chunks in parallel, each receiving the heading outline for continuity
+    const remainingParts = await Promise.all(
+      chunks.slice(1).map((chunk, idx) =>
+        chunkLimit(() => processChunk(chunk, idx + 1, headingOutline))
+      )
+    );
+
+    chunkHtmlParts = [chunk0Html, ...remainingParts];
+  } else {
+    chunkHtmlParts = [await processChunk(chunks[0], 0, "")];
+  }
+
+  let accessibleHtml = needsChunking
     ? mergeChunksIntoDocument(chunkHtmlParts, metadata)
     : chunkHtmlParts[0];
+
+  // Auto-apply deterministic fixes so users start with a clean baseline
+  accessibleHtml = applyLangAttributeFix(accessibleHtml);
+  accessibleHtml = applyPageTitleFix(accessibleHtml);
+  accessibleHtml = applyBypassBlocksFix(accessibleHtml);
+
+  // Generate vision-based alt text for images with weak/generic descriptions
+  if (images.some((img) => img.dataUrl.startsWith("data:image/"))) {
+    if (onProgress) await onProgress("Enhancing image descriptions…");
+    accessibleHtml = await generateVisionAltText(accessibleHtml, images, signal);
+  }
+
+  if (onProgress) await onProgress("Running compliance checks…");
 
   const deterministicIssues = runDeterministicChecks(accessibleHtml);
   const aiIssues = await runAiAudit(accessibleHtml, signal);

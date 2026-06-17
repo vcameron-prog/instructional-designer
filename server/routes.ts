@@ -3608,45 +3608,42 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           if (aborted) throw new Error("aborted");
 
           let finalText = extraction.text;
-          if (ocrApplied && extraction.images.length > 0) {
+          if (ocrApplied) {
             await updateStatusMessage("Running OCR on scanned pages…");
-            const ocrTexts: string[] = [];
-            for (const img of extraction.images.slice(0, 5)) {
-              // Stop OCR iteration if a timeout occurred mid-loop.
-              if (aborted) break;
+            // Use Claude's document vision to extract text from the entire scanned PDF.
+            // Cap at 8 MB to stay within API payload limits.
+            const MAX_OCR_SIZE = 8 * 1024 * 1024;
+            if (fileBuffer.length <= MAX_OCR_SIZE) {
               try {
+                const pdfBase64 = fileBuffer.toString("base64");
                 const ocrResponse = await anthropic.messages.create({
                   model: "claude-sonnet-4-5",
-                  max_tokens: 2048,
-                  messages: [
-                    {
-                      role: "user",
-                      content: [
-                        {
-                          type: "image",
-                          source: {
-                            type: "base64",
-                            media_type: "image/png",
-                            data: img.dataUrl.split(",")[1] || "",
-                          },
+                  max_tokens: 8000,
+                  messages: [{
+                    role: "user",
+                    content: [
+                      {
+                        type: "document",
+                        source: {
+                          type: "base64",
+                          media_type: "application/pdf",
+                          data: pdfBase64,
                         },
-                        {
-                          type: "text",
-                          text: "Extract all text from this scanned document page. Maintain the reading order and structure. Output only the extracted text.",
-                        },
-                      ],
-                    },
-                  ],
+                      } as any,
+                      {
+                        type: "text",
+                        text: "Extract all text from this scanned PDF document. Maintain the reading order and document structure. Separate pages with '--- Page N ---'. Output only the extracted text.",
+                      },
+                    ],
+                  }],
                 }, { signal: abortController.signal } as any);
-                const ocrText =
-                  ocrResponse.content[0]?.type === "text"
-                    ? ocrResponse.content[0].text
-                    : "";
-                if (ocrText) ocrTexts.push(ocrText);
-              } catch {}
-            }
-            if (ocrTexts.length > 0) {
-              finalText = ocrTexts.join("\n\n---\n\n");
+                const ocrText = ocrResponse.content[0]?.type === "text" ? ocrResponse.content[0].text : "";
+                if (ocrText) finalText = ocrText;
+              } catch (ocrErr: any) {
+                console.warn(`[conversion #${id}] OCR failed: ${ocrErr.message} — proceeding with best-effort text`);
+              }
+            } else {
+              console.warn(`[conversion #${id}] Scanned PDF too large for OCR (${Math.round(fileBuffer.length / 1024 / 1024)}MB > 8MB), proceeding with empty text`);
             }
           }
 
