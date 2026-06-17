@@ -20,6 +20,7 @@ import {
   Upload,
   ClipboardCopy,
   Check,
+  CheckCheck,
   Eye,
   Pencil,
   Save,
@@ -180,12 +181,10 @@ function ComplianceChart({ report }: { report: any }) {
 }
 
 const PIPELINE_STEPS = [
-  { key: "extract",    label: "Extract",   match: /extract/i },
-  { key: "ocr",        label: "OCR",       match: /\bocr\b/i },
-  { key: "evaluate",   label: "Evaluate",  match: /evaluat/i },
-  { key: "convert",    label: "Convert",   match: /convert/i },
-  { key: "enhance",    label: "Enhance",   match: /enhanc/i },
-  { key: "compliance", label: "Check",     match: /compliance/i },
+  { key: "analyze", label: "Analyze", match: /analyz/i },
+  { key: "convert", label: "Convert", match: /convert/i },
+  { key: "fix",     label: "Fix",     match: /fix/i },
+  { key: "check",   label: "Check",   match: /check/i },
 ] as const;
 
 function getActiveStep(msg: string | null | undefined): number {
@@ -344,6 +343,8 @@ export default function PdfConversion() {
   const [expandedIssues, setExpandedIssues] = useState<Set<string>>(new Set());
   const [fixingIndex, setFixingIndex] = useState<number | null>(null);
   const [fixError, setFixError] = useState<string | null>(null);
+  const [fixAllProgress, setFixAllProgress] = useState<{ current: number; total: number } | null>(null);
+  const [isFixingAll, setIsFixingAll] = useState(false);
   const [copiedImageKeys, setCopiedImageKeys] = useState<Set<string>>(new Set());
   const [copiedAllKeys, setCopiedAllKeys] = useState<Set<number>>(new Set());
   const [acceptingIndex, setAcceptingIndex] = useState<number | null>(null);
@@ -508,6 +509,37 @@ export default function PdfConversion() {
     },
     [fixMutation, numericId],
   );
+
+  const handleFixAll = useCallback(async () => {
+    const report = (conversion as any)?.complianceReport;
+    if (!report?.issues) return;
+    const fixableIndices: number[] = report.issues
+      .map((issue: any, i: number) => ({ issue, i }))
+      .filter(({ issue }: { issue: any }) => issue.status === "fail" || issue.status === "warning")
+      .map(({ i }: { i: number }) => i);
+    if (fixableIndices.length === 0) return;
+
+    setIsFixingAll(true);
+    setFixError(null);
+    setFixAllProgress({ current: 0, total: fixableIndices.length });
+
+    try {
+      for (let j = 0; j < fixableIndices.length; j++) {
+        setFixAllProgress({ current: j + 1, total: fixableIndices.length });
+        const issueIndex = fixableIndices[j];
+        await apiRequest("POST", `/api/conversions/${numericId}/fix-issue`, { issueIndex });
+        await queryClient.invalidateQueries({ queryKey: ["/api/conversions", numericId] });
+        // Re-fetch so subsequent iterations use updated HTML + indices
+        await queryClient.fetchQuery({ queryKey: ["/api/conversions", numericId] });
+      }
+    } catch {
+      setFixError("One or more fixes failed. The rest have been applied.");
+    } finally {
+      setIsFixingAll(false);
+      setFixAllProgress(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/conversions", numericId] });
+    }
+  }, [conversion, numericId]);
 
   const handleAcceptIssue = useCallback(
     (issueIndex: number) => {
@@ -1392,7 +1424,36 @@ export default function PdfConversion() {
               <section className="bg-card border rounded-2xl p-6">
                 <div className="flex items-center gap-2 mb-4 pb-3 border-b">
                   <FileCheck2 className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                  <h2 className="text-lg font-bold">Audit Details</h2>
+                  <h2 className="text-lg font-bold flex-1">Audit Details</h2>
+                  {(() => {
+                    const fixableCount = report.issues.filter(
+                      (issue: any) => issue.status === "fail" || issue.status === "warning"
+                    ).length;
+                    if (fixableCount === 0) return null;
+                    return (
+                      <button
+                        onClick={handleFixAll}
+                        disabled={isFixingAll || fixingIndex !== null}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-sm font-bold shadow-sm disabled:opacity-50"
+                        data-testid="button-fix-all"
+                        aria-label={`Fix all ${fixableCount} issues with AI`}
+                      >
+                        {isFixingAll ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            {fixAllProgress
+                              ? `Fixing ${fixAllProgress.current} of ${fixAllProgress.total}…`
+                              : "Fixing…"}
+                          </>
+                        ) : (
+                          <>
+                            <CheckCheck className="w-3.5 h-3.5" />
+                            Fix All ({fixableCount})
+                          </>
+                        )}
+                      </button>
+                    );
+                  })()}
                 </div>
 
                 {fixError && (
@@ -1571,7 +1632,7 @@ export default function PdfConversion() {
                               <div className="flex items-center gap-2 flex-wrap">
                                 <button
                                   onClick={() => handleFixIssue(i)}
-                                  disabled={isFixing || fixingIndex !== null}
+                                  disabled={isFixing || fixingIndex !== null || isFixingAll}
                                   className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-bold shadow-sm disabled:opacity-50"
                                   data-testid={`button-fix-${i}`}
                                 >
@@ -1590,7 +1651,7 @@ export default function PdfConversion() {
                                       setShowAcceptForm(i);
                                       setJustificationText("");
                                     }}
-                                    disabled={fixingIndex !== null}
+                                    disabled={fixingIndex !== null || isFixingAll}
                                     className="inline-flex items-center gap-2 px-4 py-2 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 border border-violet-200 dark:border-violet-800 rounded-lg text-sm font-bold disabled:opacity-50"
                                     data-testid={`button-accept-${i}`}
                                   >

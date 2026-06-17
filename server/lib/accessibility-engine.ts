@@ -1971,7 +1971,7 @@ Output ONLY the complete HTML document, no markdown, no code fences. Start with 
 Include inline CSS for basic readable styling that meets contrast requirements.`;
 
   if (onProgress) {
-    await onProgress(needsChunking ? `Converting ${chunks.length} sections…` : `Converting document…`);
+    await onProgress("Analyzing document structure…");
   }
 
   const chunkLimit = pLimit(4);
@@ -2045,18 +2045,29 @@ ${structuralSummary}`,
 
   if (needsChunking) {
     // Process chunk 0 first so we can extract the heading tree as context for all subsequent chunks
+    if (onProgress) await onProgress(`Converting section 1 of ${chunks.length}…`);
     const chunk0Html = await processChunk(chunks[0], 0, "");
     const headingOutline = extractHeadingOutline(chunk0Html);
 
-    // Process remaining chunks in parallel, each receiving the heading outline for continuity
+    // Process remaining chunks in parallel, firing progress as each one completes
+    let completedCount = 1;
     const remainingParts = await Promise.all(
       chunks.slice(1).map((chunk, idx) =>
-        chunkLimit(() => processChunk(chunk, idx + 1, headingOutline))
+        chunkLimit(() =>
+          processChunk(chunk, idx + 1, headingOutline).then((html) => {
+            completedCount++;
+            if (onProgress) {
+              void onProgress(`Converting section ${completedCount} of ${chunks.length}…`);
+            }
+            return html;
+          })
+        )
       )
     );
 
     chunkHtmlParts = [chunk0Html, ...remainingParts];
   } else {
+    if (onProgress) await onProgress("Converting document…");
     chunkHtmlParts = [await processChunk(chunks[0], 0, "")];
   }
 
@@ -2065,13 +2076,14 @@ ${structuralSummary}`,
     : chunkHtmlParts[0];
 
   // Auto-apply deterministic fixes so users start with a clean baseline
+  if (onProgress) await onProgress("Applying accessibility fixes…");
   accessibleHtml = applyLangAttributeFix(accessibleHtml);
   accessibleHtml = applyPageTitleFix(accessibleHtml);
   accessibleHtml = applyBypassBlocksFix(accessibleHtml);
 
   // Run vision alt-text enhancement and compliance audit in parallel — they are independent
   const hasImages = images.some((img) => img.dataUrl.startsWith("data:image/"));
-  if (onProgress) await onProgress(hasImages ? "Enhancing images & checking compliance…" : "Running compliance checks…");
+  if (onProgress) await onProgress("Checking compliance…");
 
   const deterministicIssues = runDeterministicChecks(accessibleHtml);
   const [enhancedHtml, aiIssues] = await Promise.all([
