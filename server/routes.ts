@@ -1435,6 +1435,111 @@ export async function registerRoutes(
   );
 
   app.get(
+    "/api/admin/stats/export",
+    isAuthenticated,
+    isAdmin,
+    async (_req: Request, res: Response) => {
+      try {
+        const escape = (v: string | number | null | undefined) => {
+          const s = v == null ? "" : String(v);
+          return s.includes(",") || s.includes('"') || s.includes("\n")
+            ? `"${s.replace(/"/g, '""')}"`
+            : s;
+        };
+        const row = (...cells: (string | number | null | undefined)[]) =>
+          cells.map(escape).join(",");
+
+        const lines: string[] = [];
+
+        const [
+          totalCoursesResult,
+          totalContentResult,
+          totalConversionsResult,
+          totalUsersResult,
+          toolResult,
+          conversionStatusResult,
+          ocrResult,
+          userActivityResult,
+        ] = await Promise.all([
+          db.select({ count: sql<number>`count(*)::int` }).from(courses),
+          db.select({ count: sql<number>`count(*)::int` }).from(generatedContent),
+          db.select({ count: sql<number>`count(*)::int` }).from(conversions),
+          db.select({ count: sql<number>`count(*)::int` }).from(users),
+          db
+            .select({ name: generatedContent.toolName, count: sql<number>`count(*)::int` })
+            .from(generatedContent)
+            .groupBy(generatedContent.toolName)
+            .orderBy(sql`count(*) desc`),
+          db
+            .select({ status: conversions.status, count: sql<number>`count(*)::int` })
+            .from(conversions)
+            .groupBy(conversions.status),
+          db
+            .select({ count: sql<number>`count(*)::int` })
+            .from(conversions)
+            .where(eq(conversions.ocrApplied, true)),
+          db
+            .select({
+              userId: users.id,
+              email: users.email,
+              firstName: users.firstName,
+              lastName: users.lastName,
+              courseCount: sql<number>`(select count(*) from courses where user_id = users.id)::int`,
+              contentCount: sql<number>`(select count(*) from generated_content where user_id = users.id)::int`,
+              conversionCount: sql<number>`(select count(*) from conversions where user_id = users.id)::int`,
+            })
+            .from(users)
+            .orderBy(sql`(select count(*) from courses where user_id = users.id) + (select count(*) from generated_content where user_id = users.id) + (select count(*) from conversions where user_id = users.id) desc`)
+            .limit(100),
+        ]);
+
+        lines.push("BSU Accessibility Tool — Usage Export");
+        lines.push(`Generated: ${new Date().toISOString()}`);
+        lines.push("");
+
+        lines.push("## SUMMARY");
+        lines.push(row("Metric", "Value"));
+        lines.push(row("Total Courses", totalCoursesResult[0]?.count ?? 0));
+        lines.push(row("Content Generated", totalContentResult[0]?.count ?? 0));
+        lines.push(row("Documents Converted", totalConversionsResult[0]?.count ?? 0));
+        lines.push(row("Total Users", totalUsersResult[0]?.count ?? 0));
+        lines.push(row("OCR Conversions", ocrResult[0]?.count ?? 0));
+        lines.push("");
+
+        lines.push("## TOOL POPULARITY");
+        lines.push(row("Tool", "Uses"));
+        for (const t of toolResult) {
+          lines.push(row(t.name, t.count));
+        }
+        lines.push("");
+
+        lines.push("## CONVERSION OUTCOMES");
+        lines.push(row("Status", "Count"));
+        for (const c of conversionStatusResult) {
+          lines.push(row(c.status, c.count));
+        }
+        lines.push("");
+
+        lines.push("## USER ACTIVITY");
+        lines.push(row("Email", "First Name", "Last Name", "Courses", "Content", "Conversions", "Total"));
+        for (const u of userActivityResult) {
+          const total = (u.courseCount ?? 0) + (u.contentCount ?? 0) + (u.conversionCount ?? 0);
+          if (total === 0) continue;
+          lines.push(row(u.email, u.firstName, u.lastName, u.courseCount, u.contentCount, u.conversionCount, total));
+        }
+
+        const csv = lines.join("\r\n");
+        const filename = `bsu-accessibility-export-${new Date().toISOString().split("T")[0]}.csv`;
+        res.setHeader("Content-Type", "text/csv; charset=utf-8");
+        res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+        res.send("\uFEFF" + csv);
+      } catch (err: any) {
+        res.status(500).json({ error: err.message || "Export failed" });
+      }
+    },
+  );
+
+  app.get(
     "/api/admin/stats",
     isAuthenticated,
     isAdmin,
@@ -3685,6 +3790,27 @@ Please generate an IMPROVED version that incorporates the requested changes whil
             })
             .where(eq(conversions.id, id));
 
+          // Send completion email to authenticated users for multi-page documents.
+          // Fire-and-forget — never block the success response path.
+          if (userId && extraction.pageCount && extraction.pageCount >= 5) {
+            try {
+              const [userRow] = await db
+                .select({ email: users.email, firstName: users.firstName })
+                .from(users)
+                .where(eq(users.id, userId));
+              if (userRow?.email) {
+                const { sendConversionCompleteEmail } = await import("./lib/daily-summary.js");
+                sendConversionCompleteEmail(
+                  userRow.email,
+                  userRow.firstName ?? null,
+                  conversion.originalFilename,
+                  extraction.pageCount,
+                  result.complianceReport?.overallScore ?? null,
+                ).catch((e: Error) => console.warn(`[conversion #${id}] completion email failed: ${e.message}`));
+              }
+            } catch { /* non-blocking — email failure must not affect conversion success */ }
+          }
+
           const elapsed = Math.round((Date.now() - conversionStart) / 1000);
           console.log(`[conversion #${id}] completed in ${elapsed}s (${conversion.originalFilename})`);
         })();
@@ -3743,6 +3869,135 @@ Please generate an IMPROVED version that incorporates the requested changes whil
 
       await db.delete(conversions).where(conversionOwnerFilter(id, userId, getVisitorToken(req)));
       res.json({ success: true });
+    },
+  );
+
+  /**
+   * Re-run the AI conversion step on a previously completed or failed conversion.
+   * Requires the conversion to have stored extractedText (saved on first completion).
+   * Does NOT re-extract from the original file — only re-runs generateAccessibleDocument.
+   */
+  app.post(
+    "/api/conversions/:id/reprocess",
+    optionalAuth,
+    async (req: Request, res: Response) => {
+      const userId = getUserId(req);
+      const id = parseInt(req.params.id as string);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid ID" });
+        return;
+      }
+
+      const [conversion] = await db
+        .select()
+        .from(conversions)
+        .where(conversionOwnerFilter(id, userId, getVisitorToken(req)));
+
+      if (!conversion) {
+        res.status(404).json({ error: "Conversion not found" });
+        return;
+      }
+      if (!["completed", "failed"].includes(conversion.status)) {
+        res.status(400).json({ error: "Only completed or failed conversions can be re-converted." });
+        return;
+      }
+      if (!conversion.extractedText) {
+        res.status(400).json({ error: "No stored text available for re-conversion. Please upload the original file again." });
+        return;
+      }
+
+      // Per-conversion in-flight deduplication.
+      const reprocessKey = `reprocess:${id}`;
+      if (activeProcessingKeys.has(reprocessKey)) {
+        res.status(409).json({ error: "Re-conversion is already in progress. Please wait." });
+        return;
+      }
+      activeProcessingKeys.add(reprocessKey);
+
+      // Basic rate limiting (re-use the same per-user heavy-op limit).
+      if (userId) {
+        if (!checkHeavyOpRateLimit(`process:user:${userId}`)) {
+          activeProcessingKeys.delete(reprocessKey);
+          res.status(429).json({ error: "Too many processing requests. Please wait before retrying." });
+          return;
+        }
+      }
+
+      // Atomically claim the conversion (only if still in a reprocessable state).
+      const claimed = await db
+        .update(conversions)
+        .set({ status: "processing", statusMessage: "Starting re-conversion…", updatedAt: new Date() })
+        .where(and(eq(conversions.id, id), inArray(conversions.status, ["completed", "failed"])))
+        .returning({ id: conversions.id });
+
+      if (claimed.length === 0) {
+        activeProcessingKeys.delete(reprocessKey);
+        res.status(409).json({ error: "Conversion status changed. Please refresh and try again." });
+        return;
+      }
+
+      res.json({ id, status: "processing", statusMessage: "Starting re-conversion…" });
+
+      // Background work — same pattern as the main /process route.
+      const REPROCESS_TIMEOUT_MS = 10 * 60 * 1000;
+      activeProcessingJobs++;
+      (async () => {
+        const conversionStart = Date.now();
+        const abortController = new AbortController();
+        let aborted = false;
+        const timeoutId = setTimeout(() => {
+          aborted = true;
+          abortController.abort();
+        }, REPROCESS_TIMEOUT_MS);
+
+        const updateStatus = async (msg: string) => {
+          try {
+            await db.update(conversions).set({ statusMessage: msg, updatedAt: new Date() }).where(eq(conversions.id, id));
+          } catch { /* non-fatal */ }
+        };
+
+        try {
+          const { generateAccessibleDocument } = await import("./lib/accessibility-engine.js");
+          const result = await generateAccessibleDocument(
+            conversion.extractedText!,
+            conversion.originalFilename,
+            { title: conversion.originalFilename.replace(/\.[^.]+$/, "") },
+            [],
+            [],
+            conversion.pageCount ?? undefined,
+            updateStatus,
+            abortController.signal,
+          );
+
+          if (aborted) throw new Error("aborted");
+
+          await db.update(conversions).set({
+            status: "completed",
+            statusMessage: null,
+            accessibleHtml: result.accessibleHtml,
+            complianceReport: result.complianceReport,
+            updatedAt: new Date(),
+          }).where(eq(conversions.id, id));
+
+          const elapsed = Math.round((Date.now() - conversionStart) / 1000);
+          console.log(`[reprocess #${id}] completed in ${elapsed}s`);
+        } catch (err: any) {
+          const elapsed = Math.round((Date.now() - conversionStart) / 1000);
+          console.error(`[reprocess #${id}] failed after ${elapsed}s: ${err.message}`);
+          if (!aborted) {
+            await db.update(conversions).set({
+              status: "failed",
+              statusMessage: null,
+              errorMessage: err.message || "Re-conversion failed",
+              updatedAt: new Date(),
+            }).where(eq(conversions.id, id));
+          }
+        } finally {
+          clearTimeout(timeoutId);
+          activeProcessingJobs = Math.max(0, activeProcessingJobs - 1);
+          activeProcessingKeys.delete(reprocessKey);
+        }
+      })();
     },
   );
 

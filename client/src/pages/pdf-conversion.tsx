@@ -179,6 +179,20 @@ function ComplianceChart({ report }: { report: any }) {
   );
 }
 
+const PIPELINE_STEPS = [
+  { key: "extract",    label: "Extract",   match: /extract/i },
+  { key: "ocr",        label: "OCR",       match: /\bocr\b/i },
+  { key: "evaluate",   label: "Evaluate",  match: /evaluat/i },
+  { key: "convert",    label: "Convert",   match: /convert/i },
+  { key: "enhance",    label: "Enhance",   match: /enhanc/i },
+  { key: "compliance", label: "Check",     match: /compliance/i },
+] as const;
+
+function getActiveStep(msg: string | null | undefined): number {
+  if (!msg) return -1;
+  return PIPELINE_STEPS.findIndex(s => s.match.test(msg));
+}
+
 export default function PdfConversion() {
   const params = useParams<{ id: string }>();
   const numericId = parseInt(params.id || "0", 10);
@@ -223,6 +237,23 @@ export default function PdfConversion() {
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ["/api/conversions", numericId],
+      });
+    },
+  });
+
+  const reprocessMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiRequest("POST", `/api/conversions/${id}/reprocess`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/conversions", numericId] });
+    },
+    onError: (err: Error) => {
+      toast({
+        title: "Re-conversion failed",
+        description: err.message || "Could not start re-conversion.",
+        variant: "destructive",
       });
     },
   });
@@ -360,6 +391,11 @@ export default function PdfConversion() {
       ],
     });
   }, [conversion?.accessibleHtml]);
+
+  const activeStep = useMemo(
+    () => getActiveStep(conversion?.statusMessage),
+    [conversion?.statusMessage],
+  );
 
   const autoStartedRef = useRef<number | null>(null);
   const htmlPreviewRef = useRef<HTMLDivElement | null>(null);
@@ -792,6 +828,20 @@ export default function PdfConversion() {
                     {copyState === "copied" ? "Copied!" : "Copy HTML"}
                   </button>
                   <button
+                    onClick={() => reprocessMutation.mutate(numericId)}
+                    disabled={reprocessMutation.isPending}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-sm font-bold shadow-sm hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:transform-none"
+                    data-testid="button-reprocess"
+                    title="Re-run AI conversion using stored extracted text"
+                  >
+                    {reprocessMutation.isPending ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Wand2 className="w-4 h-4" />
+                    )}
+                    Re-convert
+                  </button>
+                  <button
                     onClick={() => navigate("/pdf-accessibility")}
                     className="inline-flex items-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground rounded-xl text-sm font-bold shadow-sm"
                     data-testid="button-convert-another"
@@ -811,30 +861,53 @@ export default function PdfConversion() {
               role="status"
               aria-live="polite"
             >
-              <div className="flex items-center justify-between mb-3">
-                <span className="font-bold flex items-center gap-2 text-primary">
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  {conversion.status === "uploaded"
-                    ? "Preparing Document"
-                    : "AI Remediation in Progress"}
-                </span>
+              <p className="font-bold text-center text-primary mb-5 flex items-center justify-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                {conversion.status === "uploaded" ? "Preparing…" : "AI Remediation in Progress"}
+              </p>
+
+              {/* Pipeline step indicators */}
+              <div className="flex items-start justify-between mb-4 relative px-2" aria-hidden="true">
+                <div className="absolute top-3 left-8 right-8 h-0.5 bg-border" />
+                {PIPELINE_STEPS.map((step, i) => {
+                  const done = activeStep > i;
+                  const active = activeStep === i;
+                  return (
+                    <div key={step.key} className="flex flex-col items-center gap-1.5 relative z-10 flex-1 max-w-[72px]">
+                      <div className={cn(
+                        "w-6 h-6 rounded-full flex items-center justify-center border-2 transition-all text-xs font-bold",
+                        done   ? "bg-green-600 border-green-600 text-white" :
+                        active ? "bg-primary border-primary text-primary-foreground" :
+                                 "bg-background border-border text-muted-foreground"
+                      )}>
+                        {done   ? <Check className="w-3 h-3" /> :
+                         active ? <Loader2 className="w-3 h-3 animate-spin" /> :
+                                  <span>{i + 1}</span>}
+                      </div>
+                      <span className={cn(
+                        "text-[10px] font-medium text-center leading-tight",
+                        done   ? "text-green-600" :
+                        active ? "text-primary" :
+                                 "text-muted-foreground"
+                      )}>
+                        {step.label}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
-              <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
-                <div className="h-full bg-primary rounded-full animate-pulse w-1/3" />
-              </div>
+
               {conversion.statusMessage && (
                 <p
-                  className="mt-3 text-sm font-medium text-primary text-center"
+                  className="mt-1 text-sm font-medium text-primary text-center"
                   data-testid="text-status-message"
                   aria-live="polite"
                 >
                   {conversion.statusMessage}
                 </p>
               )}
-              <p className="mt-2 text-sm text-muted-foreground text-center">
-                {conversion.status === "uploaded"
-                  ? "Your document is being prepared for AI remediation."
-                  : "Analyzing layout, extracting text, generating alt text, and restructuring into WCAG 2.1 AA HTML. This may take a minute for large documents."}
+              <p className="mt-1.5 text-xs text-muted-foreground text-center">
+                Large documents may take a few minutes — this page updates automatically.
               </p>
             </div>
           )}

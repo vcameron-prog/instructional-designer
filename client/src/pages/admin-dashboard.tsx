@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -17,6 +18,8 @@ import {
   TrendingUp,
   AlertCircle,
   Wrench,
+  Mail,
+  FileDown,
 } from "lucide-react";
 import { HeaderControls } from "@/components/header-controls";
 import { usePageTitle } from "@/hooks/use-page-title";
@@ -35,7 +38,7 @@ import {
   Pie,
   Cell,
 } from "recharts";
-import { queryClient } from "@/lib/queryClient";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 
 interface AdminStats {
   summary: {
@@ -136,6 +139,44 @@ export default function AdminDashboard() {
     enabled: isAuthenticated && adminCheck?.isAdmin === true,
   });
 
+  const [isSendingTestEmail, setIsSendingTestEmail] = useState(false);
+  const [testEmailResult, setTestEmailResult] = useState<"sent" | "error" | null>(null);
+  const [isExportingCsv, setIsExportingCsv] = useState(false);
+
+  const handleSendTestEmail = async () => {
+    setIsSendingTestEmail(true);
+    setTestEmailResult(null);
+    try {
+      await apiRequest("POST", "/api/admin/send-summary");
+      setTestEmailResult("sent");
+      setTimeout(() => setTestEmailResult(null), 4000);
+    } catch {
+      setTestEmailResult("error");
+      setTimeout(() => setTestEmailResult(null), 4000);
+    } finally {
+      setIsSendingTestEmail(false);
+    }
+  };
+
+  const handleExportCsv = async () => {
+    setIsExportingCsv(true);
+    try {
+      const res = await fetch("/api/admin/stats/export", { credentials: "include" });
+      if (!res.ok) throw new Error("Export failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `bsu-accessibility-export-${new Date().toISOString().split("T")[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } finally {
+      setIsExportingCsv(false);
+    }
+  };
+
   if (isAuthLoading || isCheckingAdmin) {
     return (
       <main id="main-content" tabIndex={-1} className="min-h-screen bg-background flex items-center justify-center">
@@ -227,18 +268,44 @@ export default function AdminDashboard() {
               <p className="text-muted-foreground">Usage statistics and activity overview</p>
             </div>
           </div>
-          <Button
-            variant="outline"
-            onClick={() => {
-              queryClient.invalidateQueries({ queryKey: ["/api/admin/stats"] });
-              refetch();
-            }}
-            disabled={isRefetching}
-            data-testid="button-refresh-stats"
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${isRefetching ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              variant="outline"
+              onClick={handleExportCsv}
+              disabled={isExportingCsv}
+              data-testid="button-export-csv"
+            >
+              <FileDown className={`w-4 h-4 mr-2 ${isExportingCsv ? "animate-pulse" : ""}`} />
+              {isExportingCsv ? "Exporting…" : "Export CSV"}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleSendTestEmail}
+              disabled={isSendingTestEmail}
+              data-testid="button-send-test-email"
+            >
+              <Mail className="w-4 h-4 mr-2" />
+              {isSendingTestEmail
+                ? "Sending…"
+                : testEmailResult === "sent"
+                ? "✓ Email Sent"
+                : testEmailResult === "error"
+                ? "Failed — Retry?"
+                : "Send Test Email"}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                queryClient.invalidateQueries({ queryKey: ["/api/admin/stats"] });
+                refetch();
+              }}
+              disabled={isRefetching}
+              data-testid="button-refresh-stats"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${isRefetching ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+          </div>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">

@@ -260,6 +260,46 @@ export async function sendDailySummary(): Promise<void> {
   console.log(`[daily-summary] Summary email sent to ${SUMMARY_EMAIL_TO}`);
 }
 
+/**
+ * Notify an authenticated user that their conversion has finished.
+ * Fire-and-forget: caller should .catch(() => {}) this.
+ */
+export async function sendConversionCompleteEmail(
+  toEmail: string,
+  firstName: string | null,
+  filename: string,
+  pageCount: number,
+  score: number | null,
+): Promise<void> {
+  if (!SUMMARY_EMAIL_FROM || !SUMMARY_EMAIL_PASSWORD) return;
+
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: { user: SUMMARY_EMAIL_FROM, pass: SUMMARY_EMAIL_PASSWORD },
+  });
+
+  const name = firstName ?? "there";
+  const appUrl = process.env.APP_URL || "https://bsu-instructional-designer.replit.app";
+  const scoreHtml = score !== null
+    ? `<p style="margin:0 0 12px">Compliance score: <strong style="color:${score >= 90 ? "#16a34a" : score >= 70 ? "#d97706" : "#dc2626"}">${score}%</strong></p>`
+    : "";
+
+  await transporter.sendMail({
+    from: `"BSU Accessibility Tool" <${SUMMARY_EMAIL_FROM}>`,
+    to: toEmail,
+    subject: `Document ready: ${filename}`,
+    html: `<!DOCTYPE html><html><body style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#111">
+<h2 style="margin:0 0 16px;color:#9e1b32">Your document is ready</h2>
+<p style="margin:0 0 12px">Hi ${name},</p>
+<p style="margin:0 0 12px">Your ${pageCount}-page document <strong>${filename}</strong> has been converted to an accessible HTML format.</p>
+${scoreHtml}
+<p style="margin:0 0 20px">Review the output, apply any suggested fixes, then download as Word (.docx), HTML, or PDF.</p>
+<a href="${appUrl}/pdf-accessibility" style="display:inline-block;padding:10px 20px;background:#9e1b32;color:#fff;text-decoration:none;border-radius:6px;font-weight:600">View Document</a>
+<p style="margin:24px 0 0;font-size:12px;color:#888">BSU Accessibility Tool &mdash; Bridgewater State University</p>
+</body></html>`,
+  });
+}
+
 export function scheduleDailySummary(): void {
   if (!SUMMARY_EMAIL_FROM || !SUMMARY_EMAIL_PASSWORD) {
     console.log("[daily-summary] Email credentials not configured — daily summary disabled. Set SUMMARY_EMAIL_FROM and SUMMARY_EMAIL_PASSWORD to enable.");

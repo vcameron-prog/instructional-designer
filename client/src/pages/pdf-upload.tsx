@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { useLocation } from "wouter";
 import { useDropzone } from "react-dropzone";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -11,6 +11,7 @@ import {
   History,
   ArrowRight,
   HelpCircle,
+  Check,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { HeaderControls } from "@/components/header-controls";
@@ -40,6 +41,59 @@ export default function PdfUpload() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [googleDocUrl, setGoogleDocUrl] = useState("");
   const [googleSheetUrl, setGoogleSheetUrl] = useState("");
+
+  // Batch upload queue — used when multiple files are dropped at once.
+  const [fileQueue, setFileQueue] = useState<Array<{
+    id: string;
+    file: File;
+    status: "pending" | "uploading" | "done" | "error";
+    conversionId?: number;
+    error?: string;
+  }>>([]);
+  const isUploadingRef = useRef(false);
+
+  // Process the queue one file at a time.
+  useEffect(() => {
+    const pending = fileQueue.find((f) => f.status === "pending");
+    if (!pending || isUploadingRef.current) return;
+
+    isUploadingRef.current = true;
+    setFileQueue((prev) =>
+      prev.map((f) => (f.id === pending.id ? { ...f, status: "uploading" } : f)),
+    );
+
+    (async () => {
+      try {
+        const formData = new FormData();
+        formData.append("file", pending.file);
+        const res = await fetch("/api/conversions/upload", {
+          method: "POST",
+          body: formData,
+          credentials: "include",
+        });
+        if (!res.ok) {
+          const text = await res.text();
+          throw parseConversionsUploadError(text);
+        }
+        const data = await res.json();
+        setFileQueue((prev) =>
+          prev.map((f) =>
+            f.id === pending.id ? { ...f, status: "done", conversionId: data.id } : f,
+          ),
+        );
+      } catch (err: any) {
+        setFileQueue((prev) =>
+          prev.map((f) =>
+            f.id === pending.id
+              ? { ...f, status: "error", error: err.message || "Upload failed" }
+              : f,
+          ),
+        );
+      } finally {
+        isUploadingRef.current = false;
+      }
+    })();
+  }, [fileQueue]);
 
   const { data: recentConversions } = useQuery<any[]>({
     queryKey: ["/api/conversions"],
@@ -140,15 +194,27 @@ export default function PdfUpload() {
       setUploadError(null);
       if (rejectedFiles.length > 0) {
         setUploadError(
-          "Please upload a valid PDF or Word (.docx) document under 20MB.",
+          "Please upload valid PDF or Word (.docx) documents under 20MB.",
         );
         return;
       }
-      if (acceptedFiles.length > 0) {
+      if (acceptedFiles.length === 0) return;
+
+      if (acceptedFiles.length === 1 && fileQueue.length === 0) {
+        // Single file, no existing queue: use the direct-navigate flow.
         uploadMutation.mutate(acceptedFiles[0]);
+        return;
       }
+
+      // Multiple files: add them all to the queue for sequential processing.
+      const newItems = acceptedFiles.map((file) => ({
+        id: `${file.name}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        file,
+        status: "pending" as const,
+      }));
+      setFileQueue((prev) => [...prev, ...newItems]);
     },
-    [uploadMutation],
+    [uploadMutation, fileQueue.length],
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -158,7 +224,7 @@ export default function PdfUpload() {
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
         [".docx"],
     },
-    maxFiles: 1,
+    maxFiles: 10,
     maxSize: 20 * 1024 * 1024,
     disabled: uploadMutation.isPending,
   });
@@ -332,6 +398,81 @@ export default function PdfUpload() {
             </div>
           </div>
         </div>
+
+        {/* Batch upload queue — shown when multiple files are being processed */}
+        {fileQueue.length > 0 && (
+          <div className="w-full max-w-2xl mx-auto mb-6">
+            <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
+              <div className="px-5 py-3 bg-secondary/50 border-b border-border flex items-center justify-between">
+                <h3 className="font-semibold text-sm text-foreground">
+                  Upload Queue —{" "}
+                  {fileQueue.filter((f) => f.status === "done").length}/{fileQueue.length} complete
+                </h3>
+                {fileQueue.every((f) => f.status === "done" || f.status === "error") && (
+                  <button
+                    onClick={() => setFileQueue([])}
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    data-testid="button-clear-queue"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              <ul className="divide-y divide-border" role="list" aria-label="Upload queue">
+                {fileQueue.map((item) => (
+                  <li key={item.id} className="flex items-center gap-3 px-5 py-3">
+                    <div
+                      className={cn(
+                        "w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-xs",
+                        item.status === "done"
+                          ? "bg-green-100 dark:bg-green-900/30 text-green-600"
+                          : item.status === "error"
+                          ? "bg-red-100 dark:bg-red-900/30 text-red-600"
+                          : item.status === "uploading"
+                          ? "bg-primary/10 text-primary"
+                          : "bg-muted text-muted-foreground",
+                      )}
+                      aria-hidden="true"
+                    >
+                      {item.status === "done" ? (
+                        <Check className="w-3.5 h-3.5" />
+                      ) : item.status === "error" ? (
+                        <AlertCircle className="w-3.5 h-3.5" />
+                      ) : item.status === "uploading" ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <span>·</span>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate" title={item.file.name}>
+                        {item.file.name}
+                      </p>
+                      {item.status === "error" && (
+                        <p className="text-xs text-destructive mt-0.5">{item.error}</p>
+                      )}
+                      {item.status === "uploading" && (
+                        <p className="text-xs text-primary mt-0.5">Uploading…</p>
+                      )}
+                      {item.status === "pending" && (
+                        <p className="text-xs text-muted-foreground mt-0.5">Waiting…</p>
+                      )}
+                    </div>
+                    {item.status === "done" && item.conversionId && (
+                      <button
+                        onClick={() => navigate(`/pdf-accessibility/${item.conversionId}`)}
+                        className="flex items-center gap-1 text-xs text-primary font-semibold hover:underline flex-shrink-0"
+                        data-testid={`link-view-conversion-${item.conversionId}`}
+                      >
+                        View <ArrowRight className="w-3 h-3" />
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        )}
 
         <div className="w-full max-w-2xl mx-auto mb-8 bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
           <div className="px-6 py-4 bg-secondary/50 border-b border-border flex items-center gap-3">
