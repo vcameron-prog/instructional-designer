@@ -967,7 +967,10 @@ export default function PdfConversion() {
                   const done = activeStep > i;
                   const active = activeStep === i;
                   return (
-                    <div key={step.key} className="flex flex-col items-center gap-1.5 relative z-10 flex-1 max-w-[72px]">
+                    <div key={step.key} className={cn(
+                      "flex flex-col items-center gap-1.5 relative z-10 flex-1",
+                      active && step.key === "convert" ? "max-w-[120px]" : "max-w-[72px]"
+                    )}>
                       <div className={cn(
                         "w-6 h-6 rounded-full flex items-center justify-center border-2 transition-all text-xs font-bold",
                         done   ? "bg-green-600 border-green-600 text-white" :
@@ -986,12 +989,21 @@ export default function PdfConversion() {
                       )}>
                         {step.label}
                       </span>
+                      {active && step.key === "convert" && conversion.statusMessage && (
+                        <span
+                          className="text-[9px] text-primary/80 text-center leading-tight break-words w-full"
+                          data-testid="text-convert-progress-detail"
+                          aria-live="polite"
+                        >
+                          {conversion.statusMessage}
+                        </span>
+                      )}
                     </div>
                   );
                 })}
               </div>
 
-              {conversion.statusMessage && (
+              {conversion.statusMessage && activeStep !== 1 && (
                 <p
                   className="mt-1 text-sm font-medium text-primary text-center"
                   data-testid="text-status-message"
