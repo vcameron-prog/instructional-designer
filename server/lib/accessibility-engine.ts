@@ -1975,9 +1975,7 @@ Your task is to convert extracted PDF content into a fully accessible HTML docum
 Output ONLY the complete HTML document, no markdown, no code fences. Start with <!DOCTYPE html>.
 Include inline CSS for basic readable styling that meets contrast requirements.`;
 
-  if (onProgress) {
-    await onProgress("Analyzing document structure…");
-  }
+  if (onProgress) await onProgress("Analyzing document structure…");
 
   const chunkLimit = pLimit(4);
 
@@ -2058,19 +2056,21 @@ ${structuralSummary}`,
     const chunk0Html = await processChunk(chunks[0], 0, "");
     const headingOutline = extractHeadingOutline(chunk0Html);
 
-    // Process remaining chunks in parallel, firing progress as each one completes
-    let completedCount = 1;
+    // Signal start of parallel phase before launching remaining chunks
+    if (chunks.length > 1 && onProgress) await onProgress(`Converting section 2 of ${chunks.length}…`);
+
+    // Track how many sections have completed so each completion fires a progress update
+    let completedSections = 2;
     const remainingParts = await Promise.all(
       chunks.slice(1).map((chunk, idx) =>
-        chunkLimit(() =>
-          processChunk(chunk, idx + 1, headingOutline).then((html) => {
-            completedCount++;
-            if (onProgress) {
-              void onProgress(`Converting section ${completedCount} of ${chunks.length}…`);
-            }
-            return html;
-          })
-        )
+        chunkLimit(async () => {
+          const result = await processChunk(chunk, idx + 1, headingOutline);
+          completedSections++;
+          if (onProgress && completedSections <= chunks.length) {
+            await onProgress(`Converting section ${completedSections} of ${chunks.length}…`);
+          }
+          return result;
+        })
       )
     );
 
