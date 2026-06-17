@@ -1960,12 +1960,17 @@ Your task is to convert extracted PDF content into a fully accessible HTML docum
    c. Use colspan/rowspan for merged cells
    d. Include ALL data — never truncate, summarize, or omit any cell (empty cells → empty <td>)
 5. LANGUAGE: Include lang="en" on the <html> element
-6. LINKS: All links MUST have descriptive anchor text. NEVER use "click here", "here", "read more", or "more" as link text.
+6. LINKS: All links MUST have descriptive anchor text that explains the destination or action.
+   NEVER use vague text: "click here", "here", "read more", "more", "learn more", "view", "open", "this", "link", "document", "PDF", "page", or bare URLs as link text.
+   GOOD examples: "Download the 2024 Accessibility Report (PDF)", "View course syllabus", "Email Professor Smith"
 7. IMAGES: Include an <img> for EVERY image in the structural data. Every <img> MUST have a specific, descriptive alt attribute describing what the image shows. Set src to exactly the image name.
 8. READING ORDER: DOM order must match logical linear reading order. No absolute positioning.
-9. CONTRAST: Inline CSS colors must achieve at least 4.5:1 contrast ratio for normal text.
+9. CONTRAST: Use only high-contrast color combinations. Safe defaults: body text #1a1a1a on #ffffff; headings #111111 on #ffffff; code/pre #1a1a1a on #f5f5f5.
+   NEVER use light gray text (e.g. #888, #999, #aaa, #777) on white — these fail 4.5:1. When in doubt use #000000 on #ffffff.
 10. LANDMARKS: Use ARIA landmarks where appropriate.
 11. PAGE TITLE: Include a descriptive <title> element.
+12. PARSING (WCAG 4.1.1): Every id attribute must be unique within the document. All elements must be properly nested and closed. No <p> inside <p>, no <li> outside <ul>/<ol>.
+13. INTERACTIVE ELEMENTS (WCAG 4.1.2): Every <button> must have descriptive visible text or aria-label. Every <input> must have an associated <label> or aria-label. Every <a> must have descriptive text — not just an icon or image without alt text.
 
 Output ONLY the complete HTML document, no markdown, no code fences. Start with <!DOCTYPE html>.
 Include inline CSS for basic readable styling that meets contrast requirements.`;
@@ -1996,6 +2001,10 @@ Follow the same WCAG 2.1 Level AA rules:
 - Tables: <table><caption><thead><tbody> with <th scope="col|row"> for all header cells
 - TABLES: Reproduce EVERY table with ALL rows and ALL cell data — never truncate or omit
 - No absolute positioning. No empty heading tags.
+- LINKS: Descriptive anchor text only. NEVER use "click here", "here", "read more", "learn more", "view", "open", "this", "link", "document", "PDF", or bare URLs as link text.
+- CONTRAST: Use #1a1a1a on #ffffff for body text. NEVER use light gray (#888, #999, #aaa, #777) on white.
+- PARSING: All ids must be unique. Elements must be properly nested and closed.
+- INTERACTIVE ELEMENTS: Every <button> needs descriptive text or aria-label. Every <input> needs a <label> or aria-label.
 
 ${headingOutline}
 
