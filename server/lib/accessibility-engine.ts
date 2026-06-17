@@ -968,8 +968,8 @@ async function runAiAudit(html: string, signal?: AbortSignal): Promise<Complianc
   const htmlToAudit = html.length > AI_AUDIT_CHUNK_SIZE ? html.substring(0, AI_AUDIT_CHUNK_SIZE) : html;
 
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-5",
-    max_tokens: 4096,
+    model: "claude-haiku-4-5",
+    max_tokens: 2048,
     system: `You are an accessibility compliance auditor. Analyze the generated HTML for issues that automated checks cannot detect. Focus on readability, usability, and content quality.
 
 Output a JSON array of additional compliance findings. Each finding has:
@@ -2069,16 +2069,18 @@ ${structuralSummary}`,
   accessibleHtml = applyPageTitleFix(accessibleHtml);
   accessibleHtml = applyBypassBlocksFix(accessibleHtml);
 
-  // Generate vision-based alt text for images with weak/generic descriptions
-  if (images.some((img) => img.dataUrl.startsWith("data:image/"))) {
-    if (onProgress) await onProgress("Enhancing image descriptions…");
-    accessibleHtml = await generateVisionAltText(accessibleHtml, images, signal);
-  }
-
-  if (onProgress) await onProgress("Running compliance checks…");
+  // Run vision alt-text enhancement and compliance audit in parallel — they are independent
+  const hasImages = images.some((img) => img.dataUrl.startsWith("data:image/"));
+  if (onProgress) await onProgress(hasImages ? "Enhancing images & checking compliance…" : "Running compliance checks…");
 
   const deterministicIssues = runDeterministicChecks(accessibleHtml);
-  const aiIssues = await runAiAudit(accessibleHtml, signal);
+  const [enhancedHtml, aiIssues] = await Promise.all([
+    hasImages
+      ? generateVisionAltText(accessibleHtml, images, signal)
+      : Promise.resolve(accessibleHtml),
+    runAiAudit(accessibleHtml, signal),
+  ]);
+  accessibleHtml = enhancedHtml;
   const allIssues = [...deterministicIssues, ...aiIssues];
 
   return {
