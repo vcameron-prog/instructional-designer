@@ -279,7 +279,7 @@ export default function LandingPage() {
             <div className="flex items-center gap-2.5 mb-4">
               <div className="flex items-center gap-1.5 bg-primary/10 text-primary border border-primary/20 rounded-full px-3 py-1 text-xs font-semibold">
                 <Lock className="w-3.5 h-3.5" aria-hidden="true" />
-                BSU faculty — requires @bridgew.edu login
+                BSU staff/faculty — requires @bridgew.edu login
               </div>
             </div>
             <h2 id="bsu-section-heading" className="sr-only">BSU Faculty Tools</h2>
