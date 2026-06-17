@@ -400,6 +400,55 @@ export default function PdfConversion() {
 
   const autoStartedRef = useRef<number | null>(null);
   const htmlPreviewRef = useRef<HTMLDivElement | null>(null);
+  const processingStartRef = useRef<number | null>(null);
+  const lastStatusMessageRef = useRef<string | null | undefined>(undefined);
+  const lastStatusChangeRef = useRef<number | null>(null);
+
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [secondsSinceStatusChange, setSecondsSinceStatusChange] = useState(0);
+
+  const isProcessingOrUploaded =
+    conversion?.status === "processing" || conversion?.status === "uploaded";
+
+  useEffect(() => {
+    if (isProcessingOrUploaded) {
+      if (processingStartRef.current === null) {
+        processingStartRef.current = Date.now();
+        setElapsedSeconds(0);
+      }
+      const interval = setInterval(() => {
+        const start = processingStartRef.current ?? Date.now();
+        setElapsedSeconds(Math.floor((Date.now() - start) / 1000));
+      }, 1000);
+      return () => clearInterval(interval);
+    } else {
+      processingStartRef.current = null;
+      setElapsedSeconds(0);
+    }
+  }, [isProcessingOrUploaded]);
+
+  useEffect(() => {
+    const msg = conversion?.statusMessage ?? null;
+    if (msg !== lastStatusMessageRef.current) {
+      lastStatusMessageRef.current = msg;
+      lastStatusChangeRef.current = Date.now();
+      setSecondsSinceStatusChange(0);
+    }
+  }, [conversion?.statusMessage]);
+
+  useEffect(() => {
+    if (!isProcessingOrUploaded) {
+      setSecondsSinceStatusChange(0);
+      return;
+    }
+    const interval = setInterval(() => {
+      const since = lastStatusChangeRef.current;
+      if (since !== null) {
+        setSecondsSinceStatusChange(Math.floor((Date.now() - since) / 1000));
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isProcessingOrUploaded]);
 
   useEffect(() => {
     if (
@@ -893,10 +942,23 @@ export default function PdfConversion() {
               role="status"
               aria-live="polite"
             >
-              <p className="font-bold text-center text-primary mb-5 flex items-center justify-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                {conversion.status === "uploaded" ? "Preparing…" : "AI Remediation in Progress"}
-              </p>
+              <div className="flex items-center justify-center gap-3 mb-5">
+                <p className="font-bold text-center text-primary flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  {conversion.status === "uploaded" ? "Preparing…" : "AI Remediation in Progress"}
+                </p>
+                {elapsedSeconds > 0 && (
+                  <span
+                    className="text-xs text-muted-foreground tabular-nums"
+                    data-testid="text-elapsed-timer"
+                    aria-label={`Elapsed time: ${Math.floor(elapsedSeconds / 60)} minutes ${elapsedSeconds % 60} seconds`}
+                  >
+                    {Math.floor(elapsedSeconds / 60) > 0
+                      ? `${Math.floor(elapsedSeconds / 60)}m ${elapsedSeconds % 60}s`
+                      : `${elapsedSeconds}s`}
+                  </span>
+                )}
+              </div>
 
               {/* Pipeline step indicators */}
               <div className="flex items-start justify-between mb-4 relative px-2" aria-hidden="true">
@@ -936,6 +998,15 @@ export default function PdfConversion() {
                   aria-live="polite"
                 >
                   {conversion.statusMessage}
+                </p>
+              )}
+              {secondsSinceStatusChange >= 60 && (
+                <p
+                  className="mt-2 text-xs text-amber-600 dark:text-amber-400 text-center"
+                  data-testid="text-stale-progress-message"
+                  aria-live="polite"
+                >
+                  Still working — processing large documents in parallel can take a few minutes.
                 </p>
               )}
               <p className="mt-1.5 text-xs text-muted-foreground text-center">
