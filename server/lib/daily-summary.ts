@@ -138,7 +138,7 @@ function buildEmailHtml(stats: DailySummaryStats, date: string): string {
         <!-- Header -->
         <tr>
           <td style="background:#8b0000;padding:24px 24px 20px;text-align:center;">
-            <p style="margin:0;font-size:20px;font-weight:700;color:#ffffff;">BSU Instructional Design Tool</p>
+            <p style="margin:0;font-size:20px;font-weight:700;color:#ffffff;">BSU Accessibility Tool</p>
             <p style="margin:6px 0 0;font-size:14px;color:#ffcccc;">Daily Summary — ${date}</p>
           </td>
         </tr>
@@ -212,7 +212,7 @@ function buildEmailHtml(stats: DailySummaryStats, date: string): string {
         <tr>
           <td style="padding:20px 24px;border-top:1px solid #f0f0f0;text-align:center;">
             <p style="margin:0;font-size:12px;color:#999;">
-              Sent automatically by the BSU Instructional Design Tool &bull;
+              Sent automatically by the BSU Accessibility Tool &bull;
               <a href="https://bsu-instructional-designer.replit.app/admin" style="color:#8b0000;">View admin dashboard</a>
             </p>
           </td>

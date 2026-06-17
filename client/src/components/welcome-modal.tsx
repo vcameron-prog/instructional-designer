@@ -23,7 +23,7 @@ const WELCOME_SHOWN_KEY = "bsu_id_welcome_shown";
 const steps = [
   {
     icon: GraduationCap,
-    title: "Welcome to BSU Instructional Design Tool",
+    title: "Welcome to BSU Accessibility Tool",
     description: "This tool helps you create comprehensive, UDL-aligned course materials ready for Blackboard Ultra. Let's take a quick tour!",
   },
   {

@@ -1,4 +1,4 @@
-# BSU Instructional Design Tool
+# BSU Accessibility Tool
 
 ## Overview
 

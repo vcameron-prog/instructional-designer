@@ -114,7 +114,7 @@ export default function LandingPage() {
             <GraduationCap className="w-14 h-14 text-white" />
           </div>
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground mb-4 tracking-tight">
-            BSU Instructional Design Tool
+            BSU Accessibility Tool
           </h1>
           <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed" style={{ textWrap: "balance" }}>
             AI-powered tools to create accessible, UDL-aligned course materials for Blackboard Ultra

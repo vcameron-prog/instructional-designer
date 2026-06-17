@@ -270,7 +270,7 @@ export default function ResearchPage() {
                 </div>
                 <div>
                   <h1 className="text-xl font-bold">Research & Theory</h1>
-                  <p className="text-sm text-muted-foreground">Evidence-based frameworks behind the BSU Instructional Design Tool</p>
+                  <p className="text-sm text-muted-foreground">Evidence-based frameworks behind the BSU Accessibility Tool</p>
                 </div>
               </div>
             </div>
