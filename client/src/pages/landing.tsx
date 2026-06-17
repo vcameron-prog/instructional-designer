@@ -144,12 +144,6 @@ export default function LandingPage() {
 
           {/* ── Section 1: Open to Everyone ── */}
           <section aria-labelledby="open-section-heading">
-            <div className="flex items-center gap-2.5 mb-4">
-              <div className="flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-full px-3 py-1 text-xs font-semibold">
-                <Globe className="w-3.5 h-3.5" aria-hidden="true" />
-                Open to everyone — no login needed
-              </div>
-            </div>
             <h2 id="open-section-heading" className="sr-only">Open to Everyone</h2>
 
             <Card
@@ -166,6 +160,12 @@ export default function LandingPage() {
                   <Shield className="w-10 h-10 text-white" />
                 </div>
                 <div className="text-center sm:text-left flex-1">
+                  <div className="flex justify-center sm:justify-start mb-2">
+                    <div className="inline-flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-full px-3 py-1 text-xs font-semibold">
+                      <Globe className="w-3.5 h-3.5" aria-hidden="true" />
+                      Open to everyone — no login needed
+                    </div>
+                  </div>
                   <CardTitle className="text-2xl mb-2">Accessibility Converter</CardTitle>
                   <CardDescription className="text-base mb-4" style={{ textWrap: "balance" }}>
                     Convert PDFs, Word documents, and Google Docs into ADA Title II &amp; WCAG 2.1 AA compliant accessible documents. No account required.
