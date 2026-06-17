@@ -295,10 +295,10 @@ export default function LandingPage() {
                       <Lock className="w-7 h-7 text-primary" />
                     </div>
                     <h3 className="text-lg font-semibold text-foreground mb-2">
-                      BSU Faculty Access Required
+                      BSU Employee Access Required
                     </h3>
                     <p className="text-muted-foreground text-sm max-w-sm mx-auto mb-6" style={{ textWrap: "balance" }}>
-                      These tools are available to Bridgewater State University faculty. Sign in with your <strong>@bridgew.edu</strong> Google account to get started.
+                      These tools are available to Bridgewater State University employees. Sign in with your <strong>@bridgew.edu</strong> Google account to get started.
                     </p>
                     <Button
                       size="lg"
