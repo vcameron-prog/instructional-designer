@@ -1207,7 +1207,7 @@ export default function ResultPage() {
                                 onClick={() => setSelectedVersionId(version.id)}
                                 data-testid={`version-item-${version.id}`}
                               >
-                                <p className="text-sm font-medium leading-snug line-clamp-2">{getVersionLabel(version)}</p>
+                                <p className="text-sm font-medium leading-snug truncate" title={getVersionLabel(version)}>{getVersionLabel(version)}</p>
                                 <p className="text-xs text-muted-foreground mt-0.5">
                                   {new Date(version.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
                                   {" · "}
