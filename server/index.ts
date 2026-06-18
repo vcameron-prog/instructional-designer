@@ -12,6 +12,7 @@ import { conversions } from "../shared/schema";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { checkMigrationDrift } from "./lib/migrationCheck";
 import path from "path";
+import fs from "fs";
 
 const app = express();
 const httpServer = createServer(app);
@@ -119,6 +120,32 @@ async function runMigrations() {
     );
   }
   // ── End drift check ──────────────────────────────────────────────────────
+
+  // ── Pre-flight: verify every journal entry has a matching SQL file ────────
+  // Drizzle throws a cryptic file-not-found error if a journal entry has no
+  // corresponding .sql file (e.g. a placeholder entry was added without the
+  // actual migration file).  We detect this before calling migrate() so the
+  // error message is clear and actionable.
+  const journalPath = path.join(migrationsFolder, "meta", "_journal.json");
+  if (fs.existsSync(journalPath)) {
+    const journal = JSON.parse(fs.readFileSync(journalPath, "utf-8")) as {
+      entries: Array<{ idx: number; tag: string }>;
+    };
+    const phantomEntries = journal.entries.filter(
+      (entry) => !fs.existsSync(path.join(migrationsFolder, `${entry.tag}.sql`)),
+    );
+    if (phantomEntries.length > 0) {
+      const list = phantomEntries.map((e) => `  • ${e.tag}.sql (idx ${e.idx})`).join("\n");
+      const message =
+        `[migration] FATAL: the following journal entries have no matching SQL file on disk:\n${list}\n\n` +
+        `This means the journal is out of sync with the migrations/ directory.\n` +
+        `To fix: either create the missing SQL file(s) or remove the phantom entry/entries\n` +
+        `from migrations/meta/_journal.json and re-run the migration generator.`;
+      console.error("\n" + message + "\n");
+      process.exit(1);
+    }
+  }
+  // ── End pre-flight ────────────────────────────────────────────────────────
 
   try {
     await migrate(db, { migrationsFolder });
