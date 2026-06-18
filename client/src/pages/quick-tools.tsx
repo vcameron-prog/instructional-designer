@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, ArrowRight, FileText, CheckCircle, Target, ShieldCheck, Eye, Bot, Zap, Clock, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, FileText, CheckCircle, Target, ShieldCheck, Eye, Bot, Zap, Clock, Bookmark, Trash2 } from "lucide-react";
 import { TOOLS } from "@/lib/constants";
 import { PoweredByFooter } from "@/components/powered-by-footer";
 import { HeaderControls } from "@/components/header-controls";
@@ -14,6 +14,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { format } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAllToolPresets, PRESET_PREFILL_KEY } from "@/hooks/use-tool-presets";
 
 type RecentQuickToolResult = {
   id: number;
@@ -44,6 +45,10 @@ const toolIconByType: Record<string, any> = {
   aistudent: Bot,
 };
 
+function getToolName(toolId: string): string {
+  return TOOLS.find(t => t.id === toolId)?.name ?? toolId;
+}
+
 export default function QuickTools() {
   const [, navigate] = useLocation();
   const { isAuthenticated } = useAuth();
@@ -55,6 +60,14 @@ export default function QuickTools() {
   const [preferredTool] = useState(() => localStorage.getItem("bsu-preferred-quick-tool") || "");
 
   const quickTools = TOOLS.filter(t => QUICK_TOOL_IDS.includes(t.id));
+
+  const { entries: allPresets, deleteEntry: deletePresetEntry } = useAllToolPresets(QUICK_TOOL_IDS);
+
+  const presetsByTool = QUICK_TOOL_IDS.reduce<Record<string, typeof allPresets>>((acc, toolId) => {
+    const forTool = allPresets.filter(e => e.toolId === toolId);
+    if (forTool.length > 0) acc[toolId] = forTool;
+    return acc;
+  }, {});
 
   const { data: recentResults, isLoading: historyLoading, isError: historyError } = useQuery<RecentQuickToolResult[]>({
     queryKey: ["/api/content/recent-quick-tools"],
@@ -152,6 +165,89 @@ export default function QuickTools() {
             );
           })}
         </div>
+
+        {allPresets.length > 0 && (
+          <div className="mt-12">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Bookmark className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold">My Presets</h2>
+                <p className="text-sm text-muted-foreground">Saved form configurations — click any preset to open the tool pre-filled</p>
+              </div>
+            </div>
+
+            <div className="space-y-6">
+              {Object.entries(presetsByTool).map(([toolId, entries]) => {
+                const ToolIcon = toolIconByType[toolId] || FileText;
+                return (
+                  <div key={toolId}>
+                    <div className="flex items-center gap-2 mb-3">
+                      <ToolIcon className="w-4 h-4 text-primary" aria-hidden="true" />
+                      <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
+                        {getToolName(toolId)}
+                      </h3>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {entries.map(({ preset }) => (
+                        <Card
+                          key={preset.name}
+                          className="group flex items-center gap-3 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
+                          onClick={() => {
+                            sessionStorage.setItem(
+                              PRESET_PREFILL_KEY,
+                              JSON.stringify({ targetToolId: toolId, values: preset.values })
+                            );
+                            navigate(`/quick-tools/${toolId}`);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              sessionStorage.setItem(
+                                PRESET_PREFILL_KEY,
+                                JSON.stringify({ targetToolId: toolId, values: preset.values })
+                              );
+                              navigate(`/quick-tools/${toolId}`);
+                            }
+                          }}
+                          tabIndex={0}
+                          role="button"
+                          aria-label={`Load preset "${preset.name}" for ${getToolName(toolId)}`}
+                          data-testid={`card-preset-${toolId}-${preset.name}`}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm truncate group-hover:text-primary transition-colors">
+                              {preset.name}
+                            </p>
+                            {preset.savedAt && (
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                Saved {format(new Date(preset.savedAt), "MMM d, yyyy")}
+                              </p>
+                            )}
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="shrink-0 h-8 w-8 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                            aria-label={`Delete preset "${preset.name}"`}
+                            data-testid={`button-delete-preset-${toolId}-${preset.name}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deletePresetEntry(toolId, preset.name);
+                            }}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {isAuthenticated && <div className="mt-12">
           <div className="flex items-center gap-3 mb-6">

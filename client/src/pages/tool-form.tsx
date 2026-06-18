@@ -25,7 +25,7 @@ import { AccessibilityTips } from "@/components/accessibility-tips";
 import { OutcomeLibraryModal } from "@/components/outcome-library-modal";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useQuickToolContext } from "@/hooks/use-quick-tool-context";
-import { useToolPresets } from "@/hooks/use-tool-presets";
+import { useToolPresets, PRESET_PREFILL_KEY } from "@/hooks/use-tool-presets";
 
 interface ToolFormField {
   name: string;
@@ -311,10 +311,23 @@ export default function ToolForm() {
       }
     }
 
+    const presetRaw = sessionStorage.getItem(PRESET_PREFILL_KEY);
+    if (presetRaw) {
+      try {
+        const parsed = JSON.parse(presetRaw) as { targetToolId: string; values: Record<string, any> };
+        sessionStorage.removeItem(PRESET_PREFILL_KEY);
+        if (parsed.targetToolId === toolId && parsed.values && typeof parsed.values === "object" && !Array.isArray(parsed.values)) {
+          return parsed.values;
+        }
+      } catch {
+        sessionStorage.removeItem(PRESET_PREFILL_KEY);
+      }
+    }
+
     if (!isStandalone) return { outputDetail: savedDetail };
-    const params = new URLSearchParams(window.location.search);
-    const urlSubject = params.get("subject") ?? "";
-    const urlCourseLevel = params.get("courseLevel") ?? "";
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlSubject = urlParams.get("subject") ?? "";
+    const urlCourseLevel = urlParams.get("courseLevel") ?? "";
     return {
       outputDetail: savedDetail,
       subject: urlSubject || savedSubject,

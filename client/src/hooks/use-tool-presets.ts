@@ -9,6 +9,11 @@ export interface ToolPreset {
   savedAt: string;
 }
 
+export interface ToolPresetEntry {
+  toolId: string;
+  preset: ToolPreset;
+}
+
 const storageKey = (toolId: string) => `bsu-tool-presets-${toolId}`;
 
 function loadLocalPresets(toolId: string): ToolPreset[] {
@@ -108,3 +113,33 @@ export function useToolPresets(toolId: string | undefined) {
 
   return { presets, savePreset, deletePreset };
 }
+
+export function useAllToolPresets(toolIds: string[]) {
+  const buildEntries = useCallback((): ToolPresetEntry[] => {
+    const entries: ToolPresetEntry[] = [];
+    for (const toolId of toolIds) {
+      for (const preset of loadPresets(toolId)) {
+        entries.push({ toolId, preset });
+      }
+    }
+    return entries;
+  }, [toolIds.join(",")]);
+
+  const [entries, setEntries] = useState<ToolPresetEntry[]>(buildEntries);
+
+  const refresh = useCallback(() => {
+    setEntries(buildEntries());
+  }, [buildEntries]);
+
+  const deleteEntry = useCallback((toolId: string, presetName: string) => {
+    const updated = loadPresets(toolId).filter((p) => p.name !== presetName);
+    persistPresets(toolId, updated);
+    setEntries((prev) =>
+      prev.filter((e) => !(e.toolId === toolId && e.preset.name === presetName))
+    );
+  }, []);
+
+  return { entries, refresh, deleteEntry };
+}
+
+export const PRESET_PREFILL_KEY = "bsu-preset-prefill";
