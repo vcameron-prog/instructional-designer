@@ -33,6 +33,8 @@ import {
   injectImageData,
   ensureMissingImages,
   registerDeterministicFixer,
+  AI_FIX_RETRY_METRIC_KEY,
+  getAiFixRetryMetrics,
   type ComplianceIssue,
   type ComplianceReport,
 } from "./accessibility-engine.js";
@@ -44,6 +46,26 @@ vi.mock("@anthropic-ai/sdk", () => {
     return { messages: { create: mockCreate } };
   }
   return { default: MockAnthropic };
+});
+
+const { mockDbInsert, mockDbSelect } = vi.hoisted(() => ({
+  mockDbInsert: vi.fn(),
+  mockDbSelect: vi.fn(),
+}));
+
+vi.mock("../db", () => ({
+  db: {
+    insert: mockDbInsert,
+    select: mockDbSelect,
+  },
+}));
+
+vi.mock("@shared/schema", async () => {
+  const actual = await vi.importActual<typeof import("@shared/schema")>("@shared/schema");
+  return {
+    ...actual,
+    appMetrics: { key: "key", count: "count", lastAt: "last_at" },
+  };
 });
 
 const TRANSPARENT_PIXEL = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
@@ -7246,5 +7268,65 @@ describe("applyAriaTabRoleFix – backtick-quoted attribute value", () => {
     expect(result).toContain("<button");
     expect(result).not.toContain("role=\"tab\"");
     expect(result).toContain("Tab One");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AI_FIX_RETRY_METRIC_KEY — DB key contract tests
+// ---------------------------------------------------------------------------
+
+describe("AI_FIX_RETRY_METRIC_KEY", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("has the canonical string value 'ai_fix_retry'", () => {
+    expect(AI_FIX_RETRY_METRIC_KEY).toBe("ai_fix_retry");
+  });
+
+  it("getAiFixRetryMetrics queries the DB using the exported constant as the key", async () => {
+    let capturedWhereArg: unknown;
+
+    mockDbSelect.mockImplementation(() => ({
+      from: vi.fn().mockImplementation(() => ({
+        where: vi.fn().mockImplementation((sqlArg: unknown) => {
+          capturedWhereArg = sqlArg;
+          return Promise.resolve([]);
+        }),
+      })),
+    }));
+
+    await getAiFixRetryMetrics();
+
+    expect(mockDbSelect).toHaveBeenCalledOnce();
+    // The where clause is built with sql`... = ${AI_FIX_RETRY_METRIC_KEY}`,
+    // so the constant value must appear in the serialised SQL object.
+    expect(JSON.stringify(capturedWhereArg)).toContain(AI_FIX_RETRY_METRIC_KEY);
+  });
+
+  it("getAiFixRetryMetrics returns in-memory fallback when the DB call fails", async () => {
+    mockDbSelect.mockImplementation(() => ({
+      from: vi.fn().mockImplementation(() => ({
+        where: vi.fn().mockRejectedValue(new Error("DB unavailable")),
+      })),
+    }));
+
+    const result = await getAiFixRetryMetrics();
+
+    expect(result).toEqual({ retryCount: expect.any(Number), lastRetryAt: expect.toSatisfy((v: unknown) => v === null || typeof v === "string") });
+  });
+
+  it("getAiFixRetryMetrics maps a DB row to retryCount and lastRetryAt", async () => {
+    const now = new Date("2026-01-15T12:00:00.000Z");
+    mockDbSelect.mockImplementation(() => ({
+      from: vi.fn().mockImplementation(() => ({
+        where: vi.fn().mockResolvedValue([{ key: AI_FIX_RETRY_METRIC_KEY, count: 42, lastAt: now }]),
+      })),
+    }));
+
+    const result = await getAiFixRetryMetrics();
+
+    expect(result.retryCount).toBe(42);
+    expect(result.lastRetryAt).toBe(now.toISOString());
   });
 });
