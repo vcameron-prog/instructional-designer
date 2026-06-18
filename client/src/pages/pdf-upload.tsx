@@ -9,6 +9,7 @@ import {
   ArrowRight,
   HelpCircle,
   Check,
+  ClipboardCopy,
   Shield,
   Image,
   AlignLeft,
@@ -41,6 +42,7 @@ export default function PdfUpload() {
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
   const [, navigate] = useLocation();
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [copiedUploadError, setCopiedUploadError] = useState(false);
   const [googleDocUrl, setGoogleDocUrl] = useState("");
   const [googleSheetUrl, setGoogleSheetUrl] = useState("");
   const [googleSlideUrl, setGoogleSlideUrl] = useState("");
@@ -376,7 +378,35 @@ export default function PdfUpload() {
           >
             <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" aria-hidden="true" />
             <div className="flex flex-col gap-2 flex-1">
-              <p className="font-medium text-sm">{uploadError}</p>
+              <div className="flex items-start gap-2">
+                <p className="font-medium text-sm flex-1">{uploadError}</p>
+                <button
+                  type="button"
+                  data-testid="button-copy-upload-error"
+                  aria-label={copiedUploadError ? "Error message copied" : "Copy error message"}
+                  onClick={() => {
+                    navigator.clipboard.writeText(uploadError).then(() => {
+                      setCopiedUploadError(true);
+                      setTimeout(() => setCopiedUploadError(false), 2000);
+                    }).catch(() => {
+                      setCopiedUploadError(false);
+                    });
+                  }}
+                  className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded border border-destructive/30 bg-destructive/10 hover:bg-destructive/20 text-destructive transition-colors flex-shrink-0"
+                >
+                  {copiedUploadError ? (
+                    <>
+                      <Check className="w-3 h-3" aria-hidden="true" />
+                      Copied
+                    </>
+                  ) : (
+                    <>
+                      <ClipboardCopy className="w-3 h-3" aria-hidden="true" />
+                      Copy
+                    </>
+                  )}
+                </button>
+              </div>
               {isSessionExpiredMessage(uploadError) && (
                 <button
                   onClick={() => { window.location.href = "/api/login"; }}

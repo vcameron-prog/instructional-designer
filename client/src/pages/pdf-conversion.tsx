@@ -503,6 +503,7 @@ export default function PdfConversion() {
   const [manualFixSummary, setManualFixSummary] = useState<{ title: string; reason: string }[]>([]);
   const [copiedManualFix, setCopiedManualFix] = useState(false);
   const [copiedError, setCopiedError] = useState(false);
+  const [copiedFixError, setCopiedFixError] = useState(false);
   const [copiedImageKeys, setCopiedImageKeys] = useState<Set<string>>(new Set());
   const [copiedAllKeys, setCopiedAllKeys] = useState<Set<number>>(new Set());
   const [acceptingIndex, setAcceptingIndex] = useState<number | null>(null);
@@ -2281,9 +2282,37 @@ export default function PdfConversion() {
                 {fixError && (
                   <div
                     role="alert"
-                    className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-lg text-sm font-medium"
+                    className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-lg text-sm"
                   >
-                    {fixError}
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium flex-1">{fixError}</span>
+                      <button
+                        type="button"
+                        data-testid="button-copy-fix-error"
+                        aria-label={copiedFixError ? "Error message copied" : "Copy error message"}
+                        onClick={() => {
+                          navigator.clipboard.writeText(fixError).then(() => {
+                            setCopiedFixError(true);
+                            setTimeout(() => setCopiedFixError(false), 2000);
+                          }).catch(() => {
+                            setCopiedFixError(false);
+                          });
+                        }}
+                        className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded border border-red-300 dark:border-red-700 bg-red-100 dark:bg-red-900/40 hover:bg-red-200 dark:hover:bg-red-800/50 text-red-600 dark:text-red-400 transition-colors flex-shrink-0"
+                      >
+                        {copiedFixError ? (
+                          <>
+                            <Check className="w-3 h-3" aria-hidden="true" />
+                            Copied
+                          </>
+                        ) : (
+                          <>
+                            <ClipboardCopy className="w-3 h-3" aria-hidden="true" />
+                            Copy
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 )}
 
