@@ -1368,16 +1368,19 @@ export async function registerRoutes(
         return;
       }
       // Ensure the user row exists so foreign-key checks pass.
-      // Use raw SQL to avoid Drizzle inserting schema columns that haven't
-      // been migrated yet in the dev DB (e.g. preferences).
-      await db.execute(sql`
-        INSERT INTO users (id, email, first_name, last_name)
-        VALUES (${sub}, ${email}, ${firstName ?? null}, ${lastName ?? null})
-        ON CONFLICT (id) DO UPDATE
-          SET email = EXCLUDED.email,
-              first_name = EXCLUDED.first_name,
-              last_name = EXCLUDED.last_name
-      `);
+      await db.insert(users).values({
+        id: sub,
+        email,
+        firstName: firstName ?? null,
+        lastName: lastName ?? null,
+      }).onConflictDoUpdate({
+        target: users.id,
+        set: {
+          email,
+          firstName: firstName ?? null,
+          lastName: lastName ?? null,
+        },
+      });
       // Write directly to req.session (bypassing Passport serialization) and
       // call session.save() so express-session commits the row and emits
       // Set-Cookie.  req.login() does not emit Set-Cookie over plain HTTP,
@@ -1446,21 +1449,17 @@ export async function registerRoutes(
         return;
       }
       try {
-        // Use a targeted raw SQL insert that only touches columns that are
-        // guaranteed to exist in the actual DB (avoids schema/migration drift
-        // with columns like selected_sheet / processing_started_at that may
-        // not have been applied yet in the dev environment).
-        const result = await db.execute(sql`
-          INSERT INTO conversions
-            (original_filename, file_size, source_type, status,
-             accessible_html, compliance_report, original_compliance_report, user_id)
-          VALUES
-            (${originalFilename ?? "test-document.pdf"}, ${1024}, ${"pdf"}, ${"completed"},
-             ${accessibleHtml}, ${JSON.stringify(complianceReport)}::jsonb, ${JSON.stringify(complianceReport)}::jsonb, ${userId})
-          RETURNING id
-        `);
-        const id = (result.rows[0] as { id: number }).id;
-        res.status(201).json({ id });
+        const [row] = await db.insert(conversions).values({
+          originalFilename: originalFilename ?? "test-document.pdf",
+          fileSize: 1024,
+          sourceType: "pdf",
+          status: "completed",
+          accessibleHtml,
+          complianceReport: complianceReport as any,
+          originalComplianceReport: complianceReport as any,
+          userId,
+        }).returning({ id: conversions.id });
+        res.status(201).json({ id: row.id });
       } catch (err) {
         res.status(500).json({ error: String(err) });
       }
