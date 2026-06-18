@@ -1438,28 +1438,52 @@ export async function registerRoutes(
     // with a known compliance report without hitting the AI APIs.
     // Disabled in production (NODE_ENV !== "production" guard above).
     app.post("/api/test/seed-conversion", async (req: Request, res: Response) => {
-      const { userId, accessibleHtml, complianceReport, originalFilename } = req.body as {
+      const { userId, accessibleHtml, complianceReport, originalFilename, status, errorMessage } = req.body as {
         userId: string;
-        accessibleHtml: string;
-        complianceReport: unknown;
+        accessibleHtml?: string;
+        complianceReport?: unknown;
         originalFilename?: string;
+        status?: string;
+        errorMessage?: string;
       };
-      if (!userId || !accessibleHtml || !complianceReport) {
-        res.status(400).json({ error: "userId, accessibleHtml, and complianceReport are required" });
+      const resolvedStatus = status ?? "completed";
+      if (!userId) {
+        res.status(400).json({ error: "userId is required" });
+        return;
+      }
+      if (resolvedStatus === "completed" && (!accessibleHtml || !complianceReport)) {
+        res.status(400).json({ error: "accessibleHtml and complianceReport are required for completed conversions" });
         return;
       }
       try {
-        const [row] = await db.insert(conversions).values({
-          originalFilename: originalFilename ?? "test-document.pdf",
-          fileSize: 1024,
-          sourceType: "pdf",
-          status: "completed",
-          accessibleHtml,
-          complianceReport: complianceReport as any,
-          originalComplianceReport: complianceReport as any,
-          userId,
-        }).returning({ id: conversions.id });
-        res.status(201).json({ id: row.id });
+        if (resolvedStatus === "failed") {
+          // Use raw SQL for the failed case so error_message is written and
+          // the jsonb report columns are safely set to null.
+          const result = await db.execute(sql`
+            INSERT INTO conversions
+              (original_filename, file_size, source_type, status,
+               accessible_html, compliance_report, original_compliance_report, user_id, error_message)
+            VALUES
+              (${originalFilename ?? "test-document.pdf"}, ${1024}, ${"pdf"}, ${"failed"},
+               ${null}, ${null}, ${null},
+               ${userId}, ${errorMessage ?? null})
+            RETURNING id
+          `);
+          const id = (result.rows[0] as { id: number }).id;
+          res.status(201).json({ id });
+        } else {
+          const [row] = await db.insert(conversions).values({
+            originalFilename: originalFilename ?? "test-document.pdf",
+            fileSize: 1024,
+            sourceType: "pdf",
+            status: "completed",
+            accessibleHtml,
+            complianceReport: complianceReport as any,
+            originalComplianceReport: complianceReport as any,
+            userId,
+          }).returning({ id: conversions.id });
+          res.status(201).json({ id: row.id });
+        }
       } catch (err) {
         res.status(500).json({ error: String(err) });
       }
