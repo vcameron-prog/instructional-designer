@@ -5004,8 +5004,12 @@ describe("applyBypassBlocksFix", () => {
     expect(bypass.status).toBe("warning");
 
     // The details message must be the distinct "only-landmarks" explanation, not the generic one.
-    expect(bypass.details).toContain("no main content area");
-    expect(bypass.details).toContain("landmark elements");
+    expect(bypass.details).toBe(
+      "This document contains header, navigation, or footer sections but has no main content area. " +
+        "All body content appears to be inside landmark elements, so no <main> region could be identified. " +
+        "Add a <main> element (or role=\"main\" on a wrapper) to clearly mark where the primary content begins, " +
+        "so screen reader users can skip directly to it."
+    );
   });
 
   it("all-landmarks-no-content: fixComplianceIssue returns noFixReason and leaves HTML unchanged", async () => {
