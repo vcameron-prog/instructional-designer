@@ -1105,6 +1105,95 @@ describe("runDeterministicChecks", () => {
     });
   });
 
+  // Details string format — must be parseable by the frontend diff-preview regexes
+  describe("ARIA misuse details string parseability", () => {
+    const COUNT_RE = /Found (\d+) element/;
+    const TAGS_RE = /\(e\.g\. ([^)]+)\)/;
+
+    it("button: details contains the count pattern and the (e.g. …) tag list", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1><div role="button">Click</div></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Button Role on Non-Button Element");
+      expect(issue).toBeDefined();
+      expect(issue!.details).toMatch(COUNT_RE);
+      expect(issue!.details).toMatch(TAGS_RE);
+      const count = parseInt(issue!.details!.match(COUNT_RE)![1], 10);
+      expect(count).toBeGreaterThan(0);
+      const tags = issue!.details!.match(TAGS_RE)![1].split(", ").map((t) => t.trim());
+      expect(tags.length).toBeGreaterThan(0);
+      expect(tags[0]).toBe("<div>");
+    });
+
+    it("heading: details contains the count pattern and the (e.g. …) tag list", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1><div role="heading" aria-level="2">Heading</div></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Heading Role on Non-Heading Element");
+      expect(issue).toBeDefined();
+      expect(issue!.details).toMatch(COUNT_RE);
+      expect(issue!.details).toMatch(TAGS_RE);
+      const count = parseInt(issue!.details!.match(COUNT_RE)![1], 10);
+      expect(count).toBeGreaterThan(0);
+      const tags = issue!.details!.match(TAGS_RE)![1].split(", ").map((t) => t.trim());
+      expect(tags.length).toBeGreaterThan(0);
+      expect(tags[0]).toBe("<div>");
+    });
+
+    it("combobox: details contains the count pattern and the (e.g. …) tag list", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1><div role="combobox">Choose</div></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Combobox Role on Non-Combobox Element");
+      expect(issue).toBeDefined();
+      expect(issue!.details).toMatch(COUNT_RE);
+      expect(issue!.details).toMatch(TAGS_RE);
+      const count = parseInt(issue!.details!.match(COUNT_RE)![1], 10);
+      expect(count).toBeGreaterThan(0);
+      const tags = issue!.details!.match(TAGS_RE)![1].split(", ").map((t) => t.trim());
+      expect(tags.length).toBeGreaterThan(0);
+      expect(tags[0]).toBe("<div>");
+    });
+
+    it("grid: details contains the count pattern and the (e.g. …) tag list", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1><div role="grid"><div>Cell</div></div></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Grid Role on Non-Table Element");
+      expect(issue).toBeDefined();
+      expect(issue!.details).toMatch(COUNT_RE);
+      expect(issue!.details).toMatch(TAGS_RE);
+      const count = parseInt(issue!.details!.match(COUNT_RE)![1], 10);
+      expect(count).toBeGreaterThan(0);
+      const tags = issue!.details!.match(TAGS_RE)![1].split(", ").map((t) => t.trim());
+      expect(tags.length).toBeGreaterThan(0);
+      expect(tags[0]).toBe("<div>");
+    });
+
+    it("tab: details contains the count pattern and the (e.g. …) tag list", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1><div role="tab">Tab</div></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Tab Role on Non-Interactive Element");
+      expect(issue).toBeDefined();
+      expect(issue!.details).toMatch(COUNT_RE);
+      expect(issue!.details).toMatch(TAGS_RE);
+      const count = parseInt(issue!.details!.match(COUNT_RE)![1], 10);
+      expect(count).toBeGreaterThan(0);
+      const tags = issue!.details!.match(TAGS_RE)![1].split(", ").map((t) => t.trim());
+      expect(tags.length).toBeGreaterThan(0);
+      expect(tags[0]).toBe("<div>");
+    });
+
+    it("multiple elements of different tags are all listed in the (e.g. …) portion", () => {
+      const html = `<html lang="en"><body><main><h1>Page</h1><div role="tab">Tab1</div><span role="tab">Tab2</span></main></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.title === "ARIA Tab Role on Non-Interactive Element");
+      expect(issue).toBeDefined();
+      const count = parseInt(issue!.details!.match(COUNT_RE)![1], 10);
+      expect(count).toBe(2);
+      const tagsRaw = issue!.details!.match(TAGS_RE)![1];
+      const tags = tagsRaw.split(", ").map((t) => t.trim());
+      expect(tags).toContain("<div>");
+      expect(tags).toContain("<span>");
+    });
+  });
+
   // All issues have required fields
   describe("issue shape", () => {
     it("every issue has criterion, title, level, status, description, and details", () => {
