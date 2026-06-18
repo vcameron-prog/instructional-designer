@@ -480,6 +480,8 @@ export default function PdfConversion() {
   const [isFixingAll, setIsFixingAll] = useState(false);
   const [isFixingAllAria, setIsFixingAllAria] = useState(false);
   const [batchFixNotesSummary, setBatchFixNotesSummary] = useState<string[]>([]);
+  const [manualFixSummary, setManualFixSummary] = useState<{ title: string; reason: string }[]>([]);
+  const [copiedManualFix, setCopiedManualFix] = useState(false);
   const [copiedImageKeys, setCopiedImageKeys] = useState<Set<string>>(new Set());
   const [copiedAllKeys, setCopiedAllKeys] = useState<Set<number>>(new Set());
   const [acceptingIndex, setAcceptingIndex] = useState<number | null>(null);
@@ -726,6 +728,7 @@ export default function PdfConversion() {
     // CONTRACT: every batch-fix handler must call setBatchFixNotesSummary([])
     // at the start so the notes panel never shows notes from a prior run.
     setBatchFixNotesSummary([]);
+    setManualFixSummary([]);
     setFixAllProgress({ current: 0, total: fixableIndices.length });
 
     let anyRetried = false;
@@ -778,6 +781,7 @@ export default function PdfConversion() {
         variant: "destructive",
         duration: 10000,
       });
+      setManualFixSummary(manualFixItems);
     }
     if (anyRetried) {
       toast({
@@ -1985,6 +1989,73 @@ export default function PdfConversion() {
                     className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-lg text-sm font-medium"
                   >
                     {fixError}
+                  </div>
+                )}
+
+                {manualFixSummary.length > 0 && (
+                  <div
+                    className="mb-4 rounded-lg border bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800 p-3 space-y-2"
+                    role="note"
+                    aria-label="Manual fix required items"
+                    data-testid="manual-fix-summary"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wide flex items-center gap-1.5">
+                        <AlertTriangle className="w-3.5 h-3.5" aria-hidden="true" />
+                        Manual attention required ({manualFixSummary.length}{" "}
+                        {manualFixSummary.length === 1 ? "issue" : "issues"})
+                      </p>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={() => {
+                            const text = manualFixSummary
+                              .map(({ title, reason }) => `• ${title}: ${reason}`)
+                              .join("\n");
+                            navigator.clipboard.writeText(text).then(() => {
+                              setCopiedManualFix(true);
+                              setTimeout(() => setCopiedManualFix(false), 2000);
+                            }).catch(() => {
+                              toast({ title: "Copy failed", description: "Could not access the clipboard. Please try again.", variant: "destructive" });
+                            });
+                          }}
+                          className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/30 hover:bg-amber-200 dark:hover:bg-amber-800/50 border border-amber-300 dark:border-amber-700 rounded-md transition-colors"
+                          aria-label="Copy manual fix list to clipboard"
+                          data-testid="button-copy-manual-fix-list"
+                        >
+                          {copiedManualFix ? (
+                            <>
+                              <Check className="w-3 h-3" aria-hidden="true" />
+                              Copied!
+                            </>
+                          ) : (
+                            <>
+                              <ClipboardCopy className="w-3 h-3" aria-hidden="true" />
+                              Copy list
+                            </>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => setManualFixSummary([])}
+                          className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-200 bg-transparent hover:bg-amber-100 dark:hover:bg-amber-900/30 border border-amber-300 dark:border-amber-700 rounded-md transition-colors"
+                          aria-label="Dismiss manual fix list"
+                          data-testid="button-dismiss-manual-fix-summary"
+                        >
+                          <X className="w-3 h-3" aria-hidden="true" />
+                          Dismiss
+                        </button>
+                      </div>
+                    </div>
+                    <ul className="space-y-1">
+                      {manualFixSummary.map(({ title, reason }, idx) => (
+                        <li
+                          key={idx}
+                          className="text-sm text-amber-900 dark:text-amber-200"
+                          data-testid={`manual-fix-item-${idx}`}
+                        >
+                          <span className="font-medium">{title}:</span> {reason}
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 )}
 
