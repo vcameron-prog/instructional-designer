@@ -2430,6 +2430,9 @@ export async function registerRoutes(
         if (!content) {
           return res.status(404).json({ error: "Content not found" });
         }
+        if (!content.userId && !content.courseId) {
+          return res.status(403).json({ error: "Anonymous content cannot be approved" });
+        }
         if (content.courseId) {
           const course = await storage.getCourse(content.courseId, userId);
           if (!course) {

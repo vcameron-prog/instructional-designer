@@ -837,6 +837,74 @@ describe("DELETE /api/content/:id — visitor-token ownership checks", () => {
   });
 });
 
+// PATCH /api/content/:id/approval — anonymous-content rejection
+describe("PATCH /api/content/:id/approval — anonymous content rejection", () => {
+  let app: express.Express;
+
+  beforeEach(async () => {
+    vi.resetModules();
+    vi.clearAllMocks();
+    currentUser.sub = "user-abc";
+    app = await buildApp();
+  });
+
+  it("returns 403 when an authenticated user tries to approve anonymous content (userId=null, courseId=null)", async () => {
+    mockGetContent.mockResolvedValue({
+      id: 10,
+      content: "anon result",
+      toolName: "assignment",
+      courseId: null,
+      userId: null,
+      visitorToken: "token-owner",
+    });
+
+    await request(app)
+      .patch("/api/content/10/approval")
+      .send({ isApproved: true })
+      .expect(403);
+    const { storage } = await import("./storage.js");
+    expect(storage.toggleContentApproval).not.toHaveBeenCalled();
+  });
+
+  it("returns 200 when an authenticated user approves their own user-owned content", async () => {
+    mockGetContent.mockResolvedValue({
+      id: 10,
+      content: "my result",
+      toolName: "assignment",
+      courseId: null,
+      userId: "user-abc",
+      visitorToken: null,
+    });
+    const { storage } = await import("./storage.js");
+    (storage.toggleContentApproval as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: 10,
+      isApproved: true,
+    });
+
+    await request(app)
+      .patch("/api/content/10/approval")
+      .send({ isApproved: true })
+      .expect(200);
+    expect(storage.toggleContentApproval).toHaveBeenCalledWith(10, true);
+  });
+
+  it("returns 400 when isApproved is not a boolean", async () => {
+    mockGetContent.mockResolvedValue({
+      id: 10,
+      content: "my result",
+      toolName: "assignment",
+      courseId: null,
+      userId: "user-abc",
+      visitorToken: null,
+    });
+
+    await request(app)
+      .patch("/api/content/10/approval")
+      .send({ isApproved: "yes" })
+      .expect(400);
+  });
+});
+
 // ---------------------------------------------------------------------------
 // GET /api/content/:id/versions — visitor-token ownership checks
 // ---------------------------------------------------------------------------
