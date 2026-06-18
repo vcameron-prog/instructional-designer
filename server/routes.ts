@@ -2975,8 +2975,15 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           if (!userId) return res.status(403).json({ error: "Unauthorized" });
           const course = await storage.getCourse(content.courseId, userId);
           if (!course) return res.status(404).json({ error: "Content not found" });
-        } else if (content.userId && content.userId !== userId) {
-          return res.status(403).json({ error: "Unauthorized" });
+        } else if (content.userId) {
+          if (content.userId !== userId) {
+            return res.status(403).json({ error: "Unauthorized" });
+          }
+        } else {
+          const vToken = getVisitorToken(req);
+          if (!vToken || vToken !== content.visitorToken) {
+            return res.status(403).json({ error: "Unauthorized" });
+          }
         }
 
         const versions = await storage.getVersionsByContent(id);

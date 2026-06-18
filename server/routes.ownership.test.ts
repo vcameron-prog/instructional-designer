@@ -10,6 +10,7 @@ const {
   mockGetContent,
   mockGetCourse,
   mockGetVersionById,
+  mockGetVersionsByContent,
   mockUpdateContent,
   mockCreateVersion,
   mockPruneOldVersions,
@@ -20,6 +21,7 @@ const {
   mockGetContent: vi.fn(),
   mockGetCourse: vi.fn(),
   mockGetVersionById: vi.fn(),
+  mockGetVersionsByContent: vi.fn(),
   mockUpdateContent: vi.fn(),
   mockCreateVersion: vi.fn(),
   mockPruneOldVersions: vi.fn(),
@@ -43,7 +45,7 @@ vi.mock("./storage", () => ({
     getAllCourses: vi.fn(),
     getStandaloneContent: vi.fn(),
     getStandaloneContentById: vi.fn(),
-    getVersionsByContent: vi.fn(),
+    getVersionsByContent: mockGetVersionsByContent,
     getAllSavedContent: vi.fn(),
     getSavedContent: vi.fn(),
     createSavedContent: vi.fn(),
@@ -832,5 +834,100 @@ describe("DELETE /api/content/:id — visitor-token ownership checks", () => {
 
     await request(app).delete("/api/content/10").expect(403);
     expect(mockDeleteContent).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/content/:id/versions — visitor-token ownership checks
+// ---------------------------------------------------------------------------
+
+describe("GET /api/content/:id/versions — visitor-token ownership checks", () => {
+  let app: express.Express;
+
+  beforeEach(async () => {
+    vi.resetModules();
+    vi.clearAllMocks();
+    app = await buildApp();
+    mockGetVersionsByContent.mockResolvedValue([]);
+  });
+
+  it("returns 200 for the authenticated user who owns the content", async () => {
+    currentUser.sub = "user-abc";
+    mockGetContent.mockResolvedValue({
+      id: 10,
+      content: "hello",
+      toolName: "assignment",
+      courseId: null,
+      userId: "user-abc",
+      visitorToken: null,
+    });
+
+    await request(app).get("/api/content/10/versions").expect(200);
+  });
+
+  it("returns 403 when an authenticated user reads another user's version history", async () => {
+    currentUser.sub = "user-abc";
+    mockGetContent.mockResolvedValue({
+      id: 10,
+      content: "hello",
+      toolName: "assignment",
+      courseId: null,
+      userId: "user-xyz",
+      visitorToken: null,
+    });
+
+    await request(app).get("/api/content/10/versions").expect(403);
+    expect(mockGetVersionsByContent).not.toHaveBeenCalled();
+  });
+
+  it("returns 403 for anonymous callers reading anonymous content without a visitor token", async () => {
+    currentUser.sub = null;
+    mockGetContent.mockResolvedValue({
+      id: 10,
+      content: "anon result",
+      toolName: "assignment",
+      courseId: null,
+      userId: null,
+      visitorToken: "token-owner",
+    });
+
+    await request(app).get("/api/content/10/versions").expect(403);
+    expect(mockGetVersionsByContent).not.toHaveBeenCalled();
+  });
+
+  it("returns 403 for anonymous callers whose visitor token does not match", async () => {
+    currentUser.sub = null;
+    mockGetContent.mockResolvedValue({
+      id: 10,
+      content: "anon result",
+      toolName: "assignment",
+      courseId: null,
+      userId: null,
+      visitorToken: "token-owner",
+    });
+
+    await request(app)
+      .get("/api/content/10/versions")
+      .set("x-visitor-token", "token-intruder")
+      .expect(403);
+    expect(mockGetVersionsByContent).not.toHaveBeenCalled();
+  });
+
+  it("returns 200 for the anonymous caller whose visitor token matches", async () => {
+    currentUser.sub = null;
+    mockGetContent.mockResolvedValue({
+      id: 10,
+      content: "anon result",
+      toolName: "assignment",
+      courseId: null,
+      userId: null,
+      visitorToken: "token-owner",
+    });
+
+    await request(app)
+      .get("/api/content/10/versions")
+      .set("x-visitor-token", "token-owner")
+      .expect(200);
+    expect(mockGetVersionsByContent).toHaveBeenCalledWith(10);
   });
 });
