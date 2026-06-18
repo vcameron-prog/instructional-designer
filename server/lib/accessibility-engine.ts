@@ -1634,6 +1634,8 @@ export function fixAllAriaRoleMisuse(
   currentHtml: string,
   existingReport: ComplianceReport
 ): AccessibilityResult {
+  const headingFallbackAnalysis = analyzeAriaHeadingFallbacks(currentHtml);
+
   const ariaFixers = [
     applyAriaRoleHeaderFix,
     applyAriaLinkRoleFix,
@@ -1671,6 +1673,28 @@ export function fixAllAriaRoleMisuse(
     }
     return issue;
   });
+
+  const { fallbackCount, inferredCount } = headingFallbackAnalysis;
+  if (fallbackCount > 0 || inferredCount > 0) {
+    const parts: string[] = [];
+    if (fallbackCount > 0) {
+      parts.push(
+        `${fallbackCount} heading${fallbackCount === 1 ? "" : "s"} had no aria-level and no surrounding heading context — defaulted to <h2>. Review these headings and adjust the level if needed.`
+      );
+    }
+    if (inferredCount > 0) {
+      parts.push(
+        `${inferredCount} heading${inferredCount === 1 ? "" : "s"} had no aria-level and used the level of the nearest preceding heading. Verify the inferred level is correct.`
+      );
+    }
+    const fixNotes = parts.join(" ");
+    const headingIssueIdx = updatedIssues.findIndex(
+      (iss) => iss.criterion === "1.3.1" && iss.title === "ARIA Heading Role on Non-Heading Element"
+    );
+    if (headingIssueIdx >= 0) {
+      updatedIssues[headingIssueIdx] = { ...updatedIssues[headingIssueIdx], fixNotes };
+    }
+  }
 
   return { accessibleHtml: fixedHtml, complianceReport: buildComplianceReport(updatedIssues) };
 }

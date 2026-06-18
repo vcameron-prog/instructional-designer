@@ -5623,6 +5623,58 @@ describe("fixAllAriaRoleMisuse", () => {
     );
     expect(fixed.length).toBeGreaterThanOrEqual(3);
   });
+
+  it("attaches fixNotes to the heading issue when headings fallback to h2", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body>
+      <div role="heading">No aria-level, no context</div>
+    </body></html>`;
+
+    const report = makeAriaReport([
+      { criterion: "1.3.1", title: "ARIA Heading Role on Non-Heading Element" },
+    ]);
+
+    const result = fixAllAriaRoleMisuse(html, report);
+
+    const headingIssue = result.complianceReport.issues.find(
+      (i) => i.title === "ARIA Heading Role on Non-Heading Element"
+    );
+    expect(headingIssue?.fixNotes).toMatch(/defaulted to <h2>/);
+  });
+
+  it("attaches fixNotes to the heading issue when headings use inferred level", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body>
+      <h1>Top heading</h1>
+      <div role="heading">No aria-level, but h1 precedes it</div>
+    </body></html>`;
+
+    const report = makeAriaReport([
+      { criterion: "1.3.1", title: "ARIA Heading Role on Non-Heading Element" },
+    ]);
+
+    const result = fixAllAriaRoleMisuse(html, report);
+
+    const headingIssue = result.complianceReport.issues.find(
+      (i) => i.title === "ARIA Heading Role on Non-Heading Element"
+    );
+    expect(headingIssue?.fixNotes).toMatch(/nearest preceding heading/);
+  });
+
+  it("does not attach fixNotes when all headings have explicit aria-level", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body>
+      <div role="heading" aria-level="2">Explicit level</div>
+    </body></html>`;
+
+    const report = makeAriaReport([
+      { criterion: "1.3.1", title: "ARIA Heading Role on Non-Heading Element" },
+    ]);
+
+    const result = fixAllAriaRoleMisuse(html, report);
+
+    const headingIssue = result.complianceReport.issues.find(
+      (i) => i.title === "ARIA Heading Role on Non-Heading Element"
+    );
+    expect(headingIssue?.fixNotes).toBeUndefined();
+  });
 });
 
 // ---------------------------------------------------------------------------
