@@ -1976,6 +1976,12 @@ export default function ResultPage() {
                   <span>Another table already uses this caption. Each caption should uniquely describe its table.</span>
                 </div>
               )}
+              {captionEditMode === "edit" && captionEditText.trim().toLowerCase() === "table summary" && (
+                <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300" role="alert" data-testid="warning-generic-caption">
+                  <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
+                  <span>This caption uses the default "Table summary" text. Consider replacing it with a description of what the table actually contains.</span>
+                </div>
+              )}
               {captionEditMode === "add" && captionTexts.some((t) => t.trim().toLowerCase() === "table summary") && (
                 <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300" role="alert" data-testid="warning-generic-caption">
                   <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
