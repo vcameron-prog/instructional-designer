@@ -1949,7 +1949,16 @@ export async function registerRoutes(
           return res.status(404).json({ error: "Course not found" });
         }
 
-        const content = await storage.getContentByCourse(courseId);
+        let content = await storage.getContentByCourse(courseId);
+
+        const toolTypeParam = req.query.toolType;
+        if (toolTypeParam) {
+          const toolTypes = Array.isArray(toolTypeParam)
+            ? (toolTypeParam as string[])
+            : (toolTypeParam as string).split(",").map((s) => s.trim());
+          content = content.filter((c) => toolTypes.includes(c.toolType));
+        }
+
         res.json(content);
       } catch (error) {
         console.error("Error fetching content:", error);

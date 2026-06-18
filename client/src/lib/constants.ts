@@ -205,6 +205,12 @@ export const TOOLS = [
   },
 ];
 
+export const CONTENT_PREFILL_MAP: Record<string, string[]> = {
+  rubric: ["assignment"],
+  alignment: ["assignment", "rubric"],
+  airesistant: ["assignment"],
+};
+
 export const LOADING_MESSAGES = [
   "Analyzing your course requirements...",
   "Incorporating UDL principles...",

@@ -10,12 +10,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, Loader2, Sparkles, BookOpen, Calendar, FileText, Layout, CheckCircle, Target, Scale, ShieldCheck, Eye, Bot } from "lucide-react";
-import { TOOLS, BSU_CALENDAR, LOADING_MESSAGES, COURSE_LEVELS } from "@/lib/constants";
+import { TOOLS, BSU_CALENDAR, LOADING_MESSAGES, COURSE_LEVELS, CONTENT_PREFILL_MAP } from "@/lib/constants";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { PoweredByFooter } from "@/components/powered-by-footer";
 import { HeaderControls } from "@/components/header-controls";
-import type { Course } from "@shared/schema";
+import type { Course, GeneratedContent } from "@shared/schema";
 import { UdlTips } from "@/components/udl-tips";
 import { AccessibilityTips } from "@/components/accessibility-tips";
 import { usePageTitle } from "@/hooks/use-page-title";
@@ -278,6 +278,7 @@ export default function ToolForm() {
   );
   const [isGenerating, setIsGenerating] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("");
+  const [selectedPrefillId, setSelectedPrefillId] = useState<string>("");
 
   const tool = TOOLS.find(t => t.id === toolId);
 
@@ -292,6 +293,18 @@ export default function ToolForm() {
   const { data: course } = useQuery<Course>({
     queryKey: ["/api/courses", courseId],
     enabled: !!courseId && !isStandalone,
+  });
+
+  const compatibleSourceTypes = toolId ? (CONTENT_PREFILL_MAP[toolId] ?? []) : [];
+  const { data: priorItems = [] } = useQuery<GeneratedContent[]>({
+    queryKey: ["/api/courses", courseId, "content", compatibleSourceTypes.join(",")],
+    queryFn: async () => {
+      const params = new URLSearchParams({ toolType: compatibleSourceTypes.join(",") });
+      const res = await fetch(`/api/courses/${courseId}/content?${params}`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!courseId && !isStandalone && compatibleSourceTypes.length > 0,
   });
 
   // Auto-fill schedule dates when semester is known
@@ -371,6 +384,43 @@ export default function ToolForm() {
         return { ...prev, [name]: current.filter((o: string) => o !== option) };
       }
     });
+  };
+
+  const handlePrefillSelect = (itemId: string) => {
+    setSelectedPrefillId(itemId);
+    if (!itemId || !toolId) return;
+    const item = priorItems.find(i => String(i.id) === itemId);
+    if (!item) return;
+    const fd = (item.formData as Record<string, any>) || {};
+    let fields: Record<string, any> = {};
+
+    if (toolId === "rubric" && item.toolType === "assignment") {
+      fields = {
+        assessmentType: fd.assignmentType || "",
+        criteria: fd.learningObjectives || "",
+      };
+    } else if (toolId === "alignment" && item.toolType === "assignment") {
+      fields = {
+        learningOutcomes: fd.learningObjectives || "",
+        assignments: item.content.slice(0, 800),
+      };
+    } else if (toolId === "alignment" && item.toolType === "rubric") {
+      const rubricDesc = [
+        fd.assessmentType ? `Assessment: ${fd.assessmentType}` : "",
+        fd.criteria ? `Criteria: ${fd.criteria}` : "",
+      ].filter(Boolean).join("\n");
+      fields = { assignments: rubricDesc };
+    } else if (toolId === "airesistant" && item.toolType === "assignment") {
+      fields = {
+        existingAssignment: item.content,
+        assignmentType: fd.assignmentType || "",
+      };
+    }
+
+    if (Object.keys(fields).length > 0) {
+      setFormData(prev => ({ ...prev, ...fields }));
+      toast({ title: "Form pre-filled", description: "Fields have been populated from the selected item. Review and adjust as needed." });
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -543,6 +593,34 @@ export default function ToolForm() {
 
           {toolId && toolId !== "accessibility" && <UdlTips toolId={toolId} />}
           {toolId === "accessibility" && <AccessibilityTips />}
+
+          {priorItems.length > 0 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Pre-fill from a previous item</CardTitle>
+                <CardDescription>
+                  Select a previously generated item to populate this form automatically.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Select
+                  value={selectedPrefillId}
+                  onValueChange={handlePrefillSelect}
+                >
+                  <SelectTrigger data-testid="select-prefill-item">
+                    <SelectValue placeholder="Choose a previous item…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {priorItems.map(item => (
+                      <SelectItem key={item.id} value={String(item.id)} data-testid={`prefill-option-${item.id}`}>
+                        {item.toolName} — {new Date(item.createdAt).toLocaleDateString()}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </CardContent>
+            </Card>
+          )}
 
           <Card>
             <CardHeader>
