@@ -3545,6 +3545,60 @@ describe("applyAriaHeadingRoleFix", () => {
     expect(result).not.toContain('role="heading"');
   });
 
+  // --- nested container tests ---
+
+  it("inherits level from a native heading outside its containing section", () => {
+    const html = `<h2>Outside</h2><section><div role="heading">Inside</div></section>`;
+    const result = applyAriaHeadingRoleFix(html);
+    expect(result).toContain("<h2>Inside</h2>");
+    expect(result).not.toContain('role="heading"');
+  });
+
+  it("carries forward level across sibling subtrees (native h3 in first article, ARIA heading in second)", () => {
+    const html = `<article><h3>Chapter</h3></article><article><div role="heading">Next</div></article>`;
+    const result = applyAriaHeadingRoleFix(html);
+    expect(result).toContain("<h3>Next</h3>");
+    expect(result).not.toContain('role="heading"');
+  });
+
+  it("resolves a deeply nested ARIA heading using the last preceding native heading in DFS order", () => {
+    const html = `<h1>Page</h1><div><div><div><div role="heading">Deep</div></div></div></div>`;
+    const result = applyAriaHeadingRoleFix(html);
+    expect(result).toContain("<h1>Deep</h1>");
+    expect(result).not.toContain('role="heading"');
+  });
+
+  it("carries forward context to multiple ARIA headings across separate nested sections", () => {
+    const html = `<section><h2>S1</h2></section><section><div role="heading">S2</div></section><section><div role="heading">S3</div></section>`;
+    const result = applyAriaHeadingRoleFix(html);
+    expect(result).toContain("<h2>S2</h2>");
+    expect(result).toContain("<h2>S3</h2>");
+    expect(result).not.toContain('role="heading"');
+  });
+
+  it("carries the resolved level of an ARIA heading in one subtree to an ARIA heading in a sibling subtree", () => {
+    const html = `<div><div role="heading" aria-level="3">A</div></div><div><div role="heading">B</div></div>`;
+    const result = applyAriaHeadingRoleFix(html);
+    expect(result).toContain("<h3>A</h3>");
+    expect(result).toContain("<h3>B</h3>");
+    expect(result).not.toContain('role="heading"');
+  });
+
+  it("native heading nested inside a div is still visible as context to an ARIA heading in a sibling div", () => {
+    const html = `<div><h4>Nested Native</h4></div><div><span role="heading">Sibling ARIA</span></div>`;
+    const result = applyAriaHeadingRoleFix(html);
+    expect(result).toContain("<h4>Sibling ARIA</h4>");
+    expect(result).not.toContain('role="heading"');
+  });
+
+  it("ignores a native heading that appears after the ARIA heading in DFS order even when in a nested structure", () => {
+    const html = `<div><span role="heading">First</span></div><div><h3>Later</h3></div>`;
+    const result = applyAriaHeadingRoleFix(html);
+    // No preceding heading exists, so falls back to h2
+    expect(result).toContain("<h2>First</h2>");
+    expect(result).not.toContain('role="heading"');
+  });
+
   it("elementsFixed equals the number of non-heading elements with role=heading", async () => {
     const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><main><h1>T</h1><div role="heading" aria-level="2">A</div><span role="heading" aria-level="3">B</span><p role="heading">C</p></main></body></html>`;
     const issues = runDeterministicChecks(html);
