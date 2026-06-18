@@ -253,6 +253,37 @@ const checkAccessibility = (content: string): AccessibilityIssue[] => {
     if (reportedMissingCaption && reportedMissingThead) break;
   }
 
+  // Check for ARIA role misuse on non-native elements
+  if (/role\s*=\s*["']?combobox["']?/i.test(content) && !/<(select|input)[^>]*role\s*=\s*["']?combobox/i.test(content)) {
+    issues.push({
+      type: "accessibility",
+      severity: "warning",
+      message: 'ARIA role="combobox" found on a non-native element',
+      fix: 'Replace non-input elements that use role="combobox" with a native <select> or <input> element for proper keyboard and screen reader support',
+      fixType: "fix-aria-combobox",
+    });
+  }
+
+  if (/role\s*=\s*["']?grid["']?/i.test(content) && !/<table[^>]*role\s*=\s*["']?grid/i.test(content)) {
+    issues.push({
+      type: "accessibility",
+      severity: "warning",
+      message: 'ARIA role="grid" found on a non-table element',
+      fix: 'Replace non-table elements that use role="grid" with a native <table> element so screen readers can announce rows and columns correctly',
+      fixType: "fix-aria-grid",
+    });
+  }
+
+  if (/role\s*=\s*["']?tab["']?/i.test(content) && !/<(button|a)[^>]*role\s*=\s*["']?tab/i.test(content)) {
+    issues.push({
+      type: "accessibility",
+      severity: "warning",
+      message: 'ARIA role="tab" found on a non-interactive element',
+      fix: 'Replace non-interactive elements that use role="tab" with a native <button> or <a> element for full keyboard accessibility',
+      fixType: "fix-aria-tab",
+    });
+  }
+
   return issues;
 };
 
@@ -1165,6 +1196,25 @@ export default function ResultPage() {
                           {issue.fixType === "fix-vague-link-text" && (
                             <div className="mt-2 px-3 py-2 rounded-md bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-xs text-blue-800 dark:text-blue-300">
                               <strong>Title II notice:</strong> When applied, this fix will update your link text to meet Title II accessibility requirements using AI-generated descriptions based on surrounding context. The destination URLs are preserved — please verify each link still points to the correct location after applying.
+                            </div>
+                          )}
+                          {(issue.fixType === "fix-aria-combobox" ||
+                            issue.fixType === "fix-aria-grid" ||
+                            issue.fixType === "fix-aria-tab") && (
+                            <div
+                              className="mt-2 rounded-lg border bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800 px-3 py-2.5 space-y-1"
+                              data-testid={`aria-fix-callout-${issue.fixType}`}
+                            >
+                              <p className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wide">
+                                What this fix does
+                              </p>
+                              <p className="text-sm text-amber-900 dark:text-amber-200">
+                                {issue.fixType === "fix-aria-combobox"
+                                  ? "Swaps each element using role=\"combobox\" for a native <select> element, keeping all existing attributes. A native <select> provides the built-in keyboard and screen-reader support that assistive technology expects."
+                                  : issue.fixType === "fix-aria-grid"
+                                  ? "Swaps each element using role=\"grid\" for a native <table> element, keeping all existing attributes. A native <table> lets screen readers announce rows and columns without relying on ARIA."
+                                  : "Swaps each element using role=\"tab\" for a native <button> element, keeping all existing attributes. A native <button> is keyboard-focusable and announced correctly by screen readers without extra ARIA."}
+                              </p>
                             </div>
                           )}
                         </div>

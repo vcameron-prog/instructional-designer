@@ -2277,6 +2277,15 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           fixedContent = await fixVagueLinkTextAI(content.content);
         } else if (fixType === "fix-all-caps") {
           fixedContent = fixAllCaps(content.content);
+        } else if (fixType === "fix-aria-combobox") {
+          const { applyAriaComboboxRoleFix } = await import("./lib/accessibility-engine");
+          fixedContent = applyAriaComboboxRoleFix(content.content);
+        } else if (fixType === "fix-aria-grid") {
+          const { applyAriaGridRoleFix } = await import("./lib/accessibility-engine");
+          fixedContent = applyAriaGridRoleFix(content.content);
+        } else if (fixType === "fix-aria-tab") {
+          const { applyAriaTabRoleFix } = await import("./lib/accessibility-engine");
+          fixedContent = applyAriaTabRoleFix(content.content);
         } else {
           return res.status(400).json({ error: "Unknown fix type" });
         }
@@ -2343,6 +2352,15 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           const result = fixHtmlTableThead(content.content);
           fixedContent = result.html;
           tablesFixed = result.tablesFixed;
+        } else if (fixType === "fix-aria-combobox") {
+          const { applyAriaComboboxRoleFix } = await import("./lib/accessibility-engine");
+          fixedContent = applyAriaComboboxRoleFix(content.content);
+        } else if (fixType === "fix-aria-grid") {
+          const { applyAriaGridRoleFix } = await import("./lib/accessibility-engine");
+          fixedContent = applyAriaGridRoleFix(content.content);
+        } else if (fixType === "fix-aria-tab") {
+          const { applyAriaTabRoleFix } = await import("./lib/accessibility-engine");
+          fixedContent = applyAriaTabRoleFix(content.content);
         } else {
           return res.status(400).json({ error: "Unknown fix type" });
         }
