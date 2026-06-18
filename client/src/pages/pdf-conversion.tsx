@@ -30,6 +30,12 @@ import {
   Globe,
   ExternalLink,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { HeaderControls } from "@/components/header-controls";
@@ -917,6 +923,68 @@ export default function PdfConversion() {
                     )}
                     Download HTML
                   </button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        disabled={isDownloading || isDownloadingDocx || isDownloadingPdf}
+                        className="inline-flex items-center gap-2 px-4 py-2 border border-border bg-card text-foreground rounded-xl text-sm font-bold shadow-sm hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:transform-none"
+                        data-testid="button-download-as"
+                        aria-label="Download as a different format"
+                      >
+                        {(isDownloading || isDownloadingDocx || isDownloadingPdf) ? (
+                          <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+                        ) : (
+                          <Download className="w-4 h-4" aria-hidden="true" />
+                        )}
+                        Download as…
+                        <ChevronDown className="w-3.5 h-3.5 opacity-70" aria-hidden="true" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-52">
+                      <DropdownMenuItem
+                        onClick={handleDownload}
+                        disabled={isDownloading}
+                        data-testid="menu-download-html"
+                        className="gap-2 cursor-pointer"
+                      >
+                        {isDownloading ? (
+                          <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+                        ) : (
+                          <Code className="w-4 h-4" aria-hidden="true" />
+                        )}
+                        HTML
+                        <span className="ml-auto text-xs text-muted-foreground">(.html)</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={handleDownloadDocx}
+                        disabled={isDownloadingDocx}
+                        data-testid="menu-download-docx"
+                        className="gap-2 cursor-pointer"
+                      >
+                        {isDownloadingDocx ? (
+                          <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+                        ) : (
+                          <FileText className="w-4 h-4" aria-hidden="true" />
+                        )}
+                        Word Document
+                        <span className="ml-auto text-xs text-muted-foreground">(.docx)</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={handleDownloadPdf}
+                        disabled={isDownloadingPdf}
+                        data-testid="menu-download-pdf"
+                        className="gap-2 cursor-pointer"
+                      >
+                        {isDownloadingPdf ? (
+                          <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+                        ) : (
+                          <FileCheck2 className="w-4 h-4" aria-hidden="true" />
+                        )}
+                        Tagged PDF
+                        <span className="ml-auto text-xs text-muted-foreground">(.pdf)</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                   <button
                     onClick={handleCopyHtml}
                     disabled={copyState === "copying"}
