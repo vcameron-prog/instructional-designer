@@ -136,7 +136,7 @@ const activeDocxExportKeys = new Set<string>();
 const activePdfExportKeys = new Set<string>();
 
 let activeXlsxExports = 0;
-const MAX_CONCURRENT_XLSX_EXPORTS = parseInt(process.env.MAX_CONCURRENT_XLSX_EXPORTS ?? "3", 10) || 3;
+export const MAX_CONCURRENT_XLSX_EXPORTS = parseInt(process.env.MAX_CONCURRENT_XLSX_EXPORTS ?? "3", 10) || 3;
 const activeXlsxExportKeys = new Set<string>();
 
 // Generate prompt based on tool and course info
