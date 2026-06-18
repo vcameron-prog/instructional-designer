@@ -52,6 +52,13 @@ function updateUserSession(
   user.expires_at = user.claims?.exp;
 }
 
+function persistSession(req: Parameters<RequestHandler>[0], user: any): Promise<void> {
+  (req.session as any).passport = { user };
+  return new Promise((resolve, reject) =>
+    req.session.save((err) => (err ? reject(err) : resolve()))
+  );
+}
+
 async function upsertUser(claims: any) {
   await authStorage.upsertUser({
     id: claims["sub"],
@@ -159,6 +166,7 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
     const config = await getOidcConfig();
     const tokenResponse = await client.refreshTokenGrant(config, refreshToken);
     updateUserSession(user, tokenResponse);
+    await persistSession(req, user);
     return next();
   } catch (error) {
     res.status(401).json({ message: "Unauthorized" });
@@ -186,6 +194,7 @@ export const isBsuAuthenticated: RequestHandler = async (req, res, next) => {
       const config = await getOidcConfig();
       const tokenResponse = await client.refreshTokenGrant(config, refreshToken);
       updateUserSession(user, tokenResponse);
+      await persistSession(req, user);
     } catch {
       return res.status(401).json({ message: "Unauthorized" });
     }
@@ -224,6 +233,7 @@ export const optionalAuth: RequestHandler = async (req, _res, next) => {
       const config = await getOidcConfig();
       const tokenResponse = await client.refreshTokenGrant(config, refreshToken);
       updateUserSession(user, tokenResponse);
+      await persistSession(req, user);
     } catch {
       req.logout(() => {});
     }
