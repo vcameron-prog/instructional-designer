@@ -393,6 +393,14 @@ const FORMAT_CASES: Array<{
     rawError: "slide parse error",
   },
   {
+    srcType: "google-doc",
+    setupExtractorThrow: () =>
+      mockExtractDocxContent.mockRejectedValueOnce(new Error("mammoth extraction failed")),
+    expectedMessage:
+      "This Google Doc could not be extracted. It may be in an unsupported format or corrupted.",
+    rawError: "mammoth extraction failed",
+  },
+  {
     srcType: "google-sheet",
     setupExtractorThrow: () =>
       mockExtractXlsxContent.mockRejectedValueOnce(new Error("network timeout")),
