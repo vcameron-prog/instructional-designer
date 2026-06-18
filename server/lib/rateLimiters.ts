@@ -74,6 +74,19 @@ export function getRateLimitCleanupMetrics(): {
 }
 
 /**
+ * Reset in-memory cleanup counters to their initial (zero) state.
+ *
+ * This is intentionally exported only for use in automated tests that need
+ * to simulate a process restart before calling initRateLimitCleanupMetrics.
+ * Do NOT call this in production code.
+ */
+export function _resetCleanupMetricsForTest(): void {
+  _cleanupLastRunAt = null;
+  _cleanupLastErrorAt = null;
+  _cleanupRowsDeletedTotal = 0;
+}
+
+/**
  * Seed in-memory cleanup counters from the DB on server startup so metrics
  * survive process restarts and deployments.
  */
