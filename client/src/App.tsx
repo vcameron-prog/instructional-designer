@@ -20,7 +20,6 @@ import PdfConversion from "@/pages/pdf-conversion";
 import PdfFaq from "@/pages/pdf-faq";
 import AdminDashboard from "@/pages/admin-dashboard";
 import SettingsPage from "@/pages/settings";
-import { WelcomeModal } from "@/components/welcome-modal";
 import { ThemeProvider } from "@/components/theme-provider";
 import { FontSizeProvider } from "@/components/font-size-provider";
 
@@ -87,7 +86,6 @@ function App() {
             <a href="#main-content" className="skip-nav">
               Skip to main content
             </a>
-            <WelcomeModal />
             <Toaster />
             <FocusManager />
             <Router />
