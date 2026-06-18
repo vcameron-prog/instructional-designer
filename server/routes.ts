@@ -110,7 +110,15 @@ export const MAX_CONCURRENT_FIXES = parseInt(process.env.MAX_CONCURRENT_FIXES ??
 const activeFixKeys = new Set<string>();
 
 let activeDocxExports = 0;
-const MAX_CONCURRENT_DOCX_EXPORTS = parseInt(process.env.MAX_CONCURRENT_DOCX_EXPORTS ?? "3", 10) || 3;
+// Exported so the 503 concurrency-cap test can derive its slot count from the
+// actual constant rather than hardcoding a magic number. If this value ever
+// changes, the test stays correct automatically.
+export const MAX_CONCURRENT_DOCX_EXPORTS = parseInt(process.env.MAX_CONCURRENT_DOCX_EXPORTS ?? "3", 10) || 3;
+// Test-only: lets the 503 concurrency-cap test prime and reset the counter
+// without needing real in-flight jobs.  Never call this in production code.
+export function _testSetActiveDocxExports(n: number): void {
+  activeDocxExports = n;
+}
 // Per-conversion export dedup keys — prevent the same completed document from
 // being exported multiple times concurrently on the same instance, which would
 // duplicate Chromium/DOCX-builder work and exhaust concurrency slots.
