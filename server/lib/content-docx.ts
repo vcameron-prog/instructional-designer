@@ -1,12 +1,15 @@
 import {
   Document,
   Paragraph,
+  Table,
   TextRun,
   HeadingLevel,
   AlignmentType,
   BorderStyle,
   Packer,
 } from "docx";
+import { parse, HTMLElement as HtmlElement } from "node-html-parser";
+import { processTable } from "./docx-builder.js";
 
 export interface ContentDocxItem {
   toolName: string;
@@ -70,11 +73,121 @@ function parseInlineFormatting(text: string): TextRun[] {
   );
 }
 
+const TABLE_BLOCK_RE = /(<table[\s\S]*?<\/table>)/gi;
+
+function processMarkdownLines(
+  text: string,
+  out: (Paragraph | Table)[],
+): void {
+  const lines = text.split("\n");
+
+  for (const line of lines) {
+    if (!line.trim()) {
+      out.push(new Paragraph({ children: [] }));
+      continue;
+    }
+
+    if (line.startsWith("# ")) {
+      out.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: line.replace(/^# /, ""),
+              bold: true,
+              size: 32,
+              color: "7C1D32",
+            }),
+          ],
+          heading: HeadingLevel.HEADING_1,
+          spacing: { before: 400, after: 200 },
+        }),
+      );
+    } else if (line.startsWith("## ")) {
+      out.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: line.replace(/^## /, ""),
+              bold: true,
+              size: 28,
+              color: "333333",
+            }),
+          ],
+          heading: HeadingLevel.HEADING_2,
+          spacing: { before: 300, after: 150 },
+        }),
+      );
+    } else if (line.startsWith("### ")) {
+      out.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: line.replace(/^### /, ""),
+              bold: true,
+              size: 24,
+            }),
+          ],
+          heading: HeadingLevel.HEADING_3,
+          spacing: { before: 200, after: 100 },
+        }),
+      );
+    } else if (line.startsWith("**") && line.endsWith("**")) {
+      out.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: line.replace(/\*\*/g, ""),
+              bold: true,
+              size: 24,
+            }),
+          ],
+          spacing: { before: 200, after: 80 },
+        }),
+      );
+    } else if (line.match(/^[-*] /)) {
+      const textRuns = parseInlineFormatting(line.replace(/^[-*] /, ""));
+      out.push(
+        new Paragraph({
+          children: textRuns,
+          bullet: { level: 0 },
+          spacing: { after: 80 },
+        }),
+      );
+    } else if (line.match(/^\d+\. /)) {
+      const textRuns = parseInlineFormatting(line.replace(/^\d+\. /, ""));
+      out.push(
+        new Paragraph({
+          children: textRuns,
+          numbering: { reference: "content-numbering", level: 0 },
+          spacing: { after: 80 },
+        }),
+      );
+    } else if (line.startsWith("   - ") || line.startsWith("   * ")) {
+      const textRuns = parseInlineFormatting(line.replace(/^   [-*] /, ""));
+      out.push(
+        new Paragraph({
+          children: textRuns,
+          bullet: { level: 1 },
+          spacing: { after: 60 },
+        }),
+      );
+    } else {
+      const textRuns = parseInlineFormatting(line);
+      out.push(
+        new Paragraph({
+          children: textRuns,
+          spacing: { after: 120 },
+        }),
+      );
+    }
+  }
+}
+
 export async function buildContentDocx(
   item: ContentDocxItem,
   course: ContentDocxCourse | null,
 ): Promise<Buffer> {
-  const children: Paragraph[] = [];
+  const children: (Paragraph | Table)[] = [];
 
   children.push(
     new Paragraph({
@@ -126,106 +239,18 @@ export async function buildContentDocx(
     }),
   );
 
-  const lines = item.content.split("\n");
+  const segments = item.content.split(TABLE_BLOCK_RE);
 
-  for (const line of lines) {
-    if (!line.trim()) {
-      children.push(new Paragraph({ children: [] }));
-      continue;
-    }
-
-    if (line.startsWith("# ")) {
-      children.push(
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: line.replace(/^# /, ""),
-              bold: true,
-              size: 32,
-              color: "7C1D32",
-            }),
-          ],
-          heading: HeadingLevel.HEADING_1,
-          spacing: { before: 400, after: 200 },
-        }),
-      );
-    } else if (line.startsWith("## ")) {
-      children.push(
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: line.replace(/^## /, ""),
-              bold: true,
-              size: 28,
-              color: "333333",
-            }),
-          ],
-          heading: HeadingLevel.HEADING_2,
-          spacing: { before: 300, after: 150 },
-        }),
-      );
-    } else if (line.startsWith("### ")) {
-      children.push(
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: line.replace(/^### /, ""),
-              bold: true,
-              size: 24,
-            }),
-          ],
-          heading: HeadingLevel.HEADING_3,
-          spacing: { before: 200, after: 100 },
-        }),
-      );
-    } else if (line.startsWith("**") && line.endsWith("**")) {
-      children.push(
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: line.replace(/\*\*/g, ""),
-              bold: true,
-              size: 24,
-            }),
-          ],
-          spacing: { before: 200, after: 80 },
-        }),
-      );
-    } else if (line.match(/^[-*] /)) {
-      const textRuns = parseInlineFormatting(line.replace(/^[-*] /, ""));
-      children.push(
-        new Paragraph({
-          children: textRuns,
-          bullet: { level: 0 },
-          spacing: { after: 80 },
-        }),
-      );
-    } else if (line.match(/^\d+\. /)) {
-      const textRuns = parseInlineFormatting(line.replace(/^\d+\. /, ""));
-      children.push(
-        new Paragraph({
-          children: textRuns,
-          numbering: { reference: "content-numbering", level: 0 },
-          spacing: { after: 80 },
-        }),
-      );
-    } else if (line.startsWith("   - ") || line.startsWith("   * ")) {
-      const textRuns = parseInlineFormatting(line.replace(/^   [-*] /, ""));
-      children.push(
-        new Paragraph({
-          children: textRuns,
-          bullet: { level: 1 },
-          spacing: { after: 60 },
-        }),
-      );
+  for (const segment of segments) {
+    if (/^<table/i.test(segment.trimStart())) {
+      const root = parse(segment);
+      const tableEl = root.querySelector("table") as HtmlElement | null;
+      if (tableEl) {
+        const table = processTable(tableEl);
+        if (table) children.push(table);
+      }
     } else {
-      const textRuns = parseInlineFormatting(line);
-      children.push(
-        new Paragraph({
-          children: textRuns,
-          spacing: { after: 120 },
-        }),
-      );
+      processMarkdownLines(segment, children);
     }
   }
 

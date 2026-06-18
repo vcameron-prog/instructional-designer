@@ -158,7 +158,7 @@ function safePlainText(el: HTMLElement): string {
   }
 }
 
-function processTable(el: HTMLElement): Table | null {
+export function processTable(el: HTMLElement): Table | null {
   const rows: TableRow[] = [];
   const tableRows = el.querySelectorAll("tr");
   if (tableRows.length === 0) return null;
