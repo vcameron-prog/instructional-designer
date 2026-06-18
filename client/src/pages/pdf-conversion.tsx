@@ -430,6 +430,7 @@ export default function PdfConversion() {
 
   const autoStartedRef = useRef<number | null>(null);
   const htmlPreviewRef = useRef<HTMLDivElement | null>(null);
+  const hoverScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const processingStartRef = useRef<number | null>(null);
   const lastStatusMessageRef = useRef<string | null | undefined>(undefined);
   const lastStatusChangeRef = useRef<number | null>(null);
@@ -561,6 +562,15 @@ export default function PdfConversion() {
       img.classList.remove("ring-2", "ring-amber-500", "ring-offset-2");
     });
   }, [htmlViewMode, expandedIssues]);
+
+  useEffect(() => {
+    return () => {
+      if (hoverScrollTimerRef.current) {
+        clearTimeout(hoverScrollTimerRef.current);
+        hoverScrollTimerRef.current = null;
+      }
+    };
+  }, []);
 
   const copyAllFilenames = useCallback((filenames: string[], issueIndex: number) => {
     const text = filenames.join("\n");
@@ -1873,8 +1883,25 @@ export default function PdfConversion() {
                                         key={imgIdx}
                                         className="flex items-center gap-2 rounded px-1 -mx-1 transition-colors hover:bg-amber-100/60 dark:hover:bg-amber-900/20 cursor-default"
                                         data-testid={`missing-alt-image-item-${imgIdx}`}
-                                        onMouseEnter={() => highlightImage(item.originalIndex)}
-                                        onMouseLeave={() => unhighlightImage(item.originalIndex)}
+                                        onMouseEnter={() => {
+                                          highlightImage(item.originalIndex);
+                                          if (hoverScrollTimerRef.current) clearTimeout(hoverScrollTimerRef.current);
+                                          hoverScrollTimerRef.current = setTimeout(() => {
+                                            hoverScrollTimerRef.current = null;
+                                            if (htmlPreviewRef.current) {
+                                              const imgs = htmlPreviewRef.current.querySelectorAll("img");
+                                              const target = imgs[item.originalIndex];
+                                              if (target) target.scrollIntoView({ behavior: "smooth", block: "center" });
+                                            }
+                                          }, 800);
+                                        }}
+                                        onMouseLeave={() => {
+                                          unhighlightImage(item.originalIndex);
+                                          if (hoverScrollTimerRef.current) {
+                                            clearTimeout(hoverScrollTimerRef.current);
+                                            hoverScrollTimerRef.current = null;
+                                          }
+                                        }}
                                       >
                                         {item.src ? (
                                           <img
