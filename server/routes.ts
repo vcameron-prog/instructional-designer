@@ -2513,8 +2513,8 @@ export async function registerRoutes(
           if (!course) {
             return res.status(404).json({ error: "Content not found" });
           }
-        } else if (content.userId !== userId) {
-          return res.status(404).json({ error: "Content not found" });
+        } else if (!content.userId || content.userId !== userId) {
+          return res.status(403).json({ error: "Forbidden" });
         }
 
         if (!await checkSharedRateLimit(userId, "ai-gen", AI_GEN_RATE_LIMIT, AI_GEN_RATE_WINDOW_MS, () => checkAiGenRateLimit(userId))) {
@@ -2652,7 +2652,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           if (!userId) return res.status(403).json({ error: "Unauthorized" });
           const course = await storage.getCourse(content.courseId, userId);
           if (!course) return res.status(404).json({ error: "Content not found" });
-        } else if (content.userId && content.userId !== userId) {
+        } else if (!content.userId || content.userId !== userId) {
           return res.status(403).json({ error: "Unauthorized" });
         }
 
@@ -2774,7 +2774,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           if (!userId) return res.status(403).json({ error: "Unauthorized" });
           const course = await storage.getCourse(content.courseId, userId);
           if (!course) return res.status(404).json({ error: "Content not found" });
-        } else if (content.userId && content.userId !== userId) {
+        } else if (!content.userId || content.userId !== userId) {
           return res.status(403).json({ error: "Unauthorized" });
         }
 

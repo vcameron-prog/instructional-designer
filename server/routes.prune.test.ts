@@ -84,7 +84,10 @@ vi.mock("./replit_integrations/auth", () => ({
     req.user = { claims: { sub: "test-user-prune" } };
     next();
   },
-  optionalAuth: (_req: any, _res: any, next: any) => next(),
+  optionalAuth: (req: any, _res: any, next: any) => {
+    req.user = { claims: { sub: "test-user-opt" } };
+    next();
+  },
   getSession: vi.fn(),
 }));
 
@@ -315,7 +318,7 @@ describe("pruneOldVersions is called correctly from route handlers", () => {
         content: originalContent,
         toolName: "assignment",
         courseId: null,
-        userId: null,
+        userId: "test-user-opt",
       });
       mockCreateVersion.mockResolvedValue({
         id: 88,
@@ -329,7 +332,7 @@ describe("pruneOldVersions is called correctly from route handlers", () => {
         content: "# Title\n## Section\n### Skipped Section",
         toolName: "assignment",
         courseId: null,
-        userId: null,
+        userId: "test-user-opt",
       });
 
       const response = await request(app)
@@ -354,7 +357,7 @@ describe("pruneOldVersions is called correctly from route handlers", () => {
         content: unchangedContent,
         toolName: "rubric",
         courseId: null,
-        userId: null,
+        userId: "test-user-opt",
       });
 
       await request(app)
@@ -376,7 +379,7 @@ describe("pruneOldVersions is called correctly from route handlers", () => {
         content: originalContent,
         toolName: "syllabus",
         courseId: null,
-        userId: null,
+        userId: "test-user-opt",
       });
       mockCreateVersion.mockResolvedValue({ id: 77, generatedContentId: contentId });
       mockUpdateContent.mockResolvedValue({ id: contentId, content: "# A\n## B\n### C" });
@@ -405,7 +408,7 @@ describe("pruneOldVersions is called correctly from route handlers", () => {
         content: originalContent,
         toolName: "assignment",
         courseId: null,
-        userId: null,
+        userId: "test-user-opt",
       });
       mockCreateVersion.mockResolvedValue({
         id: 201,
@@ -419,7 +422,7 @@ describe("pruneOldVersions is called correctly from route handlers", () => {
         content: convertedContent,
         toolName: "assignment",
         courseId: null,
-        userId: null,
+        userId: "test-user-opt",
       });
       // Override the passthrough so the fixer reports a real change
       mockConvertMarkdownTablesToHtml.mockReturnValue(convertedContent);
@@ -443,7 +446,7 @@ describe("pruneOldVersions is called correctly from route handlers", () => {
         content: alreadyHtml,
         toolName: "rubric",
         courseId: null,
-        userId: null,
+        userId: "test-user-opt",
       });
       // Default mock is already a passthrough; no override needed
 
@@ -469,7 +472,7 @@ describe("pruneOldVersions is called correctly from route handlers", () => {
         content: originalContent,
         toolName: "assignment",
         courseId: null,
-        userId: null,
+        userId: "test-user-opt",
       });
       mockCreateVersion.mockResolvedValue({
         id: 301,
@@ -483,7 +486,7 @@ describe("pruneOldVersions is called correctly from route handlers", () => {
         content: fixedContent,
         toolName: "assignment",
         courseId: null,
-        userId: null,
+        userId: "test-user-opt",
       });
       // Override the passthrough so the fixer reports a real change
       mockFixHtmlTableCaption.mockReturnValue({ html: fixedContent, tablesFixed: 1 });
@@ -507,7 +510,7 @@ describe("pruneOldVersions is called correctly from route handlers", () => {
         content: alreadyCaptioned,
         toolName: "rubric",
         courseId: null,
-        userId: null,
+        userId: "test-user-opt",
       });
       // Default mock returns { html: same content, tablesFixed: 0 } — no change
 
@@ -534,7 +537,7 @@ describe("pruneOldVersions is called correctly from route handlers", () => {
         content: originalContent,
         toolName: "assignment",
         courseId: null,
-        userId: null,
+        userId: "test-user-opt",
       });
       mockCreateVersion.mockResolvedValue({
         id: 401,
@@ -548,7 +551,7 @@ describe("pruneOldVersions is called correctly from route handlers", () => {
         content: fixedContent,
         toolName: "assignment",
         courseId: null,
-        userId: null,
+        userId: "test-user-opt",
       });
 
       const response = await request(app)
@@ -571,7 +574,7 @@ describe("pruneOldVersions is called correctly from route handlers", () => {
         content: noAllCapsContent,
         toolName: "rubric",
         courseId: null,
-        userId: null,
+        userId: "test-user-opt",
       });
 
       await request(app)
@@ -596,7 +599,7 @@ describe("pruneOldVersions is called correctly from route handlers", () => {
         content: originalContent,
         toolName: "assignment",
         courseId: null,
-        userId: null,
+        userId: "test-user-opt",
       });
       mockCreateVersion.mockResolvedValue({
         id: 501,
@@ -610,7 +613,7 @@ describe("pruneOldVersions is called correctly from route handlers", () => {
         content: fixedContent,
         toolName: "assignment",
         courseId: null,
-        userId: null,
+        userId: "test-user-opt",
       });
       // Override the passthrough so the fixer reports a real change
       mockFixHtmlTableThead.mockReturnValue({ html: fixedContent, tablesFixed: 1 });
@@ -634,7 +637,7 @@ describe("pruneOldVersions is called correctly from route handlers", () => {
         content: alreadyThead,
         toolName: "rubric",
         courseId: null,
-        userId: null,
+        userId: "test-user-opt",
       });
       // Default mock returns { html: same content, tablesFixed: 0 } — no change
 
@@ -660,7 +663,7 @@ describe("pruneOldVersions is called correctly from route handlers", () => {
         content: originalContent,
         toolName: "assignment",
         courseId: null,
-        userId: null,
+        userId: "test-user-opt",
       });
       mockCreateVersion.mockResolvedValue({
         id: 601,
@@ -674,7 +677,7 @@ describe("pruneOldVersions is called correctly from route handlers", () => {
         content: editedContent,
         toolName: "assignment",
         courseId: null,
-        userId: null,
+        userId: "test-user-opt",
       });
       // Override the passthrough so the fixer returns different content
       mockEditHtmlTableCaption.mockReturnValue(editedContent);
@@ -698,7 +701,7 @@ describe("pruneOldVersions is called correctly from route handlers", () => {
         content: unchangedContent,
         toolName: "rubric",
         courseId: null,
-        userId: null,
+        userId: "test-user-opt",
       });
       // Default mock returns the same html string — no change
 
@@ -724,7 +727,7 @@ describe("pruneOldVersions is called correctly from route handlers", () => {
         content: originalContent,
         toolName: "assignment",
         courseId: null,
-        userId: null,
+        userId: "test-user-opt",
       });
       mockCreateVersion.mockResolvedValue({
         id: 631,
@@ -738,7 +741,7 @@ describe("pruneOldVersions is called correctly from route handlers", () => {
         content: fixedContent,
         toolName: "assignment",
         courseId: null,
-        userId: null,
+        userId: "test-user-opt",
       });
       mockApplyAriaComboboxRoleFix.mockReturnValue(fixedContent);
 
@@ -763,7 +766,7 @@ describe("pruneOldVersions is called correctly from route handlers", () => {
         content: alreadyFixed,
         toolName: "rubric",
         courseId: null,
-        userId: null,
+        userId: "test-user-opt",
       });
       // Default mock is a passthrough — no change
 
@@ -790,7 +793,7 @@ describe("pruneOldVersions is called correctly from route handlers", () => {
         content: originalContent,
         toolName: "assignment",
         courseId: null,
-        userId: null,
+        userId: "test-user-opt",
       });
       mockCreateVersion.mockResolvedValue({
         id: 611,
@@ -804,7 +807,7 @@ describe("pruneOldVersions is called correctly from route handlers", () => {
         content: fixedContent,
         toolName: "assignment",
         courseId: null,
-        userId: null,
+        userId: "test-user-opt",
       });
       mockApplyAriaGridRoleFix.mockReturnValue(fixedContent);
 
@@ -829,7 +832,7 @@ describe("pruneOldVersions is called correctly from route handlers", () => {
         content: alreadyFixed,
         toolName: "rubric",
         courseId: null,
-        userId: null,
+        userId: "test-user-opt",
       });
 
       await request(app)
@@ -855,7 +858,7 @@ describe("pruneOldVersions is called correctly from route handlers", () => {
         content: originalContent,
         toolName: "assignment",
         courseId: null,
-        userId: null,
+        userId: "test-user-opt",
       });
       mockCreateVersion.mockResolvedValue({
         id: 621,
@@ -869,7 +872,7 @@ describe("pruneOldVersions is called correctly from route handlers", () => {
         content: fixedContent,
         toolName: "assignment",
         courseId: null,
-        userId: null,
+        userId: "test-user-opt",
       });
       mockApplyAriaTabRoleFix.mockReturnValue(fixedContent);
 
@@ -894,7 +897,7 @@ describe("pruneOldVersions is called correctly from route handlers", () => {
         content: alreadyFixed,
         toolName: "rubric",
         courseId: null,
-        userId: null,
+        userId: "test-user-opt",
       });
 
       await request(app)
