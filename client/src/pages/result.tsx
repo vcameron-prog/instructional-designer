@@ -1673,34 +1673,57 @@ export default function ResultPage() {
           </DialogHeader>
 
           {captionStep === "preview" && captionEditMode === "add" ? (
-            <div className="space-y-4 max-h-80 overflow-y-auto pr-1">
-              {captionTexts.map((text, index) => {
-                const cells = captionTablePreviews[index] ?? [];
-                return (
-                  <div key={index} className="rounded-md border border-border overflow-hidden text-sm">
-                    <div className="bg-muted/60 px-3 py-2 font-medium text-foreground flex items-center gap-2">
-                      <span className="text-xs uppercase tracking-wide text-muted-foreground">Caption</span>
-                      <span data-testid={`preview-caption-${index}`} className="font-semibold">{text || <span className="italic text-muted-foreground">No caption entered</span>}</span>
-                    </div>
-                    {cells.length > 0 ? (
-                      <div className="px-3 py-2 bg-background">
-                        <p className="text-xs text-muted-foreground mb-1">Table {index + 1} content preview:</p>
-                        <div className="flex flex-wrap gap-1">
-                          {cells.map((cell, ci) => (
-                            <span key={ci} className="inline-block bg-muted rounded px-2 py-0.5 text-xs text-muted-foreground max-w-[16ch] truncate" title={cell}>
-                              {cell}
-                            </span>
-                          ))}
+            <div className="space-y-3">
+              <div className="space-y-4 max-h-80 overflow-y-auto pr-1">
+                {captionTexts.map((text, index) => {
+                  const cells = captionTablePreviews[index] ?? [];
+                  return (
+                    <div key={index} className="rounded-md border border-border overflow-hidden text-sm">
+                      <div className="bg-muted/60 px-3 py-2 font-medium text-foreground flex items-center gap-2">
+                        <span className="text-xs uppercase tracking-wide text-muted-foreground">Caption</span>
+                        <span data-testid={`preview-caption-${index}`} className="font-semibold">{text || <span className="italic text-muted-foreground">No caption entered</span>}</span>
+                      </div>
+                      {cells.length > 0 ? (
+                        <div className="px-3 py-2 bg-background">
+                          <p className="text-xs text-muted-foreground mb-1">Table {index + 1} content preview:</p>
+                          <div className="flex flex-wrap gap-1">
+                            {cells.map((cell, ci) => (
+                              <span key={ci} className="inline-block bg-muted rounded px-2 py-0.5 text-xs text-muted-foreground max-w-[16ch] truncate" title={cell}>
+                                {cell}
+                              </span>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    ) : (
-                      <div className="px-3 py-2 bg-background text-xs text-muted-foreground italic">
-                        Table {index + 1} — no preview available
-                      </div>
-                    )}
+                      ) : (
+                        <div className="px-3 py-2 bg-background text-xs text-muted-foreground italic">
+                          Table {index + 1} — no preview available
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              {(() => {
+                const groups: Record<string, number[]> = {};
+                captionTexts.forEach((t, i) => {
+                  const key = t.trim().toLowerCase();
+                  if (!key) return;
+                  if (!groups[key]) groups[key] = [];
+                  groups[key].push(i + 1);
+                });
+                const dupes = Object.values(groups).filter((indices) => indices.length > 1);
+                if (dupes.length === 0) return null;
+                return (
+                  <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300" role="alert" data-testid="warning-duplicate-caption-preview">
+                    <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
+                    <span>
+                      {dupes.length === 1
+                        ? `Tables ${dupes[0].map((n) => `#${n}`).join(" and ")} share the same caption. Go back and give each table a unique description.`
+                        : `${dupes.length} groups of tables share duplicate captions (${dupes.map((g) => g.map((n) => `#${n}`).join(" & ")).join("; ")}). Go back and give each table a unique description.`}
+                    </span>
                   </div>
                 );
-              })}
+              })()}
             </div>
           ) : (
             <>
@@ -1749,6 +1772,27 @@ export default function ResultPage() {
                   </span>
                 </div>
               )}
+              {captionEditMode === "add" && (() => {
+                const groups: Record<string, number[]> = {};
+                captionTexts.forEach((t, i) => {
+                  const key = t.trim().toLowerCase();
+                  if (!key) return;
+                  if (!groups[key]) groups[key] = [];
+                  groups[key].push(i + 1);
+                });
+                const dupes = Object.values(groups).filter((indices) => indices.length > 1);
+                if (dupes.length === 0) return null;
+                return (
+                  <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300" role="alert" data-testid="warning-duplicate-caption">
+                    <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
+                    <span>
+                      {dupes.length === 1
+                        ? `Tables ${dupes[0].map((n) => `#${n}`).join(" and ")} share the same caption. Each caption should uniquely describe its table.`
+                        : `${dupes.length} groups of tables share duplicate captions (${dupes.map((g) => g.map((n) => `#${n}`).join(" & ")).join("; ")}). Each caption should uniquely describe its table.`}
+                    </span>
+                  </div>
+                );
+              })()}
             </>
           )}
 
