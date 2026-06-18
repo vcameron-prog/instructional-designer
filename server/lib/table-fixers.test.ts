@@ -225,3 +225,118 @@ describe("fixHtmlTableThead — nested tables", () => {
     expect(output).toContain("<thead>");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Full pipeline integration — fixHtmlTableCaption then fixHtmlTableThead
+//
+// These tests exercise both fixers applied sequentially, verifying that the
+// two fixers compose correctly and do not interfere with each other's output
+// when nested tables are involved.
+// ---------------------------------------------------------------------------
+describe("full pipeline — fixHtmlTableCaption then fixHtmlTableThead on nested tables", () => {
+  it("adds caption and thead to both outer and inner table when both are missing", () => {
+    const inner = `<table><tr><td>IH</td></tr><tr><td>ID</td></tr></table>`;
+    const outer = `<table><tr><td>${inner}</td></tr><tr><td>OD</td></tr></table>`;
+
+    const stage1 = fixHtmlTableCaption(outer);
+    const result = fixHtmlTableThead(stage1);
+
+    // Both tables must have a caption.
+    expect((result.match(/<caption>Table summary<\/caption>/gi) ?? []).length).toBe(2);
+    // Both tables must have a thead.
+    expect((result.match(/<thead/gi) ?? []).length).toBe(2);
+    // Tags must remain balanced.
+    expect((result.match(/<table/gi) ?? []).length).toBe(
+      (result.match(/<\/table>/gi) ?? []).length
+    );
+  });
+
+  it("preserves an existing caption and thead in the inner table while adding them to the outer table", () => {
+    const inner = `<table><caption>Inner cap</caption><thead><tr><th>IH</th></tr></thead><tbody><tr><td>ID</td></tr></tbody></table>`;
+    const outer = `<table><tr><td>${inner}</td></tr><tr><td>OD</td></tr></table>`;
+
+    const stage1 = fixHtmlTableCaption(outer);
+    const result = fixHtmlTableThead(stage1);
+
+    // Outer gets a new caption; inner keeps its own.
+    expect(result).toContain("<caption>Table summary</caption>");
+    expect(result).toContain("<caption>Inner cap</caption>");
+    expect((result.match(/<caption/gi) ?? []).length).toBe(2);
+
+    // Inner thead content must survive unchanged.
+    expect(result).toContain("<th>IH</th>");
+    // Outer gets a new thead — two theads total.
+    expect((result.match(/<thead/gi) ?? []).length).toBe(2);
+
+    // Tags must remain balanced.
+    expect((result.match(/<table/gi) ?? []).length).toBe(
+      (result.match(/<\/table>/gi) ?? []).length
+    );
+  });
+
+  it("applies both fixes to all three tables across three nesting levels", () => {
+    const deep = `<table><tr><td>dH</td></tr><tr><td>dD</td></tr></table>`;
+    const mid = `<table><tr><td>${deep}</td></tr><tr><td>mD</td></tr></table>`;
+    const outer = `<table><tr><td>${mid}</td></tr><tr><td>oD</td></tr></table>`;
+
+    const stage1 = fixHtmlTableCaption(outer);
+    const result = fixHtmlTableThead(stage1);
+
+    // All three tables receive a caption.
+    expect((result.match(/<caption>Table summary<\/caption>/gi) ?? []).length).toBe(3);
+    // All three tables receive a thead.
+    expect((result.match(/<thead/gi) ?? []).length).toBe(3);
+    // Tags must remain balanced.
+    expect((result.match(/<table/gi) ?? []).length).toBe(
+      (result.match(/<\/table>/gi) ?? []).length
+    );
+  });
+
+  it("handles two sibling inner tables where one already has a caption and one already has a thead", () => {
+    // inner1: has caption, no thead.
+    // inner2: no caption, has thead.
+    const inner1 = `<table><caption>Cap1</caption><tr><td>H1</td></tr><tr><td>D1</td></tr></table>`;
+    const inner2 = `<table><thead><tr><th>H2</th></tr></thead><tbody><tr><td>D2</td></tr></tbody></table>`;
+    const outer = `<table><tr><td>${inner1}</td><td>${inner2}</td></tr></table>`;
+
+    const stage1 = fixHtmlTableCaption(outer);
+    const result = fixHtmlTableThead(stage1);
+
+    // Outer + inner2 each gain a new caption; inner1 keeps its own (3 total).
+    expect((result.match(/<caption/gi) ?? []).length).toBe(3);
+    expect(result).toContain("<caption>Cap1</caption>");
+
+    // Outer + inner1 each gain a thead; inner2 keeps its own (3 total).
+    expect((result.match(/<thead/gi) ?? []).length).toBe(3);
+    // inner2's existing th content must survive.
+    expect(result).toContain("<th>H2</th>");
+
+    // Tags must remain balanced.
+    expect((result.match(/<table/gi) ?? []).length).toBe(
+      (result.match(/<\/table>/gi) ?? []).length
+    );
+  });
+
+  it("is idempotent: running the pipeline twice produces the same output as running it once", () => {
+    const inner = `<table><tr><td>IH</td></tr><tr><td>ID</td></tr></table>`;
+    const outer = `<table><tr><td>${inner}</td></tr><tr><td>OD</td></tr></table>`;
+
+    const runPipeline = (html: string) => fixHtmlTableThead(fixHtmlTableCaption(html));
+
+    const once = runPipeline(outer);
+    const twice = runPipeline(once);
+
+    expect(twice).toBe(once);
+  });
+
+  it("leaves fully-formed nested tables unchanged when both caption and thead are present", () => {
+    const inner = `<table><caption>Inner cap</caption><thead><tr><th scope="col">IH</th></tr></thead><tbody><tr><td>ID</td></tr></tbody></table>`;
+    const outer = `<table><caption>Outer cap</caption><thead><tr><th scope="col">OH</th></tr></thead><tbody><tr><td>${inner}</td></tr></tbody></table>`;
+
+    const stage1 = fixHtmlTableCaption(outer);
+    const result = fixHtmlTableThead(stage1);
+
+    // Nothing should change — both fixers are no-ops on fully-formed tables.
+    expect(result).toBe(outer);
+  });
+});
