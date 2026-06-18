@@ -19,6 +19,7 @@ import type { Course } from "@shared/schema";
 import { UdlTips } from "@/components/udl-tips";
 import { AccessibilityTips } from "@/components/accessibility-tips";
 import { usePageTitle } from "@/hooks/use-page-title";
+import { useQuickToolContext } from "@/hooks/use-quick-tool-context";
 
 interface ToolFormField {
   name: string;
@@ -268,7 +269,13 @@ export default function ToolForm() {
 
   const isStandalone = location.startsWith("/quick-tools");
 
-  const [formData, setFormData] = useState<Record<string, any>>({});
+  const { subject: savedSubject, courseLevel: savedCourseLevel, setSubject: persistSubject, setCourseLevel: persistCourseLevel, clearContext } = useQuickToolContext();
+
+  const [formData, setFormData] = useState<Record<string, any>>(() =>
+    isStandalone
+      ? { subject: savedSubject, courseLevel: savedCourseLevel }
+      : {}
+  );
   const [isGenerating, setIsGenerating] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("");
 
@@ -349,6 +356,10 @@ export default function ToolForm() {
 
   const handleInputChange = (name: string, value: any) => {
     setFormData(prev => ({ ...prev, [name]: value }));
+    if (isStandalone) {
+      if (name === "subject") persistSubject(value);
+      if (name === "courseLevel") persistCourseLevel(value);
+    }
   };
 
   const handleCheckboxChange = (name: string, option: string, checked: boolean) => {
@@ -479,8 +490,25 @@ export default function ToolForm() {
           {isStandalone && (
             <Card className="bg-muted/30">
               <CardHeader className="pb-3 pt-4 px-4">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Course Context (Optional)</CardTitle>
-                <CardDescription className="text-xs">Adding subject and level helps generate more tailored content</CardDescription>
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div>
+                    <CardTitle className="text-sm font-medium text-muted-foreground">Course Context (Optional)</CardTitle>
+                    <CardDescription className="text-xs">Adding subject and level helps generate more tailored content</CardDescription>
+                  </div>
+                  {(formData.subject || formData.courseLevel) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        clearContext();
+                        setFormData(prev => ({ ...prev, subject: "", courseLevel: "" }));
+                      }}
+                      className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
+                      data-testid="button-clear-context"
+                    >
+                      Clear saved context
+                    </button>
+                  )}
+                </div>
               </CardHeader>
               <CardContent className="px-4 pb-4 pt-0 grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
