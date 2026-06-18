@@ -28,6 +28,7 @@ import { HeaderControls } from "@/components/header-controls";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
+import { pushFilterState } from "@/lib/nav-utils";
 import { PoweredByFooter } from "@/components/powered-by-footer";
 import { LoadingScreen } from "@/components/loading-screen";
 import { format, subDays, startOfDay } from "date-fns";
@@ -156,9 +157,7 @@ export default function PdfHistory() {
     const params = new URLSearchParams();
     if (search.trim()) params.set("q", search.trim());
     if (dateRange !== "all") params.set("range", dateRange);
-    const qs = params.toString();
-    const newPath = qs ? `/pdf-accessibility/history?${qs}` : "/pdf-accessibility/history";
-    window.history.replaceState(null, "", newPath);
+    pushFilterState(params);
   }, [search, dateRange]);
 
   const { data: conversions, isLoading } = useQuery<any[]>({

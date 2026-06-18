@@ -15,6 +15,7 @@ import { ArrowLeft, Loader2, Sparkles, BookOpen, Calendar, FileText, Layout, Che
 import { TOOLS, BSU_CALENDAR, LOADING_MESSAGES, COURSE_LEVELS, CONTENT_PREFILL_MAP } from "@/lib/constants";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isSessionExpiredMessage } from "@/lib/upload-error-utils";
+import { pushFilterState } from "@/lib/nav-utils";
 import { useToast } from "@/hooks/use-toast";
 import { PoweredByFooter } from "@/components/powered-by-footer";
 import { LoadingScreen } from "@/components/loading-screen";
@@ -511,8 +512,7 @@ export default function ToolForm() {
         } else {
           urlParams.delete("courseLevel");
         }
-        const newSearch = urlParams.toString();
-        window.history.replaceState(null, "", newSearch ? `?${newSearch}` : window.location.pathname);
+        pushFilterState(urlParams);
       }
       return next;
     });
@@ -839,8 +839,7 @@ export default function ToolForm() {
                         const urlParams = new URLSearchParams(window.location.search);
                         urlParams.delete("subject");
                         urlParams.delete("courseLevel");
-                        const newSearch = urlParams.toString();
-                        window.history.replaceState(null, "", newSearch ? `?${newSearch}` : window.location.pathname);
+                        pushFilterState(urlParams);
                       }}
                       className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
                       data-testid="button-clear-context"
