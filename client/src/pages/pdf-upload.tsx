@@ -21,7 +21,7 @@ import { PoweredByFooter } from "@/components/powered-by-footer";
 import { format } from "date-fns";
 import { SiGoogledrive, SiGooglesheets, SiGoogleslides } from "react-icons/si";
 import { apiRequest } from "@/lib/queryClient";
-import { parseConversionsUploadError } from "@/lib/upload-error-utils";
+import { parseConversionsUploadError, isSessionExpiredMessage } from "@/lib/upload-error-utils";
 import { UploadDropzone } from "@/components/UploadDropzone";
 
 function formatBytes(bytes: number): string {
@@ -134,9 +134,13 @@ export default function PdfUpload() {
       navigate(`/pdf-accessibility/${data.id}`);
     },
     onError: (err: Error) => {
+      const raw = err.message || "";
+      if (isSessionExpiredMessage(raw)) {
+        setUploadError(raw);
+        return;
+      }
       const fallback = "Import failed. Please try again. If the problem persists, try refreshing the page.";
       let message = fallback;
-      const raw = err.message || "";
       if (!raw.trimStart().startsWith("<")) {
         try {
           const jsonPart = raw.replace(/^\d+:\s*/, "");
@@ -347,12 +351,23 @@ export default function PdfUpload() {
 
         {uploadError && (
           <div
-            className="w-full max-w-2xl mx-auto mb-6 p-4 bg-destructive/10 border border-destructive/20 text-destructive rounded-xl flex items-center gap-3 shadow-sm"
+            className="w-full max-w-2xl mx-auto mb-6 p-4 bg-destructive/10 border border-destructive/20 text-destructive rounded-xl flex items-start gap-3 shadow-sm"
             role="alert"
             data-testid="text-upload-error"
           >
-            <AlertCircle className="w-5 h-5 flex-shrink-0" aria-hidden="true" />
-            <p className="font-medium text-sm">{uploadError}</p>
+            <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" aria-hidden="true" />
+            <div className="flex flex-col gap-2 flex-1">
+              <p className="font-medium text-sm">{uploadError}</p>
+              {isSessionExpiredMessage(uploadError) && (
+                <button
+                  onClick={() => { window.location.href = "/api/login"; }}
+                  className="self-start text-sm font-semibold underline underline-offset-2 hover:opacity-80 transition-opacity"
+                  data-testid="button-sign-in-again"
+                >
+                  Sign in again
+                </button>
+              )}
+            </div>
           </div>
         )}
 
@@ -431,7 +446,18 @@ export default function PdfUpload() {
                         {item.file.name}
                       </p>
                       {item.status === "error" && (
-                        <p className="text-xs text-destructive mt-0.5">{item.error}</p>
+                        <div className="mt-0.5">
+                          <p className="text-xs text-destructive">{item.error}</p>
+                          {isSessionExpiredMessage(item.error || "") && (
+                            <button
+                              onClick={() => { window.location.href = "/api/login"; }}
+                              className="text-xs text-destructive font-semibold underline underline-offset-2 hover:opacity-80 transition-opacity"
+                              data-testid={`button-sign-in-again-queue-${item.id}`}
+                            >
+                              Sign in again
+                            </button>
+                          )}
+                        </div>
                       )}
                       {item.status === "uploading" && (
                         <p className="text-xs text-primary mt-0.5">Uploading…</p>

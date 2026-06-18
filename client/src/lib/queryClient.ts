@@ -1,10 +1,11 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { SESSION_EXPIRED_MESSAGE } from "./upload-error-utils";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
     if (text.trimStart().startsWith("<")) {
-      throw new Error(`${res.status}: Your session has expired. Please refresh the page and sign in again.`);
+      throw new Error(SESSION_EXPIRED_MESSAGE);
     }
     throw new Error(`${res.status}: ${text}`);
   }

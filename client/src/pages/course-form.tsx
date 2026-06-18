@@ -15,8 +15,9 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { ArrowLeft, ArrowRight, Upload, FileText, Loader2, BookOpen } from "lucide-react";
 import { COURSE_LEVELS, CREDIT_OPTIONS, SEMESTER_TYPES, getSemesterYears, buildSemesterString, parseSemesterString } from "@/lib/constants";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { parseSyllabusUploadError } from "@/lib/upload-error-utils";
+import { parseSyllabusUploadError, isSessionExpiredMessage } from "@/lib/upload-error-utils";
 import { useToast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
 import { PoweredByFooter } from "@/components/powered-by-footer";
 import { HeaderControls } from "@/components/header-controls";
 import type { Course } from "@shared/schema";
@@ -235,7 +236,21 @@ export default function CourseForm({ courseId }: { courseId?: number }) {
       toast({ title: "Syllabus uploaded successfully!" });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to upload file. Please try again.";
-      toast({ title: message, variant: "destructive" });
+      const sessionExpired = isSessionExpiredMessage(message);
+      toast({
+        title: message,
+        variant: "destructive",
+        ...(sessionExpired && {
+          action: (
+            <ToastAction
+              altText="Sign in again"
+              onClick={() => { window.location.href = "/api/login"; }}
+            >
+              Sign in again
+            </ToastAction>
+          ),
+        }),
+      });
       setUploadedFileName("");
     } finally {
       setIsUploading(false);

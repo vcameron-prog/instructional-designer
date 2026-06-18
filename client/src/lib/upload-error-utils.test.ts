@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   parseSyllabusUploadError,
   parseConversionsUploadError,
+  isSessionExpiredMessage,
+  SESSION_EXPIRED_MESSAGE,
 } from "./upload-error-utils";
 
 // ---------------------------------------------------------------------------
@@ -11,33 +13,25 @@ import {
 describe("parseSyllabusUploadError", () => {
   it("returns session-expired message on 401", () => {
     const err = parseSyllabusUploadError(401, "Unauthorized");
-    expect(err.message).toBe(
-      "Your session has expired. Please refresh the page and sign in again.",
-    );
+    expect(err.message).toBe(SESSION_EXPIRED_MESSAGE);
   });
 
   it("returns session-expired message on 403", () => {
     const err = parseSyllabusUploadError(403, "Forbidden");
-    expect(err.message).toBe(
-      "Your session has expired. Please refresh the page and sign in again.",
-    );
+    expect(err.message).toBe(SESSION_EXPIRED_MESSAGE);
   });
 
   it("returns session-expired message when body is HTML (login redirect)", () => {
     const htmlBody =
       "<!DOCTYPE html><html><body>Please sign in</body></html>";
     const err = parseSyllabusUploadError(302, htmlBody);
-    expect(err.message).toBe(
-      "Your session has expired. Please refresh the page and sign in again.",
-    );
+    expect(err.message).toBe(SESSION_EXPIRED_MESSAGE);
   });
 
   it("returns session-expired message for HTML body even on 500", () => {
     const htmlBody = "<html><body>Internal Server Error</body></html>";
     const err = parseSyllabusUploadError(500, htmlBody);
-    expect(err.message).toBe(
-      "Your session has expired. Please refresh the page and sign in again.",
-    );
+    expect(err.message).toBe(SESSION_EXPIRED_MESSAGE);
   });
 
   it("returns server-provided error message from JSON body", () => {
@@ -74,12 +68,10 @@ describe("parseSyllabusUploadError", () => {
 // ---------------------------------------------------------------------------
 
 describe("parseConversionsUploadError", () => {
-  it("returns fallback message when body is HTML", () => {
+  it("returns session-expired message when body is HTML", () => {
     const htmlBody = "<html><body>Forbidden</body></html>";
     const err = parseConversionsUploadError(htmlBody);
-    expect(err.message).toBe(
-      "Upload failed. Please try again. If the problem persists, try refreshing the page.",
-    );
+    expect(err.message).toBe(SESSION_EXPIRED_MESSAGE);
   });
 
   it("does not include raw HTML markup in the message when body is HTML", () => {
@@ -89,12 +81,10 @@ describe("parseConversionsUploadError", () => {
     expect(err.message).not.toMatch(/<[^>]+>/);
   });
 
-  it("returns fallback when body starts with whitespace then HTML tag", () => {
+  it("returns session-expired message when body starts with whitespace then HTML tag", () => {
     const htmlBody = "  \n<html><body>Error</body></html>";
     const err = parseConversionsUploadError(htmlBody);
-    expect(err.message).toBe(
-      "Upload failed. Please try again. If the problem persists, try refreshing the page.",
-    );
+    expect(err.message).toBe(SESSION_EXPIRED_MESSAGE);
   });
 
   it("returns server-provided error message from JSON body", () => {
@@ -123,5 +113,28 @@ describe("parseConversionsUploadError", () => {
     expect(err.message).toBe(
       "Upload failed. Please try again. If the problem persists, try refreshing the page.",
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isSessionExpiredMessage – used by UI components to decide whether to show
+// the "Sign in again" button
+// ---------------------------------------------------------------------------
+
+describe("isSessionExpiredMessage", () => {
+  it("returns true for the canonical SESSION_EXPIRED_MESSAGE", () => {
+    expect(isSessionExpiredMessage(SESSION_EXPIRED_MESSAGE)).toBe(true);
+  });
+
+  it("returns true for messages containing 'session has expired'", () => {
+    expect(isSessionExpiredMessage("Your session has expired. Do something.")).toBe(true);
+  });
+
+  it("returns false for unrelated error messages", () => {
+    expect(isSessionExpiredMessage("File exceeds size limit.")).toBe(false);
+  });
+
+  it("returns false for an empty string", () => {
+    expect(isSessionExpiredMessage("")).toBe(false);
   });
 });
