@@ -5198,6 +5198,47 @@ describe("fixComplianceIssue – partial or truncated AI HTML responses", () => 
     expect(result.accessibleHtml).toContain("</html>");
   });
 
+  it("sets wasRetried to true when first AI response is invalid and retry produces valid HTML", async () => {
+    // This is the core retry-notice test: the first AI call returns a truncated/incomplete
+    // document that fails validateOutput, triggering the retry path. The second call returns
+    // a valid document. The result must carry wasRetried: true so the route layer can surface
+    // the toast notice to the user.
+    const issues = runDeterministicChecks(baseHtml);
+    const headingIssue = issues.find((i) => i.criterion === "2.4.6")!;
+    expect(headingIssue.status).toBe("fail");
+
+    const incompleteHtml = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>No H1 Here</h1></main>`;
+    const validHtml = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>No H1 Here</h1></main></body></html>`;
+
+    mockCreate.mockResolvedValueOnce({ content: [{ type: "text", text: incompleteHtml }] });
+    mockCreate.mockResolvedValueOnce({ content: [{ type: "text", text: validHtml }] });
+
+    const report = makeReport(issues);
+    const result = await fixComplianceIssue(baseHtml, headingIssue, issues.indexOf(headingIssue), report);
+
+    expect(result.wasRetried).toBe(true);
+    expect(result.accessibleHtml).toContain("</body>");
+    expect(result.accessibleHtml).toContain("</html>");
+    expect(mockCreate).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not set wasRetried when the first AI response is already valid", async () => {
+    // The wasRetried flag must remain false (or undefined) on the happy path where no retry
+    // was needed. This prevents a spurious toast from appearing to the user.
+    const issues = runDeterministicChecks(baseHtml);
+    const headingIssue = issues.find((i) => i.criterion === "2.4.6")!;
+    expect(headingIssue.status).toBe("fail");
+
+    const validHtml = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>No H1 Here</h1></main></body></html>`;
+    mockCreate.mockResolvedValueOnce({ content: [{ type: "text", text: validHtml }] });
+
+    const report = makeReport(issues);
+    const result = await fixComplianceIssue(baseHtml, headingIssue, issues.indexOf(headingIssue), report);
+
+    expect(result.wasRetried).toBeFalsy();
+    expect(mockCreate).toHaveBeenCalledTimes(1);
+  });
+
   it("uses the strict completeness prompt on the retry call", async () => {
     const issues = runDeterministicChecks(baseHtml);
     const headingIssue = issues.find((i) => i.criterion === "2.4.6")!;
