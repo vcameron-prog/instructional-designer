@@ -2334,6 +2334,17 @@ describe("runDeterministicChecks – heading order check (1.3.1)", () => {
     expect(orderIssue!.status).toBe("pass");
     expect(orderIssue!.details).toBe("Headings follow a logical order (h1, h2, h3, h4).");
   });
+
+  it("passes and preserves duplicate levels in the details string (h1, h2, h1, h2)", () => {
+    const html = `<html lang="en"><body><h1>Title</h1><h2>Section A</h2><h1>Another Title</h1><h2>Section B</h2></body></html>`;
+    const issues = runDeterministicChecks(html);
+    const orderIssue = issues.find(
+      (i) => i.criterion === "1.3.1" && i.title === "Heading Order"
+    );
+    expect(orderIssue).toBeDefined();
+    expect(orderIssue!.status).toBe("pass");
+    expect(orderIssue!.details).toBe("Headings follow a logical order (h1, h2, h1, h2).");
+  });
 });
 
 describe("runDeterministicChecks – contrast check (1.4.3)", () => {
