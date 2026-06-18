@@ -1723,7 +1723,7 @@ export default function PdfConversion() {
                       )}
                     </button>
                   </div>
-                  <p className="text-sm mt-1">
+                  <p className="text-sm mt-1" data-testid="text-error-message">
                     {conversion.errorMessage ||
                       "An error occurred. Please try again."}
                   </p>
