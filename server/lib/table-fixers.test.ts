@@ -41,6 +41,26 @@ describe("fixHtmlTableCaption — flat tables", () => {
     expect(html).toBe(input);
     expect(tablesFixed).toBe(0);
   });
+
+  it("escapes HTML tags in the supplied caption text so they render as literal characters", () => {
+    const input = `<table><tr><td>A</td></tr></table>`;
+    const { html } = fixHtmlTableCaption(input, "<b>Bold</b>");
+    expect(html).toContain("<caption>&lt;b&gt;Bold&lt;/b&gt;</caption>");
+    expect(html).not.toContain("<caption><b>Bold</b></caption>");
+  });
+
+  it("escapes a <script> tag in caption text so it is not executed", () => {
+    const input = `<table><tr><td>A</td></tr></table>`;
+    const { html } = fixHtmlTableCaption(input, '<script>alert("xss")</script>');
+    expect(html).toContain("&lt;script&gt;");
+    expect(html).not.toContain("<script>");
+  });
+
+  it("escapes ampersands and quotes in caption text", () => {
+    const input = `<table><tr><td>A</td></tr></table>`;
+    const { html } = fixHtmlTableCaption(input, 'A & B "test"');
+    expect(html).toContain("A &amp; B &quot;test&quot;");
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -623,5 +643,37 @@ describe("editHtmlTableCaption", () => {
     const editSecond = editHtmlTableCaption(input, "Edited second", 1);
     expect(editSecond).toContain("<caption>User supplied</caption>");
     expect(editSecond).toContain("<caption>Edited second</caption>");
+  });
+
+  // ── HTML escaping ────────────────────────────────────────────────────────
+
+  it("escapes HTML tags in the new caption text so they render as literal characters", () => {
+    const input = `<table><caption>Old</caption></table>`;
+    const output = editHtmlTableCaption(input, "<b>Bold</b>", 0);
+    expect(output).toContain("<caption>&lt;b&gt;Bold&lt;/b&gt;</caption>");
+    expect(output).not.toContain("<caption><b>Bold</b></caption>");
+  });
+
+  it("escapes a <script> tag in new caption text so it is not executed", () => {
+    const input = `<table><caption>Old</caption></table>`;
+    const output = editHtmlTableCaption(input, '<script>alert("xss")</script>');
+    expect(output).toContain("&lt;script&gt;");
+    expect(output).not.toContain("<script>");
+  });
+
+  it("escapes ampersands and quotes in new caption text", () => {
+    const input = `<table><caption>Old</caption></table>`;
+    const output = editHtmlTableCaption(input, 'A & B "test"', 0);
+    expect(output).toContain("A &amp; B &quot;test&quot;");
+  });
+
+  it("escapes HTML tags when updating all captions (omitted captionIndex)", () => {
+    const input =
+      `<table><caption>First</caption></table>\n` +
+      `<table><caption>Second</caption></table>`;
+    const output = editHtmlTableCaption(input, "<em>Note</em>");
+    const count = (output.match(/&lt;em&gt;Note&lt;\/em&gt;/gi) ?? []).length;
+    expect(count).toBe(2);
+    expect(output).not.toContain("<em>Note</em>");
   });
 });

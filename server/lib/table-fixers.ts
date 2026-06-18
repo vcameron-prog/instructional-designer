@@ -62,7 +62,8 @@ export function fixHtmlTableCaption(text: string, captionTexts: string | string[
  * untouched.
  */
 export function editHtmlTableCaption(text: string, newCaption: string, captionIndex?: number): string {
-  const safeCaption = newCaption.trim() || "Table summary";
+  const trimmed = newCaption.trim() || "Table summary";
+  const safeCaption = escapeHtml(trimmed);
   if (captionIndex === undefined) {
     return text.replace(/<caption([^>]*)>([\s\S]*?)<\/caption>/gi, (_match, attrs) => {
       return `<caption${attrs}>${safeCaption}</caption>`;
