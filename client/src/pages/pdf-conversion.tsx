@@ -384,12 +384,18 @@ export default function PdfConversion() {
         });
         return;
       }
+      const hadPreviousNoFixReason = !!noFixReasons[variables.issueIndex];
       setNoFixReasons(prev => {
         const next = { ...prev };
         delete next[variables.issueIndex];
         return next;
       });
-      if (data?.wasRetried) {
+      if (hadPreviousNoFixReason) {
+        toast({
+          title: "Fix applied — manual fix no longer needed",
+          description: "The issue was successfully resolved on retry.",
+        });
+      } else if (data?.wasRetried) {
         toast({
           title: "Fix applied after retry",
           description: "The initial AI response was incomplete. A second attempt succeeded.",
