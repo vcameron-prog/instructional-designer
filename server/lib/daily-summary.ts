@@ -138,7 +138,7 @@ function buildEmailHtml(stats: DailySummaryStats, date: string): string {
         <!-- Header -->
         <tr>
           <td style="background:#8b0000;padding:24px 24px 20px;text-align:center;">
-            <p style="margin:0;font-size:20px;font-weight:700;color:#ffffff;">BSU Accessibility Tool</p>
+            <p style="margin:0;font-size:20px;font-weight:700;color:#ffffff;">Accessibility Tool</p>
             <p style="margin:6px 0 0;font-size:14px;color:#ffcccc;">Daily Summary — ${date}</p>
           </td>
         </tr>
@@ -212,7 +212,7 @@ function buildEmailHtml(stats: DailySummaryStats, date: string): string {
         <tr>
           <td style="padding:20px 24px;border-top:1px solid #f0f0f0;text-align:center;">
             <p style="margin:0;font-size:12px;color:#999;">
-              Sent automatically by the BSU Accessibility Tool &bull;
+              Sent automatically by the Accessibility Tool &bull;
               <a href="https://bsu-instructional-designer.replit.app/admin" style="color:#8b0000;">View admin dashboard</a>
             </p>
           </td>
@@ -285,7 +285,7 @@ export async function sendConversionCompleteEmail(
     : "";
 
   await transporter.sendMail({
-    from: `"BSU Accessibility Tool" <${SUMMARY_EMAIL_FROM}>`,
+    from: `"Accessibility Tool" <${SUMMARY_EMAIL_FROM}>`,
     to: toEmail,
     subject: `Document ready: ${filename}`,
     html: `<!DOCTYPE html><html><body style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#111">
@@ -295,7 +295,7 @@ export async function sendConversionCompleteEmail(
 ${scoreHtml}
 <p style="margin:0 0 20px">Review the output, apply any suggested fixes, then download as Word (.docx), HTML, or PDF.</p>
 <a href="${appUrl}/pdf-accessibility" style="display:inline-block;padding:10px 20px;background:#9e1b32;color:#fff;text-decoration:none;border-radius:6px;font-weight:600">View Document</a>
-<p style="margin:24px 0 0;font-size:12px;color:#888">BSU Accessibility Tool &mdash; Bridgewater State University</p>
+<p style="margin:24px 0 0;font-size:12px;color:#888">Accessibility Tool &mdash; Bridgewater State University</p>
 </body></html>`,
   });
 }

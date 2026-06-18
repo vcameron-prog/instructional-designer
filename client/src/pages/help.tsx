@@ -282,7 +282,7 @@ export default function HelpPage() {
                 </div>
                 <div>
                   <h1 className="text-xl font-bold">Help & Resources</h1>
-                  <p className="text-sm text-muted-foreground">Learn how to use the BSU Accessibility Tool</p>
+                  <p className="text-sm text-muted-foreground">Learn how to use the Accessibility Tool</p>
                 </div>
               </div>
             </div>
