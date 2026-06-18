@@ -280,6 +280,7 @@ export default function ToolForm() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("");
   const [selectedPrefillId, setSelectedPrefillId] = useState<string>("");
+  const [preFilledFields, setPreFilledFields] = useState<Set<string>>(new Set());
 
   const tool = TOOLS.find(t => t.id === toolId);
 
@@ -371,6 +372,7 @@ export default function ToolForm() {
 
   const handleInputChange = (name: string, value: any) => {
     setFormData(prev => ({ ...prev, [name]: value }));
+    setPreFilledFields(prev => { const next = new Set(prev); next.delete(name); return next; });
     if (isStandalone) {
       if (name === "subject") persistSubject(value);
       if (name === "courseLevel") persistCourseLevel(value);
@@ -386,6 +388,7 @@ export default function ToolForm() {
         return { ...prev, [name]: current.filter((o: string) => o !== option) };
       }
     });
+    setPreFilledFields(prev => { const next = new Set(prev); next.delete(name); return next; });
   };
 
   const handlePrefillSelect = (itemId: string) => {
@@ -421,6 +424,7 @@ export default function ToolForm() {
 
     if (Object.keys(fields).length > 0) {
       setFormData(prev => ({ ...prev, ...fields }));
+      setPreFilledFields(new Set(Object.keys(fields)));
       toast({ title: "Form pre-filled", description: "Fields have been populated from the selected item. Review and adjust as needed." });
     }
   };
@@ -630,12 +634,29 @@ export default function ToolForm() {
               <CardDescription>Customize your {tool.name.toLowerCase()}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {formFields.map((field) => (
-                <div key={field.name} className="space-y-2">
-                  <Label htmlFor={field.name}>
-                    {field.label}
-                    {field.required && <span className="text-destructive ml-1">*</span>}
-                  </Label>
+              {formFields.map((field) => {
+                const isPrefilled = preFilledFields.has(field.name);
+                return (
+                <div
+                  key={field.name}
+                  className={`space-y-2 rounded-md transition-all duration-200 ${isPrefilled ? "pl-3 border-l-2 border-primary/60" : ""}`}
+                  data-testid={isPrefilled ? `prefilled-field-${field.name}` : undefined}
+                >
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor={field.name}>
+                      {field.label}
+                      {field.required && <span className="text-destructive ml-1">*</span>}
+                    </Label>
+                    {isPrefilled && (
+                      <span
+                        className="inline-flex items-center gap-1 text-xs font-medium px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20"
+                        aria-label="This field was pre-filled automatically"
+                        data-testid={`badge-prefilled-${field.name}`}
+                      >
+                        Pre-filled
+                      </span>
+                    )}
+                  </div>
                   
                   {field.type === "text" && (
                     <Input
@@ -724,7 +745,8 @@ export default function ToolForm() {
                     <p className="text-sm text-muted-foreground">{field.helper}</p>
                   )}
                 </div>
-              ))}
+                );
+              })}
             </CardContent>
           </Card>
 
