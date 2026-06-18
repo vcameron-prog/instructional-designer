@@ -1603,6 +1603,7 @@ export default function ResultPage() {
 
                     const isOpen = expandedSections[idx] ?? false;
                     const sectionWordCount = section.body.trim().split(/\s+/).filter(Boolean).length;
+                    const readingMins = Math.max(1, Math.ceil(sectionWordCount / 200));
                     return (
                       <Collapsible key={idx} open={isOpen} onOpenChange={(open) => setExpandedSections(prev => ({ ...prev, [idx]: open }))}>
                         <div className="flex items-center gap-2 mt-5 mb-2">
@@ -1618,9 +1619,9 @@ export default function ResultPage() {
                           <Badge
                             className="bg-primary/10 text-primary border-primary/30 hover:bg-primary/10 shrink-0"
                             variant="outline"
-                            data-testid={`badge-section-wordcount-${idx}`}
+                            data-testid={`badge-section-readtime-${idx}`}
                           >
-                            {sectionWordCount} word{sectionWordCount !== 1 ? "s" : ""}
+                            ~{readingMins} min read
                           </Badge>
                         </div>
                         <CollapsibleContent>
