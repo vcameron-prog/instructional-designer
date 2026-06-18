@@ -128,10 +128,19 @@ function StatusBadge({
     warning: "Manual Review",
     accepted: "Accepted Limitation",
   };
-  return (
+  const tooltips: Partial<Record<StatusType, string>> = {
+    pass: "This check passed — no action needed",
+    fail: "This check failed — use Fix to remediate it",
+    fixed: "This issue was automatically fixed",
+    warning: "Needs manual review — automated checks can't fully verify this requirement",
+    accepted: "This limitation has been acknowledged and accepted as unavoidable",
+  };
+  const tip = tooltips[status];
+  const badge = (
     <span
       className={cn(
         "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border",
+        tip ? "cursor-default" : "",
         variants[status],
         className,
       )}
@@ -139,6 +148,15 @@ function StatusBadge({
     >
       {labels[status]}
     </span>
+  );
+  if (!tip) return badge;
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>{badge}</TooltipTrigger>
+        <TooltipContent>{tip}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 
@@ -1978,9 +1996,22 @@ export default function PdfConversion() {
                                 <h3 className="font-bold text-foreground text-sm">
                                   {issue.title}
                                 </h3>
-                                <span className="text-xs font-mono bg-secondary text-secondary-foreground px-2 py-0.5 rounded font-bold">
-                                  WCAG {issue.criterion} ({issue.level})
-                                </span>
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="text-xs font-mono bg-secondary text-secondary-foreground px-2 py-0.5 rounded font-bold cursor-default">
+                                        WCAG {issue.criterion} ({issue.level})
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      {issue.level === "A"
+                                        ? "Level A: minimum accessibility requirement"
+                                        : issue.level === "AA"
+                                        ? "Level AA: standard requirement — required by ADA Title II / WCAG 2.1 AA"
+                                        : "Level AAA: enhanced accessibility requirement"}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
                               </div>
                             </div>
                             <ChevronDown
