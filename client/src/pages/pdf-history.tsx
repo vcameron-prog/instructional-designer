@@ -18,6 +18,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
 import { PoweredByFooter } from "@/components/powered-by-footer";
 import { format, subDays, startOfDay } from "date-fns";
+import { SiGoogledrive, SiGooglesheets } from "react-icons/si";
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 B";
@@ -247,15 +248,23 @@ export default function PdfHistory() {
                       {conv.originalFilename}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {conv.sourceType && (
-                        <span className="font-semibold mr-1">
-                          {conv.sourceType === "google-doc"
-                            ? "Google Doc"
-                            : conv.sourceType === "google-sheet"
-                              ? "Google Sheet"
-                              : conv.sourceType === "docx"
-                                ? "DOCX"
-                                : conv.sourceType.toUpperCase()}
+                      {conv.sourceType && conv.sourceType !== "pdf" && (
+                        <span className="inline-flex items-center gap-1 font-semibold mr-1">
+                          {conv.sourceType === "google-doc" ? (
+                            <>
+                              <SiGoogledrive className="w-3 h-3 text-[#4285F4]" aria-hidden="true" />
+                              Google Doc
+                            </>
+                          ) : conv.sourceType === "google-sheet" ? (
+                            <>
+                              <SiGooglesheets className="w-3 h-3 text-[#34A853]" aria-hidden="true" />
+                              Google Sheet
+                            </>
+                          ) : conv.sourceType === "docx" ? (
+                            "DOCX"
+                          ) : (
+                            conv.sourceType.toUpperCase()
+                          )}
                         </span>
                       )}
                       {formatBytes(conv.fileSize)}
