@@ -95,6 +95,7 @@ export interface ComplianceReport {
 export interface AccessibilityResult {
   accessibleHtml: string;
   complianceReport: ComplianceReport;
+  wasRetried?: boolean;
 }
 
 function buildStructuralSummary(
@@ -1632,6 +1633,7 @@ ${stripped}`,
   }
 
   let rawOutput = await callAi(false);
+  let wasRetried = false;
   if (!validateOutput(rawOutput)) {
     console.warn(
       `[accessibility-engine] AI returned incomplete HTML on first attempt — retrying with strict prompt. criterion="${issue.criterion}" title="${issue.title}"`
@@ -1640,13 +1642,17 @@ ${stripped}`,
     if (!validateOutput(rawOutput)) {
       throw new Error("AI failed to produce a valid HTML fix. Please try again.");
     }
+    wasRetried = true;
+    console.info(
+      `[accessibility-engine] Fix applied after retry (initial AI response was incomplete). criterion="${issue.criterion}" title="${issue.title}"`
+    );
   }
 
   const fixedHtml = restoreDataUris(rawOutput, uris);
 
   const updatedIssues = [...existingReport.issues];
   applyDeterministicReport(fixedHtml, issue, issueIndex, updatedIssues);
-  return { accessibleHtml: fixedHtml, complianceReport: buildComplianceReport(updatedIssues) };
+  return { accessibleHtml: fixedHtml, complianceReport: buildComplianceReport(updatedIssues), wasRetried };
 }
 
 export type ProgressCallback = (message: string) => Promise<void>;

@@ -298,10 +298,16 @@ export default function PdfConversion() {
       });
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({
         queryKey: ["/api/conversions", numericId],
       });
+      if (data?.wasRetried) {
+        toast({
+          title: "Fix applied after retry",
+          description: "The initial AI response was incomplete. A second attempt succeeded.",
+        });
+      }
     },
   });
 
