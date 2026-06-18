@@ -428,7 +428,7 @@ export default function ResultPage() {
   const [captionEditText, setCaptionEditText] = useState("Table summary");
   const [captionEditMode, setCaptionEditMode] = useState<"add" | "edit">("add");
   const [captionStep, setCaptionStep] = useState<"input" | "preview">("input");
-  const [captionTablePreviews, setCaptionTablePreviews] = useState<string[][]>([]);
+  const [captionTablePreviews, setCaptionTablePreviews] = useState<string[][][]>([]);
   const [captionEditIndex, setCaptionEditIndex] = useState<number>(0);
   const [captionEditOtherCaptions, setCaptionEditOtherCaptions] = useState<string[]>([]);
 
@@ -654,9 +654,9 @@ export default function ResultPage() {
     return count;
   };
 
-  const extractTablePreviews = (html: string): string[][] => {
+  const extractTablePreviews = (html: string): string[][][] => {
     const tableRegex = /<table(?:\s[^>]*)?>[\s\S]*?<\/table>/gi;
-    const previews: string[][] = [];
+    const previews: string[][][] = [];
     let match;
     while ((match = tableRegex.exec(html)) !== null) {
       if (!/<caption[\s>]/i.test(match[0])) {
@@ -666,9 +666,8 @@ export default function ResultPage() {
         const rowTexts = rows.map((row) =>
           Array.from(row.querySelectorAll("th, td"))
             .map((cell) => cell.textContent?.trim() ?? "")
-            .filter((t) => t.length > 0)
         ).filter((r) => r.length > 0);
-        previews.push(rowTexts.length > 0 ? rowTexts.flat().slice(0, 6) : []);
+        previews.push(rowTexts);
       }
     }
     return previews;
@@ -1814,23 +1813,44 @@ export default function ResultPage() {
             <div className="space-y-3">
               <div className="space-y-4 max-h-80 overflow-y-auto pr-1">
                 {captionTexts.map((text, index) => {
-                  const cells = captionTablePreviews[index] ?? [];
+                  const rows = captionTablePreviews[index] ?? [];
+                  const hasHeader = rows.length > 0 && rows[0].length > 0;
+                  const headerRow = hasHeader ? rows[0] : null;
+                  const bodyRows = hasHeader ? rows.slice(1) : rows;
                   return (
                     <div key={index} className="rounded-md border border-border overflow-hidden text-sm">
                       <div className="bg-muted/60 px-3 py-2 font-medium text-foreground flex items-center gap-2">
                         <span className="text-xs uppercase tracking-wide text-muted-foreground">Caption</span>
                         <span data-testid={`preview-caption-${index}`} className="font-semibold">{text || <span className="italic text-muted-foreground">No caption entered</span>}</span>
                       </div>
-                      {cells.length > 0 ? (
-                        <div className="px-3 py-2 bg-background">
-                          <p className="text-xs text-muted-foreground mb-1">Table {index + 1} content preview:</p>
-                          <div className="flex flex-wrap gap-1">
-                            {cells.map((cell, ci) => (
-                              <span key={ci} className="inline-block bg-muted rounded px-2 py-0.5 text-xs text-muted-foreground max-w-[16ch] truncate" title={cell}>
-                                {cell}
-                              </span>
-                            ))}
-                          </div>
+                      {rows.length > 0 ? (
+                        <div className="px-3 py-2 bg-background overflow-x-auto">
+                          <table className="w-full text-xs border-collapse">
+                            {headerRow && (
+                              <thead>
+                                <tr className="bg-muted">
+                                  {headerRow.map((cell, ci) => (
+                                    <th key={ci} className="border border-border px-2 py-1 text-left font-semibold text-foreground truncate max-w-[12ch]" title={cell}>
+                                      {cell || <span className="text-muted-foreground italic">—</span>}
+                                    </th>
+                                  ))}
+                                </tr>
+                              </thead>
+                            )}
+                            {bodyRows.length > 0 && (
+                              <tbody>
+                                {bodyRows.map((row, ri) => (
+                                  <tr key={ri} className={ri % 2 === 0 ? "bg-background" : "bg-muted/30"}>
+                                    {row.map((cell, ci) => (
+                                      <td key={ci} className="border border-border px-2 py-1 text-muted-foreground truncate max-w-[12ch]" title={cell}>
+                                        {cell || <span className="italic">—</span>}
+                                      </td>
+                                    ))}
+                                  </tr>
+                                ))}
+                              </tbody>
+                            )}
+                          </table>
                         </div>
                       ) : (
                         <div className="px-3 py-2 bg-background text-xs text-muted-foreground italic">
