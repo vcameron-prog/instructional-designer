@@ -384,6 +384,11 @@ export default function PdfConversion() {
         });
         return;
       }
+      setNoFixReasons(prev => {
+        const next = { ...prev };
+        delete next[variables.issueIndex];
+        return next;
+      });
       if (data?.wasRetried) {
         toast({
           title: "Fix applied after retry",
@@ -416,9 +421,14 @@ export default function PdfConversion() {
       );
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
         queryKey: ["/api/conversions", numericId],
+      });
+      setNoFixReasons(prev => {
+        const next = { ...prev };
+        delete next[variables.issueIndex];
+        return next;
       });
     },
   });
