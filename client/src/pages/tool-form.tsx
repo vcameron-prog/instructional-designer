@@ -381,6 +381,7 @@ export default function ToolForm() {
         }
       } else {
         queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId, "content"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId, "tool-usage"] });
         navigate(`/course/${courseId}/result/${data.id}`);
       }
     },

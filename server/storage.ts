@@ -54,6 +54,9 @@ export interface IStorage {
   createSavedContent(content: InsertSavedContent, userId: string): Promise<SavedContent>;
   deleteSavedContent(id: number, userId: string): Promise<void>;
   
+  // Tool Usage (user-scoped via course ownership)
+  getToolUsage(courseId: number, userId: string): Promise<string[]>;
+
   // Course Duplication (user-scoped)
   duplicateCourse(id: number, userId: string): Promise<Course | undefined>;
 
@@ -238,6 +241,20 @@ export class DatabaseStorage implements IStorage {
 
   async deleteSavedContent(id: number, userId: string): Promise<void> {
     await db.delete(savedContent).where(and(eq(savedContent.id, id), eq(savedContent.userId, userId)));
+  }
+
+  // Tool Usage (user-scoped via course ownership)
+  async getToolUsage(courseId: number, userId: string): Promise<string[]> {
+    // Verify course ownership first
+    const course = await this.getCourse(courseId, userId);
+    if (!course) return [];
+
+    const rows = await db
+      .selectDistinct({ toolType: generatedContent.toolType })
+      .from(generatedContent)
+      .where(eq(generatedContent.courseId, courseId));
+
+    return rows.map((r) => r.toolType);
   }
 
   // AI Fix Retry Events

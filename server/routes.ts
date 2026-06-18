@@ -2037,6 +2037,30 @@ export async function registerRoutes(
     },
   );
 
+  // Tool usage for a course — returns distinct toolType values for which at
+  // least one piece of generated content exists. Restricted to the course owner.
+  app.get(
+    "/api/courses/:id/tool-usage",
+    isBsuAuthenticated,
+    async (req: Request, res: Response) => {
+      try {
+        const userId = getUserId(req) as string;
+        const courseId = parseInt(req.params.id as string);
+
+        const course = await storage.getCourse(courseId, userId);
+        if (!course) {
+          return res.status(404).json({ error: "Course not found" });
+        }
+
+        const usedTools = await storage.getToolUsage(courseId, userId);
+        res.json({ usedTools });
+      } catch (error) {
+        console.error("Error fetching tool usage:", error);
+        res.status(500).json({ error: "Failed to fetch tool usage" });
+      }
+    },
+  );
+
   app.get(
     "/api/content/:id",
     isBsuAuthenticated,

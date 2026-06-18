@@ -9,6 +9,7 @@ import { PoweredByFooter } from "@/components/powered-by-footer";
 import { HeaderControls } from "@/components/header-controls";
 import { usePageTitle } from "@/hooks/use-page-title";
 import type { Course, GeneratedContent } from "@shared/schema";
+import { Badge } from "@/components/ui/badge";
 
 const iconMap: Record<string, any> = {
   BookOpen,
@@ -45,6 +46,13 @@ export default function ToolSelection() {
     queryKey: ["/api/courses", courseId, "content"],
     enabled: !!courseId,
   });
+
+  const { data: toolUsageData } = useQuery<{ usedTools: string[] }>({
+    queryKey: ["/api/courses", courseId, "tool-usage"],
+    enabled: !!courseId,
+  });
+
+  const usedToolSet = new Set<string>(toolUsageData?.usedTools ?? []);
 
   usePageTitle(course ? "Design Tools - " + course.courseName : "Design Tools");
 
@@ -133,9 +141,20 @@ export default function ToolSelection() {
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <h2 className="text-2xl font-bold mb-2">Select a Design Tool</h2>
-          <p className="text-muted-foreground">
-            Choose a tool to create or enhance course materials for your class
-          </p>
+          <div className="flex items-center gap-3 flex-wrap">
+            <p className="text-muted-foreground">
+              Choose a tool to create or enhance course materials for your class
+            </p>
+            {toolUsageData && (
+              <span
+                className="text-sm font-medium text-muted-foreground bg-muted px-3 py-1 rounded-full"
+                data-testid="text-tool-usage-summary"
+                aria-live="polite"
+              >
+                {TOOLS.filter(t => usedToolSet.has(t.id)).length} of {TOOLS.length} tools used
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -143,6 +162,7 @@ export default function ToolSelection() {
             const Icon = iconMap[tool.icon];
             const bgColor = colorMap[tool.color];
             const contentCount = getContentCount(tool.id);
+            const isUsed = usedToolSet.has(tool.id);
 
             return (
               <Card
@@ -160,12 +180,31 @@ export default function ToolSelection() {
                     <div className={`w-12 h-12 rounded-xl ${bgColor} flex items-center justify-center text-white group-hover:scale-110 transition-transform`}>
                       <Icon className="w-6 h-6" />
                     </div>
-                    {contentCount > 0 && (
-                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">
-                        <FolderOpen className="w-3 h-3" />
-                        {contentCount} saved
-                      </div>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {isUsed ? (
+                        <Badge
+                          className="flex items-center gap-1 bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300 border-green-200 dark:border-green-800 text-xs font-medium"
+                          data-testid={`badge-completed-${tool.id}`}
+                          aria-label="Completed"
+                        >
+                          <CheckCircle className="w-3 h-3" aria-hidden="true" />
+                          Completed
+                        </Badge>
+                      ) : toolUsageData ? (
+                        <span
+                          className="text-xs text-muted-foreground"
+                          data-testid={`text-not-started-${tool.id}`}
+                        >
+                          Not started
+                        </span>
+                      ) : null}
+                      {contentCount > 0 && (
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">
+                          <FolderOpen className="w-3 h-3" />
+                          {contentCount} saved
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <CardTitle className="text-lg mt-3 group-hover:text-primary transition-colors">
                     {tool.name}
