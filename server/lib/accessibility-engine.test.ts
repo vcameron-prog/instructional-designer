@@ -2886,6 +2886,25 @@ describe("applyAriaRoleHeaderFix", () => {
     const after = runDeterministicChecks(fixed);
     expect(after.find((i) => i.title === "ARIA Role on Table Data Cell")).toBeUndefined();
   });
+
+  it("preserves rich inner HTML when promoting td[role=columnheader] to <th>", () => {
+    const html = `<table><tr><td role="columnheader"><strong>First</strong> <em>Name</em></td></tr></table>`;
+    const result = applyAriaRoleHeaderFix(html);
+    expect(result).toContain('<th scope="col">');
+    expect(result).toContain("<strong>First</strong>");
+    expect(result).toContain("<em>Name</em>");
+    expect(result).not.toContain('role="columnheader"');
+    expect(result).not.toContain("<td");
+  });
+
+  it("preserves rich inner HTML when promoting td[role=rowheader] to <th>", () => {
+    const html = `<table><tr><td role="rowheader"><span class="label"><em>Row</em></span></td><td>Data</td></tr></table>`;
+    const result = applyAriaRoleHeaderFix(html);
+    expect(result).toContain('<th scope="row">');
+    expect(result).toContain('<span class="label">');
+    expect(result).toContain("<em>Row</em>");
+    expect(result).not.toContain('role="rowheader"');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -3052,6 +3071,16 @@ describe("applyAriaComboboxRoleFix", () => {
     expect(result.accessibleHtml).not.toContain('role="combobox"');
     expect(result.accessibleHtml).toContain("<select");
   });
+
+  it("preserves rich inner HTML when replacing with <select>", () => {
+    const html = `<div role="combobox"><option value="a"><strong>Option</strong> <em>A</em></option></div>`;
+    const result = applyAriaComboboxRoleFix(html);
+    expect(result).toContain("<strong>Option</strong>");
+    expect(result).toContain("<em>A</em>");
+    expect(result).toContain("<select");
+    expect(result).not.toContain('role="combobox"');
+    expect(result).not.toContain("<div");
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -3118,6 +3147,16 @@ describe("applyAriaGridRoleFix", () => {
     expect(mockCreate).not.toHaveBeenCalled();
     expect(result.accessibleHtml).not.toContain('role="grid"');
     expect(result.accessibleHtml).toContain("<table");
+  });
+
+  it("preserves rich inner HTML (formatted cell content) when replacing with <table>", () => {
+    const html = `<div role="grid"><tr><td><strong>Header</strong></td><td><em>Data</em></td></tr></div>`;
+    const result = applyAriaGridRoleFix(html);
+    expect(result).toContain("<strong>Header</strong>");
+    expect(result).toContain("<em>Data</em>");
+    expect(result).toContain("<table");
+    expect(result).not.toContain('role="grid"');
+    expect(result).not.toContain("<div");
   });
 });
 
@@ -3191,6 +3230,16 @@ describe("applyAriaTabRoleFix", () => {
     expect(mockCreate).not.toHaveBeenCalled();
     expect(result.accessibleHtml).not.toContain('role="tab"');
     expect(result.accessibleHtml).toContain("<button");
+  });
+
+  it("preserves rich inner HTML when replacing with <button>", () => {
+    const html = `<div role="tab"><strong>My</strong> <em>Tab</em></div>`;
+    const result = applyAriaTabRoleFix(html);
+    expect(result).toContain("<strong>My</strong>");
+    expect(result).toContain("<em>Tab</em>");
+    expect(result).toContain("<button");
+    expect(result).not.toContain('role="tab"');
+    expect(result).not.toContain("<div");
   });
 });
 
@@ -3800,6 +3849,16 @@ describe("applyAriaLinkRoleFix", () => {
     expect((result.match(/<a /g) ?? []).length).toBe(2);
     expect(result).not.toContain('role="link"');
   });
+
+  it("preserves rich inner HTML when replacing with <a>", () => {
+    const html = `<div role="link" href="https://example.com"><strong>Visit</strong> <em>our site</em></div>`;
+    const result = applyAriaLinkRoleFix(html);
+    expect(result).toContain("<strong>Visit</strong>");
+    expect(result).toContain("<em>our site</em>");
+    expect(result).toContain("<a");
+    expect(result).not.toContain('role="link"');
+    expect(result).not.toContain("<div");
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -4037,6 +4096,16 @@ describe("applyAriaListRoleFix", () => {
     const after = runDeterministicChecks(fixed);
     expect(after.find((i) => i.title === "ARIA List Role on Non-List Element")).toBeUndefined();
   });
+
+  it("preserves rich inner HTML (inline formatting inside items) when replacing with <ul>", () => {
+    const html = `<div role="list"><div role="listitem"><strong>Bold</strong> item</div><div role="listitem"><em>Italic</em> item</div></div>`;
+    const result = applyAriaListRoleFix(html);
+    expect(result).toContain("<strong>Bold</strong>");
+    expect(result).toContain("<em>Italic</em>");
+    expect(result).toContain("<ul");
+    expect(result).not.toContain('role="list"');
+    expect(result).not.toContain("<div role=\"list\"");
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -4094,6 +4163,16 @@ describe("applyAriaListitemRoleFix", () => {
     expect(result).toContain("<li>A</li>");
     expect(result).toContain("<li>B</li>");
     expect(result).not.toContain('role="listitem"');
+  });
+
+  it("preserves rich inner HTML when replacing with <li>", () => {
+    const html = `<ul><div role="listitem"><em>Italicized</em> text and <strong>bold</strong></div></ul>`;
+    const result = applyAriaListitemRoleFix(html);
+    expect(result).toContain("<em>Italicized</em>");
+    expect(result).toContain("<strong>bold</strong>");
+    expect(result).toContain("<li");
+    expect(result).not.toContain('role="listitem"');
+    expect(result).not.toContain("<div");
   });
 });
 
