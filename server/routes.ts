@@ -18,7 +18,7 @@ import { db } from "./db";
 import { eq, and, desc, isNull, sql, inArray, ne } from "drizzle-orm";
 import { convertMarkdownTablesToHtml } from "./markdownTableConverter.js";
 import { fixHtmlTableCaption, fixHtmlTableThead, editHtmlTableCaption } from "./lib/table-fixers.js";
-import { getDeterministicFixerKeys } from "./lib/accessibility-engine";
+import { getDeterministicFixerKeys, getAiFixRetryMetrics } from "./lib/accessibility-engine";
 
 function getUserId(req: Request): string | null {
   return (req.user as any)?.claims?.sub ?? null;
@@ -1414,6 +1414,16 @@ export async function registerRoutes(
 
   app.get("/api/deterministic-fixers", (_req: Request, res: Response) => {
     res.json({ keys: getDeterministicFixerKeys().sort() });
+  });
+
+  app.get("/api/metrics", (_req: Request, res: Response) => {
+    const { retryCount, lastRetryAt } = getAiFixRetryMetrics();
+    res.json({
+      aiFixRetry: {
+        count: retryCount,
+        lastAt: lastRetryAt,
+      },
+    });
   });
 
   app.get("/api/admin/check", isAuthenticated, (req: Request, res: Response) => {

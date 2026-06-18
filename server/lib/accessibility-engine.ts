@@ -34,6 +34,13 @@ const anthropic = new Anthropic({
   maxRetries: 2,
 });
 
+let aiFixRetryCount = 0;
+let aiFixRetryLastAt: string | null = null;
+
+export function getAiFixRetryMetrics(): { retryCount: number; lastRetryAt: string | null } {
+  return { retryCount: aiFixRetryCount, lastRetryAt: aiFixRetryLastAt };
+}
+
 const imageItemSchema = z.object({
   label: z.string(),
   src: z.string().optional(),
@@ -1635,8 +1642,10 @@ ${stripped}`,
   let rawOutput = await callAi(false);
   let wasRetried = false;
   if (!validateOutput(rawOutput)) {
+    aiFixRetryCount++;
+    aiFixRetryLastAt = new Date().toISOString();
     console.warn(
-      `[accessibility-engine] AI returned incomplete HTML on first attempt — retrying with strict prompt. criterion="${issue.criterion}" title="${issue.title}"`
+      `[accessibility-engine] AI returned incomplete HTML on first attempt — retrying with strict prompt. criterion="${issue.criterion}" title="${issue.title}" retryCount=${aiFixRetryCount}`
     );
     rawOutput = await callAi(true);
     if (!validateOutput(rawOutput)) {

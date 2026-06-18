@@ -63,6 +63,7 @@ Preferred communication style: Simple, everyday language.
 - **Export**: Professional .docx export for easy integration with LMS (e.g., Blackboard Ultra).
 - **Admin Dashboard**: Protected `/admin` page showing usage statistics (total courses, content generated, conversions, users), monthly activity trends chart, tool popularity breakdown, document conversion stats with pie chart, recent activity feed, and user activity table. Access controlled via `ADMIN_USER_IDS` env var (comma-separated user IDs). Backend routes: `GET /api/admin/check` and `GET /api/admin/stats`. Admin link visible only to admin users on the landing page footer.
 - **Public Stats API**: `GET /api/stats/public` returns monthly activity counts, optionally protected by `STATS_API_KEY` env var (requires `x-api-key` header).
+- **Metrics API**: `GET /api/metrics` returns in-memory runtime counters. Currently exposes `aiFixRetry.count` (how many times `fixComplianceIssue` fell back to the strict-prompt retry path since last server restart) and `aiFixRetry.lastAt` (ISO timestamp of the most recent retry). No auth required. Counter resets on server restart.
 
 ## External Dependencies
 
