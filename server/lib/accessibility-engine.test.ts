@@ -20,6 +20,7 @@ import {
   applyAriaListitemRoleFix,
   applyAriaButtonRoleFix,
   applyAriaHeadingRoleFix,
+  analyzeAriaHeadingFallbacks,
   applyBypassBlocksFix,
   applyLangAttributeFix,
   applyPageTitleFix,
@@ -3394,6 +3395,52 @@ describe("applyAriaHeadingRoleFix", () => {
     expect(result).toContain("<h2>First</h2>");
     expect(result).toContain("<h2>Second</h2>");
     expect(result).not.toContain('role="heading"');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// analyzeAriaHeadingFallbacks
+// ---------------------------------------------------------------------------
+
+describe("analyzeAriaHeadingFallbacks", () => {
+  it("returns 0/0 when there are no role=heading targets", () => {
+    const html = `<h1>Title</h1><p>Paragraph</p>`;
+    const result = analyzeAriaHeadingFallbacks(html);
+    expect(result.fallbackCount).toBe(0);
+    expect(result.inferredCount).toBe(0);
+  });
+
+  it("returns 0/0 when all role=heading elements have explicit aria-level", () => {
+    const html = `<div role="heading" aria-level="2">Section A</div><span role="heading" aria-level="3">Section B</span>`;
+    const result = analyzeAriaHeadingFallbacks(html);
+    expect(result.fallbackCount).toBe(0);
+    expect(result.inferredCount).toBe(0);
+  });
+
+  it("counts fallbackCount=1 for an element with no aria-level and no preceding heading", () => {
+    const html = `<div role="heading">Orphan Section</div>`;
+    const result = analyzeAriaHeadingFallbacks(html);
+    expect(result.fallbackCount).toBe(1);
+    expect(result.inferredCount).toBe(0);
+  });
+
+  it("counts inferredCount=1 for an element with no aria-level but a preceding native heading", () => {
+    const html = `<h1>Page Title</h1><div role="heading">Section</div>`;
+    const result = analyzeAriaHeadingFallbacks(html);
+    expect(result.fallbackCount).toBe(0);
+    expect(result.inferredCount).toBe(1);
+  });
+
+  it("handles mixed case: fallback, inferred, and explicit each contribute independently", () => {
+    const html = [
+      `<div role="heading">No context (fallback)</div>`,
+      `<h2>Native heading</h2>`,
+      `<span role="heading">After h2 (inferred)</span>`,
+      `<p role="heading" aria-level="3">Has aria-level (explicit)</p>`,
+    ].join("");
+    const result = analyzeAriaHeadingFallbacks(html);
+    expect(result.fallbackCount).toBe(1);
+    expect(result.inferredCount).toBe(1);
   });
 });
 
