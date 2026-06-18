@@ -5025,7 +5025,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
             updatedAt: conversions.updatedAt,
           });
 
-        res.json({ ...updated, wasRetried: result.wasRetried ?? false, elementsFixed: result.elementsFixed });
+        res.json({ ...updated, wasRetried: result.wasRetried ?? false, elementsFixed: result.elementsFixed, noFixReason: result.noFixReason });
       } catch (err: any) {
         res.status(500).json({ error: err.message || "Fix failed" });
       } finally {

@@ -158,6 +158,7 @@ export interface AccessibilityResult {
   complianceReport: ComplianceReport;
   wasRetried?: boolean;
   elementsFixed?: number;
+  noFixReason?: string;
 }
 
 function buildStructuralSummary(
@@ -1329,11 +1330,45 @@ export function applyLangAttributeFix(html: string): string {
   return html.replace(new RegExp(`<html(${ATTR_PATTERN})>`, "i"), (_match, attrs: string) => `<html${attrs} lang="en">`);
 }
 
+const BYPASS_LANDMARK_TAGS = new Set(["header", "nav", "footer"]);
+const BYPASS_LANDMARK_ROLES = new Set(["banner", "navigation", "contentinfo"]);
+
+function isBypassLandmarkNode(node: any): boolean {
+  if (BYPASS_LANDMARK_TAGS.has(node.tagName?.toLowerCase() ?? "")) return true;
+  const role = (node.getAttribute?.("role") ?? "").toLowerCase().trim();
+  return BYPASS_LANDMARK_ROLES.has(role);
+}
+
+/**
+ * Returns true when the document body contains at least one landmark element
+ * (header/nav/footer or their ARIA role equivalents) but has no non-landmark
+ * content — i.e. there is nothing to wrap in a <main> element.
+ */
+export function isAllLandmarksNoContent(html: string): boolean {
+  const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+  if (!bodyMatch) return false;
+
+  const inner = bodyMatch[1];
+  const root = parseHtml(inner);
+  const children = root.childNodes;
+
+  const hasAnyLandmark = children.some((n) => isBypassLandmarkNode(n));
+  if (!hasAnyLandmark) return false;
+
+  const nonLandmarkContent = children
+    .filter((n) => !isBypassLandmarkNode(n))
+    .map((n) => (n as any).outerHTML ?? (n as any).rawText ?? "")
+    .join("")
+    .trim();
+
+  return nonLandmarkContent === "";
+}
+
 export function applyBypassBlocksFix(html: string): string {
   if (/<main[\s>]/i.test(html) || /role\s*=\s*["']main["']/i.test(html)) return html;
 
-  const landmarkTags = new Set(["header", "nav", "footer"]);
-  const landmarkRoles = new Set(["banner", "navigation", "contentinfo"]);
+  const landmarkTags = BYPASS_LANDMARK_TAGS;
+  const landmarkRoles = BYPASS_LANDMARK_ROLES;
 
   function isLandmarkNode(node: any): boolean {
     if (landmarkTags.has(node.tagName?.toLowerCase() ?? "")) return true;
@@ -1926,11 +1961,14 @@ export async function fixComplianceIssue(
       ? analyzeAriaHeadingFallbacks(currentHtml)
       : null;
 
+    const isBypassFix = registryKey === "2.4.1::Bypass Blocks";
     const elementsFixed: number | undefined = isButtonFix
       ? countAriaButtonRoleTargets(currentHtml)
       : isHeadingFix
         ? countAriaHeadingRoleTargets(currentHtml)
         : undefined;
+
+    const allLandmarksEdgeCase = isBypassFix && isAllLandmarksNoContent(currentHtml);
 
     const fixedHtml = deterministicFixer(currentHtml);
     const updatedIssues = [...existingReport.issues];
@@ -1957,7 +1995,12 @@ export async function fixComplianceIssue(
       }
     }
 
-    return { accessibleHtml: fixedHtml, complianceReport: buildComplianceReport(updatedIssues), elementsFixed };
+    const noFixReason: string | undefined = allLandmarksEdgeCase
+      ? "This document contains only landmark elements (header, nav, footer) with no primary content outside them, so there is nothing to automatically wrap in a <main> region. " +
+        "To fix this manually: add a <main> element around your primary page content, or add role=\"main\" to the landmark that holds the main information."
+      : undefined;
+
+    return { accessibleHtml: fixedHtml, complianceReport: buildComplianceReport(updatedIssues), elementsFixed, noFixReason };
   }
 
   const { stripped, uris } = stripDataUris(currentHtml);

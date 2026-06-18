@@ -374,6 +374,14 @@ export default function PdfConversion() {
       queryClient.invalidateQueries({
         queryKey: ["/api/conversions", numericId],
       });
+      if (data?.noFixReason) {
+        toast({
+          title: "Manual fix needed",
+          description: data.noFixReason,
+          duration: 10000,
+        });
+        return;
+      }
       if (data?.wasRetried) {
         toast({
           title: "Fix applied after retry",
