@@ -141,6 +141,8 @@ describe("vague link text check", () => {
 // ---------------------------------------------------------------------------
 
 describe("color-only information check", () => {
+  // COLOR_OBJECT_NOUNS contains plain nouns (no regex metacharacters) so
+  // iterating over them here and embedding them as literal content strings is safe.
   for (const color of COLOR_WORDS) {
     for (const noun of COLOR_OBJECT_NOUNS) {
       it(`detects color-only phrasing: "${color} ${noun}"`, () => {

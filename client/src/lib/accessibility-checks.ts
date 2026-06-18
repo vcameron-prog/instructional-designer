@@ -28,9 +28,14 @@ export interface AccessibilityIssue {
 }
 
 export const COLOR_WORDS = ["red", "green", "blue", "yellow", "orange", "purple"];
+// Plain nouns — safe to use as literal strings in tests. Do NOT add regex
+// metacharacters here; derive patterns from this list instead (see below).
 export const COLOR_OBJECT_NOUNS = ["text", "item", "section", "part"];
+// Regex patterns derived from the plain-noun list with an optional-plural suffix.
+// Kept separate so COLOR_OBJECT_NOUNS remains a clean plain-string list.
+const colorObjectNounPatterns = COLOR_OBJECT_NOUNS.map((n) => `${n}s?`);
 const colorOnlyRe = new RegExp(
-  `\\b(${COLOR_WORDS.join("|")})\\s+(${COLOR_OBJECT_NOUNS.map((n) => n + "s?").join("|")})\\b`,
+  `\\b(${COLOR_WORDS.join("|")})\\s+(${colorObjectNounPatterns.join("|")})\\b`,
   "gi",
 );
 
