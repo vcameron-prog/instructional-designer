@@ -2538,9 +2538,14 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           fixedContent = fixHeadingSkip(content.content);
         } else if (fixType === "fix-vague-link-text") {
           const ip = req.ip || req.socket.remoteAddress || "unknown";
-          const allowed = userId
-            ? await checkSharedRateLimit(userId, "ai-gen", AI_GEN_RATE_LIMIT, AI_GEN_RATE_WINDOW_MS, () => checkAiGenRateLimit(userId))
-            : await checkSharedRateLimit(`ip:${ip}`, "ai-gen", ANON_RATE_LIMIT, ANON_RATE_WINDOW_MS, () => checkAnonRateLimit(ip));
+          let allowed: boolean;
+          if (userId) {
+            allowed = await checkSharedRateLimit(userId, "ai-gen", AI_GEN_RATE_LIMIT, AI_GEN_RATE_WINDOW_MS, () => checkAiGenRateLimit(userId));
+          } else {
+            const vToken = ensureVisitorToken(req);
+            console.log(`[preview-fix/fix-vague-link-text] anon rate-limit check ip:${ip} vToken:${vToken}`);
+            allowed = await checkSharedRateLimit(`ip:${ip}`, "ai-gen", ANON_RATE_LIMIT, ANON_RATE_WINDOW_MS, () => checkAnonRateLimit(ip));
+          }
           if (!allowed) {
             return res.status(429).json({ error: "Rate limit exceeded. Please try again later." });
           }
@@ -2603,9 +2608,14 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           fixedContent = fixHeadingSkip(content.content);
         } else if (fixType === "fix-vague-link-text") {
           const ip = req.ip || req.socket.remoteAddress || "unknown";
-          const allowed = userId
-            ? await checkSharedRateLimit(userId, "ai-gen", AI_GEN_RATE_LIMIT, AI_GEN_RATE_WINDOW_MS, () => checkAiGenRateLimit(userId))
-            : await checkSharedRateLimit(`ip:${ip}`, "ai-gen", ANON_RATE_LIMIT, ANON_RATE_WINDOW_MS, () => checkAnonRateLimit(ip));
+          let allowed: boolean;
+          if (userId) {
+            allowed = await checkSharedRateLimit(userId, "ai-gen", AI_GEN_RATE_LIMIT, AI_GEN_RATE_WINDOW_MS, () => checkAiGenRateLimit(userId));
+          } else {
+            const vToken = ensureVisitorToken(req);
+            console.log(`[fix-accessibility/fix-vague-link-text] anon rate-limit check ip:${ip} vToken:${vToken}`);
+            allowed = await checkSharedRateLimit(`ip:${ip}`, "ai-gen", ANON_RATE_LIMIT, ANON_RATE_WINDOW_MS, () => checkAnonRateLimit(ip));
+          }
           if (!allowed) {
             return res.status(429).json({ error: "Rate limit exceeded. Please try again later." });
           }
