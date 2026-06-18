@@ -19,7 +19,7 @@ import { usePageTitle } from "@/hooks/use-page-title";
 import { cn } from "@/lib/utils";
 import { PoweredByFooter } from "@/components/powered-by-footer";
 import { format } from "date-fns";
-import { SiGoogledrive, SiGooglesheets } from "react-icons/si";
+import { SiGoogledrive, SiGooglesheets, SiGoogleslides } from "react-icons/si";
 import { apiRequest } from "@/lib/queryClient";
 import { parseConversionsUploadError } from "@/lib/upload-error-utils";
 import { UploadDropzone } from "@/components/UploadDropzone";
@@ -42,6 +42,7 @@ export default function PdfUpload() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [googleDocUrl, setGoogleDocUrl] = useState("");
   const [googleSheetUrl, setGoogleSheetUrl] = useState("");
+  const [googleSlideUrl, setGoogleSlideUrl] = useState("");
 
   // Batch upload queue — used when multiple files are dropped at once.
   const [fileQueue, setFileQueue] = useState<Array<{
@@ -188,6 +189,45 @@ export default function PdfUpload() {
     );
     setGoogleDocUrl("");
     setUploadError(null);
+  };
+
+  const googleSlideMutation = useMutation({
+    mutationFn: async (url: string) => {
+      const res = await apiRequest("POST", "/api/conversions/import-google-slide", { url });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      navigate(`/pdf-accessibility/${data.id}`);
+    },
+    onError: (err: Error) => {
+      const fallback = "Import failed. Please try again. If the problem persists, try refreshing the page.";
+      let message = fallback;
+      const raw = err.message || "";
+      if (!raw.trimStart().startsWith("<")) {
+        try {
+          const jsonPart = raw.replace(/^\d+:\s*/, "");
+          const parsed = JSON.parse(jsonPart);
+          if (parsed.error) message = parsed.error;
+        } catch {}
+      }
+      setUploadError(message);
+    },
+  });
+
+  const handleGoogleSlideImport = () => {
+    setUploadError(null);
+    const trimmed = googleSlideUrl.trim();
+    if (!trimmed) {
+      setUploadError("Please paste a Google Slides URL.");
+      return;
+    }
+    if (!trimmed.match(/docs\.google\.com\/presentation\/d\//)) {
+      setUploadError(
+        "Invalid Google Slides URL. Please paste a link like https://docs.google.com/presentation/d/...",
+      );
+      return;
+    }
+    googleSlideMutation.mutate(trimmed);
   };
 
   const handleFileDrop = (files: File[]) => {
@@ -561,6 +601,71 @@ export default function PdfUpload() {
           </div>
         </div>
 
+        <div className="w-full max-w-2xl mx-auto mb-12 bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
+          <div className="px-6 py-4 bg-secondary/50 border-b border-border flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-primary text-primary-foreground">
+              <SiGoogleslides className="w-5 h-5" aria-hidden="true" />
+            </div>
+            <div>
+              <h3
+                className="font-bold text-foreground text-lg"
+                data-testid="heading-google-slide-section"
+              >
+                Import from Google Slides
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                Convert a shared Google Slides presentation to an accessible format
+              </p>
+            </div>
+          </div>
+          <div className="p-6" data-testid="google-slide-import-section">
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <label htmlFor="google-slide-url" className="sr-only">
+                  Google Slides URL
+                </label>
+                <SiGoogleslides
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"
+                  aria-hidden="true"
+                />
+                <input
+                  id="google-slide-url"
+                  type="url"
+                  value={googleSlideUrl}
+                  onChange={(e) => setGoogleSlideUrl(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleGoogleSlideImport();
+                  }}
+                  placeholder="https://docs.google.com/presentation/d/..."
+                  className="w-full pl-10 pr-3 py-2.5 border border-border rounded-xl bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all"
+                  data-testid="input-google-slide-url"
+                  disabled={googleSlideMutation.isPending}
+                />
+              </div>
+              <button
+                onClick={handleGoogleSlideImport}
+                disabled={!googleSlideUrl.trim() || googleSlideMutation.isPending}
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl text-sm font-semibold shadow-sm hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:transform-none"
+                data-testid="button-google-slide-import"
+              >
+                {googleSlideMutation.isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                )}
+                {googleSlideMutation.isPending ? "Importing…" : "Import"}
+              </button>
+            </div>
+            <p
+              className="mt-4 text-xs text-muted-foreground"
+              data-testid="text-google-slide-hint"
+            >
+              The presentation must be shared as "Anyone with the link" in Google
+              Slides.
+            </p>
+          </div>
+        </div>
+
         {recent.length > 0 && (
           <div>
             <div className="flex items-center justify-between mb-4">
@@ -596,9 +701,11 @@ export default function PdfUpload() {
                             ? "Google Doc"
                             : conv.sourceType === "google-sheet"
                               ? "Google Sheet"
-                              : conv.sourceType === "docx"
-                                ? "DOCX"
-                                : conv.sourceType.toUpperCase()}
+                              : conv.sourceType === "google-slide"
+                                ? "Google Slides"
+                                : conv.sourceType === "docx"
+                                  ? "DOCX"
+                                  : conv.sourceType.toUpperCase()}
                         </span>
                       )}
                       {formatBytes(conv.fileSize)} ·{" "}

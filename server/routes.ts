@@ -3496,6 +3496,239 @@ Please generate an IMPROVED version that incorporates the requested changes whil
   );
 
   app.post(
+    "/api/conversions/import-google-slide",
+    optionalAuth,
+    // uploadConcurrencyGuard runs before any remote download so that memory
+    // pressure from buffering large Google Slides responses is bounded the same
+    // way direct file uploads are.
+    uploadConcurrencyGuard,
+    async (req: Request, res: Response) => {
+      const userId = getUserId(req);
+
+      const slideRateLimitKey = userId ?? (req.ip || req.socket.remoteAddress || "unknown");
+      const slideRateLimitFn = userId ? checkUploadRateLimit : checkAnonRateLimit;
+      if (!slideRateLimitFn(slideRateLimitKey)) {
+        return res.status(429).json({ error: "Upload rate limit exceeded. Please try again later." });
+      }
+
+      // Shared cross-instance rate limit for anonymous sessions.
+      // ensureVisitorToken (not getVisitorToken) so that a sticky token is
+      // always assigned — preventing bypass via fresh/missing cookies.
+      if (!userId) {
+        const vToken = ensureVisitorToken(req);
+        const ip = req.ip || req.socket.remoteAddress || "unknown";
+        // Key by IP so token-rotation attacks cannot bypass the shared limit.
+        if (!await checkSharedRateLimit(
+          `ip:${ip}`, "upload", SHARED_ANON_UPLOAD_RATE_LIMIT, ANON_RATE_WINDOW_MS,
+          () => checkAnonRateLimit(ip),
+        )) {
+          return res.status(429).json({ error: "Upload rate limit exceeded. Please try again later." });
+        }
+      }
+
+      const { url } = req.body;
+      if (!url || typeof url !== "string") {
+        return res
+          .status(400)
+          .json({ error: "A Google Slides URL is required." });
+      }
+
+      let parsedUrl: URL;
+      try {
+        parsedUrl = new URL(url);
+      } catch {
+        return res
+          .status(400)
+          .json({
+            error: "Invalid URL format. Please paste a Google Slides link.",
+          });
+      }
+      if (
+        parsedUrl.hostname !== "docs.google.com" ||
+        !parsedUrl.pathname.startsWith("/presentation/d/")
+      ) {
+        return res
+          .status(400)
+          .json({
+            error:
+              "Invalid Google Slides URL. Please paste a link like https://docs.google.com/presentation/d/...",
+          });
+      }
+      const slideIdMatch = parsedUrl.pathname.match(
+        /\/presentation\/d\/([a-zA-Z0-9_-]+)/,
+      );
+      if (!slideIdMatch) {
+        return res
+          .status(400)
+          .json({ error: "Could not extract presentation ID from URL." });
+      }
+      const slideId = slideIdMatch[1];
+
+      try {
+        const exportUrl = `https://docs.google.com/presentation/d/${slideId}/export?format=pptx`;
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 30000);
+
+        let response: globalThis.Response | null = null;
+        let lastStatus = 0;
+        let buffer: Buffer | null = null;
+
+        const MAX_IMPORT_SIZE = 20 * 1024 * 1024;
+
+        try {
+          const attempt = await fetch(exportUrl, {
+            signal: controller.signal,
+            redirect: "follow",
+            headers: { "User-Agent": "Mozilla/5.0" },
+          });
+          lastStatus = attempt.status;
+          if (attempt.ok) {
+            // Reject early if content-length header already exceeds limit.
+            const contentLength = attempt.headers.get("content-length");
+            if (contentLength && parseInt(contentLength, 10) > MAX_IMPORT_SIZE) {
+              clearTimeout(timeout);
+              return res
+                .status(413)
+                .json({ error: "Presentation is too large (max 20 MB)." });
+            }
+
+            // Stream the body while the AbortController timeout is still
+            // active, so a slow or infinite body cannot stall the server
+            // indefinitely. Size is enforced incrementally on each chunk.
+            const chunks: Buffer[] = [];
+            let totalSize = 0;
+            const reader = attempt.body!.getReader();
+            try {
+              while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                totalSize += value.length;
+                if (totalSize > MAX_IMPORT_SIZE) {
+                  reader.cancel();
+                  clearTimeout(timeout);
+                  return res
+                    .status(413)
+                    .json({ error: "Presentation is too large (max 20 MB)." });
+                }
+                chunks.push(Buffer.from(value));
+              }
+            } finally {
+              reader.releaseLock();
+            }
+
+            response = attempt;
+            buffer = Buffer.concat(chunks);
+          }
+        } catch (fetchErr: any) {
+          if (fetchErr.name === "AbortError") {
+            return res
+              .status(504)
+              .json({
+                error:
+                  "Download timed out. The presentation may be too large or Google is not responding.",
+              });
+          }
+        } finally {
+          clearTimeout(timeout);
+        }
+
+        if (!response || !buffer) {
+          if (lastStatus === 403 || lastStatus === 401) {
+            return res
+              .status(403)
+              .json({
+                error:
+                  'This presentation is not publicly shared. Set sharing to "Anyone with the link" in Google Slides, then try again.',
+              });
+          }
+          if (lastStatus === 404) {
+            return res
+              .status(404)
+              .json({
+                error: "Presentation not found. Check that the URL is correct.",
+              });
+          }
+          return res
+            .status(502)
+            .json({
+              error: `Could not download the presentation (status ${lastStatus}). The presentation may not be publicly shared.`,
+            });
+        }
+        if (buffer.length < 100) {
+          return res
+            .status(502)
+            .json({
+              error:
+                "Downloaded file appears empty. The presentation may not be publicly shared.",
+            });
+        }
+
+        const zipSignature = buffer.slice(0, 4).toString("hex");
+        if (zipSignature !== "504b0304") {
+          return res
+            .status(502)
+            .json({
+              error:
+                "The downloaded file is not a valid presentation. The Google Slides presentation may not be publicly shared.",
+            });
+        }
+
+        const titleHeader = response.headers.get("content-disposition");
+        let filename = "Google Slides.pptx";
+        if (titleHeader) {
+          const filenameMatch = titleHeader.match(
+            /filename\*?=(?:UTF-8''|"?)([^";]+)/i,
+          );
+          if (filenameMatch) {
+            filename = decodeURIComponent(filenameMatch[1].replace(/"/g, ""));
+            if (!filename.endsWith(".pptx")) filename += ".pptx";
+          }
+        }
+
+        const googleSlideVisitorToken = userId ? null : ensureVisitorToken(req);
+        const fileBase64 = buffer.toString("base64");
+        const [created] = await db
+          .insert(conversions)
+          .values({
+            originalFilename: filename,
+            fileSize: buffer.length,
+            sourceType: "google-slide",
+            status: "uploaded",
+            pdfData: fileBase64,
+            userId: userId || null,
+            visitorToken: googleSlideVisitorToken,
+          })
+          .returning({
+            id: conversions.id,
+            originalFilename: conversions.originalFilename,
+            fileSize: conversions.fileSize,
+            sourceType: conversions.sourceType,
+            status: conversions.status,
+            createdAt: conversions.createdAt,
+          });
+
+        res.json(created);
+      } catch (err: any) {
+        if (err.name === "AbortError") {
+          return res
+            .status(504)
+            .json({
+              error:
+                "Download timed out. The presentation may be too large or Google is not responding.",
+            });
+        }
+        console.error("Google Slides import error:", err);
+        res
+          .status(500)
+          .json({
+            error:
+              "Failed to import the Google Slides presentation. Please check the URL and try again.",
+          });
+      }
+    },
+  );
+
+  app.post(
     "/api/conversions/:id/process",
     optionalAuth,
     async (req: Request, res: Response) => {
@@ -3703,8 +3936,12 @@ Please generate an IMPROVED version that incorporates the requested changes whil
             );
             const { extractXlsxContent } = await import("./lib/xlsx-extractor");
             extraction = await extractXlsxContent(fileBuffer);
-          } else if (srcType === "pptx") {
-            await updateStatusMessage("Extracting PowerPoint slide content…");
+          } else if (srcType === "pptx" || srcType === "google-slide") {
+            await updateStatusMessage(
+              srcType === "google-slide"
+                ? "Extracting Google Slides content…"
+                : "Extracting PowerPoint slide content…"
+            );
             const { extractPptxContent } = await import("./lib/pptx-extractor");
             extraction = await extractPptxContent(fileBuffer);
           } else if (srcType === "docx" || srcType === "google-doc") {
