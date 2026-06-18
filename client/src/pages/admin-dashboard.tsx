@@ -71,6 +71,7 @@ interface AdminStats {
   }>;
   conversionStats: {
     byStatus: Record<string, number>;
+    bySourceType: Record<string, number>;
     ocrUsed: number;
   };
   recentCourses: Array<{
@@ -129,6 +130,18 @@ const CHART_COLORS = [
 ];
 
 const PIE_COLORS = ["#6366f1", "#22c55e", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#ec4899", "#14b8a6"];
+
+function formatSourceType(sourceType: string): string {
+  switch (sourceType) {
+    case "pdf": return "PDF";
+    case "docx": return "Word (DOCX)";
+    case "pptx": return "PowerPoint (PPTX)";
+    case "google-doc": return "Google Doc";
+    case "google-sheet": return "Google Sheet";
+    case "google-slide": return "Google Slides";
+    default: return sourceType.toUpperCase();
+  }
+}
 
 function formatMonth(m: string) {
   const [year, month] = m.split("-");
@@ -282,6 +295,10 @@ export default function AdminDashboard() {
     name: status.charAt(0).toUpperCase() + status.slice(1),
     value: count,
   }));
+
+  const conversionSourceData = Object.entries(stats.conversionStats.bySourceType ?? {})
+    .map(([sourceType, count]) => ({ name: formatSourceType(sourceType), value: count }))
+    .sort((a, b) => b.value - a.value);
 
   const trendData = stats.monthlyTrends.map(t => ({
     ...t,
@@ -513,6 +530,17 @@ export default function AdminDashboard() {
                     <div className="pt-2 border-t mt-2">
                       <p className="text-sm text-muted-foreground">OCR applied: <span className="font-medium text-foreground">{stats.conversionStats.ocrUsed}</span></p>
                     </div>
+                    {conversionSourceData.length > 0 && (
+                      <div className="pt-2 border-t mt-2">
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5">By Source</p>
+                        {conversionSourceData.map((entry) => (
+                          <div key={entry.name} className="flex items-center gap-2 mb-1">
+                            <span className="text-sm text-foreground">{entry.name}</span>
+                            <span className="text-sm text-muted-foreground ml-auto">{entry.value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

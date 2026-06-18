@@ -1606,6 +1606,7 @@ export async function registerRoutes(
           monthlyConversionsResult,
           toolBreakdownResult,
           conversionStatusResult,
+          conversionSourceResult,
           ocrUsageResult,
           recentCoursesResult,
           recentContentResult,
@@ -1658,6 +1659,11 @@ export async function registerRoutes(
             count: sql<number>`count(*)`,
           }).from(conversions)
             .groupBy(conversions.status),
+          db.select({
+            sourceType: sql<string>`coalesce(source_type, 'pdf')`,
+            count: sql<number>`count(*)`,
+          }).from(conversions)
+            .groupBy(sql`coalesce(source_type, 'pdf')`),
           db.select({ count: sql<number>`count(*)` })
             .from(conversions)
             .where(sql`ocr_applied = true`),
@@ -1775,6 +1781,11 @@ export async function registerRoutes(
           statusMap[row.status] = Number(row.count);
         }
 
+        const sourceMap: Record<string, number> = {};
+        for (const row of conversionSourceResult) {
+          sourceMap[row.sourceType] = Number(row.count);
+        }
+
         res.json({
           summary: {
             totalCourses: Number(totalCoursesResult[0]?.count ?? 0),
@@ -1791,6 +1802,7 @@ export async function registerRoutes(
           })),
           conversionStats: {
             byStatus: statusMap,
+            bySourceType: sourceMap,
             ocrUsed: Number(ocrUsageResult[0]?.count ?? 0),
           },
           recentCourses: recentCoursesResult.map(c => ({
