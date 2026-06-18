@@ -19,7 +19,6 @@ import {
   Globe,
 } from "lucide-react";
 import { SiGoogle } from "react-icons/si";
-import bsuAiLogo from "@assets/Center_for_AI_Apparel_&_Promotional_Items-WHITE_(1)_1775653892158.png";
 import { useAuth } from "@/hooks/use-auth";
 import { HeaderControls } from "@/components/header-controls";
 import { usePageTitle } from "@/hooks/use-page-title";
@@ -28,6 +27,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { CourseCard } from "@/components/course-card";
+import { PoweredByFooter } from "@/components/powered-by-footer";
 
 
 function isBsuEmail(email?: string | null): boolean {
@@ -357,17 +357,8 @@ export default function LandingPage() {
           )}
         </div>
 
-        <div className="mt-10 flex flex-col items-center gap-4">
-          <img src={bsuAiLogo} alt="BSU Center for Artificial Intelligence" className="h-12 brightness-0 dark:brightness-100" data-testid="img-bsu-ai-logo-auth" />
-          <p className="text-center text-muted-foreground text-sm" style={{ textWrap: "balance" }}>
-            Created by Bridgewater State University's Center for AI. Powered by AI to help users create accessible, engaging materials. AI can make mistakes. Make sure to verify information.
-          </p>
-          <p className="text-center text-muted-foreground/70 text-xs" style={{ textWrap: "balance" }}>
-            Content generation uses Anthropic's Claude API —{" "}
-            <a href="https://www.anthropic.com/privacy" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80">Anthropic's privacy policy</a>
-          </p>
-        </div>
       </div>
+      <PoweredByFooter />
     </main>
   );
 }

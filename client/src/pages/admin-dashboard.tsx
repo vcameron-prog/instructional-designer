@@ -22,6 +22,7 @@ import {
   FileDown,
 } from "lucide-react";
 import { HeaderControls } from "@/components/header-controls";
+import { PoweredByFooter } from "@/components/powered-by-footer";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useAuth } from "@/hooks/use-auth";
 import { format } from "date-fns";
@@ -686,6 +687,7 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
       </div>
+      <PoweredByFooter />
     </main>
   );
 }
