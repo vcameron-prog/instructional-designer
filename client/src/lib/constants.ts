@@ -266,6 +266,16 @@ export function getChainPrefillFields(
   return map[sourceToolId]?.[targetToolId]?.() ?? {};
 }
 
+// Maps each target tool to the source tool types whose generated content can
+// be used to pre-populate the target tool's form fields.
+// Mirrors the source→target chains in getChainedPrefillValues above.
+export const CONTENT_PREFILL_MAP: Record<string, string[]> = {
+  rubric: ["assignment"],
+  alignment: ["assignment", "rubric"],
+  airesistant: ["assignment"],
+  aistudent: ["airesistant"],
+};
+
 export const LOADING_MESSAGES = [
   "Analyzing your course requirements...",
   "Incorporating UDL principles...",
