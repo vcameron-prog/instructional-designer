@@ -72,8 +72,18 @@ const FAQ_SECTIONS: FAQSection[] = [
     ],
   },
   {
-    title: "Google Docs",
+    title: "Google Workspace Imports",
     items: [
+      {
+        question: "Which Google file types can I import?",
+        answer: [
+          "You can import any of the following Google Workspace file types:",
+          "• Google Docs — word-processed documents",
+          "• Google Sheets — spreadsheets",
+          "• Google Slides — presentations",
+          "Each type has its own import section on the Accessibility Converter page. All three require the file to be publicly shared before importing.",
+        ],
+      },
       {
         question: "How do I convert a Google Doc?",
         answer: [
@@ -85,14 +95,24 @@ const FAQ_SECTIONS: FAQSection[] = [
         ],
       },
       {
-        question: "Does the Google Doc need to be shared?",
-        answer:
-          'Yes. The document must be shared as "Anyone with the link" for the download to work. You can change this in the Google Doc\'s sharing settings.',
+        question: "How do I convert a Google Sheet or Google Slides presentation?",
+        answer: [
+          "Google Sheets and Google Slides support direct import — no download step needed.",
+          "1. Go to the Accessibility Converter page.",
+          '2. Find the "Import from Google Sheets" or "Import from Google Slides" section.',
+          "3. Paste the link to your file and click Import.",
+          "The tool processes the file directly and takes you to the conversion results.",
+        ],
       },
       {
-        question: "Why can't the tool import my Google Doc directly?",
+        question: "Do Google Docs, Sheets, and Slides need to be shared?",
         answer:
-          "Google restricts automated downloads from cloud servers. The download button opens the file directly from Google through your browser, which works reliably. After downloading, you simply upload the Word file.",
+          'Yes. All three file types must be shared as "Anyone with the link" before importing. You can change this in the file\'s sharing settings (click Share → change access to "Anyone with the link"). Without this setting, the import will fail.',
+      },
+      {
+        question: "Why does importing a Google Doc require a download step?",
+        answer:
+          "Google restricts automated downloads of Docs from cloud servers. The Download button opens the file directly from Google through your browser, which works reliably. After downloading, you upload the resulting Word file. Google Sheets and Slides use a different Google API that allows direct server-side import, so those file types do not require this extra step.",
       },
     ],
   },
