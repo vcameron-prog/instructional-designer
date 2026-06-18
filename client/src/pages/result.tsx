@@ -998,6 +998,21 @@ export default function ResultPage() {
         </div>
       </div>
 
+      {!isStandalone && course?.syllabusUploadedAt && content.createdAt && new Date(content.createdAt) < new Date(course.syllabusUploadedAt) && (
+        <div
+          className="bg-yellow-50 border-b border-yellow-200"
+          role="alert"
+          data-testid="banner-stale-content"
+        >
+          <div className="container mx-auto px-4 py-3 max-w-5xl flex items-center gap-3">
+            <AlertTriangle className="w-5 h-5 text-yellow-600 shrink-0" aria-hidden="true" />
+            <p className="text-sm text-yellow-800">
+              This was generated before your latest syllabus upload. Consider regenerating.
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="container mx-auto px-4 py-8 max-w-5xl">
         <Card className="mb-6">
           <CardContent className="py-3 px-4">
