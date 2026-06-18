@@ -4217,6 +4217,72 @@ describe("applyBypassBlocksFix", () => {
     expect(mockCreate).not.toHaveBeenCalled();
     expect(result.accessibleHtml).toContain("<main>");
   });
+
+  /** Extract the inner HTML of the first <main>…</main> span from a string. */
+  function extractMainContent(s: string): string {
+    const m = s.match(/<main[^>]*>([\s\S]*?)<\/main>/i);
+    return m ? m[1] : "";
+  }
+
+  it("leaves a top-level <header> outside <main> as a sibling", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><header><p>Site header</p></header><h1>Content</h1><p>Body</p></body></html>`;
+    const result = applyBypassBlocksFix(html);
+    // header must remain in the output
+    expect(result).toContain("<header>");
+    // primary content must be inside <main>
+    expect(result).toContain("<main>");
+    // the content inside <main> must not contain <header>
+    expect(extractMainContent(result)).not.toContain("<header>");
+  });
+
+  it("leaves a top-level <nav> outside <main> as a sibling", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><nav><a href="#skip">Skip</a></nav><h1>Content</h1></body></html>`;
+    const result = applyBypassBlocksFix(html);
+    expect(result).toContain("<nav>");
+    expect(result).toContain("<main>");
+    expect(extractMainContent(result)).not.toContain("<nav>");
+  });
+
+  it("leaves a top-level <footer> outside <main> as a sibling", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><h1>Content</h1><footer><p>Site footer</p></footer></body></html>`;
+    const result = applyBypassBlocksFix(html);
+    expect(result).toContain("<footer>");
+    expect(result).toContain("<main>");
+    expect(extractMainContent(result)).not.toContain("<footer>");
+  });
+
+  it("keeps header, nav, and footer as siblings when all three are present", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><header><p>Header</p></header><nav><a href="#">Nav</a></nav><h1>Main content</h1><p>Paragraph</p><footer><p>Footer</p></footer></body></html>`;
+    const result = applyBypassBlocksFix(html);
+    // landmarks must still appear in the output
+    expect(result).toContain("<header>");
+    expect(result).toContain("<nav>");
+    expect(result).toContain("<footer>");
+    // exactly one <main> wrapping the non-landmark content
+    const mainCount = (result.match(/<main/gi) ?? []).length;
+    expect(mainCount).toBe(1);
+    // the content inside <main> must not contain any landmark elements
+    const mainInner = extractMainContent(result);
+    expect(mainInner).not.toContain("<header>");
+    expect(mainInner).not.toContain("<nav>");
+    expect(mainInner).not.toContain("<footer>");
+    // non-landmark content is inside <main>
+    expect(mainInner).toContain("<h1>");
+  });
+
+  it("all non-landmark content is grouped into a single <main> (no double <main>)", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><p>Before nav</p><nav><a href="#">Nav</a></nav><p>After nav</p></body></html>`;
+    const result = applyBypassBlocksFix(html);
+    const mainCount = (result.match(/<main/gi) ?? []).length;
+    expect(mainCount).toBe(1);
+  });
+
+  it("fixed HTML with landmarks still passes the 2.4.1 check", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><header><p>Header</p></header><nav><a href="#">Nav</a></nav><h1>Main</h1><footer><p>Footer</p></footer></body></html>`;
+    const fixed = applyBypassBlocksFix(html);
+    const after = runDeterministicChecks(fixed);
+    expect(after.find((i) => i.criterion === "2.4.1")!.status).toBe("pass");
+  });
 });
 
 // ---------------------------------------------------------------------------

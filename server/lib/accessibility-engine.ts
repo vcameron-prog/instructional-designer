@@ -1232,8 +1232,56 @@ export function applyLangAttributeFix(html: string): string {
 
 export function applyBypassBlocksFix(html: string): string {
   if (/<main[\s>]/i.test(html) || /role\s*=\s*["']main["']/i.test(html)) return html;
+
+  const landmarkTags = new Set(["header", "nav", "footer"]);
+
   return html.replace(/(<body[^>]*>)([\s\S]*?)(<\/body>)/i, (_match, open, inner, close) => {
-    return `${open}<main>${inner}</main>${close}`;
+    const root = parseHtml(inner);
+    const children = root.childNodes;
+
+    const hasTopLevelLandmarks = children.some((node) =>
+      landmarkTags.has((node as any).tagName?.toLowerCase() ?? "")
+    );
+
+    if (!hasTopLevelLandmarks) {
+      return `${open}<main>${inner}</main>${close}`;
+    }
+
+    // Separate into landmark elements (header/nav/footer) and non-landmark content.
+    // All non-landmark content is grouped into a single <main> placed at the
+    // position of the first non-landmark child; landmark elements remain as siblings.
+    const parts: Array<{ isLandmark: boolean; html: string }> = [];
+    for (const node of children) {
+      const tag = (node as any).tagName?.toLowerCase() ?? "";
+      const nodeStr: string = (node as any).outerHTML ?? (node as any).rawText ?? "";
+      parts.push({ isLandmark: landmarkTags.has(tag), html: nodeStr });
+    }
+
+    const nonLandmarkHtml = parts
+      .filter((p) => !p.isLandmark)
+      .map((p) => p.html)
+      .join("");
+
+    let newBody = "";
+    let mainWritten = false;
+
+    for (const part of parts) {
+      if (part.isLandmark) {
+        newBody += part.html;
+      } else if (!mainWritten) {
+        if (nonLandmarkHtml.trim()) {
+          newBody += `<main>${nonLandmarkHtml}</main>`;
+        }
+        mainWritten = true;
+      }
+      // Subsequent non-landmark nodes are already included inside <main> above.
+    }
+
+    if (!mainWritten && nonLandmarkHtml.trim()) {
+      newBody += `<main>${nonLandmarkHtml}</main>`;
+    }
+
+    return `${open}${newBody}${close}`;
   });
 }
 
