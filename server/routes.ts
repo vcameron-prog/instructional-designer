@@ -4200,8 +4200,12 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           // Fail open on transient DB errors.
         }
       } else {
+        // Authenticated callers also get a process-local fallback so that
+        // a transient DB outage does not automatically deny every authenticated
+        // request while anonymous traffic continues unimpeded.
         if (!await checkSharedRateLimit(
           `user:${userId}`, "process", SHARED_HEAVY_OP_RATE_LIMIT, HEAVY_OP_RATE_WINDOW_MS,
+          () => checkHeavyOpRateLimit(`process:user:${userId}`),
         )) {
           activeProcessingKeys.delete(processingKey);
           res.status(429).json({ error: "Too many processing requests. Please wait before submitting another document." });
@@ -4705,9 +4709,12 @@ Please generate an IMPROVED version that incorporates the requested changes whil
       activeProcessingKeys.add(reprocessKey);
 
       // Basic rate limiting (re-use the same shared per-user heavy-op limit).
+      // Fallback to process-local check if DB is unavailable so a transient
+      // outage does not automatically deny every authenticated re-conversion.
       if (userId) {
         if (!await checkSharedRateLimit(
           `user:${userId}`, "process", SHARED_HEAVY_OP_RATE_LIMIT, HEAVY_OP_RATE_WINDOW_MS,
+          () => checkHeavyOpRateLimit(`process:user:${userId}`),
         )) {
           activeProcessingKeys.delete(reprocessKey);
           res.status(429).json({ error: "Too many processing requests. Please wait before retrying." });
@@ -5319,8 +5326,12 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           return;
         }
       } else {
+        // Authenticated callers also get a process-local fallback so that
+        // a transient DB outage does not automatically deny every authenticated
+        // request while anonymous traffic continues unimpeded.
         if (!await checkSharedRateLimit(
           `user:${userId}`, "docx_export", SHARED_HEAVY_OP_RATE_LIMIT, HEAVY_OP_RATE_WINDOW_MS,
+          () => checkHeavyOpRateLimit(`docx:user:${userId}`),
         )) {
           res.status(429).json({ error: "Too many DOCX export requests. Please wait before trying again." });
           return;
@@ -5454,8 +5465,12 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           return;
         }
       } else {
+        // Authenticated callers also get a process-local fallback so that
+        // a transient DB outage does not automatically deny every authenticated
+        // request while anonymous traffic continues unimpeded.
         if (!await checkSharedRateLimit(
           `user:${userId}`, "pdf_export", SHARED_HEAVY_OP_RATE_LIMIT, HEAVY_OP_RATE_WINDOW_MS,
+          () => checkHeavyOpRateLimit(`pdf:user:${userId}`),
         )) {
           res.status(429).json({ error: "Too many PDF export requests. Please wait before trying again." });
           return;
