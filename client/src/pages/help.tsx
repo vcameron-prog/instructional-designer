@@ -212,7 +212,7 @@ const faqs = [
   },
   {
     question: "What file types does the document converter support?",
-    answer: "The Accessibility Converter accepts PDF files (.pdf) and Word documents (.docx) up to 20MB. You can also import Google Docs by pasting the document link — the tool downloads it as a Word file for you to upload. Text-based PDFs, scanned documents (OCR is applied automatically), and documents with images, tables, and mixed content are all supported. The converter outputs accessible HTML or Word (.docx) documents.",
+    answer: "The Accessibility Converter accepts PDF files (.pdf), Word documents (.docx), Excel spreadsheets (.xlsx), and PowerPoint presentations (.pptx) up to 20MB. You can also import Google Docs or Google Sheets by pasting the document link. Text-based PDFs, scanned documents (OCR is applied automatically), and documents with images, tables, and mixed content are all supported. The converter outputs accessible HTML or Word (.docx) documents.",
   },
   {
     question: "What accessibility standards does the PDF converter check for?",
@@ -602,7 +602,7 @@ export default function HelpPage() {
                     </div>
                     <div>
                       <h5 className="font-medium text-sm">1. Upload Your Document</h5>
-                      <p className="text-xs text-muted-foreground">Drag and drop or browse to upload a PDF or Word (.docx) file (up to 20MB). You can also paste a Google Docs link to download it first. Scanned PDFs are supported via automatic OCR.</p>
+                      <p className="text-xs text-muted-foreground">Drag and drop or browse to upload a PDF, Word (.docx), Excel (.xlsx), or PowerPoint (.pptx) file (up to 20MB). You can also paste a Google Docs or Google Sheets link. Scanned PDFs are supported via automatic OCR.</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">

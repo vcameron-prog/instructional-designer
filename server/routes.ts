@@ -2800,6 +2800,8 @@ Please generate an IMPROVED version that incorporates the requested changes whil
   const ACCEPTED_MIMES = new Set([
     "application/pdf",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
   ]);
 
   const docUpload = multer({
@@ -2809,7 +2811,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
       if (ACCEPTED_MIMES.has(file.mimetype)) {
         cb(null, true);
       } else {
-        cb(new Error("Only PDF and Word (.docx) files are allowed"));
+        cb(new Error("Only PDF, Word (.docx), Excel (.xlsx), and PowerPoint (.pptx) files are allowed"));
       }
     },
   });
@@ -2986,10 +2988,13 @@ Please generate an IMPROVED version that incorporates the requested changes whil
       const sourceType =
         explicitSourceType === "google-doc"
           ? "google-doc"
-          : file.mimetype ===
-              "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          : file.mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             ? "docx"
-            : "pdf";
+            : file.mimetype === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              ? "xlsx"
+              : file.mimetype === "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                ? "pptx"
+                : "pdf";
 
       const [created] = await db
         .insert(conversions)
@@ -3688,10 +3693,18 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           let extraction: import("./lib/pdf-processor").PdfExtraction;
           let ocrApplied = false;
 
-          if (srcType === "google-sheet") {
-            await updateStatusMessage("Extracting Google Sheet content…");
+          if (srcType === "google-sheet" || srcType === "xlsx") {
+            await updateStatusMessage(
+              srcType === "xlsx"
+                ? "Extracting Excel spreadsheet content…"
+                : "Extracting Google Sheet content…"
+            );
             const { extractXlsxContent } = await import("./lib/xlsx-extractor");
             extraction = await extractXlsxContent(fileBuffer);
+          } else if (srcType === "pptx") {
+            await updateStatusMessage("Extracting PowerPoint slide content…");
+            const { extractPptxContent } = await import("./lib/pptx-extractor");
+            extraction = await extractPptxContent(fileBuffer);
           } else if (srcType === "docx" || srcType === "google-doc") {
             await updateStatusMessage(
               srcType === "google-doc"

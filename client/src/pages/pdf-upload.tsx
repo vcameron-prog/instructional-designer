@@ -194,7 +194,7 @@ export default function PdfUpload() {
       setUploadError(null);
       if (rejectedFiles.length > 0) {
         setUploadError(
-          "Please upload valid PDF or Word (.docx) documents under 20MB.",
+          "Please upload valid PDF, Word (.docx), Excel (.xlsx), or PowerPoint (.pptx) documents under 20MB.",
         );
         return;
       }
@@ -221,8 +221,9 @@ export default function PdfUpload() {
     onDrop,
     accept: {
       "application/pdf": [".pdf"],
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-        [".docx"],
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"],
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation": [".pptx"],
     },
     maxFiles: 10,
     maxSize: 20 * 1024 * 1024,
@@ -390,7 +391,7 @@ export default function PdfUpload() {
                   <div className="flex items-center gap-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                     <span className="flex items-center gap-2 bg-background px-3 py-1.5 rounded-full border shadow-sm">
                       <File className="w-3.5 h-3.5" aria-hidden="true" />
-                      PDF or DOCX up to 20MB
+                      PDF, DOCX, XLSX, or PPTX up to 20MB
                     </span>
                   </div>
                 )}
