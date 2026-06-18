@@ -14,6 +14,8 @@ const {
   mockUpdateContent,
   mockGetCourse,
   mockAnthropicCreate,
+  mockConvertMarkdownTablesToHtml,
+  mockFixHtmlTableCaption,
 } = vi.hoisted(() => ({
   mockPruneOldVersions: vi.fn(),
   mockGetContent: vi.fn(),
@@ -21,6 +23,8 @@ const {
   mockUpdateContent: vi.fn(),
   mockGetCourse: vi.fn(),
   mockAnthropicCreate: vi.fn(),
+  mockConvertMarkdownTablesToHtml: vi.fn(),
+  mockFixHtmlTableCaption: vi.fn(),
 }));
 
 // ---------------------------------------------------------------------------
@@ -87,20 +91,24 @@ vi.mock("@anthropic-ai/sdk", () => ({
 vi.mock("./db", () => ({ db: {} }));
 
 // ---------------------------------------------------------------------------
-// Mock: markdownTableConverter – passthrough; routes.ts applies it to the
-// refined text, but content shape is irrelevant for these tests.
+// Mock: markdownTableConverter – uses a spy so individual tests can configure
+// return values. Default: passthrough (no conversion). Tests that exercise
+// the convert-markdown-tables fix type override it to return different content.
 // ---------------------------------------------------------------------------
 vi.mock("./markdownTableConverter.js", () => ({
-  convertMarkdownTablesToHtml: (html: string) => html,
+  convertMarkdownTablesToHtml: mockConvertMarkdownTablesToHtml,
 }));
 
 // ---------------------------------------------------------------------------
-// Mock: table-fixers – passthroughs so the fix-accessibility handler can
-// dispatch to them without any real HTML transformation.
+// Mock: table-fixers – uses a spy for fixHtmlTableCaption so individual tests
+// can control whether the fix changes content. The spy must return the
+// { html, tablesFixed } object shape that routes.ts destructures.
+// fixHtmlTableThead and editHtmlTableCaption are plain passthroughs because
+// they are not exercised by the prune-coverage tests here.
 // ---------------------------------------------------------------------------
 vi.mock("./lib/table-fixers.js", () => ({
-  fixHtmlTableCaption: (html: string) => html,
-  fixHtmlTableThead: (html: string) => html,
+  fixHtmlTableCaption: mockFixHtmlTableCaption,
+  fixHtmlTableThead: (html: string) => ({ html, tablesFixed: 0 }),
   editHtmlTableCaption: (html: string) => html,
 }));
 
@@ -131,6 +139,25 @@ async function buildApp() {
 }
 
 // ---------------------------------------------------------------------------
+// Coverage note: which fix types are tested here and why
+//
+// Tested (deterministic – no external I/O, output is predictable):
+//   • fix-heading-skip          – simple string transformation
+//   • convert-markdown-tables   – delegates to convertMarkdownTablesToHtml spy
+//   • fix-html-table-caption    – delegates to fixHtmlTableCaption spy
+//
+// Not tested here (require real AI calls):
+//   • fix-vague-link-text – calls fixVagueLinkTextAI (Anthropic); covered by
+//     the AI-integration test suite. Mocking the AI response to exercise the
+//     prune path is intentionally kept out of this file to keep these tests
+//     honest about which paths are deterministic.
+//
+// Other deterministic fix types (fix-all-caps, fix-html-table-thead,
+// edit-html-table-caption) follow the same code path as fix-heading-skip once
+// their fixer returns a changed string. The three types above are sufficient
+// to prove that pruneOldVersions is wired correctly regardless of which branch
+// executes.
+// ---------------------------------------------------------------------------
 
 describe("pruneOldVersions is called correctly from route handlers", () => {
   let app: express.Express;
@@ -158,6 +185,14 @@ describe("pruneOldVersions is called correctly from route handlers", () => {
       userId: "test-user-prune",
     });
     mockPruneOldVersions.mockResolvedValue(undefined);
+
+    // Default: both transformer mocks are passthroughs so tests that rely on
+    // "no change" behaviour work without extra setup.
+    mockConvertMarkdownTablesToHtml.mockImplementation((html: string) => html);
+    mockFixHtmlTableCaption.mockImplementation((html: string) => ({
+      html,
+      tablesFixed: 0,
+    }));
   });
 
   // -------------------------------------------------------------------------
@@ -231,6 +266,9 @@ describe("pruneOldVersions is called correctly from route handlers", () => {
   // POST /api/content/:id/fix-accessibility  (accessibility-fix-save route)
   // -------------------------------------------------------------------------
   describe("POST /api/content/:id/fix-accessibility", () => {
+    // -----------------------------------------------------------------------
+    // fix-heading-skip
+    // -----------------------------------------------------------------------
     it("calls pruneOldVersions with the correct contentId and keepCount when the fix changes content", async () => {
       const contentId = 55;
       // A heading skip (h1 → h3) ensures fixHeadingSkip produces a different
@@ -317,6 +355,134 @@ describe("pruneOldVersions is called correctly from route handlers", () => {
       expect(typeof calledContentId).toBe("number");
       expect(calledContentId).toBe(contentId);
       expect(calledKeepCount).toBe(EXPECTED_KEEP_COUNT);
+    });
+
+    // -----------------------------------------------------------------------
+    // convert-markdown-tables
+    // -----------------------------------------------------------------------
+    it("calls pruneOldVersions when convert-markdown-tables produces different content", async () => {
+      const contentId = 200;
+      const originalContent = "| Col A | Col B |\n|---|---|\n| 1 | 2 |";
+      const convertedContent = "<table><tr><th>Col A</th><th>Col B</th></tr><tr><td>1</td><td>2</td></tr></table>";
+
+      mockGetContent.mockResolvedValue({
+        id: contentId,
+        content: originalContent,
+        toolName: "assignment",
+        courseId: null,
+        userId: null,
+      });
+      mockCreateVersion.mockResolvedValue({
+        id: 201,
+        generatedContentId: contentId,
+        content: originalContent,
+        refinementRequest: "accessibility-fix-snapshot",
+        createdAt: new Date(),
+      });
+      mockUpdateContent.mockResolvedValue({
+        id: contentId,
+        content: convertedContent,
+        toolName: "assignment",
+        courseId: null,
+        userId: null,
+      });
+      // Override the passthrough so the fixer reports a real change
+      mockConvertMarkdownTablesToHtml.mockReturnValue(convertedContent);
+
+      const response = await request(app)
+        .post(`/api/content/${contentId}/fix-accessibility`)
+        .send({ fixType: "convert-markdown-tables" })
+        .expect(200);
+
+      expect(mockPruneOldVersions).toHaveBeenCalledTimes(1);
+      expect(mockPruneOldVersions).toHaveBeenCalledWith(contentId, EXPECTED_KEEP_COUNT);
+      expect(response.body.preFixVersionId).toBe(201);
+    });
+
+    it("does NOT call pruneOldVersions when convert-markdown-tables leaves content unchanged", async () => {
+      const contentId = 202;
+      const alreadyHtml = "<p>No markdown tables here.</p>";
+
+      mockGetContent.mockResolvedValue({
+        id: contentId,
+        content: alreadyHtml,
+        toolName: "rubric",
+        courseId: null,
+        userId: null,
+      });
+      // Default mock is already a passthrough; no override needed
+
+      await request(app)
+        .post(`/api/content/${contentId}/fix-accessibility`)
+        .send({ fixType: "convert-markdown-tables" })
+        .expect(200);
+
+      expect(mockCreateVersion).not.toHaveBeenCalled();
+      expect(mockPruneOldVersions).not.toHaveBeenCalled();
+    });
+
+    // -----------------------------------------------------------------------
+    // fix-html-table-caption
+    // -----------------------------------------------------------------------
+    it("calls pruneOldVersions when fix-html-table-caption adds a caption to a captionless table", async () => {
+      const contentId = 300;
+      const originalContent = "<table><tr><td>Cell</td></tr></table>";
+      const fixedContent = "<table><caption>Table summary</caption>\n<tr><td>Cell</td></tr></table>";
+
+      mockGetContent.mockResolvedValue({
+        id: contentId,
+        content: originalContent,
+        toolName: "assignment",
+        courseId: null,
+        userId: null,
+      });
+      mockCreateVersion.mockResolvedValue({
+        id: 301,
+        generatedContentId: contentId,
+        content: originalContent,
+        refinementRequest: "accessibility-fix-snapshot",
+        createdAt: new Date(),
+      });
+      mockUpdateContent.mockResolvedValue({
+        id: contentId,
+        content: fixedContent,
+        toolName: "assignment",
+        courseId: null,
+        userId: null,
+      });
+      // Override the passthrough so the fixer reports a real change
+      mockFixHtmlTableCaption.mockReturnValue({ html: fixedContent, tablesFixed: 1 });
+
+      const response = await request(app)
+        .post(`/api/content/${contentId}/fix-accessibility`)
+        .send({ fixType: "fix-html-table-caption" })
+        .expect(200);
+
+      expect(mockPruneOldVersions).toHaveBeenCalledTimes(1);
+      expect(mockPruneOldVersions).toHaveBeenCalledWith(contentId, EXPECTED_KEEP_COUNT);
+      expect(response.body.preFixVersionId).toBe(301);
+    });
+
+    it("does NOT call pruneOldVersions when fix-html-table-caption leaves content unchanged", async () => {
+      const contentId = 302;
+      const alreadyCaptioned = "<table><caption>Existing</caption><tr><td>Cell</td></tr></table>";
+
+      mockGetContent.mockResolvedValue({
+        id: contentId,
+        content: alreadyCaptioned,
+        toolName: "rubric",
+        courseId: null,
+        userId: null,
+      });
+      // Default mock returns { html: same content, tablesFixed: 0 } — no change
+
+      await request(app)
+        .post(`/api/content/${contentId}/fix-accessibility`)
+        .send({ fixType: "fix-html-table-caption" })
+        .expect(200);
+
+      expect(mockCreateVersion).not.toHaveBeenCalled();
+      expect(mockPruneOldVersions).not.toHaveBeenCalled();
     });
   });
 });
