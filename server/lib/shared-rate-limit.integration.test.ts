@@ -1,9 +1,18 @@
 /**
  * Integration test: advisory lock serializes concurrent checkSharedRateLimit calls.
  *
- * Requires a real PostgreSQL instance reachable via DATABASE_URL.
- * Skipped automatically when DATABASE_URL is not set so the suite stays
- * CI-safe in environments without a database.
+ * Requires a real PostgreSQL instance reachable via DATABASE_URL **and** a
+ * fully-migrated schema (i.e. the rate_limit_log table must already exist).
+ * Run `drizzle-kit push` or `drizzle-kit migrate` against your test database
+ * before running this suite.
+ *
+ * The test is skipped automatically when:
+ *   - DATABASE_URL is not set, OR
+ *   - the rate_limit_log table does not exist in the target database
+ *     (indicating the schema has not been migrated).
+ *
+ * This keeps the suite CI-safe while ensuring the table definition is always
+ * owned by the Drizzle migration rather than being recreated here.
  *
  * The critical race being proven:
  *   Two concurrent calls with count = limit - 1 (i.e. one slot remaining).
@@ -21,13 +30,32 @@ import { checkSharedRateLimit, cleanupRateLimitLog } from "./shared-rate-limit";
 
 const DB_AVAILABLE = !!process.env.DATABASE_URL;
 
+/**
+ * Returns true when the rate_limit_log table exists in the connected database.
+ * Used to skip the suite gracefully when migrations have not been applied.
+ */
+async function tableExists(): Promise<boolean> {
+  if (!DB_AVAILABLE) return false;
+  try {
+    const [{ exists }] = await db.execute<{ exists: boolean }>(sql`
+      SELECT EXISTS (
+        SELECT 1
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+          AND table_name   = 'rate_limit_log'
+      ) AS exists
+    `);
+    return !!exists;
+  } catch {
+    return false;
+  }
+}
+
+// Resolved once in beforeAll; used by skipIf to decide whether to run tests.
+let TABLE_EXISTS = false;
+
 // Unique prefix per test run so parallel CI runs don't collide.
 const TEST_KEY_PREFIX = `rl-int-test-${Date.now()}`;
-
-/** Remove all rate_limit_log rows for a given key so tests start clean. */
-async function clearKey(key: string): Promise<void> {
-  await db.delete(rateLimitLog).where(eq(rateLimitLog.key, key));
-}
 
 /** Count rows in rate_limit_log for (key, action). */
 async function countRows(key: string, action: string): Promise<number> {
@@ -43,29 +71,24 @@ describe.skipIf(!DB_AVAILABLE)(
   () => {
     const ACTION = "ai-gen";
 
-    // Create the rate_limit_log table if it doesn't exist yet.
-    // This makes the test self-contained: it works whether or not migrations
-    // have been applied to the test database.
+    // Check whether the schema has been migrated (rate_limit_log must exist).
+    // The test does NOT create the table itself — the Drizzle migration is the
+    // sole owner of the table definition, preventing schema drift between test
+    // and production environments.
     beforeAll(async () => {
-      await db.execute(sql`
-        CREATE TABLE IF NOT EXISTS rate_limit_log (
-          id          SERIAL PRIMARY KEY,
-          key         TEXT        NOT NULL,
-          action      TEXT        NOT NULL,
-          created_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
+      TABLE_EXISTS = await tableExists();
     });
 
-    // Drop all test rows after every test (not the table itself — that would
-    // conflict with a real production schema if one exists).
+    // Clean up all test rows before each test (never the table itself).
     beforeEach(async () => {
+      if (!TABLE_EXISTS) return;
       await db
         .delete(rateLimitLog)
         .where(sql`${rateLimitLog.key} LIKE ${TEST_KEY_PREFIX + "%"}`);
     });
 
     afterAll(async () => {
+      if (!TABLE_EXISTS) return;
       await db
         .delete(rateLimitLog)
         .where(sql`${rateLimitLog.key} LIKE ${TEST_KEY_PREFIX + "%"}`);
@@ -75,14 +98,22 @@ describe.skipIf(!DB_AVAILABLE)(
     // Basic happy-path tests (sequential, no concurrency)
     // -----------------------------------------------------------------------
 
-    it("allows a single request when no rows exist", async () => {
+    it("allows a single request when no rows exist", async (ctx) => {
+      if (!TABLE_EXISTS) {
+        ctx.skip();
+        return;
+      }
       const key = `${TEST_KEY_PREFIX}-basic`;
       const allowed = await checkSharedRateLimit(key, ACTION, 2, 60 * 60 * 1000);
       expect(allowed).toBe(true);
       expect(await countRows(key, ACTION)).toBe(1);
     });
 
-    it("denies a request once the limit is reached (sequential)", async () => {
+    it("denies a request once the limit is reached (sequential)", async (ctx) => {
+      if (!TABLE_EXISTS) {
+        ctx.skip();
+        return;
+      }
       const key = `${TEST_KEY_PREFIX}-seq`;
       const limit = 2;
       const windowMs = 60 * 60 * 1000;
@@ -104,7 +135,11 @@ describe.skipIf(!DB_AVAILABLE)(
 
     it(
       "with limit=1 and count=0: exactly one concurrent call succeeds and one fails",
-      async () => {
+      async (ctx) => {
+        if (!TABLE_EXISTS) {
+          ctx.skip();
+          return;
+        }
         const key = `${TEST_KEY_PREFIX}-conc1`;
         const limit = 1;
         const windowMs = 60 * 60 * 1000;
@@ -131,7 +166,11 @@ describe.skipIf(!DB_AVAILABLE)(
 
     it(
       "with limit=N and count=N-1: exactly one concurrent call fills the last slot",
-      async () => {
+      async (ctx) => {
+        if (!TABLE_EXISTS) {
+          ctx.skip();
+          return;
+        }
         const key = `${TEST_KEY_PREFIX}-concN`;
         const limit = 3;
         const windowMs = 60 * 60 * 1000;
@@ -162,7 +201,11 @@ describe.skipIf(!DB_AVAILABLE)(
     // Isolation: different keys must not interfere with each other
     // -----------------------------------------------------------------------
 
-    it("concurrent calls with distinct keys do not block or interfere", async () => {
+    it("concurrent calls with distinct keys do not block or interfere", async (ctx) => {
+      if (!TABLE_EXISTS) {
+        ctx.skip();
+        return;
+      }
       const keyA = `${TEST_KEY_PREFIX}-isolA`;
       const keyB = `${TEST_KEY_PREFIX}-isolB`;
       const limit = 1;
@@ -184,7 +227,11 @@ describe.skipIf(!DB_AVAILABLE)(
     // Fallback behaviour
     // -----------------------------------------------------------------------
 
-    it("invokes the fallbackFn on DB error and returns its value", async () => {
+    it("invokes the fallbackFn on DB error and returns its value", async (ctx) => {
+      if (!TABLE_EXISTS) {
+        ctx.skip();
+        return;
+      }
       // We cannot easily break the real DB in a test, so we verify the
       // fallback wiring by calling with a valid DB but checking that a
       // provided fallback is honoured on a genuine error path.
