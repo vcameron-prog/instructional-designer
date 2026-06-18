@@ -24,6 +24,7 @@ import {
   applyBypassBlocksFix,
   applyLangAttributeFix,
   applyPageTitleFix,
+  extractPageTitleInfo,
   parseHexColor,
   relativeLuminance,
   contrastRatio,
@@ -3616,6 +3617,55 @@ describe("applyDeterministicReport", () => {
     // The target issue should still receive the fallback fixed treatment
     expect(updatedIssues[1].status).toBe("fixed");
   });
+
+  it("sets details to mention the h1 source heading when the 2.4.2 fix finds an h1", () => {
+    const pageTitleIssue = makeIssue({
+      criterion: "2.4.2",
+      title: "Page Titled",
+      status: "fail",
+      details: "The document is missing a title.",
+    });
+    const updatedIssues: ComplianceIssue[] = [{ ...pageTitleIssue }];
+    const fixedHtml = `<!DOCTYPE html><html lang="en"><head><title>About Us</title></head><body><h1>About Us</h1></body></html>`;
+
+    applyDeterministicReport(fixedHtml, pageTitleIssue, 0, updatedIssues);
+
+    expect(updatedIssues[0].status).toBe("fixed");
+    expect(updatedIssues[0].details).toBe("Title set to 'About Us' from the first <h1>");
+  });
+
+  it("sets details to mention the h2 source heading when the 2.4.2 fix uses h2", () => {
+    const pageTitleIssue = makeIssue({
+      criterion: "2.4.2",
+      title: "Page Titled",
+      status: "fail",
+      details: "The document is missing a title.",
+    });
+    const updatedIssues: ComplianceIssue[] = [{ ...pageTitleIssue }];
+    const fixedHtml = `<!DOCTYPE html><html lang="en"><head><title>Contact</title></head><body><h2>Contact</h2></body></html>`;
+
+    applyDeterministicReport(fixedHtml, pageTitleIssue, 0, updatedIssues);
+
+    expect(updatedIssues[0].status).toBe("fixed");
+    expect(updatedIssues[0].details).toBe("Title set to 'Contact' from the first <h2>");
+  });
+
+  it("uses the generic details message when 2.4.2 fix fell back to 'Document'", () => {
+    const pageTitleIssue = makeIssue({
+      criterion: "2.4.2",
+      title: "Page Titled",
+      status: "fail",
+      details: "The document is missing a title.",
+    });
+    const updatedIssues: ComplianceIssue[] = [{ ...pageTitleIssue }];
+    const fixedHtml = `<!DOCTYPE html><html lang="en"><head><title>Document</title></head><body><p>No headings here</p></body></html>`;
+
+    applyDeterministicReport(fixedHtml, pageTitleIssue, 0, updatedIssues);
+
+    expect(updatedIssues[0].status).toBe("fixed");
+    expect(updatedIssues[0].details).not.toContain("from the first");
+    expect(updatedIssues[0].details).toContain("descriptive title");
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -4268,6 +4318,47 @@ describe("applyPageTitleFix", () => {
     const html = `<!DOCTYPE html><html lang="en"><head><title></title></head><body><h1><span>Products</span></h1></body></html>`;
     const result = applyPageTitleFix(html);
     expect(result).toContain("<title>Products</title>");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// extractPageTitleInfo
+// ---------------------------------------------------------------------------
+
+describe("extractPageTitleInfo", () => {
+  it("returns h1 text and headingLevel 'h1' when h1 is present", () => {
+    const html = `<html><head><title></title></head><body><h1>About Us</h1></body></html>`;
+    const result = extractPageTitleInfo(html);
+    expect(result.title).toBe("About Us");
+    expect(result.headingLevel).toBe("h1");
+  });
+
+  it("returns h2 text and headingLevel 'h2' when h1 is absent", () => {
+    const html = `<html><head><title></title></head><body><h2>Contact</h2></body></html>`;
+    const result = extractPageTitleInfo(html);
+    expect(result.title).toBe("Contact");
+    expect(result.headingLevel).toBe("h2");
+  });
+
+  it("falls back to h2 when h1 is present but empty", () => {
+    const html = `<html><head><title></title></head><body><h1>  </h1><h2>Services</h2></body></html>`;
+    const result = extractPageTitleInfo(html);
+    expect(result.title).toBe("Services");
+    expect(result.headingLevel).toBe("h2");
+  });
+
+  it("returns 'Document' and null headingLevel when no headings are found", () => {
+    const html = `<html><head><title></title></head><body><p>No headings</p></body></html>`;
+    const result = extractPageTitleInfo(html);
+    expect(result.title).toBe("Document");
+    expect(result.headingLevel).toBeNull();
+  });
+
+  it("strips inner HTML tags from heading text", () => {
+    const html = `<html><head><title></title></head><body><h1><span>Products</span></h1></body></html>`;
+    const result = extractPageTitleInfo(html);
+    expect(result.title).toBe("Products");
+    expect(result.headingLevel).toBe("h1");
   });
 });
 

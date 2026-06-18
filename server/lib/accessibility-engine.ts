@@ -1314,26 +1314,30 @@ export function applyBypassBlocksFix(html: string): string {
   });
 }
 
+export function extractPageTitleInfo(html: string): { title: string; headingLevel: "h1" | "h2" | null } {
+  const h1Match = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+  if (h1Match) {
+    const text = h1Match[1].replace(/<[^>]+>/g, "").trim();
+    if (text) return { title: text, headingLevel: "h1" };
+  }
+  const h2Match = html.match(/<h2[^>]*>([\s\S]*?)<\/h2>/i);
+  if (h2Match) {
+    const text = h2Match[1].replace(/<[^>]+>/g, "").trim();
+    if (text) return { title: text, headingLevel: "h2" };
+  }
+  return { title: "Document", headingLevel: null };
+}
+
 export function applyPageTitleFix(html: string): string {
-  function extractHeadingTitle(): string {
-    const h1Match = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
-    if (h1Match) {
-      const text = h1Match[1].replace(/<[^>]+>/g, "").trim();
-      if (text) return text;
-    }
-    const h2Match = html.match(/<h2[^>]*>([\s\S]*?)<\/h2>/i);
-    if (h2Match) {
-      const text = h2Match[1].replace(/<[^>]+>/g, "").trim();
-      if (text) return text;
-    }
-    return "Document";
+  function getTitle(): string {
+    return extractPageTitleInfo(html).title;
   }
 
   if (/<title>\s*<\/title>/i.test(html)) {
-    return html.replace(/<title>\s*<\/title>/i, `<title>${extractHeadingTitle()}</title>`);
+    return html.replace(/<title>\s*<\/title>/i, `<title>${getTitle()}</title>`);
   }
   if (!/<title>[^<]+<\/title>/i.test(html)) {
-    const title = extractHeadingTitle();
+    const title = getTitle();
     if (new RegExp(`<head${ATTR_PATTERN}>`, "i").test(html)) {
       return html.replace(new RegExp(`(<head${ATTR_PATTERN}>)`, "i"), `$1<title>${title}</title>`);
     }
@@ -1690,9 +1694,16 @@ export function applyDeterministicReport(
     if (targetIssue.criterion === issue.criterion && targetIssue.title === issue.title) {
       const freshCheck = deterministicMap.get(`${issue.criterion}::${issue.title}`);
       if (freshCheck) {
-        updatedIssues[issueIndex] = freshCheck.status === "pass"
+        let updated: ComplianceIssue = freshCheck.status === "pass"
           ? { ...freshCheck, status: "fixed" }
           : { ...freshCheck };
+        if (issue.criterion === "2.4.2" && updated.status === "fixed") {
+          const { title, headingLevel } = extractPageTitleInfo(fixedHtml);
+          if (headingLevel) {
+            updated = { ...updated, details: `Title set to '${title}' from the first <${headingLevel}>` };
+          }
+        }
+        updatedIssues[issueIndex] = updated;
       } else {
         updatedIssues[issueIndex] = { ...targetIssue, status: "fixed", details: `Fixed: ${targetIssue.details}` };
       }
