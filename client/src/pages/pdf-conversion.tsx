@@ -380,6 +380,7 @@ export default function PdfConversion() {
   const [fixAllProgress, setFixAllProgress] = useState<{ current: number; total: number } | null>(null);
   const [isFixingAll, setIsFixingAll] = useState(false);
   const [isFixingAllAria, setIsFixingAllAria] = useState(false);
+  const [batchFixNotesSummary, setBatchFixNotesSummary] = useState<string[]>([]);
   const [copiedImageKeys, setCopiedImageKeys] = useState<Set<string>>(new Set());
   const [copiedAllKeys, setCopiedAllKeys] = useState<Set<number>>(new Set());
   const [acceptingIndex, setAcceptingIndex] = useState<number | null>(null);
@@ -622,9 +623,11 @@ export default function PdfConversion() {
 
     setIsFixingAll(true);
     setFixError(null);
+    setBatchFixNotesSummary([]);
     setFixAllProgress({ current: 0, total: fixableIndices.length });
 
     let anyRetried = false;
+    const collectedFixNotes: string[] = [];
     try {
       for (let j = 0; j < fixableIndices.length; j++) {
         setFixAllProgress({ current: j + 1, total: fixableIndices.length });
@@ -632,6 +635,10 @@ export default function PdfConversion() {
         const res = await apiRequest("POST", `/api/conversions/${numericId}/fix-issue`, { issueIndex });
         const data = await res.json();
         if (data?.wasRetried) anyRetried = true;
+        const note = data?.complianceReport?.issues?.[issueIndex]?.fixNotes;
+        if (note && !collectedFixNotes.includes(note)) {
+          collectedFixNotes.push(note);
+        }
         await queryClient.invalidateQueries({ queryKey: ["/api/conversions", numericId] });
         // Re-fetch so subsequent iterations use updated HTML + indices
         await queryClient.fetchQuery({ queryKey: ["/api/conversions", numericId] });
@@ -642,6 +649,9 @@ export default function PdfConversion() {
       setIsFixingAll(false);
       setFixAllProgress(null);
       queryClient.invalidateQueries({ queryKey: ["/api/conversions", numericId] });
+      if (collectedFixNotes.length > 0) {
+        setBatchFixNotesSummary(collectedFixNotes);
+      }
     }
     if (anyRetried) {
       toast({
@@ -1740,6 +1750,40 @@ export default function PdfConversion() {
                     className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-lg text-sm font-medium"
                   >
                     {fixError}
+                  </div>
+                )}
+
+                {batchFixNotesSummary.length > 0 && (
+                  <div
+                    className="mb-4 rounded-lg border bg-blue-50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800 p-3 space-y-2"
+                    role="note"
+                    data-testid="batch-fix-notes-summary"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wide flex items-center gap-1.5">
+                        <Info className="w-3.5 h-3.5" aria-hidden="true" />
+                        Heading Level Notes
+                      </p>
+                      <button
+                        onClick={() => setBatchFixNotesSummary([])}
+                        className="text-blue-500 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-200 transition-colors"
+                        aria-label="Dismiss heading level notes"
+                        data-testid="button-dismiss-batch-fix-notes"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <ul className="space-y-1">
+                      {batchFixNotesSummary.map((note, idx) => (
+                        <li
+                          key={idx}
+                          className="text-sm text-blue-900 dark:text-blue-200"
+                          data-testid={`batch-fix-note-${idx}`}
+                        >
+                          {note}
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 )}
 
