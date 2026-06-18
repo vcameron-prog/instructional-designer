@@ -20,11 +20,12 @@ export async function cleanupRateLimitLog(
   maxAgeMs: number = 2 * 60 * 60 * 1000,
   dbInstance: typeof db = db,
   nowFn: () => number = Date.now,
-): Promise<void> {
+): Promise<number> {
   const cutoff = new Date(nowFn() - maxAgeMs);
-  await dbInstance
+  const result = await dbInstance
     .delete(rateLimitLog)
     .where(sql`${rateLimitLog.createdAt} < ${cutoff}`);
+  return (result as { rowCount?: number }).rowCount ?? 0;
 }
 
 /**

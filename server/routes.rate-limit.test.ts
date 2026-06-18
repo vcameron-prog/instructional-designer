@@ -10,9 +10,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 // ---------------------------------------------------------------------------
 // Hoisted mocks
 // ---------------------------------------------------------------------------
-const { mockDbTransaction, mockDbDelete } = vi.hoisted(() => ({
+const { mockDbTransaction, mockDbDelete, mockDbExecute } = vi.hoisted(() => ({
   mockDbTransaction: vi.fn(),
   mockDbDelete: vi.fn(),
+  mockDbExecute: vi.fn(),
 }));
 
 // Mock the db singleton used by checkSharedRateLimit.
@@ -20,6 +21,7 @@ vi.mock("./db", () => ({
   db: {
     transaction: mockDbTransaction,
     delete: mockDbDelete,
+    execute: mockDbExecute,
   },
 }));
 
@@ -893,6 +895,12 @@ describe("sharedRateLimitCleanupCallback – DB delete uses a two-hour cutoff", 
   beforeEach(() => {
     vi.useFakeTimers();
     vi.clearAllMocks();
+    // Default: advisory lock is acquired by this instance (acquired: true).
+    // The callback calls db.execute twice per successful run: once to acquire
+    // the lock and once to release it.
+    mockDbExecute
+      .mockResolvedValueOnce({ rows: [{ acquired: true }] })  // pg_try_advisory_lock
+      .mockResolvedValue({ rows: [] });                        // pg_advisory_unlock
   });
 
   afterEach(() => {
@@ -900,7 +908,7 @@ describe("sharedRateLimitCleanupCallback – DB delete uses a two-hour cutoff", 
   });
 
   it("calls db.delete(rateLimitLog) once per invocation", async () => {
-    const mockWhere = vi.fn().mockResolvedValue(undefined);
+    const mockWhere = vi.fn().mockResolvedValue({ rowCount: 0 });
     mockDbDelete.mockReturnValue({ where: mockWhere });
 
     await sharedRateLimitCleanupCallback();
@@ -916,7 +924,7 @@ describe("sharedRateLimitCleanupCallback – DB delete uses a two-hour cutoff", 
     let capturedSqlArg: any;
     const mockWhere = vi.fn().mockImplementation((arg) => {
       capturedSqlArg = arg;
-      return Promise.resolve(undefined);
+      return Promise.resolve({ rowCount: 0 });
     });
     mockDbDelete.mockReturnValue({ where: mockWhere });
 
@@ -938,17 +946,22 @@ describe("sharedRateLimitCleanupCallback – DB delete uses a two-hour cutoff", 
     mockDbDelete.mockReturnValue({
       where: vi.fn().mockImplementation((arg) => {
         capturedArgs.push(JSON.stringify(arg));
-        return Promise.resolve(undefined);
+        return Promise.resolve({ rowCount: 0 });
       }),
     });
 
     await sharedRateLimitCleanupCallback();
 
+    // Re-arm the execute mock for the second invocation.
+    mockDbExecute
+      .mockResolvedValueOnce({ rows: [{ acquired: true }] })
+      .mockResolvedValue({ rows: [] });
+
     vi.advanceTimersByTime(60 * 60 * 1000); // +1 hour
     mockDbDelete.mockReturnValue({
       where: vi.fn().mockImplementation((arg) => {
         capturedArgs.push(JSON.stringify(arg));
-        return Promise.resolve(undefined);
+        return Promise.resolve({ rowCount: 0 });
       }),
     });
     await sharedRateLimitCleanupCallback();
@@ -966,6 +979,18 @@ describe("sharedRateLimitCleanupCallback – DB delete uses a two-hour cutoff", 
     });
 
     await expect(sharedRateLimitCleanupCallback()).resolves.toBeUndefined();
+  });
+
+  it("skips db.delete when advisory lock is not acquired", async () => {
+    // Reset and configure execute to return acquired: false (another instance holds the lock).
+    mockDbExecute.mockReset();
+    mockDbExecute.mockResolvedValue({ rows: [{ acquired: false }] });
+    const mockWhere = vi.fn().mockResolvedValue({ rowCount: 0 });
+    mockDbDelete.mockReturnValue({ where: mockWhere });
+
+    await sharedRateLimitCleanupCallback();
+
+    expect(mockDbDelete).not.toHaveBeenCalled();
   });
 });
 

@@ -28,6 +28,7 @@ import {
   checkHeavyOpRateLimit,
   checkAiGenRateLimit,
   checkUploadRateLimit,
+  getRateLimitCleanupMetrics,
   AI_GEN_RATE_LIMIT,
   AI_GEN_RATE_WINDOW_MS,
   UPLOAD_RATE_LIMIT,
@@ -1512,12 +1513,19 @@ export async function registerRoutes(
     const criticalRate  = parseFloat(process.env.RETRY_CRITICAL_RATE ?? "0.10");
 
 
+    const cleanupMetrics = getRateLimitCleanupMetrics();
+
     res.json({
       aiFixRetry: {
         count: retryCount,
         lastAt: lastRetryAt,
         lifetimeCount: dbStats.lifetimeCount,
         thisMonthCount: dbStats.thisMonthCount,
+      },
+      rateLimitCleanup: {
+        lastRunAt: cleanupMetrics.lastRunAt,
+        lastErrorAt: cleanupMetrics.lastErrorAt,
+        rowsDeletedTotal: cleanupMetrics.rowsDeletedTotal,
       },
       thresholds: {
         warnCount:     isNaN(warnCount)    ? 10   : warnCount,

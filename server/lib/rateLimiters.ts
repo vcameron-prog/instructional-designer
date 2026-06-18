@@ -46,6 +46,26 @@ const RATE_LIMIT_CLEANUP_INTERVAL_MINUTES =
 // Stable advisory lock key (arbitrary constant, crc32-inspired, fits int4).
 const RATE_LIMIT_CLEANUP_LOCK_KEY = 0x7a3f1c2d;
 
+// ---------------------------------------------------------------------------
+// Observable metrics for the cleanup interval
+// Exposed via GET /api/metrics as rateLimitCleanup.*
+// ---------------------------------------------------------------------------
+let _cleanupLastRunAt: string | null = null;
+let _cleanupLastErrorAt: string | null = null;
+let _cleanupRowsDeletedTotal = 0;
+
+export function getRateLimitCleanupMetrics(): {
+  lastRunAt: string | null;
+  lastErrorAt: string | null;
+  rowsDeletedTotal: number;
+} {
+  return {
+    lastRunAt: _cleanupLastRunAt,
+    lastErrorAt: _cleanupLastErrorAt,
+    rowsDeletedTotal: _cleanupRowsDeletedTotal,
+  };
+}
+
 export async function sharedRateLimitCleanupCallback(): Promise<void> {
   try {
     // Try to acquire a non-blocking session-level advisory lock.
@@ -58,14 +78,17 @@ export async function sharedRateLimitCleanupCallback(): Promise<void> {
 
     try {
       const ttlMs = RATE_LIMIT_LOG_TTL_HOURS * 60 * 60 * 1000;
-      await cleanupRateLimitLog(ttlMs);
+      const deleted = await cleanupRateLimitLog(ttlMs);
+      _cleanupLastRunAt = new Date().toISOString();
+      _cleanupRowsDeletedTotal += deleted;
     } finally {
       // Always release so the next cycle is contested fairly.
       await db.execute(
         sql`SELECT pg_advisory_unlock(${RATE_LIMIT_CLEANUP_LOCK_KEY})`,
       );
     }
-  } catch {
+  } catch (err) {
+    _cleanupLastErrorAt = new Date().toISOString();
     // Non-critical; next interval will retry.
   }
 }

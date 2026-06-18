@@ -27,6 +27,7 @@ import { db } from "../db";
 import { rateLimitLog } from "@shared/schema";
 import { and, eq, sql } from "drizzle-orm";
 import { checkSharedRateLimit, cleanupRateLimitLog } from "./shared-rate-limit";
+import { getRateLimitCleanupMetrics } from "./rateLimiters";
 
 const DB_AVAILABLE = !!process.env.DATABASE_URL;
 
@@ -268,11 +269,32 @@ describe("cleanupRateLimitLog – unit (mocked db)", () => {
     const deleteMock = vi.fn(() => ({ where: whereMock }));
     const mockDb = { delete: deleteMock } as unknown as typeof db;
 
-    await cleanupRateLimitLog(2 * 60 * 60 * 1000, mockDb);
+    const deleted = await cleanupRateLimitLog(2 * 60 * 60 * 1000, mockDb);
 
     expect(deleteMock).toHaveBeenCalledOnce();
     expect(deleteMock).toHaveBeenCalledWith(rateLimitLog);
     expect(whereMock).toHaveBeenCalledOnce();
+    expect(deleted).toBe(0);
+  });
+
+  it("returns the rowCount from the delete result", async () => {
+    const whereMock = vi.fn().mockResolvedValue({ rowCount: 7 });
+    const deleteMock = vi.fn(() => ({ where: whereMock }));
+    const mockDb = { delete: deleteMock } as unknown as typeof db;
+
+    const deleted = await cleanupRateLimitLog(2 * 60 * 60 * 1000, mockDb);
+
+    expect(deleted).toBe(7);
+  });
+
+  it("returns 0 when the delete result has no rowCount property", async () => {
+    const whereMock = vi.fn().mockResolvedValue({});
+    const deleteMock = vi.fn(() => ({ where: whereMock }));
+    const mockDb = { delete: deleteMock } as unknown as typeof db;
+
+    const deleted = await cleanupRateLimitLog(2 * 60 * 60 * 1000, mockDb);
+
+    expect(deleted).toBe(0);
   });
 
   it("uses nowFn() – maxAgeMs as the cutoff (verifiable via a fixed clock)", async () => {
@@ -379,9 +401,10 @@ describe.skipIf(!DB_AVAILABLE)(
       await insertWithAge(key, 3 * 60 * 60 * 1000);
       expect(await rowCount(key)).toBe(1);
 
-      await cleanupRateLimitLog();
+      const deleted = await cleanupRateLimitLog();
 
       expect(await rowCount(key)).toBe(0);
+      expect(deleted).toBe(1);
     });
 
     it("leaves recent rows untouched", async () => {
@@ -390,9 +413,10 @@ describe.skipIf(!DB_AVAILABLE)(
       await insertWithAge(key, 30 * 60 * 1000);
       expect(await rowCount(key)).toBe(1);
 
-      await cleanupRateLimitLog();
+      const deleted = await cleanupRateLimitLog();
 
       expect(await rowCount(key)).toBe(1);
+      expect(deleted).toBe(0);
     });
 
     it("deletes old rows and preserves recent rows in the same run", async () => {
@@ -402,10 +426,11 @@ describe.skipIf(!DB_AVAILABLE)(
       await insertWithAge(oldKey, 3 * 60 * 60 * 1000);    // 3 h ago → deleted
       await insertWithAge(recentKey, 30 * 60 * 1000);       // 30 min ago → kept
 
-      await cleanupRateLimitLog();
+      const deleted = await cleanupRateLimitLog();
 
       expect(await rowCount(oldKey)).toBe(0);
       expect(await rowCount(recentKey)).toBe(1);
+      expect(deleted).toBe(1);
     });
 
     it("boundary: a row 1 ms before the cutoff is deleted", async () => {
@@ -444,10 +469,55 @@ describe.skipIf(!DB_AVAILABLE)(
       // 30 min ago → within 1-hour window → kept
       await insertWithAge(recentKey, 30 * 60 * 1000);
 
-      await cleanupRateLimitLog(oneHourMs);
+      const deleted = await cleanupRateLimitLog(oneHourMs);
 
       expect(await rowCount(oldKey)).toBe(0);
       expect(await rowCount(recentKey)).toBe(1);
+      expect(deleted).toBe(1);
     });
   },
 );
+
+// ---------------------------------------------------------------------------
+// getRateLimitCleanupMetrics – unit tests (no real DB required)
+//
+// These verify that the getter returns the correct initial state and that the
+// fields have the expected shape.  The values advance only after
+// sharedRateLimitCleanupCallback() runs against a real DB, which is covered
+// by the integration suite above via cleanupRateLimitLog return-value checks.
+// ---------------------------------------------------------------------------
+
+describe("getRateLimitCleanupMetrics – initial state", () => {
+  it("returns null for lastRunAt and lastErrorAt on a fresh module load", () => {
+    const metrics = getRateLimitCleanupMetrics();
+    // These are null until the first successful / failed cleanup run.
+    // Because the setInterval fires only after RATE_LIMIT_CLEANUP_INTERVAL_MINUTES
+    // (default 15 min), they remain null in test environments.
+    expect(metrics).toHaveProperty("lastRunAt");
+    expect(metrics).toHaveProperty("lastErrorAt");
+    expect(metrics).toHaveProperty("rowsDeletedTotal");
+    expect(typeof metrics.rowsDeletedTotal).toBe("number");
+  });
+
+  it("rowsDeletedTotal is a non-negative integer", () => {
+    const { rowsDeletedTotal } = getRateLimitCleanupMetrics();
+    expect(rowsDeletedTotal).toBeGreaterThanOrEqual(0);
+    expect(Number.isInteger(rowsDeletedTotal)).toBe(true);
+  });
+
+  it("lastRunAt is null or a valid ISO 8601 string", () => {
+    const { lastRunAt } = getRateLimitCleanupMetrics();
+    if (lastRunAt !== null) {
+      expect(() => new Date(lastRunAt)).not.toThrow();
+      expect(isNaN(new Date(lastRunAt).getTime())).toBe(false);
+    }
+  });
+
+  it("lastErrorAt is null or a valid ISO 8601 string", () => {
+    const { lastErrorAt } = getRateLimitCleanupMetrics();
+    if (lastErrorAt !== null) {
+      expect(() => new Date(lastErrorAt)).not.toThrow();
+      expect(isNaN(new Date(lastErrorAt).getTime())).toBe(false);
+    }
+  });
+});
