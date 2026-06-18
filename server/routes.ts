@@ -3477,6 +3477,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
       const [conversion] = await db
         .select({
           id: conversions.id,
+          userId: conversions.userId,
           originalFilename: conversions.originalFilename,
           fileSize: conversions.fileSize,
           sourceType: conversions.sourceType,

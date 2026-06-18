@@ -261,7 +261,7 @@ export default function PdfConversion() {
   const params = useParams<{ id: string }>();
   const numericId = parseInt(params.id || "0", 10);
   const [, navigate] = useLocation();
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   usePageTitle("Conversion Details");
   useEffect(() => {
@@ -1317,7 +1317,7 @@ export default function PdfConversion() {
       </header>
 
       <div className="container mx-auto px-4 py-6 space-y-6">
-        {isAuthenticated && (conversion.status === "completed" || conversion.status === "failed") && (
+        {isAuthenticated && user && conversion.userId === user.id && (conversion.status === "completed" || conversion.status === "failed") && (
           <div
             className="flex items-center justify-between gap-3 px-4 py-2.5 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl text-sm"
             data-testid="banner-saved-to-account"

@@ -371,7 +371,7 @@ export default function PdfUpload() {
           </div>
         </div>
 
-        {!isAuthenticated && (
+        {!isAuthenticated && !uploadMutation.isPending && !googleDocMutation.isPending && !googleSheetMutation.isPending && !googleSlideMutation.isPending && fileQueue.every((f) => f.status === "done" || f.status === "error") && (
           <div
             className="w-full max-w-2xl mx-auto mb-6 flex items-center justify-between gap-3 px-4 py-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl text-sm"
             data-testid="banner-sign-in-nudge"
