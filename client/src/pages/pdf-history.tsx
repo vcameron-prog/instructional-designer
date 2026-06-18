@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
@@ -8,6 +8,8 @@ import {
   Loader2,
   Upload,
   ArrowRight,
+  Search,
+  X,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { HeaderControls } from "@/components/header-controls";
@@ -15,7 +17,7 @@ import { usePageTitle } from "@/hooks/use-page-title";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
 import { PoweredByFooter } from "@/components/powered-by-footer";
-import { format } from "date-fns";
+import { format, subDays, startOfDay } from "date-fns";
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 B";
@@ -25,6 +27,8 @@ function formatBytes(bytes: number): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
 }
 
+type DateRange = "7" | "30" | "all";
+
 export default function PdfHistory() {
   usePageTitle("Conversion History");
   useEffect(() => {
@@ -32,6 +36,9 @@ export default function PdfHistory() {
   }, []);
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [, navigate] = useLocation();
+
+  const [search, setSearch] = useState("");
+  const [dateRange, setDateRange] = useState<DateRange>("all");
 
   const { data: conversions, isLoading } = useQuery<any[]>({
     queryKey: ["/api/conversions"],
@@ -46,6 +53,29 @@ export default function PdfHistory() {
       queryClient.invalidateQueries({ queryKey: ["/api/conversions"] });
     },
   });
+
+  const filteredConversions = useMemo(() => {
+    if (!conversions) return [];
+    let result = conversions;
+
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      result = result.filter((c) =>
+        (c.originalFilename ?? "").toLowerCase().includes(q)
+      );
+    }
+
+    if (dateRange !== "all") {
+      const cutoff = startOfDay(subDays(new Date(), parseInt(dateRange)));
+      result = result.filter(
+        (c) => new Date(c.createdAt) >= cutoff
+      );
+    }
+
+    return result;
+  }, [conversions, search, dateRange]);
+
+  const isFiltering = search.trim() !== "" || dateRange !== "all";
 
   if (authLoading || isLoading) {
     return (
@@ -106,6 +136,47 @@ export default function PdfHistory() {
       </header>
 
       <div className="container mx-auto px-4 py-8 max-w-4xl">
+        {conversions && conversions.length > 0 && (
+          <div className="flex flex-col sm:flex-row gap-3 mb-6">
+            <div className="relative flex-1">
+              <Search
+                className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none"
+                aria-hidden="true"
+              />
+              <input
+                type="search"
+                placeholder="Search by filename…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-9 pr-9 py-2 rounded-xl border bg-card text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                data-testid="input-search"
+                aria-label="Search conversions by filename"
+              />
+              {search && (
+                <button
+                  onClick={() => setSearch("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label="Clear search"
+                  data-testid="button-clear-search"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+            <select
+              value={dateRange}
+              onChange={(e) => setDateRange(e.target.value as DateRange)}
+              className="px-3 py-2 rounded-xl border bg-card text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 cursor-pointer"
+              data-testid="select-date-range"
+              aria-label="Filter by date range"
+            >
+              <option value="all">All time</option>
+              <option value="7">Last 7 days</option>
+              <option value="30">Last 30 days</option>
+            </select>
+          </div>
+        )}
+
         {!conversions || conversions.length === 0 ? (
           <div className="text-center py-16">
             <FileText className="w-12 h-12 mx-auto text-muted-foreground mb-4 opacity-50" />
@@ -124,9 +195,36 @@ export default function PdfHistory() {
               Upload Document
             </button>
           </div>
+        ) : filteredConversions.length === 0 ? (
+          <div className="text-center py-16" data-testid="empty-filtered">
+            <Search className="w-12 h-12 mx-auto text-muted-foreground mb-4 opacity-50" />
+            <h2 className="text-xl font-bold text-foreground mb-2">
+              No conversions matching your search
+            </h2>
+            <p className="text-muted-foreground mb-4">
+              {search.trim() && dateRange !== "all"
+                ? `No results for "${search}" in the last ${dateRange} days.`
+                : search.trim()
+                  ? `No results for "${search}".`
+                  : `No conversions in the last ${dateRange} days.`}
+            </p>
+            <button
+              onClick={() => { setSearch(""); setDateRange("all"); }}
+              className="inline-flex items-center gap-2 px-4 py-2 border rounded-xl text-sm font-medium text-foreground hover:bg-muted transition-colors"
+              data-testid="button-clear-filters"
+            >
+              <X className="w-4 h-4" />
+              Clear filters
+            </button>
+          </div>
         ) : (
           <div className="space-y-3">
-            {conversions.map((conv: any) => (
+            {isFiltering && (
+              <p className="text-sm text-muted-foreground mb-1" aria-live="polite" data-testid="text-filter-count">
+                Showing {filteredConversions.length} of {conversions.length} conversion{conversions.length !== 1 ? "s" : ""}
+              </p>
+            )}
+            {filteredConversions.map((conv: any) => (
               <div
                 key={conv.id}
                 className="flex items-center gap-4 p-4 bg-card border rounded-xl hover:border-primary/30 transition-all group"
