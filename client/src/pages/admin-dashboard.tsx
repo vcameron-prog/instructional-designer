@@ -20,6 +20,7 @@ import {
   Wrench,
   Mail,
   FileDown,
+  RotateCcw,
 } from "lucide-react";
 import { HeaderControls } from "@/components/header-controls";
 import { PoweredByFooter } from "@/components/powered-by-footer";
@@ -98,6 +99,13 @@ interface AdminStats {
   };
 }
 
+interface Metrics {
+  aiFixRetry: {
+    count: number;
+    lastAt: string | null;
+  };
+}
+
 const CHART_COLORS = [
   "hsl(var(--primary))",
   "hsl(var(--chart-2))",
@@ -137,6 +145,11 @@ export default function AdminDashboard() {
 
   const { data: stats, isLoading: isLoadingStats, refetch, isRefetching, isError, error } = useQuery<AdminStats>({
     queryKey: ["/api/admin/stats"],
+    enabled: isAuthenticated && adminCheck?.isAdmin === true,
+  });
+
+  const { data: metrics } = useQuery<Metrics>({
+    queryKey: ["/api/metrics"],
     enabled: isAuthenticated && adminCheck?.isAdmin === true,
   });
 
@@ -653,6 +666,46 @@ export default function AdminDashboard() {
                 </div>
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        <Card className="mb-8" data-testid="card-ai-retry-metrics">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <RotateCcw className="w-5 h-5" />
+              AI Fix Retries
+            </CardTitle>
+            <CardDescription>
+              Times the AI needed a second attempt to fix an accessibility issue (resets on server restart)
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-6 sm:grid-cols-2">
+              <div className="flex items-start gap-3" data-testid="stat-ai-retry-count">
+                <div className="w-9 h-9 rounded-lg bg-violet-100 dark:bg-violet-950 flex items-center justify-center flex-shrink-0">
+                  <RotateCcw className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-foreground">
+                    {metrics?.aiFixRetry.count ?? 0}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Times AI needed a second attempt to fix an issue</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3" data-testid="stat-ai-retry-last">
+                <div className="w-9 h-9 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center flex-shrink-0">
+                  <Activity className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-foreground">
+                    {metrics?.aiFixRetry.lastAt
+                      ? format(new Date(metrics.aiFixRetry.lastAt), "MMM d, h:mm a")
+                      : "—"}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Most recent retry</p>
+                </div>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
