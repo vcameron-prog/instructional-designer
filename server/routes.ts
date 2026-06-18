@@ -20,6 +20,7 @@ import { convertMarkdownTablesToHtml } from "./markdownTableConverter.js";
 import { fixHtmlTableCaption, fixHtmlTableThead, editHtmlTableCaption } from "./lib/table-fixers.js";
 import { getDeterministicFixerKeys, getAiFixRetryMetrics } from "./lib/accessibility-engine";
 import { parseVersionHistoryLimit } from "./lib/parseVersionHistoryLimit.js";
+import { checkSharedRateLimit } from "./lib/shared-rate-limit.js";
 
 function getUserId(req: Request): string | null {
   return (req.user as any)?.claims?.sub ?? null;
@@ -110,50 +111,6 @@ setInterval(
 const SHARED_ANON_UPLOAD_RATE_LIMIT = parseInt(process.env.ANON_DB_RATE_LIMIT ?? "10", 10) || 10;
 const SHARED_HEAVY_OP_RATE_LIMIT = parseInt(process.env.HEAVY_OP_RATE_LIMIT ?? "5", 10) || 5;
 
-async function checkSharedRateLimit(
-  key: string,
-  action: string,
-  limit: number,
-  windowMs: number,
-  fallbackFn?: () => boolean,
-): Promise<boolean> {
-  const windowStart = new Date(Date.now() - windowMs);
-  // Use a composite string for the advisory lock key and convert to a 64-bit
-  // integer via hashtext so PostgreSQL can accept it as an advisory lock id.
-  // Two different (key, action) pairs will have different hashes and therefore
-  // different locks, so they do not block each other unnecessarily.
-  const lockKeyStr = `${key}:${action}`;
-  try {
-    return await db.transaction(async (tx) => {
-      // Acquire an exclusive session-level advisory lock for this (key, action).
-      // Any other transaction that calls pg_advisory_xact_lock with the same
-      // hash will block until this transaction commits or rolls back.
-      // This ensures that count + insert for the same key/action is atomic.
-      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${lockKeyStr}))`);
-
-      const [{ n }] = await tx
-        .select({ n: sql<number>`count(*)::int` })
-        .from(rateLimitLog)
-        .where(
-          and(
-            eq(rateLimitLog.key, key),
-            eq(rateLimitLog.action, action),
-            sql`${rateLimitLog.createdAt} >= ${windowStart}`,
-          ),
-        );
-
-      if (n >= limit) return false;
-
-      await tx.insert(rateLimitLog).values({ key, action });
-      return true;
-    });
-  } catch {
-    if (fallbackFn) return fallbackFn();
-    // Fail closed when no fallback is provided: deny the request rather than
-    // allowing unlimited work through a broken shared throttle.
-    return false;
-  }
-}
 
 // Periodic cleanup: remove rate_limit_log rows older than 2 hours so the
 // table does not grow without bound.  Runs every 15 minutes.
