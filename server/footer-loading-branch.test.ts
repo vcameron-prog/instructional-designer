@@ -1,10 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync, readdirSync } from "fs";
+import { readFileSync, readdirSync, statSync } from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PAGES_DIR = path.resolve(__dirname, "../client/src/pages");
+const COMPONENTS_DIR = path.resolve(__dirname, "../client/src/components");
 
 // ---------------------------------------------------------------------------
 // Convention-based pattern for loading-state variables used in page components.
@@ -36,6 +37,45 @@ function pageFilesWithFooterImport(): string[] {
   return files
     .map((f) => path.join(PAGES_DIR, f))
     .filter((filePath) => readFileSync(filePath, "utf-8").includes("powered-by-footer"));
+}
+
+/**
+ * Recursively collects every .tsx file under a directory.
+ */
+function collectTsxFiles(dir: string): string[] {
+  const results: string[] = [];
+  for (const entry of readdirSync(dir)) {
+    const full = path.join(dir, entry);
+    if (statSync(full).isDirectory()) {
+      results.push(...collectTsxFiles(full));
+    } else if (entry.endsWith(".tsx")) {
+      results.push(full);
+    }
+  }
+  return results;
+}
+
+/**
+ * Returns the paths of every .tsx file in client/src/components/ (recursively)
+ * that imports the PoweredByFooter component.
+ *
+ * The components/ directory may contain full-page-layout helper components
+ * (e.g. error boundaries, access-gate wrappers) that render a <main> element
+ * and should include <PoweredByFooter /> just like page files do.  This helper
+ * makes those files visible to the footer regression suite so they are checked
+ * by the same rules applied to pages/.
+ *
+ * As of the initial addition of this helper, no component file imports
+ * PoweredByFooter (the only <main> in components/ is inside the shadcn/ui
+ * sidebar primitive, which is a layout utility rather than a full-page
+ * component).  The helper is intentionally written to return zero results in
+ * that case; the companion tests skip the "must find at least one" sanity
+ * check that the pages/ tests enforce.
+ */
+function componentFilesWithFooterImport(): string[] {
+  return collectTsxFiles(COMPONENTS_DIR).filter((filePath) =>
+    readFileSync(filePath, "utf-8").includes("powered-by-footer"),
+  );
 }
 
 /**
@@ -329,6 +369,100 @@ describe("PoweredByFooter — loading-branch regression", () => {
           `${fileName}: expected non-loading-guard <main> return blocks but none were found — ` +
             "either the file was refactored or the detection logic needs updating",
         );
+      }
+    }
+
+    expect(violations).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Component-level footer regression suite
+//
+// These tests apply the same rules to client/src/components/ that the suite
+// above applies to client/src/pages/.
+//
+// As of the initial addition of this suite, no component file imports
+// PoweredByFooter — the only <main> element in components/ belongs to the
+// shadcn/ui sidebar primitive (sidebar.tsx), which is a layout utility rather
+// than a full-page component and therefore does not need the disclaimer footer.
+//
+// If a future developer adds a full-page helper component (e.g. an error
+// boundary or access-gate wrapper that renders <main>) to components/ and
+// imports PoweredByFooter, these tests will automatically pick it up and
+// enforce the same footer-in-every-branch rules without any test changes.
+// ---------------------------------------------------------------------------
+
+describe("PoweredByFooter — component loading-branch regression", () => {
+  /**
+   * For every component file that imports PoweredByFooter, any loading-guard
+   * early-return block must also render <PoweredByFooter />.
+   *
+   * No sanity-check for "must find at least one file" is performed here because
+   * it is valid (and currently the case) that zero component files import the
+   * footer.  The test becomes active automatically once any such file exists.
+   */
+  it("every loading-guard return block in components renders <PoweredByFooter />", () => {
+    const violations: string[] = [];
+    const filePaths = componentFilesWithFooterImport();
+
+    for (const filePath of filePaths) {
+      const source = readFileSync(filePath, "utf-8");
+      const fileName = path.relative(COMPONENTS_DIR, filePath);
+      const blocks = loadingBranchReturnBlocks(source);
+
+      for (const block of blocks) {
+        if (!block.includes("PoweredByFooter")) {
+          violations.push(
+            `components/${fileName}: a loading-guard return block is missing <PoweredByFooter />`,
+          );
+        }
+      }
+    }
+
+    expect(violations).toEqual([]);
+  });
+
+  /**
+   * For every component file that imports PoweredByFooter, the import must
+   * actually be used (renders at least once).
+   */
+  it("every component that imports PoweredByFooter renders it at least once", () => {
+    const violations: string[] = [];
+    const filePaths = componentFilesWithFooterImport();
+
+    for (const filePath of filePaths) {
+      const source = readFileSync(filePath, "utf-8");
+      if (!source.includes("<PoweredByFooter")) {
+        violations.push(
+          `components/${path.relative(COMPONENTS_DIR, filePath)}: imports PoweredByFooter but never renders it`,
+        );
+      }
+    }
+
+    expect(violations).toEqual([]);
+  });
+
+  /**
+   * For every component file that imports PoweredByFooter, any non-loading
+   * early-return block that renders a <main> element must also render
+   * <PoweredByFooter />.
+   */
+  it("every non-loading-guard <main> return block in components renders <PoweredByFooter />", () => {
+    const violations: string[] = [];
+    const filePaths = componentFilesWithFooterImport();
+
+    for (const filePath of filePaths) {
+      const source = readFileSync(filePath, "utf-8");
+      const fileName = path.relative(COMPONENTS_DIR, filePath);
+      const blocks = nonLoadingGuardedMainReturnBlocks(source);
+
+      for (const block of blocks) {
+        if (!block.includes("PoweredByFooter")) {
+          violations.push(
+            `components/${fileName}: a non-loading-guard <main> return block is missing <PoweredByFooter />`,
+          );
+        }
       }
     }
 
