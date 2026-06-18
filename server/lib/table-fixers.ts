@@ -80,6 +80,40 @@ export function editHtmlTableCaption(text: string, newCaption: string, captionIn
 }
 
 /**
+ * Finds groups of tables that share the same caption text and appends a
+ * positional suffix ("(1 of N)", "2 of N)", …) to each duplicate so that
+ * every caption becomes unique.  Tables without captions and tables whose
+ * captions are already unique are left untouched.
+ */
+export function fixDuplicateTableCaptions(html: string): string {
+  const root = parse(html);
+  const tables = root.querySelectorAll("table");
+
+  const captionMap = new Map<string, Array<{ el: ReturnType<typeof root.querySelector>; originalText: string }>>();
+
+  for (const table of tables) {
+    const captionEl = table.querySelector("caption");
+    if (!captionEl) continue;
+    const originalText = captionEl.text.trim();
+    if (!originalText) continue;
+    const normalized = originalText.toLowerCase();
+    const group = captionMap.get(normalized) ?? [];
+    group.push({ el: captionEl, originalText });
+    captionMap.set(normalized, group);
+  }
+
+  for (const group of captionMap.values()) {
+    if (group.length <= 1) continue;
+    const total = group.length;
+    group.forEach(({ el, originalText }, idx) => {
+      el!.set_content(`${originalText} (${idx + 1} of ${total})`);
+    });
+  }
+
+  return root.toString();
+}
+
+/**
  * Wraps the first <tr> in a <thead> (converting its <td> cells to
  * <th scope="col">) for every HTML table that is missing a <thead>.
  * When the table already uses a <tbody>, the first row is extracted from

@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { parse as parseHtml } from "node-html-parser";
 import type { ExtractedImage, ExtractedTable } from "./pdf-processor";
+import { fixDuplicateTableCaptions } from "./table-fixers.js";
 
 /** Inline concurrency limiter — equivalent to p-limit but works in any bundle format. */
 function pLimit(concurrency: number) {
@@ -1661,6 +1662,7 @@ const deterministicFixerRegistry: Record<string, DeterministicFixer> = {
   "4.1.2::ARIA Radio Role on Non-Input Element": applyAriaRadioRoleFix,
   "1.3.1::ARIA List Role on Non-List Element": applyAriaListRoleFix,
   "1.3.1::ARIA Listitem Role on Non-Listitem Element": applyAriaListitemRoleFix,
+  "1.3.1::Duplicate Table Captions": fixDuplicateTableCaptions,
 };
 
 export function registerDeterministicFixer(key: string, fn: DeterministicFixer): void {

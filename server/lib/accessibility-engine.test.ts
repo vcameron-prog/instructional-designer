@@ -5582,3 +5582,115 @@ describe("fixComplianceIssue – batch ARIA role misuse via synthetic issue titl
     expect(remaining).toHaveLength(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// fixComplianceIssue — deterministic fix for Duplicate Table Captions
+// ---------------------------------------------------------------------------
+
+describe("fixComplianceIssue – Duplicate Table Captions deterministic fixer", () => {
+  beforeEach(() => {
+    mockCreate.mockReset();
+  });
+
+  it("resolves two tables sharing the same caption by appending positional suffixes", async () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body>
+      <main><h1>T</h1>
+        <table><caption>Student Grades</caption><thead><tr><th>Name</th></tr></thead><tbody><tr><td>Alice</td></tr></tbody></table>
+        <table><caption>Student Grades</caption><thead><tr><th>Name</th></tr></thead><tbody><tr><td>Bob</td></tr></tbody></table>
+      </main></body></html>`;
+
+    const issues = runDeterministicChecks(html);
+    const issue = issues.find((i) => i.criterion === "1.3.1" && i.title === "Duplicate Table Captions")!;
+    expect(issue).toBeDefined();
+
+    const report = buildComplianceReport(issues);
+    const result = await fixComplianceIssue(html, issue, issues.indexOf(issue), report);
+
+    expect(mockCreate).not.toHaveBeenCalled();
+    expect(result.accessibleHtml).toContain("Student Grades (1 of 2)");
+    expect(result.accessibleHtml).toContain("Student Grades (2 of 2)");
+    expect(result.accessibleHtml).not.toContain("<caption>Student Grades</caption>");
+  });
+
+  it("re-running runDeterministicChecks on the fixed HTML no longer emits the warning", async () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body>
+      <main><h1>T</h1>
+        <table><caption>Summary</caption><thead><tr><th>A</th></tr></thead><tbody><tr><td>1</td></tr></tbody></table>
+        <table><caption>Summary</caption><thead><tr><th>B</th></tr></thead><tbody><tr><td>2</td></tr></tbody></table>
+      </main></body></html>`;
+
+    const issues = runDeterministicChecks(html);
+    const issue = issues.find((i) => i.criterion === "1.3.1" && i.title === "Duplicate Table Captions")!;
+    expect(issue).toBeDefined();
+
+    const report = buildComplianceReport(issues);
+    const result = await fixComplianceIssue(html, issue, issues.indexOf(issue), report);
+
+    const afterIssues = runDeterministicChecks(result.accessibleHtml);
+    const afterIssue = afterIssues.find((i) => i.criterion === "1.3.1" && i.title === "Duplicate Table Captions");
+    expect(afterIssue).toBeUndefined();
+  });
+
+  it("handles three tables sharing the same caption and numbers them correctly", async () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body>
+      <main><h1>T</h1>
+        <table><caption>Data</caption><thead><tr><th>X</th></tr></thead><tbody><tr><td>a</td></tr></tbody></table>
+        <table><caption>Data</caption><thead><tr><th>X</th></tr></thead><tbody><tr><td>b</td></tr></tbody></table>
+        <table><caption>Data</caption><thead><tr><th>X</th></tr></thead><tbody><tr><td>c</td></tr></tbody></table>
+      </main></body></html>`;
+
+    const issues = runDeterministicChecks(html);
+    const issue = issues.find((i) => i.criterion === "1.3.1" && i.title === "Duplicate Table Captions")!;
+    expect(issue).toBeDefined();
+
+    const report = buildComplianceReport(issues);
+    const result = await fixComplianceIssue(html, issue, issues.indexOf(issue), report);
+
+    expect(mockCreate).not.toHaveBeenCalled();
+    expect(result.accessibleHtml).toContain("Data (1 of 3)");
+    expect(result.accessibleHtml).toContain("Data (2 of 3)");
+    expect(result.accessibleHtml).toContain("Data (3 of 3)");
+
+    const afterIssues = runDeterministicChecks(result.accessibleHtml);
+    expect(afterIssues.find((i) => i.criterion === "1.3.1" && i.title === "Duplicate Table Captions")).toBeUndefined();
+  });
+
+  it("preserves the original caption text casing when adding the suffix", async () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body>
+      <main><h1>T</h1>
+        <table><caption>SUMMARY</caption><thead><tr><th>C</th></tr></thead><tbody><tr><td>x</td></tr></tbody></table>
+        <table><caption>SUMMARY</caption><thead><tr><th>C</th></tr></thead><tbody><tr><td>y</td></tr></tbody></table>
+      </main></body></html>`;
+
+    const issues = runDeterministicChecks(html);
+    const issue = issues.find((i) => i.criterion === "1.3.1" && i.title === "Duplicate Table Captions")!;
+    expect(issue).toBeDefined();
+
+    const report = buildComplianceReport(issues);
+    const result = await fixComplianceIssue(html, issue, issues.indexOf(issue), report);
+
+    expect(result.accessibleHtml).toContain("SUMMARY (1 of 2)");
+    expect(result.accessibleHtml).toContain("SUMMARY (2 of 2)");
+  });
+
+  it("leaves tables with unique captions and tables without captions untouched", async () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body>
+      <main><h1>T</h1>
+        <table><caption>Alpha</caption><thead><tr><th>A</th></tr></thead><tbody><tr><td>1</td></tr></tbody></table>
+        <table><caption>Alpha</caption><thead><tr><th>A</th></tr></thead><tbody><tr><td>2</td></tr></tbody></table>
+        <table><caption>Beta</caption><thead><tr><th>B</th></tr></thead><tbody><tr><td>3</td></tr></tbody></table>
+        <table><thead><tr><th>C</th></tr></thead><tbody><tr><td>4</td></tr></tbody></table>
+      </main></body></html>`;
+
+    const issues = runDeterministicChecks(html);
+    const issue = issues.find((i) => i.criterion === "1.3.1" && i.title === "Duplicate Table Captions")!;
+    expect(issue).toBeDefined();
+
+    const report = buildComplianceReport(issues);
+    const result = await fixComplianceIssue(html, issue, issues.indexOf(issue), report);
+
+    expect(result.accessibleHtml).toContain("Alpha (1 of 2)");
+    expect(result.accessibleHtml).toContain("Alpha (2 of 2)");
+    expect(result.accessibleHtml).toContain("<caption>Beta</caption>");
+  });
+});
