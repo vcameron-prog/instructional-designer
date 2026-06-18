@@ -33,13 +33,6 @@ const parseRtf = require("rtf-parser") as RtfParserModule;
  *   936  – GBK / GB2312 (Simplified Chinese)
  *   949  – EUC-KR (Korean)
  *   950  – Big5 (Traditional Chinese)
- *
- * Limitations:
- *   - RTF files that omit \ansicpg and rely solely on \dbch / \fcharset font
- *     switching to signal the codepage cannot be auto-detected; those files fall
- *     back to Windows-1252 decoding and may still show garbled characters.
- *   - Mixed-codepage RTF (e.g. Japanese body + Korean footnote) is not handled;
- *     the document-level \ansicpg wins for all \'XX byte sequences.
  */
 const CODEPAGE_TO_ENCODING: Record<number, string> = {
   932: "Shift_JIS",
@@ -60,49 +53,193 @@ const CODEPAGE_TO_ENCODING: Record<number, string> = {
 /** Codepages that use double-byte (or multi-byte) character sequences. */
 const DBCS_CODEPAGES = new Set([932, 936, 949, 950]);
 
+/**
+ * RTF \fcharset values mapped to Windows codepage numbers.
+ * The \fcharset control word appears inside \fonttbl entries to specify the
+ * character set for that font.  We use it to determine which encoding to apply
+ * when decoding \'XX byte sequences that belong to runs using that font.
+ */
+const FCHARSET_TO_CODEPAGE: Record<number, number> = {
+  0: 1252,
+  128: 932,
+  129: 949,
+  130: 1361,
+  134: 936,
+  136: 950,
+  161: 1253,
+  162: 1254,
+  163: 1258,
+  177: 1255,
+  178: 1256,
+  186: 1257,
+  204: 1251,
+  222: 874,
+  238: 1250,
+  255: 1252,
+};
+
+/** Set of iconv-lite encoding names that correspond to DBCS codepages. */
+const CJK_ENCODINGS = new Set(
+  [...DBCS_CODEPAGES].map((cp) => CODEPAGE_TO_ENCODING[cp]).filter(Boolean)
+);
+
 function detectCodepage(rtf: string): number {
   const m = rtf.match(/\\ansicpg(\d+)/);
   return m ? parseInt(m[1], 10) : 1252;
 }
 
 /**
- * Pre-process RTF source to decode \'XX byte escapes using the given iconv-lite
- * encoding before handing the text to rtf-parser.
+ * Parse the RTF font table to build a map from font number → iconv-lite
+ * encoding name.  Each \fonttbl entry looks like:
  *
- * RTF uses \'XX to encode one byte in the current codepage. For DBCS codepages
- * (CJK), two or more consecutive \'XX sequences may encode a single character.
- * rtf-parser handles \uN Unicode escapes correctly but may not decode DBCS byte
- * runs properly. We therefore:
+ *   {\f0\froman\fcharset0 Times New Roman;}
+ *   {\f2\fnil\fcharset128 MS Mincho;}
+ *   {\f3\fnil\fcharset129 Batang;}
+ *
+ * We extract every \fN ... \fcharsetM pairing within the same brace group.
+ */
+function buildFontEncodingMap(rtf: string): Map<number, string> {
+  const map = new Map<number, string>();
+  // Match \fN followed by optional RTF keywords, then \fcharsetM — all within
+  // the same font entry (no braces or semicolons in between).
+  const re = /\\f(\d+)\b[^{};]*?\\fcharset(\d+)/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(rtf)) !== null) {
+    const fontNum = parseInt(m[1], 10);
+    const charsetNum = parseInt(m[2], 10);
+    const cp = FCHARSET_TO_CODEPAGE[charsetNum];
+    if (cp !== undefined) {
+      const enc = CODEPAGE_TO_ENCODING[cp];
+      if (enc !== undefined) {
+        map.set(fontNum, enc);
+      }
+    }
+  }
+  return map;
+}
+
+/**
+ * Pre-process RTF source to decode \'XX byte escapes, applying the correct
+ * iconv-lite encoding for each run of escapes based on the active font at that
+ * point in the document.
+ *
+ * RTF uses \'XX to encode one byte in the current codepage.  For DBCS
+ * codepages (CJK), two or more consecutive \'XX sequences encode a single
+ * character.  When a document mixes scripts (e.g. Japanese body text + Korean
+ * footnote), the font table maps each font number to a charset, and \fN
+ * control words in the body switch the active font — and therefore the active
+ * encoding — mid-document.
+ *
+ * Algorithm:
  *   1. Strip \'XX fallback bytes that immediately follow \uN escapes (they are
  *      redundant; the \uN value is the authoritative Unicode codepoint).
- *   2. Collect every remaining run of consecutive \'XX escapes, decode the raw
- *      bytes with iconv-lite using the detected encoding, and splice the decoded
- *      Unicode text back in place of the escape run.
+ *   2. Scan the RTF character-by-character.  When a \fN control word is seen,
+ *      switch the active encoding to fontEncodings.get(N) (fallback: default).
+ *   3. Collect consecutive \'XX escape runs; decode each run using the active
+ *      encoding at the start of the run and splice the decoded text back in.
  */
-function decodeCjkByteSequences(rtf: string, encoding: string): string {
+function decodeCjkByteSequences(
+  rtf: string,
+  defaultEncoding: string,
+  fontEncodings: Map<number, string>
+): string {
   // Step 1: Remove the \'XX fallback byte that RTF appends after \uN escapes.
-  // Pattern: \uN followed immediately by \'XX (the byte is just a 1-char fallback).
-  let processed = rtf.replace(
+  let text = rtf.replace(
     /\\u(-?\d+)\\?'[0-9a-fA-F]{2}/g,
     (_, n) => `\\u${n} `
   );
 
-  // Step 2: Replace each run of \'XX escapes with iconv-decoded Unicode text.
-  processed = processed.replace(/((?:\\'[0-9a-fA-F]{2})+)/g, (run) => {
-    const bytes: number[] = [];
-    const hexRe = /\\'([0-9a-fA-F]{2})/g;
-    let m: RegExpExecArray | null;
-    while ((m = hexRe.exec(run)) !== null) {
-      bytes.push(parseInt(m[1], 16));
-    }
-    try {
-      return iconv.decode(Buffer.from(bytes), encoding);
-    } catch {
-      return run;
-    }
-  });
+  // Step 2: Scan through the RTF, tracking active font/encoding.
+  let result = "";
+  let i = 0;
+  let currentEncoding = defaultEncoding;
 
-  return processed;
+  while (i < text.length) {
+    const ch = text[i];
+
+    if (ch !== "\\") {
+      result += ch;
+      i++;
+      continue;
+    }
+
+    // We have a backslash.
+    if (i + 1 >= text.length) {
+      result += ch;
+      i++;
+      continue;
+    }
+
+    const next = text[i + 1];
+
+    // Hex escape: \'XX  — collect a consecutive run, decode together.
+    if (next === "'") {
+      const bytes: number[] = [];
+      const runStart = i;
+      while (
+        i < text.length &&
+        text[i] === "\\" &&
+        i + 1 < text.length &&
+        text[i + 1] === "'" &&
+        i + 3 < text.length
+      ) {
+        const hex = text.substring(i + 2, i + 4);
+        if (/^[0-9a-fA-F]{2}$/.test(hex)) {
+          bytes.push(parseInt(hex, 16));
+          i += 4;
+        } else {
+          break;
+        }
+      }
+      if (bytes.length > 0) {
+        try {
+          result += iconv.decode(Buffer.from(bytes), currentEncoding);
+        } catch {
+          result += text.substring(runStart, i);
+        }
+      }
+      continue;
+    }
+
+    // Alpha control word: \<letters><optional digits><optional space>
+    if (/[a-zA-Z]/.test(next)) {
+      let j = i + 1;
+      while (j < text.length && /[a-zA-Z]/.test(text[j])) j++;
+      const word = text.substring(i + 1, j);
+
+      // Parse optional signed numeric parameter.
+      let numStr = "";
+      const numStart = j;
+      if (j < text.length && (text[j] === "-" || /\d/.test(text[j]))) {
+        let k = numStart;
+        if (text[k] === "-") k++;
+        while (k < text.length && /\d/.test(text[k])) k++;
+        numStr = text.substring(numStart, k);
+        j = k;
+      }
+
+      // Skip trailing space delimiter (part of the control word token).
+      if (j < text.length && text[j] === " ") j++;
+
+      // \fN (word === 'f', numStr is digits) — font switch.
+      if (word === "f" && numStr !== "") {
+        const fontNum = parseInt(numStr, 10);
+        const enc = fontEncodings.get(fontNum);
+        currentEncoding = enc !== undefined ? enc : defaultEncoding;
+      }
+
+      result += text.substring(i, j);
+      i = j;
+      continue;
+    }
+
+    // Other backslash sequences: \* \{ \} \\ \- \~ etc.
+    result += ch;
+    result += next;
+    i += 2;
+  }
+
+  return result;
 }
 
 function parseRtfToText(rtfString: string): Promise<string> {
@@ -215,22 +352,28 @@ export async function extractRtfContent(buffer: Buffer): Promise<PdfExtraction> 
   const raw = buffer.toString("latin1");
 
   const codepage = detectCodepage(raw);
-  const encoding = CODEPAGE_TO_ENCODING[codepage] ?? "windows-1252";
+  const defaultEncoding = CODEPAGE_TO_ENCODING[codepage] ?? "windows-1252";
 
-  // For DBCS (CJK) codepages, pre-process the RTF source so that rtf-parser
-  // receives decoded Unicode text instead of raw DBCS byte escapes it may not
-  // handle correctly.  For single-byte Western codepages rtf-parser already
-  // does a good job, so we skip the pre-processing step.
-  const rtfSource =
-    DBCS_CODEPAGES.has(codepage)
-      ? decodeCjkByteSequences(raw, encoding)
-      : raw;
+  // Build per-font encoding map from the \fonttbl in the RTF header.
+  const fontEncodings = buildFontEncodingMap(raw);
+
+  // Pre-process if the document-level codepage or any font uses a DBCS
+  // (CJK) encoding — either condition means \'XX byte sequences may encode
+  // multi-byte characters that require iconv-lite to decode correctly.
+  const hasCjkFont = [...fontEncodings.values()].some((enc) =>
+    CJK_ENCODINGS.has(enc)
+  );
+  const needsDecoding = DBCS_CODEPAGES.has(codepage) || hasCjkFont;
+
+  const rtfSource = needsDecoding
+    ? decodeCjkByteSequences(raw, defaultEncoding, fontEncodings)
+    : raw;
 
   let text: string;
   try {
     text = await parseRtfToText(rtfSource);
   } catch {
-    text = stripRtfFallback(raw, encoding);
+    text = stripRtfFallback(raw, defaultEncoding);
   }
 
   const lines = text.split("\n").filter((l) => l.trim().length > 0);

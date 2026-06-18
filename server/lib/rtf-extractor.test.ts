@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "fs";
 import { join } from "path";
+import iconv from "iconv-lite";
 import { extractRtfContent } from "./rtf-extractor.js";
 
 const fixturesDir = join(import.meta.dirname, "fixtures");
@@ -84,5 +85,37 @@ describe("extractRtfContent", () => {
 
     expect(result.text).toBe("");
     expect(result.pageCount).toBe(1);
+  });
+
+  it("decodes mixed Japanese and Korean scripts using per-font encodings", async () => {
+    // Japanese katakana テスト (Shift_JIS, fcharset128) and Korean 테스트 (EUC-KR, fcharset129).
+    // The document-level \ansicpg is 932 (Shift_JIS); the Korean run switches to font 1
+    // which maps to EUC-KR via \fcharset129.  Without per-font encoding, the Korean bytes
+    // would be decoded as Shift_JIS and produce garbled output.
+    const japaneseText = "\u30c6\u30b9\u30c8"; // テスト
+    const koreanText = "\ud14c\uc2a4\ud2b8"; // 테스트
+
+    const toRtfHex = (buf: Buffer): string =>
+      [...buf].map((b) => `\\'${b.toString(16).padStart(2, "0")}`).join("");
+
+    const jpHex = toRtfHex(iconv.encode(japaneseText, "Shift_JIS") as Buffer);
+    const krHex = toRtfHex(iconv.encode(koreanText, "EUC-KR") as Buffer);
+
+    const rtfStr =
+      `{\\rtf1\\ansi\\ansicpg932\\deff0\n` +
+      `{\\fonttbl\n` +
+      `{\\f0\\fnil\\fcharset128 MS Mincho;}\n` +
+      `{\\f1\\fnil\\fcharset129 Batang;}\n` +
+      `}\n` +
+      `\\f0 ${jpHex}\\par\n` +
+      `\\f1 ${krHex}\\par\n` +
+      `}`;
+
+    // Pass the RTF as a latin1 buffer so raw byte values are preserved (matching
+    // how extractRtfContent reads real RTF files off disk).
+    const result = await extractRtfContent(Buffer.from(rtfStr, "latin1"));
+
+    expect(result.text).toContain(japaneseText);
+    expect(result.text).toContain(koreanText);
   });
 });
