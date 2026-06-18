@@ -3294,6 +3294,39 @@ describe("applyAriaButtonRoleFix", () => {
     const updatedIssue = result.complianceReport.issues[issueIndex];
     expect(updatedIssue.status).toBe("fixed");
   });
+
+  it("elementsFixed equals the number of non-button elements with role=button", async () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><main><h1>T</h1><div role="button">A</div><span role="button">B</span><p role="button">C</p></main></body></html>`;
+    const issues = runDeterministicChecks(html);
+    const buttonIssue = issues.find((i) => i.title === "ARIA Button Role on Non-Button Element")!;
+    expect(buttonIssue).toBeDefined();
+    const report = buildComplianceReport(issues);
+
+    const result = await fixComplianceIssue(html, buttonIssue, issues.indexOf(buttonIssue), report);
+    expect(result.elementsFixed).toBe(3);
+  });
+
+  it("elementsFixed is 1 when exactly one non-button element has role=button", async () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><main><h1>T</h1><div role="button">Click</div></main></body></html>`;
+    const issues = runDeterministicChecks(html);
+    const buttonIssue = issues.find((i) => i.title === "ARIA Button Role on Non-Button Element")!;
+    expect(buttonIssue).toBeDefined();
+    const report = buildComplianceReport(issues);
+
+    const result = await fixComplianceIssue(html, buttonIssue, issues.indexOf(buttonIssue), report);
+    expect(result.elementsFixed).toBe(1);
+  });
+
+  it("elementsFixed does not count native <button> or button-type inputs with role=button", async () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><main><h1>T</h1><span role="button">Go</span><button role="button">OK</button><input type="button" role="button"></main></body></html>`;
+    const issues = runDeterministicChecks(html);
+    const buttonIssue = issues.find((i) => i.title === "ARIA Button Role on Non-Button Element")!;
+    expect(buttonIssue).toBeDefined();
+    const report = buildComplianceReport(issues);
+
+    const result = await fixComplianceIssue(html, buttonIssue, issues.indexOf(buttonIssue), report);
+    expect(result.elementsFixed).toBe(1);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -3454,6 +3487,39 @@ describe("applyAriaHeadingRoleFix", () => {
     expect(result).toContain("<h2>First</h2>");
     expect(result).toContain("<h2>Second</h2>");
     expect(result).not.toContain('role="heading"');
+  });
+
+  it("elementsFixed equals the number of non-heading elements with role=heading", async () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><main><h1>T</h1><div role="heading" aria-level="2">A</div><span role="heading" aria-level="3">B</span><p role="heading">C</p></main></body></html>`;
+    const issues = runDeterministicChecks(html);
+    const headingIssue = issues.find((i) => i.title === "ARIA Heading Role on Non-Heading Element")!;
+    expect(headingIssue).toBeDefined();
+    const report = buildComplianceReport(issues);
+
+    const result = await fixComplianceIssue(html, headingIssue, issues.indexOf(headingIssue), report);
+    expect(result.elementsFixed).toBe(3);
+  });
+
+  it("elementsFixed is 1 when exactly one non-heading element has role=heading", async () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><main><h1>T</h1><div role="heading" aria-level="2">Section</div></main></body></html>`;
+    const issues = runDeterministicChecks(html);
+    const headingIssue = issues.find((i) => i.title === "ARIA Heading Role on Non-Heading Element")!;
+    expect(headingIssue).toBeDefined();
+    const report = buildComplianceReport(issues);
+
+    const result = await fixComplianceIssue(html, headingIssue, issues.indexOf(headingIssue), report);
+    expect(result.elementsFixed).toBe(1);
+  });
+
+  it("elementsFixed does not count native heading elements with role=heading", async () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><main><h1>T</h1><span role="heading" aria-level="2">Fake</span><h2 role="heading">Real</h2></main></body></html>`;
+    const issues = runDeterministicChecks(html);
+    const headingIssue = issues.find((i) => i.title === "ARIA Heading Role on Non-Heading Element")!;
+    expect(headingIssue).toBeDefined();
+    const report = buildComplianceReport(issues);
+
+    const result = await fixComplianceIssue(html, headingIssue, issues.indexOf(headingIssue), report);
+    expect(result.elementsFixed).toBe(1);
   });
 });
 
@@ -4221,6 +4287,19 @@ describe("applyLangAttributeFix", () => {
     const fixed = applyLangAttributeFix(html);
     const after = runDeterministicChecks(fixed);
     expect(after.find((i) => i.criterion === "3.1.1")!.status).toBe("pass");
+  });
+
+  it("fixComplianceIssue returns elementsFixed as undefined for the lang attribute fixer", async () => {
+    const html = `<!DOCTYPE html><html><head><title>T</title></head><body><main><h1>T</h1></main></body></html>`;
+    const issues = runDeterministicChecks(html);
+    const langIssue = issues.find((i) => i.criterion === "3.1.1" && i.title === "Language of Page")!;
+    expect(langIssue).toBeDefined();
+    const report = buildComplianceReport(issues);
+
+    mockCreate.mockClear();
+    const result = await fixComplianceIssue(html, langIssue, issues.indexOf(langIssue), report);
+    expect(mockCreate).not.toHaveBeenCalled();
+    expect(result.elementsFixed).toBeUndefined();
   });
 });
 
