@@ -3004,7 +3004,10 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         }
         const outcome = await storage.updateSavedOutcome(id, text.trim(), userId);
         res.json(outcome);
-      } catch (error) {
+      } catch (error: any) {
+        if (error?.code === "DUPLICATE_OUTCOME") {
+          return res.status(409).json({ error: "An outcome with that text already exists in your collection." });
+        }
         console.error("Error updating saved outcome:", error);
         res.status(500).json({ error: "Failed to update outcome" });
       }

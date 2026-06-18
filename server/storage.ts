@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { eq, desc, and, isNull, notInArray, inArray, count, gte } from "drizzle-orm";
+import { eq, desc, and, ne, isNull, notInArray, inArray, count, gte } from "drizzle-orm";
 import { 
   courses, 
   generatedContent, 
@@ -272,6 +272,22 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateSavedOutcome(id: number, text: string, userId: string): Promise<SavedOutcome> {
+    const existing = await db
+      .select()
+      .from(savedOutcomes)
+      .where(
+        and(
+          eq(savedOutcomes.userId, userId),
+          eq(savedOutcomes.text, text),
+          ne(savedOutcomes.id, id),
+        ),
+      )
+      .limit(1);
+    if (existing.length > 0) {
+      const err = new Error("Duplicate outcome") as Error & { code: string };
+      err.code = "DUPLICATE_OUTCOME";
+      throw err;
+    }
     const [updated] = await db
       .update(savedOutcomes)
       .set({ text })

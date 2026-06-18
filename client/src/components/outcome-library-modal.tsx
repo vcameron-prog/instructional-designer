@@ -94,8 +94,13 @@ export function OutcomeLibraryModal({ open, onClose, onAddOutcomes }: OutcomeLib
       setEditingId(null);
       setEditingText("");
     },
-    onError: () => {
-      toast({ title: "Could not update outcome", variant: "destructive" });
+    onError: (error: any) => {
+      const isDuplicate = error?.message?.startsWith("409:");
+      if (isDuplicate) {
+        toast({ title: "That outcome already exists in your collection.", variant: "destructive" });
+      } else {
+        toast({ title: "Could not update outcome", variant: "destructive" });
+      }
     },
   });
 
