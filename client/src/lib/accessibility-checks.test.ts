@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { checkAccessibility, VAGUE_LINK_TERMS } from "./accessibility-checks";
+import { checkAccessibility, VAGUE_LINK_TERMS, COLOR_WORDS, COLOR_OBJECT_NOUNS } from "./accessibility-checks";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -141,27 +141,18 @@ describe("vague link text check", () => {
 // ---------------------------------------------------------------------------
 
 describe("color-only information check", () => {
-  const COLOR_WORDS = ["red", "green", "blue", "yellow", "orange", "purple"];
-  const OBJECT_WORDS = [
-    "text",
-    "items",
-    "item",
-    "sections",
-    "section",
-    "parts",
-    "part",
-  ];
-
   for (const color of COLOR_WORDS) {
-    it(`detects color-only phrasing: "${color} items"`, () => {
-      const content = `The ${color} items are required.`;
-      const issues = checkAccessibility(content);
-      const issue = issues.find((i) =>
-        i.message.includes("color alone"),
-      );
-      expect(issue).toBeDefined();
-      expect(issue?.severity).toBe("warning");
-    });
+    for (const noun of COLOR_OBJECT_NOUNS) {
+      it(`detects color-only phrasing: "${color} ${noun}"`, () => {
+        const content = `The ${color} ${noun} are required.`;
+        const issues = checkAccessibility(content);
+        const issue = issues.find((i) =>
+          i.message.includes("color alone"),
+        );
+        expect(issue).toBeDefined();
+        expect(issue?.severity).toBe("warning");
+      });
+    }
   }
 
   it("does not flag plain color mentions not paired with a section/item noun", () => {

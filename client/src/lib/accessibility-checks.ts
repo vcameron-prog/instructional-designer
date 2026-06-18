@@ -27,6 +27,13 @@ export interface AccessibilityIssue {
   fixType?: string;
 }
 
+export const COLOR_WORDS = ["red", "green", "blue", "yellow", "orange", "purple"];
+export const COLOR_OBJECT_NOUNS = ["text", "item", "section", "part"];
+const colorOnlyRe = new RegExp(
+  `\\b(${COLOR_WORDS.join("|")})\\s+(${COLOR_OBJECT_NOUNS.map((n) => n + "s?").join("|")})\\b`,
+  "gi",
+);
+
 export const checkAccessibility = (content: string): AccessibilityIssue[] => {
   const issues: AccessibilityIssue[] = [];
 
@@ -61,7 +68,7 @@ export const checkAccessibility = (content: string): AccessibilityIssue[] => {
     });
   }
 
-  if (content.match(/\b(red|green|blue|yellow|orange|purple)\s+(text|items?|sections?|parts?)\b/gi)) {
+  if (content.match(colorOnlyRe)) {
     issues.push({
       type: "accessibility",
       severity: "warning",
