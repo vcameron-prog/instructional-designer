@@ -5018,8 +5018,10 @@ describe("applyBypassBlocksFix", () => {
 
     const result = await fixComplianceIssue(html, bypassIssue, bypassIndex, report);
 
-    expect(result.noFixReason).toBeTruthy();
-    expect(result.noFixReason).toContain("landmark");
+    expect(result.noFixReason).toBe(
+      "This document contains only landmark elements (header, nav, footer) with no primary content outside them, so there is nothing to automatically wrap in a <main> region. " +
+        "To fix this manually: add a <main> element around your primary page content, or add role=\"main\" to the landmark that holds the main information."
+    );
     expect(result.accessibleHtml).not.toContain("<main>");
     expect(result.accessibleHtml).toBe(html);
   });
