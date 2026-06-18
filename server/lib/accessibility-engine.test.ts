@@ -173,7 +173,7 @@ describe("runDeterministicChecks", () => {
       const issues = runDeterministicChecks(html);
       const altCheck = issues.find((i) => i.criterion === "1.1.1");
       expect(altCheck!.status).toBe("pass");
-      expect(altCheck!.details).toContain("No images");
+      expect(altCheck!.details).toBe("No images were found in the document.");
     });
 
     it("passes when all images have alt attributes", () => {
@@ -555,7 +555,7 @@ describe("runDeterministicChecks", () => {
       );
       expect(markupIssue).toBeDefined();
       expect(markupIssue!.status).toBe("warning");
-      expect(markupIssue!.details).toContain("1 table(s)");
+      expect(markupIssue!.details).toBe(`Found 1 table(s) whose first row uses only <td> cells. If these cells act as column headers, replace them with <th scope="col"> for proper accessibility.`);
     });
 
     it("does not warn about Table Header Markup when the first row uses <th> elements", () => {
@@ -585,7 +585,7 @@ describe("runDeterministicChecks", () => {
       );
       expect(ariaIssue).toBeDefined();
       expect(ariaIssue!.status).toBe("warning");
-      expect(ariaIssue!.details).toContain("1 table(s)");
+      expect(ariaIssue!.details).toBe(`Found 1 table(s) with <td> cells using ARIA header roles. Replace these cells with <th scope="col"> or <th scope="row"> for proper semantic markup.`);
     });
 
     it("warns when a table uses <td role=\"rowheader\"> instead of <th>", () => {
@@ -1813,7 +1813,7 @@ describe("runDeterministicChecks – heading order check (1.3.1)", () => {
       (i) => i.criterion === "1.3.1" && i.title === "Heading Order"
     );
     expect(orderIssue!.status).toBe("warning");
-    expect(orderIssue!.details).toContain("h1 → h3");
+    expect(orderIssue!.details).toBe("Heading levels appear to skip: h1 → h3. This may confuse screen reader users.");
   });
 });
 
@@ -2090,7 +2090,7 @@ describe("fixture: government-form.html — document with multiple accessibility
     const orderIssue = issues.find((i) => i.criterion === "1.3.1" && i.title === "Heading Order");
     expect(orderIssue).toBeDefined();
     expect(orderIssue!.status).toBe("warning");
-    expect(orderIssue!.details).toContain("h3 → h5");
+    expect(orderIssue!.details).toBe("Heading levels appear to skip: h3 → h5. This may confuse screen reader users.");
   });
 
   it("has multiple failures — at least 4 fail statuses", () => {
