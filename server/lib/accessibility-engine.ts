@@ -1681,6 +1681,54 @@ export function applyAriaTabRoleFix(html: string): string {
   );
 }
 
+function countAriaFixerTargets(html: string): number {
+  const root = parseHtml(html);
+  let count = 0;
+
+  count += root.querySelectorAll('td[role="columnheader"], td[role="rowheader"]').length;
+
+  count += root.querySelectorAll("[role='link']")
+    .filter((el) => el.tagName?.toLowerCase() !== "a").length;
+
+  count += root.querySelectorAll("[role='checkbox']")
+    .filter((el) => {
+      const tag = el.tagName?.toLowerCase();
+      return tag !== "input" || (el.getAttribute("type") ?? "").toLowerCase() !== "checkbox";
+    }).length;
+
+  count += root.querySelectorAll("[role='radio']")
+    .filter((el) => {
+      const tag = el.tagName?.toLowerCase();
+      return tag !== "input" || (el.getAttribute("type") ?? "").toLowerCase() !== "radio";
+    }).length;
+
+  count += root.querySelectorAll("[role='list']")
+    .filter((el) => {
+      const tag = el.tagName?.toLowerCase();
+      return tag !== "ul" && tag !== "ol";
+    }).length;
+
+  count += root.querySelectorAll("[role='listitem']")
+    .filter((el) => el.tagName?.toLowerCase() !== "li").length;
+
+  count += root.querySelectorAll("[role='combobox']")
+    .filter((el) => {
+      const tag = el.tagName?.toLowerCase();
+      return tag !== "select" && tag !== "input";
+    }).length;
+
+  count += root.querySelectorAll("[role='grid']")
+    .filter((el) => el.tagName?.toLowerCase() !== "table").length;
+
+  count += root.querySelectorAll("[role='tab']")
+    .filter((el) => {
+      const tag = el.tagName?.toLowerCase();
+      return tag !== "button" && tag !== "a";
+    }).length;
+
+  return count;
+}
+
 export function fixAllAriaRoleMisuse(
   currentHtml: string,
   existingReport: ComplianceReport
@@ -1699,6 +1747,7 @@ export function fixAllAriaRoleMisuse(
     applyAriaTabRoleFix,
   ];
 
+  const elementsFixed = countAriaFixerTargets(currentHtml);
   const fixedHtml = ariaFixers.reduce((html, fixer) => fixer(html), currentHtml);
 
   const freshChecks = runDeterministicChecks(fixedHtml);
@@ -1747,7 +1796,7 @@ export function fixAllAriaRoleMisuse(
     }
   }
 
-  return { accessibleHtml: fixedHtml, complianceReport: buildComplianceReport(updatedIssues) };
+  return { accessibleHtml: fixedHtml, complianceReport: buildComplianceReport(updatedIssues), elementsFixed };
 }
 
 export type DeterministicFixer = (html: string) => string;

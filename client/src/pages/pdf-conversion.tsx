@@ -31,7 +31,7 @@ import {
   ExternalLink,
   Layers,
 } from "lucide-react";
-import { SiGoogledrive, SiGooglesheets } from "react-icons/si";
+import { SiGoogledrive, SiGooglesheets, SiGoogleslides } from "react-icons/si";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -778,13 +778,17 @@ export default function PdfConversion() {
       if (uniqueNotes.length > 0) {
         setBatchFixNotesSummary(uniqueNotes);
       }
-
-      if (data?.wasRetried) {
-        toast({
-          title: "One or more ARIA fixes required a retry",
-          description: "The initial AI response was incomplete for some issues. A second attempt succeeded — the final result is still correct.",
-        });
-      }
+      const count: number = data?.elementsFixed ?? 0;
+      const elementLabel = count === 1 ? "element" : "elements";
+      const retryNote = data?.wasRetried
+        ? " One or more fixes required a retry — the final result is still correct."
+        : "";
+      toast({
+        title: "ARIA fixes applied",
+        description: count > 0
+          ? `Fixed ${count} ${elementLabel} across all ARIA checks.${retryNote}`
+          : `No ARIA role issues found to fix.${retryNote}`,
+      });
     } catch {
       setFixError("Failed to fix ARIA role issues. Please try again.");
     } finally {
@@ -1034,6 +1038,12 @@ export default function PdfConversion() {
                     <span className="inline-flex items-center gap-1 text-xs bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-2 py-0.5 rounded-full font-semibold border border-green-200 dark:border-green-800">
                       <SiGooglesheets className="w-3 h-3 text-[#34A853]" aria-hidden="true" />
                       Google Sheet
+                    </span>
+                  )}
+                  {conversion.sourceType === "google-slide" && (
+                    <span className="inline-flex items-center gap-1 text-xs bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 px-2 py-0.5 rounded-full font-semibold border border-orange-200 dark:border-orange-800">
+                      <SiGoogleslides className="w-3 h-3 text-[#FA7B17]" aria-hidden="true" />
+                      Google Slide
                     </span>
                   )}
                   {conversion.ocrApplied && (

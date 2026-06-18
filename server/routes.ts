@@ -5032,7 +5032,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
             updatedAt: conversions.updatedAt,
           });
 
-        res.json({ ...updated, wasRetried: result.wasRetried ?? false });
+        res.json({ ...updated, wasRetried: result.wasRetried ?? false, elementsFixed: result.elementsFixed ?? 0 });
       } catch (err: any) {
         res.status(500).json({ error: err.message || "Fix failed" });
       } finally {
