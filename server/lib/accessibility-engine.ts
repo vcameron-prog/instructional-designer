@@ -27,6 +27,20 @@ function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+/**
+ * Matches the attribute list inside an HTML open tag, correctly skipping over
+ * quoted attribute values so that `>`, `"`, or `'` inside a value are not
+ * mistaken for the end of the tag.
+ *
+ * Pattern breakdown:
+ *   [^>"']   — any character that is not >, ", or ' (unquoted attr chars)
+ *   "[^"]*"  — a double-quoted value (including any > or ' inside)
+ *   '[^']*'  — a single-quoted value (including any > or " inside)
+ *
+ * Use as a string so it can be interpolated into `new RegExp(...)` calls.
+ */
+const ATTR_PATTERN = "(?:[^>\"']|\"[^\"]*\"|'[^']*')*";
+
 const anthropic = new Anthropic({
   apiKey: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
   baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL,
@@ -184,7 +198,7 @@ export function injectImageData(html: string, images: ExtractedImage[]): string 
   }
 
   return html.replace(
-    /<img\s((?:[^>"']|"[^"]*"|'[^']*')*?)src\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))((?:[^>"']|"[^"]*"|'[^']*')*?)>/gi,
+    new RegExp(`<img\\s(${ATTR_PATTERN}?)src\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))(${ATTR_PATTERN}?)>`, "gi"),
     (match, before: string, dq: string | undefined, sq: string | undefined, uq: string | undefined, after: string) => {
       const src = dq ?? sq ?? uq ?? "";
       if (src.startsWith("data:")) return match;
@@ -232,7 +246,7 @@ export function ensureAltText(html: string, images: ExtractedImage[]): string {
   const altAttrRegex = /(?:^|\s)alt\s*=\s*(?:"([^"]*)"|'([^']*)')/i;
 
   return html.replace(
-    /<img\s((?:[^>"']|"[^"]*"|'[^']*')*?)>/gi,
+    new RegExp(`<img\\s(${ATTR_PATTERN}?)>`, "gi"),
     (_match, attrs: string) => {
       const altMatch = attrs.match(altAttrRegex);
       const existingAlt = altMatch ? (altMatch[1] ?? altMatch[2] ?? "") : null;
@@ -272,7 +286,7 @@ export function ensureMissingImages(html: string, images: ExtractedImage[]): str
 
   const matchedDataUrls = new Set<string>();
   const matchedNames = new Set<string>();
-  const imgTagRegex = /<img\s(?:[^>"']|"[^"]*"|'[^']*')*?src\s*=\s*(?:"([^"]*)"|'([^']*)')(?:[^>"']|"[^"]*"|'[^']*')*>/gi;
+  const imgTagRegex = new RegExp(`<img\\s${ATTR_PATTERN}?src\\s*=\\s*(?:"([^"]*)"|'([^']*)')${ATTR_PATTERN}>`, "gi");
   let tagMatch;
   while ((tagMatch = imgTagRegex.exec(html)) !== null) {
     const src = tagMatch[1] ?? tagMatch[2] ?? "";
@@ -384,7 +398,7 @@ export function checkHeadingOrder(html: string): {
 export function runDeterministicChecks(html: string): ComplianceIssue[] {
   const issues: ComplianceIssue[] = [];
 
-  const hasLang = /<html(?:[^>"']|"[^"]*"|'[^']*')*\slang\s*=/i.test(html);
+  const hasLang = new RegExp(`<html${ATTR_PATTERN}\\slang\\s*=`, "i").test(html);
   issues.push({
     criterion: "3.1.1",
     title: "Language of Page",
@@ -435,7 +449,7 @@ export function runDeterministicChecks(html: string): ComplianceIssue[] {
       : "The document could be better organized into labeled sections for easier navigation.",
   });
 
-  const imgTags = html.match(/<img\s(?:[^>"']|"[^"]*"|'[^']*')*>/gi) || [];
+  const imgTags = html.match(new RegExp(`<img\\s${ATTR_PATTERN}>`, "gi")) || [];
   const imgsWithoutAlt: Array<{ tag: string; originalIndex: number }> = [];
   imgTags.forEach((tag, originalIndex) => {
     if (!/\salt\s*=\s*["'][^"']*["']/i.test(tag)) {
@@ -1032,7 +1046,7 @@ export function applyAriaLinkRoleFix(html: string): string {
   for (const el of nonAnchors) {
     const outerHtml = el.outerHTML;
     const tag = el.tagName?.toLowerCase() ?? "div";
-    const openTagMatch = outerHtml.match(new RegExp(`^<${escapeRegex(tag)}((?:[^>"']|"[^"]*"|'[^']*')*)>`, "i"));
+    const openTagMatch = outerHtml.match(new RegExp(`^<${escapeRegex(tag)}(${ATTR_PATTERN})>`, "i"));
     if (!openTagMatch) continue;
     const innerHtml = outerHtml.slice(
       openTagMatch[0].length,
@@ -1142,7 +1156,7 @@ export function applyAriaListRoleFix(html: string): string {
   for (const el of nonLists) {
     const outerHtml = el.outerHTML;
     const tag = el.tagName?.toLowerCase() ?? "div";
-    const openTagMatch = outerHtml.match(new RegExp(`^<${escapeRegex(tag)}((?:[^>"']|"[^"]*"|'[^']*')*)>`, "i"));
+    const openTagMatch = outerHtml.match(new RegExp(`^<${escapeRegex(tag)}(${ATTR_PATTERN})>`, "i"));
     if (!openTagMatch) continue;
     const innerHtml = outerHtml.slice(
       openTagMatch[0].length,
@@ -1168,7 +1182,7 @@ export function applyAriaListitemRoleFix(html: string): string {
   for (const el of nonListitems) {
     const outerHtml = el.outerHTML;
     const tag = el.tagName?.toLowerCase() ?? "div";
-    const openTagMatch = outerHtml.match(new RegExp(`^<${escapeRegex(tag)}((?:[^>"']|"[^"]*"|'[^']*')*)>`, "i"));
+    const openTagMatch = outerHtml.match(new RegExp(`^<${escapeRegex(tag)}(${ATTR_PATTERN})>`, "i"));
     if (!openTagMatch) continue;
     const innerHtml = outerHtml.slice(
       openTagMatch[0].length,
@@ -1197,7 +1211,7 @@ export function applyAriaRoleHeaderFix(html: string): string {
   ];
 
   for (const { outerHtml, scope } of entries) {
-    const openTagMatch = outerHtml.match(/^<td((?:[^>"']|"[^"]*"|'[^']*')*)>/i);
+    const openTagMatch = outerHtml.match(new RegExp(`^<td(${ATTR_PATTERN})>`, "i"));
     if (!openTagMatch) continue;
     const innerHtml = outerHtml.slice(openTagMatch[0].length, outerHtml.lastIndexOf("</td>"));
     const attrs = openTagMatch[1]
@@ -1212,8 +1226,8 @@ export function applyAriaRoleHeaderFix(html: string): string {
 }
 
 export function applyLangAttributeFix(html: string): string {
-  if (/<html(?:[^>"']|"[^"]*"|'[^']*')*\slang\s*=/i.test(html)) return html;
-  return html.replace(/<html((?:[^>"']|"[^"]*"|'[^']*')*)>/i, (_match, attrs: string) => `<html${attrs} lang="en">`);
+  if (new RegExp(`<html${ATTR_PATTERN}\\slang\\s*=`, "i").test(html)) return html;
+  return html.replace(new RegExp(`<html(${ATTR_PATTERN})>`, "i"), (_match, attrs: string) => `<html${attrs} lang="en">`);
 }
 
 export function applyBypassBlocksFix(html: string): string {
@@ -1243,10 +1257,10 @@ export function applyPageTitleFix(html: string): string {
   }
   if (!/<title>[^<]+<\/title>/i.test(html)) {
     const title = extractHeadingTitle();
-    if (/<head(?:[^>"']|"[^"]*"|'[^']*')*>/i.test(html)) {
-      return html.replace(/(<head(?:[^>"']|"[^"]*"|'[^']*')*>)/i, `$1<title>${title}</title>`);
+    if (new RegExp(`<head${ATTR_PATTERN}>`, "i").test(html)) {
+      return html.replace(new RegExp(`(<head${ATTR_PATTERN}>)`, "i"), `$1<title>${title}</title>`);
     }
-    return html.replace(/(<html(?:[^>"']|"[^"]*"|'[^']*')*>)/i, `$1<head><title>${title}</title></head>`);
+    return html.replace(new RegExp(`(<html${ATTR_PATTERN}>)`, "i"), `$1<head><title>${title}</title></head>`);
   }
   return html;
 }
@@ -1267,7 +1281,7 @@ function replaceAriaRoleElements(
   for (const el of targets) {
     const outerHtml = el.outerHTML;
     const tag = el.tagName?.toLowerCase() ?? "div";
-    const openTagRegex = new RegExp(`^<${escapeRegex(tag)}((?:[^>"']|"[^"]*"|'[^']*')*)>`, "i");
+    const openTagRegex = new RegExp(`^<${escapeRegex(tag)}(${ATTR_PATTERN})>`, "i");
     const openTagMatch = outerHtml.match(openTagRegex);
     if (!openTagMatch) continue;
     const closeTagIdx = outerHtml.lastIndexOf(`</${tag}>`);
@@ -1309,7 +1323,7 @@ export function applyAriaButtonRoleFix(html: string): string {
       continue;
     }
 
-    const openTagMatch = outerHtml.match(new RegExp(`^<${escapeRegex(tag)}((?:[^>"']|"[^"]*"|'[^']*')*)>`, "i"));
+    const openTagMatch = outerHtml.match(new RegExp(`^<${escapeRegex(tag)}(${ATTR_PATTERN})>`, "i"));
     if (!openTagMatch) continue;
     const closeTagIdx = outerHtml.lastIndexOf(`</${tag}>`);
     if (closeTagIdx === -1) continue;
@@ -1371,7 +1385,7 @@ export function applyAriaHeadingRoleFix(html: string): string {
   for (const el of sortedTargets) {
     const outerHtml = el.outerHTML;
     const tag = el.tagName?.toLowerCase() ?? "div";
-    const openTagMatch = outerHtml.match(new RegExp(`^<${escapeRegex(tag)}((?:[^>"']|"[^"]*"|'[^']*')*)>`, "i"));
+    const openTagMatch = outerHtml.match(new RegExp(`^<${escapeRegex(tag)}(${ATTR_PATTERN})>`, "i"));
     if (!openTagMatch) continue;
     const closeTagIdx = outerHtml.lastIndexOf(`</${tag}>`);
     if (closeTagIdx === -1) continue;
@@ -1856,7 +1870,7 @@ function ensureMissingTables(html: string, tables: ExtractedTable[]): string {
     const rows: string[][] = [];
     for (const rowHtml of rowMatches) {
       const cells: string[] = [];
-      const cellRegex = /<(?:td|th)(?:[^>"']|"[^"]*"|'[^']*')*>([\s\S]*?)<\/(?:td|th)>/gi;
+      const cellRegex = new RegExp(`<(?:td|th)${ATTR_PATTERN}>([\\s\\S]*?)<\\/(?:td|th)>`, "gi");
       let cellMatch;
       while ((cellMatch = cellRegex.exec(rowHtml)) !== null) {
         cells.push(cellMatch[1].replace(/<[^>]*>/g, "").trim());
@@ -1996,22 +2010,22 @@ function mergeChunksIntoDocument(
   let lang = "en";
 
   for (const chunk of chunks) {
-    const langMatch = chunk.match(/<html(?:[^>"']|"[^"]*"|'[^']*')*\slang=["']([^"']+)["']/i);
+    const langMatch = chunk.match(new RegExp(`<html${ATTR_PATTERN}\\slang=["']([^"']+)["']`, "i"));
     if (langMatch) lang = langMatch[1];
 
-    const headMatch = chunk.match(/<head(?:[^>"']|"[^"]*"|'[^']*')*>([\s\S]*?)<\/head>/i);
+    const headMatch = chunk.match(new RegExp(`<head${ATTR_PATTERN}>([\\s\\S]*?)<\\/head>`, "i"));
     if (headMatch && !headContent) headContent = headMatch[1];
 
-    const bodyMatch = chunk.match(/<body(?:[^>"']|"[^"]*"|'[^']*')*>([\s\S]*?)<\/body>/i);
+    const bodyMatch = chunk.match(new RegExp(`<body${ATTR_PATTERN}>([\\s\\S]*?)<\\/body>`, "i"));
     if (bodyMatch) {
       bodyContents.push(bodyMatch[1]);
     } else {
       const cleaned = chunk
-        .replace(/<!DOCTYPE(?:[^>"']|"[^"]*"|'[^']*')*>/i, "")
-        .replace(/<html(?:[^>"']|"[^"]*"|'[^']*')*>/i, "")
+        .replace(new RegExp(`<!DOCTYPE${ATTR_PATTERN}>`, "i"), "")
+        .replace(new RegExp(`<html${ATTR_PATTERN}>`, "i"), "")
         .replace(/<\/html>/i, "")
-        .replace(/<head(?:[^>"']|"[^"]*"|'[^']*')*>[\s\S]*?<\/head>/i, "")
-        .replace(/<body(?:[^>"']|"[^"]*"|'[^']*')*>/i, "")
+        .replace(new RegExp(`<head${ATTR_PATTERN}>[\\s\\S]*?<\\/head>`, "i"), "")
+        .replace(new RegExp(`<body${ATTR_PATTERN}>`, "i"), "")
         .replace(/<\/body>/i, "")
         .trim();
       if (cleaned) bodyContents.push(cleaned);
