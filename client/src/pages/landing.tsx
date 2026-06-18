@@ -360,7 +360,7 @@ export default function LandingPage() {
         <div className="mt-10 flex flex-col items-center gap-4">
           <img src={bsuAiLogo} alt="BSU Center for Artificial Intelligence" className="h-12 brightness-0 dark:brightness-100" data-testid="img-bsu-ai-logo-auth" />
           <p className="text-center text-muted-foreground text-sm" style={{ textWrap: "balance" }}>
-            Powered by AI to help users create accessible, engaging materials
+            Created by Bridgewater State University's Center for AI. Powered by AI to help users create accessible, engaging materials. AI can make mistakes. Make sure to verify information.
           </p>
           <p className="text-center text-muted-foreground/70 text-xs" style={{ textWrap: "balance" }}>
             Content generation uses Anthropic's Claude API —{" "}
