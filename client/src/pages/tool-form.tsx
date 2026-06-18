@@ -353,11 +353,23 @@ export default function ToolForm() {
   useEffect(() => {
     if (toolId === "schedule" && course?.semester && BSU_CALENDAR[course.semester]) {
       const calendar = BSU_CALENDAR[course.semester];
-      setFormData(prev => ({
-        ...prev,
-        startDate: prev.startDate || calendar.startDate,
-        endDate: prev.endDate || calendar.endDate,
-      }));
+      setFormData(prev => {
+        const filledStart = !prev.startDate && calendar.startDate;
+        const filledEnd = !prev.endDate && calendar.endDate;
+        if (filledStart || filledEnd) {
+          setPreFilledFields(prev => {
+            const next = new Set(prev);
+            if (filledStart) next.add("startDate");
+            if (filledEnd) next.add("endDate");
+            return next;
+          });
+        }
+        return {
+          ...prev,
+          startDate: prev.startDate || calendar.startDate,
+          endDate: prev.endDate || calendar.endDate,
+        };
+      });
     }
   }, [toolId, course?.semester]);
 
