@@ -6,7 +6,8 @@ import request from "supertest";
 // ---------------------------------------------------------------------------
 // Hoisted mocks
 // ---------------------------------------------------------------------------
-const { mockUpdateSavedOutcome, mockCreateSavedOutcome, mockDeleteSavedOutcome, authPassesHolder } = vi.hoisted(() => ({
+const { mockGetSavedOutcomes, mockUpdateSavedOutcome, mockCreateSavedOutcome, mockDeleteSavedOutcome, authPassesHolder } = vi.hoisted(() => ({
+  mockGetSavedOutcomes: vi.fn(),
   mockUpdateSavedOutcome: vi.fn(),
   mockCreateSavedOutcome: vi.fn(),
   mockDeleteSavedOutcome: vi.fn(),
@@ -19,7 +20,7 @@ const { mockUpdateSavedOutcome, mockCreateSavedOutcome, mockDeleteSavedOutcome, 
 vi.mock("./storage", () => ({
   storage: {
     updateSavedOutcome: mockUpdateSavedOutcome,
-    getSavedOutcomes: vi.fn(),
+    getSavedOutcomes: mockGetSavedOutcomes,
     createSavedOutcome: mockCreateSavedOutcome,
     deleteSavedOutcome: mockDeleteSavedOutcome,
     getAllCourses: vi.fn(),
@@ -361,6 +362,79 @@ describe("POST /api/outcomes", () => {
 
     expect(res.body).toHaveProperty("error");
     expect(mockCreateSavedOutcome).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/outcomes
+// ---------------------------------------------------------------------------
+describe("GET /api/outcomes", () => {
+  let app: express.Express;
+
+  beforeEach(async () => {
+    vi.resetModules();
+    vi.clearAllMocks();
+    authPassesHolder.value = true;
+    app = await buildApp();
+  });
+
+  // -------------------------------------------------------------------------
+  // 200 — authenticated user receives their outcomes array
+  // -------------------------------------------------------------------------
+  it("returns 200 with an array of outcomes for an authenticated user", async () => {
+    const outcomes = [
+      { id: 1, text: "Students will analyze rhetorical strategies", userId: "owner-user-123", createdAt: new Date().toISOString() },
+      { id: 2, text: "Students will evaluate primary sources critically", userId: "owner-user-123", createdAt: new Date().toISOString() },
+    ];
+    mockGetSavedOutcomes.mockResolvedValue(outcomes);
+
+    const res = await request(app)
+      .get("/api/outcomes")
+      .expect(200);
+
+    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body).toHaveLength(2);
+    expect(res.body[0]).toMatchObject({ id: 1, text: "Students will analyze rhetorical strategies" });
+    expect(mockGetSavedOutcomes).toHaveBeenCalledTimes(1);
+    expect(mockGetSavedOutcomes).toHaveBeenCalledWith("owner-user-123");
+  });
+
+  it("returns 200 with an empty array when the user has no saved outcomes", async () => {
+    mockGetSavedOutcomes.mockResolvedValue([]);
+
+    const res = await request(app)
+      .get("/api/outcomes")
+      .expect(200);
+
+    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body).toHaveLength(0);
+    expect(mockGetSavedOutcomes).toHaveBeenCalledWith("owner-user-123");
+  });
+
+  // -------------------------------------------------------------------------
+  // 401 — unauthenticated request
+  // -------------------------------------------------------------------------
+  it("returns 401 when the request has no authenticated session", async () => {
+    authPassesHolder.value = false;
+
+    await request(app)
+      .get("/api/outcomes")
+      .expect(401);
+
+    expect(mockGetSavedOutcomes).not.toHaveBeenCalled();
+  });
+
+  // -------------------------------------------------------------------------
+  // 500 — unexpected storage failure
+  // -------------------------------------------------------------------------
+  it("returns 500 for an unexpected storage error", async () => {
+    mockGetSavedOutcomes.mockRejectedValue(new Error("Database connection lost"));
+
+    const res = await request(app)
+      .get("/api/outcomes")
+      .expect(500);
+
+    expect(res.body).toHaveProperty("error");
   });
 });
 
