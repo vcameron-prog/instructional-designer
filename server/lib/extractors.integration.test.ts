@@ -4,15 +4,44 @@
  * These tests catch parser edge cases — namespace quirks in ODF exports,
  * embedded fonts in EPUB, OLE compound-document variants in legacy DOC files —
  * that synthetic fixtures won't expose.
+ *
+ * FIXTURE SIZE GUARD
+ * All binary fixtures must stay under FIXTURE_SIZE_LIMIT_BYTES. If someone
+ * swaps a fixture for a larger "real-world" file, the suite fails at setup
+ * rather than silently ballooning CI time.
  */
-import { describe, it, expect } from "vitest";
-import { readFileSync } from "fs";
+import { describe, it, expect, beforeAll } from "vitest";
+import { readFileSync, statSync } from "fs";
 import { join } from "path";
 import { extractDocContent } from "./doc-extractor.js";
 import { extractOdfContent } from "./odf-extractor.js";
 import { extractEpubContent } from "./epub-extractor.js";
 
 const fixturesDir = join(import.meta.dirname, "fixtures");
+
+/** Maximum allowed size for any single binary fixture file (50 KB). */
+const FIXTURE_SIZE_LIMIT_BYTES = 50 * 1024;
+
+const BINARY_FIXTURES = [
+  "sample.doc",
+  "sample.odt",
+  "sample.ods",
+  "sample.odp",
+  "sample.epub",
+];
+
+beforeAll(() => {
+  for (const name of BINARY_FIXTURES) {
+    const filePath = join(fixturesDir, name);
+    const { size } = statSync(filePath);
+    expect(
+      size,
+      `Fixture "${name}" is ${size} bytes — exceeds the ${FIXTURE_SIZE_LIMIT_BYTES}-byte ` +
+        `limit. Replace it with a smaller synthetic fixture or update FIXTURE_SIZE_LIMIT_BYTES ` +
+        `and budget extra CI time accordingly.`,
+    ).toBeLessThanOrEqual(FIXTURE_SIZE_LIMIT_BYTES);
+  }
+});
 
 function fixture(name: string): Buffer {
   return readFileSync(join(fixturesDir, name));
