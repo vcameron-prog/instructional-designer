@@ -737,6 +737,9 @@ export default function PdfConversion() {
         const res = await apiRequest("POST", `/api/conversions/${numericId}/fix-issue`, { issueIndex });
         const data = await res.json();
         if (data?.wasRetried) anyRetried = true;
+        if (data?.noFixReason) {
+          setNoFixReasons(prev => ({ ...prev, [issueIndex]: data.noFixReason }));
+        }
         const note = data?.complianceReport?.issues?.[issueIndex]?.fixNotes;
         if (note && !collectedFixNotes.includes(note)) {
           collectedFixNotes.push(note);
