@@ -1,6 +1,12 @@
 import { describe, it, expect, vi } from "vitest";
 import iconv from "iconv-lite";
+import { readFileSync } from "fs";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
 import { extractRtfContent } from "../rtf-extractor.js";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const FIXTURES_DIR = join(__dirname, "..", "fixtures");
 
 /**
  * Build a minimal but syntactically valid RTF buffer containing CJK text
@@ -247,5 +253,122 @@ describe("extractRtfContent — \\uN escapes with CJK codepage", () => {
     const buf = Buffer.from(rtf, "latin1");
     const result = await extractRtfContent(buf);
     expect(result.text).toContain("\u65E5");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Fixture-based round-trip tests (ground-truth binary RTF files)
+//
+// These tests read pre-built binary RTF fixture files from disk and assert
+// that the known Unicode content survives the full decode pipeline.  Because
+// the fixture bytes were frozen at generation time, any regression introduced
+// by an iconv-lite or rtf-parser version bump will cause these tests to fail
+// even if the synthetic makeCjkRtf() tests still pass (since those encode
+// with the new library too and would mask the drift).
+//
+// Fixture files live in server/lib/fixtures/ and can be regenerated with:
+//   node server/lib/fixtures/generate-cjk-rtf.mjs
+// ---------------------------------------------------------------------------
+
+describe("extractRtfContent — fixture round-trip (ansicpg 932 / Shift_JIS)", () => {
+  const FIXTURE = "cjk-932-shift-jis.rtf";
+  const EXPECTED_CHARS = ["日", "本", "語", "テ", "ス"];
+
+  it("extracts known Japanese characters from the binary fixture", async () => {
+    const buf = readFileSync(join(FIXTURES_DIR, FIXTURE));
+    const result = await extractRtfContent(buf);
+    for (const ch of EXPECTED_CHARS) {
+      expect(result.text).toContain(ch);
+    }
+  });
+
+  it("returns the correct PdfExtraction shape from the fixture", async () => {
+    const buf = readFileSync(join(FIXTURES_DIR, FIXTURE));
+    const result = await extractRtfContent(buf);
+    expect(result).toHaveProperty("text");
+    expect(result).toHaveProperty("pageCount");
+    expect(result).toHaveProperty("metadata");
+    expect(result.images).toEqual([]);
+    expect(result.tables).toEqual([]);
+    expect(result.pageCount).toBeGreaterThanOrEqual(1);
+  });
+
+  it("does not include raw RTF control words in the fixture output", async () => {
+    const buf = readFileSync(join(FIXTURES_DIR, FIXTURE));
+    const result = await extractRtfContent(buf);
+    expect(result.text).not.toContain("\\ansicpg");
+    expect(result.text).not.toContain("\\fonttbl");
+  });
+});
+
+describe("extractRtfContent — fixture round-trip (ansicpg 936 / GBK)", () => {
+  const FIXTURE = "cjk-936-gbk.rtf";
+  const EXPECTED_CHARS = ["中", "文", "测", "试"];
+
+  it("extracts known Simplified Chinese characters from the binary fixture", async () => {
+    const buf = readFileSync(join(FIXTURES_DIR, FIXTURE));
+    const result = await extractRtfContent(buf);
+    for (const ch of EXPECTED_CHARS) {
+      expect(result.text).toContain(ch);
+    }
+  });
+
+  it("returns the correct PdfExtraction shape from the fixture", async () => {
+    const buf = readFileSync(join(FIXTURES_DIR, FIXTURE));
+    const result = await extractRtfContent(buf);
+    expect(result).toHaveProperty("text");
+    expect(result).toHaveProperty("pageCount");
+    expect(result).toHaveProperty("metadata");
+    expect(result.images).toEqual([]);
+    expect(result.tables).toEqual([]);
+    expect(result.pageCount).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe("extractRtfContent — fixture round-trip (ansicpg 949 / EUC-KR)", () => {
+  const FIXTURE = "cjk-949-euc-kr.rtf";
+  const EXPECTED_CHARS = ["한", "국", "어", "테"];
+
+  it("extracts known Korean characters from the binary fixture", async () => {
+    const buf = readFileSync(join(FIXTURES_DIR, FIXTURE));
+    const result = await extractRtfContent(buf);
+    for (const ch of EXPECTED_CHARS) {
+      expect(result.text).toContain(ch);
+    }
+  });
+
+  it("returns the correct PdfExtraction shape from the fixture", async () => {
+    const buf = readFileSync(join(FIXTURES_DIR, FIXTURE));
+    const result = await extractRtfContent(buf);
+    expect(result).toHaveProperty("text");
+    expect(result).toHaveProperty("pageCount");
+    expect(result).toHaveProperty("metadata");
+    expect(result.images).toEqual([]);
+    expect(result.tables).toEqual([]);
+    expect(result.pageCount).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe("extractRtfContent — fixture round-trip (ansicpg 950 / Big5)", () => {
+  const FIXTURE = "cjk-950-big5.rtf";
+  const EXPECTED_CHARS = ["繁", "體", "中", "文"];
+
+  it("extracts known Traditional Chinese characters from the binary fixture", async () => {
+    const buf = readFileSync(join(FIXTURES_DIR, FIXTURE));
+    const result = await extractRtfContent(buf);
+    for (const ch of EXPECTED_CHARS) {
+      expect(result.text).toContain(ch);
+    }
+  });
+
+  it("returns the correct PdfExtraction shape from the fixture", async () => {
+    const buf = readFileSync(join(FIXTURES_DIR, FIXTURE));
+    const result = await extractRtfContent(buf);
+    expect(result).toHaveProperty("text");
+    expect(result).toHaveProperty("pageCount");
+    expect(result).toHaveProperty("metadata");
+    expect(result.images).toEqual([]);
+    expect(result.tables).toEqual([]);
+    expect(result.pageCount).toBeGreaterThanOrEqual(1);
   });
 });
