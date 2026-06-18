@@ -5,6 +5,7 @@ import type { PdfExtraction, ExtractedImage, ExtractedTable } from "./pdf-proces
 
 const MAX_SLIDES = 200;
 const NS_A = "http://schemas.openxmlformats.org/drawingml/2006/main";
+const NS_P = "http://schemas.openxmlformats.org/presentationml/2006/main";
 
 const SUPPORTED_IMAGE_TYPES: Record<string, string> = {
   png: "image/png",
@@ -36,10 +37,26 @@ function extractSlideText(xml: string): { text: string; tables: string[][] } {
   const parser = new DOMParser();
   const doc = parser.parseFromString(xml, "text/xml");
 
+  // Scope all extraction to the <p:spTree> subtree so that text from slide
+  // masters and slide layouts (which share the same DrawingML namespace but
+  // live outside spTree) is never included in the output.
+  // Structure: p:sld/p:cSld/p:spTree (slides) or p:notes/p:cSld/p:spTree (notes).
+  type GtbnNode = Parameters<typeof getChildElements>[0];
+  const spTreeCol = doc.getElementsByTagNameNS(NS_P, "spTree");
+  const root: GtbnNode | null =
+    spTreeCol && spTreeCol.length > 0
+      ? (spTreeCol.item(0) as GtbnNode)
+      : null;
+
+  // If the slide has no spTree (malformed PPTX), return empty rather than throw.
+  if (!root) {
+    return { text: "", tables: [] };
+  }
+
   const tables: string[][] = [];
 
   // Extract tables: <a:tbl> → <a:tr> → <a:tc>
-  const tblNodes = getChildElements(doc, NS_A, "tbl");
+  const tblNodes = getChildElements(root, NS_A, "tbl");
   for (const tbl of tblNodes) {
     const rowNodes = getChildElements(tbl as Parameters<typeof getChildElements>[0], NS_A, "tr");
     for (const row of rowNodes) {
@@ -57,7 +74,7 @@ function extractSlideText(xml: string): { text: string; tables: string[][] } {
   }
 
   // Extract all paragraph text: <a:p> → <a:t>
-  const paragraphNodes = getChildElements(doc, NS_A, "p");
+  const paragraphNodes = getChildElements(root, NS_A, "p");
   const paragraphs: string[] = [];
   for (const p of paragraphNodes) {
     const tNodes = getChildElements(p as Parameters<typeof getChildElements>[0], NS_A, "t");
