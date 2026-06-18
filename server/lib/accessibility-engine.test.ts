@@ -1194,6 +1194,135 @@ describe("runDeterministicChecks", () => {
     });
   });
 
+  // tagCounts field — per-tag breakdown on ARIA misuse issues
+  describe("tagCounts on ARIA misuse issues", () => {
+    describe("role=\"button\" tagCounts", () => {
+      it("populates tagCounts with a single key when all offending elements share the same tag", () => {
+        const html = `<html lang="en"><body><main><h1>Page</h1>
+          <div role="button">A</div>
+          <div role="button">B</div>
+          <div role="button">C</div>
+        </main></body></html>`;
+        const issues = runDeterministicChecks(html);
+        const issue = issues.find((i) => i.title === "ARIA Button Role on Non-Button Element");
+        expect(issue).toBeDefined();
+        expect(issue!.tagCounts).toBeDefined();
+        expect(Object.keys(issue!.tagCounts!)).toHaveLength(1);
+        expect(issue!.tagCounts!["<div>"]).toBe(3);
+      });
+
+      it("populates tagCounts with one key per distinct offending tag", () => {
+        const html = `<html lang="en"><body><main><h1>Page</h1>
+          <div role="button">A</div>
+          <div role="button">B</div>
+          <span role="button">C</span>
+          <p role="button">D</p>
+        </main></body></html>`;
+        const issues = runDeterministicChecks(html);
+        const issue = issues.find((i) => i.title === "ARIA Button Role on Non-Button Element");
+        expect(issue).toBeDefined();
+        expect(issue!.tagCounts).toBeDefined();
+        expect(issue!.tagCounts!["<div>"]).toBe(2);
+        expect(issue!.tagCounts!["<span>"]).toBe(1);
+        expect(issue!.tagCounts!["<p>"]).toBe(1);
+      });
+
+      it("tagCounts sum equals the total count reported in details", () => {
+        const html = `<html lang="en"><body><main><h1>Page</h1>
+          <div role="button">A</div>
+          <span role="button">B</span>
+          <a role="button" href="#">C</a>
+        </main></body></html>`;
+        const issues = runDeterministicChecks(html);
+        const issue = issues.find((i) => i.title === "ARIA Button Role on Non-Button Element");
+        expect(issue).toBeDefined();
+        const total = Object.values(issue!.tagCounts!).reduce((s, n) => s + n, 0);
+        expect(total).toBe(3);
+        expect(issue!.details).toContain("3 element(s)");
+      });
+
+      it("does not set tagCounts when no ARIA button misuse is found", () => {
+        const html = `<html lang="en"><body><main><h1>Page</h1><button>OK</button></main></body></html>`;
+        const issues = runDeterministicChecks(html);
+        const issue = issues.find((i) => i.title === "ARIA Button Role on Non-Button Element");
+        expect(issue).toBeUndefined();
+      });
+    });
+
+    describe("role=\"heading\" tagCounts", () => {
+      it("populates tagCounts with a single key when all offending elements share the same tag", () => {
+        const html = `<html lang="en"><body><main><h1>Page</h1>
+          <p role="heading" aria-level="2">Section A</p>
+          <p role="heading" aria-level="3">Section B</p>
+        </main></body></html>`;
+        const issues = runDeterministicChecks(html);
+        const issue = issues.find((i) => i.title === "ARIA Heading Role on Non-Heading Element");
+        expect(issue).toBeDefined();
+        expect(issue!.tagCounts).toBeDefined();
+        expect(Object.keys(issue!.tagCounts!)).toHaveLength(1);
+        expect(issue!.tagCounts!["<p>"]).toBe(2);
+      });
+
+      it("populates tagCounts with one key per distinct offending tag", () => {
+        const html = `<html lang="en"><body><main><h1>Page</h1>
+          <div role="heading" aria-level="2">Section A</div>
+          <div role="heading" aria-level="3">Section B</div>
+          <span role="heading">Section C</span>
+        </main></body></html>`;
+        const issues = runDeterministicChecks(html);
+        const issue = issues.find((i) => i.title === "ARIA Heading Role on Non-Heading Element");
+        expect(issue).toBeDefined();
+        expect(issue!.tagCounts).toBeDefined();
+        expect(issue!.tagCounts!["<div>"]).toBe(2);
+        expect(issue!.tagCounts!["<span>"]).toBe(1);
+      });
+
+      it("tagCounts sum equals the total count reported in details", () => {
+        const html = `<html lang="en"><body><main><h1>Page</h1>
+          <div role="heading" aria-level="2">A</div>
+          <p role="heading" aria-level="3">B</p>
+          <span role="heading">C</span>
+          <span role="heading">D</span>
+        </main></body></html>`;
+        const issues = runDeterministicChecks(html);
+        const issue = issues.find((i) => i.title === "ARIA Heading Role on Non-Heading Element");
+        expect(issue).toBeDefined();
+        const total = Object.values(issue!.tagCounts!).reduce((s, n) => s + n, 0);
+        expect(total).toBe(4);
+        expect(issue!.details).toContain("4 element(s)");
+      });
+    });
+
+    describe("role=\"tab\" tagCounts", () => {
+      it("populates tagCounts for multiple distinct non-interactive tags carrying role=\"tab\"", () => {
+        const html = `<html lang="en"><body><main><h1>Page</h1>
+          <div role="tab">Tab 1</div>
+          <div role="tab">Tab 2</div>
+          <span role="tab">Tab 3</span>
+        </main></body></html>`;
+        const issues = runDeterministicChecks(html);
+        const issue = issues.find((i) => i.title === "ARIA Tab Role on Non-Interactive Element");
+        expect(issue).toBeDefined();
+        expect(issue!.tagCounts).toBeDefined();
+        expect(issue!.tagCounts!["<div>"]).toBe(2);
+        expect(issue!.tagCounts!["<span>"]).toBe(1);
+      });
+
+      it("tagCounts sum equals the total count reported in details for role=\"tab\"", () => {
+        const html = `<html lang="en"><body><main><h1>Page</h1>
+          <div role="tab">Tab 1</div>
+          <p role="tab">Tab 2</p>
+        </main></body></html>`;
+        const issues = runDeterministicChecks(html);
+        const issue = issues.find((i) => i.title === "ARIA Tab Role on Non-Interactive Element");
+        expect(issue).toBeDefined();
+        const total = Object.values(issue!.tagCounts!).reduce((s, n) => s + n, 0);
+        expect(total).toBe(2);
+        expect(issue!.details).toContain("2 element(s)");
+      });
+    });
+  });
+
   // All issues have required fields
   describe("issue shape", () => {
     it("every issue has criterion, title, level, status, description, and details", () => {
