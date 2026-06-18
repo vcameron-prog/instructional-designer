@@ -385,45 +385,51 @@ export default function ToolForm() {
 
   if (!tool) {
     return (
-      <main id="main-content" tabIndex={-1} className="min-h-screen bg-background flex items-center justify-center">
-        <Card className="max-w-md">
-          <CardContent className="p-6 text-center">
-            <p className="text-muted-foreground">Tool not found</p>
-            <Button className="mt-4" onClick={() => navigate(backPath)}>
-              Return to Tools
-            </Button>
-          </CardContent>
-        </Card>
+      <main id="main-content" tabIndex={-1} className="min-h-screen flex flex-col bg-background">
+        <div className="flex-1 flex items-center justify-center">
+          <Card className="max-w-md">
+            <CardContent className="p-6 text-center">
+              <p className="text-muted-foreground">Tool not found</p>
+              <Button className="mt-4" onClick={() => navigate(backPath)}>
+                Return to Tools
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+        <PoweredByFooter />
       </main>
     );
   }
 
   if (isGenerating) {
     return (
-      <main id="main-content" tabIndex={-1} className="min-h-screen bg-gradient-to-br from-primary/5 to-accent/5 flex items-center justify-center">
-        <Card className="max-w-lg w-full mx-4">
-          <CardContent className="p-12 text-center" role="status" aria-live="polite">
-            <div className="w-20 h-20 mx-auto mb-8 relative">
-              <div className="absolute inset-0 bg-primary/20 rounded-full animate-ping" />
-              <div className="relative w-full h-full bg-primary rounded-full flex items-center justify-center">
-                <Sparkles className="w-10 h-10 text-white animate-pulse" aria-hidden="true" />
+      <main id="main-content" tabIndex={-1} className="min-h-screen flex flex-col bg-gradient-to-br from-primary/5 to-accent/5">
+        <div className="flex-1 flex items-center justify-center">
+          <Card className="max-w-lg w-full mx-4">
+            <CardContent className="p-12 text-center" role="status" aria-live="polite">
+              <div className="w-20 h-20 mx-auto mb-8 relative">
+                <div className="absolute inset-0 bg-primary/20 rounded-full animate-ping" />
+                <div className="relative w-full h-full bg-primary rounded-full flex items-center justify-center">
+                  <Sparkles className="w-10 h-10 text-white animate-pulse" aria-hidden="true" />
+                </div>
               </div>
-            </div>
-            <h2 className="text-2xl font-bold mb-4">Generating Your {tool.name}</h2>
-            <p className="text-muted-foreground mb-6 animate-pulse-subtle">
-              {loadingMessage}
-            </p>
-            <div className="flex justify-center gap-1" aria-hidden="true">
-              {[0, 1, 2].map(i => (
-                <div
-                  key={i}
-                  className="w-2 h-2 bg-primary rounded-full animate-bounce"
-                  style={{ animationDelay: `${i * 0.15}s` }}
-                />
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+              <h2 className="text-2xl font-bold mb-4">Generating Your {tool.name}</h2>
+              <p className="text-muted-foreground mb-6 animate-pulse-subtle">
+                {loadingMessage}
+              </p>
+              <div className="flex justify-center gap-1" aria-hidden="true">
+                {[0, 1, 2].map(i => (
+                  <div
+                    key={i}
+                    className="w-2 h-2 bg-primary rounded-full animate-bounce"
+                    style={{ animationDelay: `${i * 0.15}s` }}
+                  />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+        <PoweredByFooter />
       </main>
     );
   }

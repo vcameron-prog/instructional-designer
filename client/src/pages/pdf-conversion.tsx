@@ -748,14 +748,17 @@ export default function PdfConversion() {
       <main
         id="main-content"
         tabIndex={-1}
-        className="min-h-screen flex items-center justify-center bg-background"
+        className="min-h-screen flex flex-col bg-background"
       >
-        <div className="text-center">
-          <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-muted-foreground font-medium">
-            Loading document details...
-          </p>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto mb-4" />
+            <p className="text-muted-foreground font-medium">
+              Loading document details...
+            </p>
+          </div>
         </div>
+        <PoweredByFooter />
       </main>
     );
   }
@@ -765,9 +768,9 @@ export default function PdfConversion() {
       <main
         id="main-content"
         tabIndex={-1}
-        className="min-h-screen bg-background"
+        className="min-h-screen flex flex-col bg-background"
       >
-        <div className="container mx-auto px-4 py-16 max-w-xl text-center">
+        <div className="flex-1 container mx-auto px-4 py-16 max-w-xl text-center">
           <AlertTriangle className="w-12 h-12 mx-auto text-destructive mb-4" />
           <h1 className="text-2xl font-bold mb-2">Document Not Found</h1>
           <p className="text-muted-foreground mb-6">
@@ -781,6 +784,7 @@ export default function PdfConversion() {
             <ArrowLeft className="w-4 h-4" /> Back to History
           </button>
         </div>
+        <PoweredByFooter />
       </main>
     );
   }

@@ -50,26 +50,32 @@ export default function ToolSelection() {
 
   if (isLoadingCourse) {
     return (
-      <main id="main-content" tabIndex={-1} className="min-h-screen bg-background flex items-center justify-center">
-        <div role="status">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" aria-hidden="true" />
-          <span className="sr-only">Loading course tools</span>
+      <main id="main-content" tabIndex={-1} className="min-h-screen flex flex-col bg-background">
+        <div className="flex-1 flex items-center justify-center">
+          <div role="status">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" aria-hidden="true" />
+            <span className="sr-only">Loading course tools</span>
+          </div>
         </div>
+        <PoweredByFooter />
       </main>
     );
   }
 
   if (!course) {
     return (
-      <main id="main-content" tabIndex={-1} className="min-h-screen bg-background flex items-center justify-center">
-        <Card className="max-w-md">
-          <CardContent className="p-6 text-center">
-            <p className="text-muted-foreground">Course not found</p>
-            <Button className="mt-4" onClick={() => navigate("/")}>
-              Return Home
-            </Button>
-          </CardContent>
-        </Card>
+      <main id="main-content" tabIndex={-1} className="min-h-screen flex flex-col bg-background">
+        <div className="flex-1 flex items-center justify-center">
+          <Card className="max-w-md">
+            <CardContent className="p-6 text-center">
+              <p className="text-muted-foreground">Course not found</p>
+              <Button className="mt-4" onClick={() => navigate("/")}>
+                Return Home
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+        <PoweredByFooter />
       </main>
     );
   }

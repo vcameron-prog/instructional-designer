@@ -82,9 +82,12 @@ export default function PdfHistory() {
       <main
         id="main-content"
         tabIndex={-1}
-        className="min-h-screen flex items-center justify-center bg-background"
+        className="min-h-screen flex flex-col bg-background"
       >
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <div className="flex-1 flex items-center justify-center">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+        <PoweredByFooter />
       </main>
     );
   }
