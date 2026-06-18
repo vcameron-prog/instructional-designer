@@ -107,7 +107,7 @@ export function fixDuplicateTableCaptions(html: string): string {
     if (group.length <= 1) continue;
     const total = group.length;
     group.forEach(({ el, originalText }, idx) => {
-      el!.set_content(`${originalText} (${idx + 1} of ${total})`);
+      el!.set_content(`${escapeHtml(originalText)} (${idx + 1} of ${total})`);
     });
   }
 

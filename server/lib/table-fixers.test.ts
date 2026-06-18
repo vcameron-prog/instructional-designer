@@ -754,4 +754,39 @@ describe("fixDuplicateTableCaptions", () => {
     expect(result).toContain("Report (2 of 3)");
     expect(result).toContain("Report (3 of 3)");
   });
+
+  it("escapes & in duplicate caption text so it renders as &amp;, not a bare ampersand", () => {
+    const html =
+      `<table><caption>Q&amp;A</caption><tbody><tr><td>1</td></tr></tbody></table>` +
+      `<table><caption>Q&amp;A</caption><tbody><tr><td>2</td></tr></tbody></table>`;
+    const result = fixDuplicateTableCaptions(html);
+    // The decoded text "Q&A" must be re-escaped before insertion.
+    expect(result).toContain("Q&amp;A (1 of 2)");
+    expect(result).toContain("Q&amp;A (2 of 2)");
+    // A bare & must never appear inside a caption element.
+    expect(result).not.toMatch(/<caption>[^<]*&[^a-z#][^<]*<\/caption>/i);
+  });
+
+  it("escapes < and > in duplicate caption text so they render as literal characters, not markup", () => {
+    const html =
+      `<table><caption>A &lt; B</caption><tbody><tr><td>1</td></tr></tbody></table>` +
+      `<table><caption>A &lt; B</caption><tbody><tr><td>2</td></tr></tbody></table>`;
+    const result = fixDuplicateTableCaptions(html);
+    expect(result).toContain("A &lt; B (1 of 2)");
+    expect(result).toContain("A &lt; B (2 of 2)");
+    // Unescaped angle bracket must not appear inside a caption.
+    expect(result).not.toMatch(/<caption>[^<]*<[a-z]/i);
+  });
+
+  it("neutralises an HTML injection payload in duplicate caption text — tags become text", () => {
+    const payload = `&lt;img src=x onerror=alert(1)&gt;`;
+    const html =
+      `<table><caption>${payload}</caption><tbody><tr><td>1</td></tr></tbody></table>` +
+      `<table><caption>${payload}</caption><tbody><tr><td>2</td></tr></tbody></table>`;
+    const result = fixDuplicateTableCaptions(html);
+    // The suffixed captions must not introduce a live <img> element.
+    expect(result).not.toContain("<img ");
+    // The escaped representation must still be present.
+    expect(result).toContain("&lt;img");
+  });
 });
