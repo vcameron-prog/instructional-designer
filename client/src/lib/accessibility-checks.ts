@@ -1,3 +1,24 @@
+export const VAGUE_LINK_TERMS = [
+  "click here",
+  "here",
+  "link",
+  "read more",
+  "learn more",
+  "go here",
+  "this page",
+  "more info",
+  "more",
+  "click",
+  "this link",
+  "this article",
+  "this resource",
+  "view here",
+  "find out more",
+  "see here",
+  "details",
+  "info",
+] as const;
+
 export interface AccessibilityIssue {
   type: string;
   severity: "warning" | "suggestion";
@@ -30,7 +51,7 @@ export const checkAccessibility = (content: string): AccessibilityIssue[] => {
     });
   }
 
-  if (content.match(/\[(click here|here|link|read more|learn more|go here|this page|more info|more|click|this link|this article|this resource|view here|find out more|see here|details|info)\]/gi)) {
+  if (content.match(new RegExp(`\\[(${VAGUE_LINK_TERMS.join("|")})\\]`, "gi"))) {
     issues.push({
       type: "accessibility",
       severity: "warning",

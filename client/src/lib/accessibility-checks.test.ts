@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { checkAccessibility } from "./accessibility-checks";
+import { checkAccessibility, VAGUE_LINK_TERMS } from "./accessibility-checks";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -107,28 +107,7 @@ describe("long paragraph check", () => {
 // ---------------------------------------------------------------------------
 
 describe("vague link text check", () => {
-  const VAGUE_TERMS = [
-    "click here",
-    "here",
-    "link",
-    "read more",
-    "learn more",
-    "go here",
-    "this page",
-    "more info",
-    "more",
-    "click",
-    "this link",
-    "this article",
-    "this resource",
-    "view here",
-    "find out more",
-    "see here",
-    "details",
-    "info",
-  ];
-
-  for (const term of VAGUE_TERMS) {
+  for (const term of VAGUE_LINK_TERMS) {
     it(`detects vague link text: [${term}]`, () => {
       const content = `Visit [${term}] for details.`;
       expect(hasIssue(content, "fix-vague-link-text")).toBe(true);
