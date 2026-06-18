@@ -10,8 +10,20 @@ import {
   ArrowRight,
   Search,
   X,
+  Download,
+  ChevronDown,
+  FileCode2,
+  FileType,
+  FileDown,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
 import { HeaderControls } from "@/components/header-controls";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -38,6 +50,84 @@ const STATUS_ORDER: Record<string, number> = {
   failed: 3,
 };
 
+function useConversionDownload() {
+  const { toast } = useToast();
+  const [downloading, setDownloading] = useState<Record<string, boolean>>({});
+
+  const triggerDownload = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const downloadHtml = async (conv: any) => {
+    const key = `html-${conv.id}`;
+    setDownloading((p) => ({ ...p, [key]: true }));
+    try {
+      const resp = await fetch(`/api/conversions/${conv.id}/download`, {
+        credentials: "include",
+      });
+      if (!resp.ok) throw new Error("Download failed");
+      const html = await resp.text();
+      triggerDownload(
+        new Blob([html], { type: "text/html" }),
+        (conv.originalFilename ?? "document").replace(/\.[^.]+$/, "") + "-accessible.html",
+      );
+    } catch {
+      toast({ title: "Download failed", description: "Could not download the HTML file.", variant: "destructive" });
+    } finally {
+      setDownloading((p) => ({ ...p, [key]: false }));
+    }
+  };
+
+  const downloadDocx = async (conv: any) => {
+    const key = `docx-${conv.id}`;
+    setDownloading((p) => ({ ...p, [key]: true }));
+    try {
+      const resp = await fetch(`/api/conversions/${conv.id}/download-docx`, {
+        credentials: "include",
+      });
+      if (!resp.ok) throw new Error("Download failed");
+      const blob = await resp.blob();
+      triggerDownload(
+        blob,
+        (conv.originalFilename ?? "document").replace(/\.[^.]+$/, "") + "-accessible.docx",
+      );
+    } catch {
+      toast({ title: "Download failed", description: "Could not download the Word file.", variant: "destructive" });
+    } finally {
+      setDownloading((p) => ({ ...p, [key]: false }));
+    }
+  };
+
+  const downloadPdf = async (conv: any) => {
+    const key = `pdf-${conv.id}`;
+    setDownloading((p) => ({ ...p, [key]: true }));
+    try {
+      const resp = await fetch(`/api/conversions/${conv.id}/download-pdf`, {
+        credentials: "include",
+      });
+      if (!resp.ok) throw new Error("Download failed");
+      const blob = await resp.blob();
+      triggerDownload(
+        blob,
+        (conv.originalFilename ?? "document").replace(/\.[^.]+$/, "") + "-accessible.pdf",
+      );
+    } catch {
+      toast({ title: "Download failed", description: "Could not download the tagged PDF.", variant: "destructive" });
+    } finally {
+      setDownloading((p) => ({ ...p, [key]: false }));
+    }
+  };
+
+  return { downloading, downloadHtml, downloadDocx, downloadPdf };
+}
+
 export default function PdfHistory() {
   usePageTitle("Conversion History");
   useEffect(() => {
@@ -45,6 +135,7 @@ export default function PdfHistory() {
   }, []);
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [, navigate] = useLocation();
+  const { downloading, downloadHtml, downloadDocx, downloadPdf } = useConversionDownload();
 
   const [search, setSearch] = useState("");
   const [dateRange, setDateRange] = useState<DateRange>("all");
@@ -338,6 +429,65 @@ export default function PdfHistory() {
                     aria-hidden="true"
                   />
                 </button>
+                {conv.status === "completed" ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        onClick={(e) => e.stopPropagation()}
+                        disabled={
+                          downloading[`html-${conv.id}`] ||
+                          downloading[`docx-${conv.id}`] ||
+                          downloading[`pdf-${conv.id}`]
+                        }
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-primary/30 bg-primary/5 text-primary text-xs font-semibold hover:bg-primary/10 transition-colors flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                        aria-label={`Download ${conv.originalFilename}`}
+                        data-testid={`button-download-${conv.id}`}
+                      >
+                        {downloading[`html-${conv.id}`] ||
+                        downloading[`docx-${conv.id}`] ||
+                        downloading[`pdf-${conv.id}`] ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Download className="w-3.5 h-3.5" />
+                        )}
+                        <span className="hidden sm:inline">Download as…</span>
+                        <ChevronDown className="w-3 h-3" aria-hidden="true" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-44">
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          downloadHtml(conv);
+                        }}
+                        data-testid={`menu-download-html-${conv.id}`}
+                      >
+                        <FileCode2 className="w-4 h-4 mr-2 text-muted-foreground" aria-hidden="true" />
+                        HTML
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          downloadDocx(conv);
+                        }}
+                        data-testid={`menu-download-docx-${conv.id}`}
+                      >
+                        <FileType className="w-4 h-4 mr-2 text-muted-foreground" aria-hidden="true" />
+                        Word (.docx)
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          downloadPdf(conv);
+                        }}
+                        data-testid={`menu-download-pdf-${conv.id}`}
+                      >
+                        <FileDown className="w-4 h-4 mr-2 text-muted-foreground" aria-hidden="true" />
+                        Tagged PDF
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : null}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
