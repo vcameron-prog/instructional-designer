@@ -1,14 +1,101 @@
 /**
- * Integration tests for the extraction error-mapping block in server/routes.ts.
+ * Tests for the extraction error-message infrastructure.
  *
- * When an extractor throws for a given sourceType the route's catch block must:
- *   1. Map the raw error to a user-friendly message for that format.
- *   2. Store that message as `errorMessage` on the conversion record (status: "failed").
+ * Part 1 — Unit tests for server/lib/extraction-error-messages.ts:
+ *   - EXTRACTION_ERROR_MESSAGES has an entry for every supported format key.
+ *   - Looking up an unknown key returns EXTRACTION_ERROR_FALLBACK.
  *
- * Each test mocks the relevant extractor to throw, fires POST /api/conversions/:id/process,
- * and then waits for the background IIFE to write the failure row to the (mocked) DB.
+ * Part 2 — Integration tests for the extraction error-mapping block in server/routes.ts:
+ *   When an extractor throws for a given sourceType the route's catch block must:
+ *     1. Map the raw error to a user-friendly message for that format.
+ *     2. Store that message as `errorMessage` on the conversion record (status: "failed").
+ *
+ *   Each test mocks the relevant extractor to throw, fires POST /api/conversions/:id/process,
+ *   and then waits for the background IIFE to write the failure row to the (mocked) DB.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import {
+  EXTRACTION_ERROR_MESSAGES,
+  EXTRACTION_ERROR_FALLBACK,
+} from "./lib/extraction-error-messages.js";
+
+// ---------------------------------------------------------------------------
+// Part 1: Unit tests for the EXTRACTION_ERROR_MESSAGES constant
+// ---------------------------------------------------------------------------
+
+const SUPPORTED_FORMAT_KEYS = [
+  "pdf",
+  "docx",
+  "xlsx",
+  "pptx",
+  "csv",
+  "rtf",
+  "html",
+  "odt",
+  "ods",
+  "odp",
+  "epub",
+  "doc",
+  "google-doc",
+  "google-sheet",
+  "google-slide",
+] as const;
+
+describe("EXTRACTION_ERROR_MESSAGES constant", () => {
+  it("contains a non-empty string entry for every supported format key", () => {
+    for (const key of SUPPORTED_FORMAT_KEYS) {
+      expect(
+        EXTRACTION_ERROR_MESSAGES[key],
+        `Expected a message for format key "${key}"`,
+      ).toBeDefined();
+      expect(
+        typeof EXTRACTION_ERROR_MESSAGES[key],
+        `Message for "${key}" must be a string`,
+      ).toBe("string");
+      expect(
+        EXTRACTION_ERROR_MESSAGES[key].length,
+        `Message for "${key}" must not be empty`,
+      ).toBeGreaterThan(0);
+    }
+  });
+
+  it.each(SUPPORTED_FORMAT_KEYS)(
+    'has a message for "%s"',
+    (key) => {
+      expect(EXTRACTION_ERROR_MESSAGES[key]).toBeDefined();
+    },
+  );
+
+  it("returns undefined for an unknown format key (caller should use EXTRACTION_ERROR_FALLBACK)", () => {
+    expect(EXTRACTION_ERROR_MESSAGES["unknown-format"]).toBeUndefined();
+    expect(EXTRACTION_ERROR_MESSAGES["xyz"]).toBeUndefined();
+    expect(EXTRACTION_ERROR_MESSAGES[""]).toBeUndefined();
+  });
+
+  it("EXTRACTION_ERROR_FALLBACK is a non-empty string", () => {
+    expect(typeof EXTRACTION_ERROR_FALLBACK).toBe("string");
+    expect(EXTRACTION_ERROR_FALLBACK.length).toBeGreaterThan(0);
+  });
+
+  it("EXTRACTION_ERROR_FALLBACK is distinct from every per-format message", () => {
+    for (const key of SUPPORTED_FORMAT_KEYS) {
+      expect(
+        EXTRACTION_ERROR_MESSAGES[key],
+        `Per-format message for "${key}" should not equal the generic fallback`,
+      ).not.toBe(EXTRACTION_ERROR_FALLBACK);
+    }
+  });
+
+  it("applying EXTRACTION_ERROR_FALLBACK when a key is missing produces a string", () => {
+    const result =
+      EXTRACTION_ERROR_MESSAGES["not-a-real-format"] ?? EXTRACTION_ERROR_FALLBACK;
+    expect(result).toBe(EXTRACTION_ERROR_FALLBACK);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Part 2: Integration tests (route-level)
+// ---------------------------------------------------------------------------
 import express from "express";
 import { createServer } from "http";
 import request from "supertest";
