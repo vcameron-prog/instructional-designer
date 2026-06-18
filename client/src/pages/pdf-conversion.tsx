@@ -497,6 +497,9 @@ export default function PdfConversion() {
   const loadedManualFixIdRef = useRef<number | null>(null);
   const broadcastChannelRef = useRef<BroadcastChannel | null>(null);
   const receivedFromBroadcastRef = useRef(false);
+  // Set true when state is updated from a server fetch (poll or visibilitychange)
+  // so the sync effect skips writing back to the server and re-broadcasting.
+  const receivedFromServerRef = useRef(false);
   const [manualFixSummary, setManualFixSummary] = useState<{ title: string; reason: string }[]>([]);
   const [copiedManualFix, setCopiedManualFix] = useState(false);
   const [copiedError, setCopiedError] = useState(false);
@@ -674,37 +677,46 @@ export default function PdfConversion() {
         localStorage.setItem(manualFixStorageKey, JSON.stringify(manualFixSummary));
       } catch {}
     }
-    apiRequest("PUT", `/api/conversions/${numericId}/manual-fixes`, { items: manualFixSummary }).then(() => {
-      syncFailStreakStartRef.current = null;
-    }).catch(() => {
-      const now = Date.now();
-      const streakStart = syncFailStreakStartRef.current;
-      if (streakStart === null) {
-        syncFailStreakStartRef.current = now;
-        toast({
-          title: "Notes not saved to server",
-          description: "Your accessibility notes are stored locally but could not be synced to the server. They may not be available on other devices.",
-          variant: "destructive",
-        });
-      } else if (now - streakStart >= SYNC_FAIL_QUIET_MS) {
-        syncFailStreakStartRef.current = now;
-        toast({
-          title: "Notes still not saved to server",
-          description: "Syncing has been failing for several minutes. Your notes are stored locally but may not be available on other devices.",
-          variant: "destructive",
-        });
+    // Skip the PUT and re-broadcast when the update came from the server (poll /
+    // visibilitychange) — the data is already on the server and there is nothing
+    // new to tell other tabs.
+    if (!receivedFromServerRef.current) {
+      apiRequest("PUT", `/api/conversions/${numericId}/manual-fixes`, { items: manualFixSummary }).then(() => {
+        syncFailStreakStartRef.current = null;
+      }).catch(() => {
+        const now = Date.now();
+        const streakStart = syncFailStreakStartRef.current;
+        if (streakStart === null) {
+          syncFailStreakStartRef.current = now;
+          toast({
+            title: "Notes not saved to server",
+            description: "Your accessibility notes are stored locally but could not be synced to the server. They may not be available on other devices.",
+            variant: "destructive",
+          });
+        } else if (now - streakStart >= SYNC_FAIL_QUIET_MS) {
+          syncFailStreakStartRef.current = now;
+          toast({
+            title: "Notes still not saved to server",
+            description: "Syncing has been failing for several minutes. Your notes are stored locally but may not be available on other devices.",
+            variant: "destructive",
+          });
+        }
+      });
+      // Notify other tabs — but skip if this update itself came from a broadcast to avoid loops
+      if (!receivedFromBroadcastRef.current) {
+        broadcastChannelRef.current?.postMessage({ type: "manualFixUpdate", items: manualFixSummary });
       }
-    });
-    // Notify other tabs — but skip if this update itself came from a broadcast to avoid loops
-    if (!receivedFromBroadcastRef.current) {
-      broadcastChannelRef.current?.postMessage({ type: "manualFixUpdate", items: manualFixSummary });
     }
     receivedFromBroadcastRef.current = false;
+    receivedFromServerRef.current = false;
   }, [manualFixSummary, manualFixStorageKey, numericId]);
 
   // Listen for manual-fix updates broadcast by other tabs on the same conversion
   useEffect(() => {
     if (numericId <= 0) return;
+    // BroadcastChannel is not available in all browsers (e.g. some privacy-hardened
+    // or older Safari environments). Guard so we don't throw at runtime.
+    if (typeof BroadcastChannel === "undefined") return;
     const channelName = `manualFix_${numericId}`;
     const channel = new BroadcastChannel(channelName);
     broadcastChannelRef.current = channel;
@@ -730,6 +742,7 @@ export default function PdfConversion() {
         .then((r) => (r.ok ? r.json() : null))
         .then((data: { items: { title: string; reason: string }[] } | null) => {
           if (data?.items) {
+            receivedFromServerRef.current = true;
             setManualFixSummary(data.items);
           }
         })
@@ -737,6 +750,28 @@ export default function PdfConversion() {
     };
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [numericId]);
+
+  // Polling fallback: re-fetch manual fixes every 30 s while the tab is visible.
+  // This keeps tabs in sync even when BroadcastChannel is unavailable (e.g.
+  // privacy-hardened browsers or older Safari).  The receivedFromServerRef flag
+  // prevents the sync effect from writing the server data back to the server.
+  useEffect(() => {
+    if (numericId <= 0) return;
+    const poll = () => {
+      if (document.visibilityState === "hidden") return;
+      fetch(`/api/conversions/${numericId}/manual-fixes`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data: { items: { title: string; reason: string }[] } | null) => {
+          if (data?.items) {
+            receivedFromServerRef.current = true;
+            setManualFixSummary(data.items);
+          }
+        })
+        .catch(() => {});
+    };
+    const intervalId = setInterval(poll, 30_000);
+    return () => clearInterval(intervalId);
   }, [numericId]);
 
   useEffect(() => {
