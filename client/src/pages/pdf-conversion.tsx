@@ -58,6 +58,7 @@ import { usePageTitle } from "@/hooks/use-page-title";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
 import { PoweredByFooter } from "@/components/powered-by-footer";
+import { RichTextEditor, extractBodyInner, mergeBodyInner } from "@/components/rich-text-editor";
 import { LoadingScreen } from "@/components/loading-screen";
 import { isSessionExpiredMessage } from "@/lib/upload-error-utils";
 import { format } from "date-fns";
@@ -2020,20 +2021,14 @@ export default function PdfConversion() {
                     </div>
                   ) : (
                     <div className="flex flex-col">
-                      <div className="max-h-[500px] overflow-y-auto">
-                        <textarea
-                          value={editedHtml}
-                          onChange={(e) => {
-                            setEditedHtml(e.target.value);
-                            setHtmlDirty(
-                              e.target.value !== conversion.accessibleHtml,
-                            );
-                          }}
-                          className="w-full p-4 font-mono text-sm bg-background min-h-[400px] focus:outline-none resize-none"
-                          aria-label="Edit accessible HTML"
-                          data-testid="textarea-html-edit"
-                        />
-                      </div>
+                      <RichTextEditor
+                        initialHtml={extractBodyInner(editedHtml)}
+                        onChange={(bodyHtml) => {
+                          const fullHtml = mergeBodyInner(editedHtml, bodyHtml);
+                          setEditedHtml(fullHtml);
+                          setHtmlDirty(fullHtml !== conversion.accessibleHtml);
+                        }}
+                      />
                       {saveStatus === "saved" && (
                         <div
                           role="status"
