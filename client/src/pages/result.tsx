@@ -261,6 +261,29 @@ export default function ResultPage() {
   const [previewBefore, setPreviewBefore] = useState("");
   const [previewAfter, setPreviewAfter] = useState("");
   const [skipPreview, setSkipPreview] = useState(() => localStorage.getItem("a11y-skip-preview") === "true");
+  const [skipPreviewHydrated, setSkipPreviewHydrated] = useState(false);
+
+  const { data: serverPrefs } = useQuery<{ skipPreview?: boolean }>({
+    queryKey: ["/api/preferences"],
+    queryFn: async () => {
+      const res = await fetch("/api/preferences", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch preferences");
+      return res.json();
+    },
+    enabled: isAuthenticated,
+    staleTime: 1000 * 60 * 5,
+    retry: false,
+  });
+
+  useEffect(() => {
+    if (!isAuthenticated || skipPreviewHydrated || !serverPrefs) return;
+    if (serverPrefs.skipPreview !== undefined) {
+      setSkipPreview(serverPrefs.skipPreview);
+      localStorage.setItem("a11y-skip-preview", serverPrefs.skipPreview ? "true" : "false");
+    }
+    setSkipPreviewHydrated(true);
+  }, [serverPrefs, isAuthenticated, skipPreviewHydrated]);
+
   const [captionDialogOpen, setCaptionDialogOpen] = useState(false);
   const [captionTexts, setCaptionTexts] = useState<string[]>(["Table summary"]);
   const [captionEditText, setCaptionEditText] = useState("Table summary");
@@ -584,6 +607,15 @@ export default function ResultPage() {
   const handleToggleSkipPreview = (value: boolean) => {
     setSkipPreview(value);
     localStorage.setItem("a11y-skip-preview", value ? "true" : "false");
+    if (isAuthenticated) {
+      apiRequest("PATCH", "/api/preferences", { skipPreview: value })
+        .then(() => {
+          queryClient.setQueryData(["/api/preferences"], (prev: Record<string, unknown> | undefined) =>
+            prev ? { ...prev, skipPreview: value } : { skipPreview: value }
+          );
+        })
+        .catch(() => { console.warn("Failed to sync skip-preview preference to server"); });
+    }
   };
 
   const handleFixThis = (fixType: string) => {
