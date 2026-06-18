@@ -29,6 +29,7 @@ import {
   Share2,
   Globe,
   ExternalLink,
+  Layers,
 } from "lucide-react";
 import { SiGoogledrive, SiGooglesheets } from "react-icons/si";
 import {
@@ -43,6 +44,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { HeaderControls } from "@/components/header-controls";
@@ -289,6 +297,43 @@ export default function PdfConversion() {
       toast({
         title: "Re-conversion failed",
         description: err.message || "Could not start re-conversion.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const isXlsxBased =
+    conversion?.sourceType === "xlsx" || conversion?.sourceType === "google-sheet";
+
+  const { data: sheetsData } = useQuery<{ sheets: string[]; selectedSheet: string | null }>({
+    queryKey: [`/api/conversions/${numericId}/sheets`],
+    enabled: numericId > 0 && !!isXlsxBased,
+    staleTime: Infinity,
+  });
+
+  const [pendingSheet, setPendingSheet] = useState<string>("");
+
+  useEffect(() => {
+    if (sheetsData?.selectedSheet) {
+      setPendingSheet(sheetsData.selectedSheet);
+    } else if (sheetsData?.sheets && sheetsData.sheets.length > 0) {
+      setPendingSheet(sheetsData.sheets[0]);
+    }
+  }, [sheetsData]);
+
+  const switchSheetMutation = useMutation({
+    mutationFn: async ({ id, selectedSheet }: { id: number; selectedSheet: string }) => {
+      const res = await apiRequest("PATCH", `/api/conversions/${id}/selected-sheet`, { selectedSheet });
+      return res.json();
+    },
+    onSuccess: () => {
+      autoStartedRef.current = null;
+      queryClient.invalidateQueries({ queryKey: ["/api/conversions", numericId] });
+    },
+    onError: (err: Error) => {
+      toast({
+        title: "Failed to switch sheet",
+        description: err.message || "Could not switch to the selected sheet.",
         variant: "destructive",
       });
     },
@@ -1151,6 +1196,60 @@ export default function PdfConversion() {
               )}
             </div>
           </div>
+
+          {isXlsxBased && sheetsData && sheetsData.sheets.length > 1 && (
+            <div className="mt-4 pt-4 border-t flex flex-col sm:flex-row sm:items-center gap-3">
+              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <Layers className="w-4 h-4 text-muted-foreground" aria-hidden="true" />
+                <span>Sheet:</span>
+                <span
+                  className="text-muted-foreground"
+                  data-testid="text-current-sheet"
+                >
+                  {conversion.selectedSheet ?? sheetsData.sheets[0]}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 sm:ml-auto">
+                <Select
+                  value={pendingSheet}
+                  onValueChange={setPendingSheet}
+                  disabled={switchSheetMutation.isPending || conversion.status === "processing"}
+                >
+                  <SelectTrigger
+                    className="w-48 h-9 text-sm"
+                    data-testid="select-sheet"
+                    aria-label="Select a different sheet"
+                  >
+                    <SelectValue placeholder="Pick a sheet…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {sheetsData.sheets.map((name) => (
+                      <SelectItem key={name} value={name} data-testid={`option-sheet-${name}`}>
+                        {name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <button
+                  onClick={() => switchSheetMutation.mutate({ id: numericId, selectedSheet: pendingSheet })}
+                  disabled={
+                    switchSheetMutation.isPending ||
+                    conversion.status === "processing" ||
+                    pendingSheet === (conversion.selectedSheet ?? sheetsData.sheets[0])
+                  }
+                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-primary text-primary-foreground rounded-xl text-sm font-bold shadow-sm disabled:opacity-50 hover:-translate-y-0.5 transition-all disabled:transform-none"
+                  data-testid="button-switch-sheet"
+                >
+                  {switchSheetMutation.isPending ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <Layers className="w-3.5 h-3.5" aria-hidden="true" />
+                  )}
+                  Switch & Reprocess
+                </button>
+              </div>
+            </div>
+          )}
 
           {(conversion.status === "uploaded" ||
             conversion.status === "processing") && (

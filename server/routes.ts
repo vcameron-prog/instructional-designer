@@ -4301,6 +4301,114 @@ Please generate an IMPROVED version that incorporates the requested changes whil
   );
 
   /**
+   * List the worksheet names available in a stored XLSX / Google Sheet conversion.
+   * Returns { sheets: string[], selectedSheet: string | null }.
+   */
+  app.get(
+    "/api/conversions/:id/sheets",
+    optionalAuth,
+    async (req: Request, res: Response) => {
+      const userId = getUserId(req);
+      const id = parseInt(req.params.id as string);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid ID" });
+        return;
+      }
+
+      const [conversion] = await db
+        .select()
+        .from(conversions)
+        .where(conversionOwnerFilter(id, userId, getVisitorToken(req)));
+
+      if (!conversion) {
+        res.status(404).json({ error: "Conversion not found" });
+        return;
+      }
+
+      if (!["xlsx", "google-sheet"].includes(conversion.sourceType)) {
+        res.status(400).json({ error: "Sheet listing is only available for Excel/Google Sheet conversions." });
+        return;
+      }
+
+      if (!conversion.pdfData) {
+        res.status(400).json({ error: "Original file data is not stored for this conversion." });
+        return;
+      }
+
+      try {
+        const fileBuffer = Buffer.from(conversion.pdfData, "base64");
+        const { listXlsxSheets } = await import("./lib/xlsx-extractor");
+        const sheets = await listXlsxSheets(fileBuffer);
+        res.json({ sheets, selectedSheet: conversion.selectedSheet ?? null });
+      } catch (err: any) {
+        res.status(500).json({ error: "Failed to read sheet names: " + (err.message || "unknown error") });
+      }
+    },
+  );
+
+  /**
+   * Switch to a different worksheet in a stored XLSX / Google Sheet conversion.
+   * Updates selectedSheet, resets the conversion to "uploaded" so it will be
+   * re-processed by the frontend's auto-process logic.
+   */
+  app.patch(
+    "/api/conversions/:id/selected-sheet",
+    optionalAuth,
+    async (req: Request, res: Response) => {
+      const userId = getUserId(req);
+      const id = parseInt(req.params.id as string);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid ID" });
+        return;
+      }
+
+      const { selectedSheet } = req.body;
+      if (typeof selectedSheet !== "string" || selectedSheet.trim().length === 0) {
+        res.status(400).json({ error: "selectedSheet must be a non-empty string." });
+        return;
+      }
+
+      const [conversion] = await db
+        .select()
+        .from(conversions)
+        .where(conversionOwnerFilter(id, userId, getVisitorToken(req)));
+
+      if (!conversion) {
+        res.status(404).json({ error: "Conversion not found" });
+        return;
+      }
+
+      if (!["xlsx", "google-sheet"].includes(conversion.sourceType)) {
+        res.status(400).json({ error: "Sheet selection is only available for Excel/Google Sheet conversions." });
+        return;
+      }
+
+      if (conversion.status === "processing") {
+        res.status(409).json({ error: "Cannot switch sheets while processing is in progress." });
+        return;
+      }
+
+      const [updated] = await db
+        .update(conversions)
+        .set({
+          selectedSheet: selectedSheet.trim(),
+          status: "uploaded",
+          errorMessage: null,
+          statusMessage: null,
+          accessibleHtml: null,
+          complianceReport: null,
+          originalComplianceReport: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(conversions.id, id))
+        .returning();
+
+      const { pdfData: _pdfData, ...safeConversion } = updated;
+      res.json(safeConversion);
+    },
+  );
+
+  /**
    * Re-run the AI conversion step on a previously completed or failed conversion.
    * Requires the conversion to have stored extractedText (saved on first completion).
    * Does NOT re-extract from the original file — only re-runs generateAccessibleDocument.

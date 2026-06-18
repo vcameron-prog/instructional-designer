@@ -21,6 +21,13 @@ function cellToString(cell: ExcelJS.CellValue): string {
   return "";
 }
 
+export async function listXlsxSheets(buffer: Buffer): Promise<string[]> {
+  inspectZip(buffer, "XLSX");
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(buffer);
+  return workbook.worksheets.map((ws) => ws.name);
+}
+
 export async function extractXlsxContent(
   buffer: Buffer,
   selectedSheet?: string | null,
