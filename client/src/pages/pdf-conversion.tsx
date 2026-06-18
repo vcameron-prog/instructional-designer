@@ -491,6 +491,8 @@ export default function PdfConversion() {
   const [batchFixNotesSummary, setBatchFixNotesSummary] = useState<string[]>([]);
   const manualFixStorageKey = numericId > 0 ? `manualFixSummary_${numericId}` : null;
   const loadedManualFixIdRef = useRef<number | null>(null);
+  const broadcastChannelRef = useRef<BroadcastChannel | null>(null);
+  const receivedFromBroadcastRef = useRef(false);
   const [manualFixSummary, setManualFixSummary] = useState<{ title: string; reason: string }[]>([]);
   const [copiedManualFix, setCopiedManualFix] = useState(false);
   const [copiedImageKeys, setCopiedImageKeys] = useState<Set<string>>(new Set());
@@ -667,7 +669,49 @@ export default function PdfConversion() {
         variant: "destructive",
       });
     });
+    // Notify other tabs — but skip if this update itself came from a broadcast to avoid loops
+    if (!receivedFromBroadcastRef.current) {
+      broadcastChannelRef.current?.postMessage({ type: "manualFixUpdate", items: manualFixSummary });
+    }
+    receivedFromBroadcastRef.current = false;
   }, [manualFixSummary, manualFixStorageKey, numericId]);
+
+  // Listen for manual-fix updates broadcast by other tabs on the same conversion
+  useEffect(() => {
+    if (numericId <= 0) return;
+    const channelName = `manualFix_${numericId}`;
+    const channel = new BroadcastChannel(channelName);
+    broadcastChannelRef.current = channel;
+    channel.onmessage = (event: MessageEvent) => {
+      if (event.data?.type === "manualFixUpdate") {
+        const items = event.data.items as { title: string; reason: string }[];
+        receivedFromBroadcastRef.current = true;
+        setManualFixSummary(items ?? []);
+      }
+    };
+    return () => {
+      channel.close();
+      broadcastChannelRef.current = null;
+    };
+  }, [numericId]);
+
+  // Re-fetch from server when a hidden tab becomes visible again
+  useEffect(() => {
+    if (numericId <= 0) return;
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== "visible") return;
+      fetch(`/api/conversions/${numericId}/manual-fixes`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data: { items: { title: string; reason: string }[] } | null) => {
+          if (data?.items) {
+            setManualFixSummary(data.items);
+          }
+        })
+        .catch(() => {});
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [numericId]);
 
   useEffect(() => {
     if (
