@@ -201,6 +201,63 @@ test.describe("Outcome edit flow", () => {
   });
 
   /**
+   * 500 delete path: when the DELETE endpoint returns a non-404 error (e.g. a
+   * server-side 500), the UI shows the generic "Could not delete outcome"
+   * destructive toast and the item remains in the My Outcomes list.
+   */
+  test("deleting an outcome that returns 500 shows 'Could not delete outcome' toast and keeps item in list", async ({
+    page,
+    context,
+  }) => {
+    const sub = `outcome-delete-500-e2e-${uid()}`;
+    const email = `${sub}@bridgew.edu`;
+
+    await loginAs(context, sub, email);
+
+    const outcomeText = `500 delete test outcome ${uid()}`;
+    const outcomeId = await createOutcome(context, outcomeText);
+
+    await page.goto(`${BASE}/new-course`);
+
+    const browseBtn = page.getByTestId("button-browse-outcome-library");
+    await expect(browseBtn).toBeVisible({ timeout: 15_000 });
+    await browseBtn.click();
+
+    const myOutcomesTab = page.getByTestId("tab-my-outcomes");
+    await expect(myOutcomesTab).toBeVisible({ timeout: 5_000 });
+    await myOutcomesTab.click();
+
+    const outcomeRow = page.getByTestId(`my-outcome-row-${outcomeId}`);
+    await expect(outcomeRow).toBeVisible({ timeout: 10_000 });
+
+    // Intercept the DELETE in the browser so it returns 500, simulating a
+    // server-side failure (item still exists server-side).
+    await page.route(`**/api/outcomes/${outcomeId}`, async (route) => {
+      if (route.request().method() === "DELETE") {
+        await route.fulfill({
+          status: 500,
+          contentType: "application/json",
+          body: JSON.stringify({ message: "Internal server error" }),
+        });
+      } else {
+        await route.continue();
+      }
+    });
+
+    const deleteBtn = page.getByTestId(`button-delete-outcome-${outcomeId}`);
+    await expect(deleteBtn).toBeVisible();
+    await deleteBtn.click();
+
+    // The generic error toast must appear.
+    await expect(
+      page.getByText("Could not delete outcome").first(),
+    ).toBeVisible({ timeout: 10_000 });
+
+    // The item must remain in the list since the deletion failed.
+    await expect(outcomeRow).toBeVisible({ timeout: 5_000 });
+  });
+
+  /**
    * 404 delete path: when the DELETE endpoint returns 404 (item already removed
    * by another session), the UI shows the "Outcome was already removed" toast
    * and the item disappears from the My Outcomes list after the query is
