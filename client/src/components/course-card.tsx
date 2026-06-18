@@ -162,6 +162,21 @@ export function CourseCard({
                 : "Rolled over from a previous course"}
             </p>
           )}
+          <div
+            className="flex items-center gap-2 mt-1"
+            aria-label={`${toolsGenerated.size} of ${TOOLS.length} tools used`}
+            data-testid={`text-tool-progress-${course.id}`}
+          >
+            <div className="flex-1 h-1 rounded-full bg-muted overflow-hidden max-w-[80px]">
+              <div
+                className="h-full rounded-full bg-primary/40 transition-all"
+                style={{ width: `${(toolsGenerated.size / TOOLS.length) * 100}%` }}
+              />
+            </div>
+            <span className="text-xs text-muted-foreground/70 tabular-nums">
+              {toolsGenerated.size}/{TOOLS.length} tools
+            </span>
+          </div>
           {toolsGenerated.size > 0 && (
             <div className="flex items-center gap-1 mt-2">
               <span className="text-xs text-muted-foreground mr-1">Created:</span>
