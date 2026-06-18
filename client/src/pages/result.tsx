@@ -1,4 +1,5 @@
-import { useState, useEffect, type ReactNode } from "react";
+import { useState, useEffect, useMemo, type ReactNode } from "react";
+import { diffLines } from "diff";
 import { useLocation, useParams } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import ReactMarkdown, { type Components } from "react-markdown";
@@ -384,6 +385,7 @@ export default function ResultPage() {
   const [fixingIssue, setFixingIssue] = useState<string | null>(null);
   const [versionHistoryOpen, setVersionHistoryOpen] = useState(false);
   const [selectedVersionId, setSelectedVersionId] = useState<number | null>(null);
+  const [showDiff, setShowDiff] = useState(true);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewFixType, setPreviewFixType] = useState<string | null>(null);
   const [previewBefore, setPreviewBefore] = useState("");
@@ -778,6 +780,11 @@ export default function ResultPage() {
   }
 
   const selectedVersion = versions?.find(v => v.id === selectedVersionId) ?? null;
+
+  const versionDiff = useMemo(() => {
+    if (!selectedVersion || !content) return null;
+    return diffLines(selectedVersion.content, content.content);
+  }, [selectedVersion, content]);
 
   const tool = content ? TOOLS.find(t => t.id === content.toolType) : null;
   const accessibilityIssues = content ? checkAccessibility(content.content) : [];
@@ -1215,32 +1222,82 @@ export default function ResultPage() {
                     <div className="flex-1 flex flex-col min-h-0 border rounded-md overflow-hidden">
                       {selectedVersion ? (
                         <>
-                          <div className="px-4 py-3 border-b bg-muted/30 shrink-0 flex items-center justify-between gap-3">
+                          <div className="px-4 py-3 border-b bg-muted/30 shrink-0 flex items-center justify-between gap-3 flex-wrap">
                             <div>
                               <p className="text-sm font-medium">{getVersionLabel(selectedVersion)}</p>
                               <p className="text-xs text-muted-foreground">
                                 {new Date(selectedVersion.createdAt).toLocaleString()}
                               </p>
                             </div>
-                            <Button
-                              size="sm"
-                              className="gap-1.5 shrink-0"
-                              onClick={() => restoreVersionMutation.mutate(selectedVersion.id)}
-                              disabled={restoreVersionMutation.isPending}
-                              data-testid="button-restore-version"
-                            >
-                              {restoreVersionMutation.isPending ? (
-                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                              ) : (
-                                <RotateCcw className="w-3.5 h-3.5" />
-                              )}
-                              Restore this version
-                            </Button>
+                            <div className="flex items-center gap-2">
+                              <div className="flex items-center rounded-md border overflow-hidden">
+                                <button
+                                  className={`px-2.5 py-1 text-xs font-medium transition-colors ${showDiff ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
+                                  onClick={() => setShowDiff(true)}
+                                  data-testid="button-view-diff"
+                                  aria-pressed={showDiff}
+                                >
+                                  Changes
+                                </button>
+                                <button
+                                  className={`px-2.5 py-1 text-xs font-medium transition-colors border-l ${!showDiff ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
+                                  onClick={() => setShowDiff(false)}
+                                  data-testid="button-view-raw"
+                                  aria-pressed={!showDiff}
+                                >
+                                  Full text
+                                </button>
+                              </div>
+                              <Button
+                                size="sm"
+                                className="gap-1.5 shrink-0"
+                                onClick={() => restoreVersionMutation.mutate(selectedVersion.id)}
+                                disabled={restoreVersionMutation.isPending}
+                                data-testid="button-restore-version"
+                              >
+                                {restoreVersionMutation.isPending ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <RotateCcw className="w-3.5 h-3.5" />
+                                )}
+                                Restore this version
+                              </Button>
+                            </div>
                           </div>
                           <ScrollArea className="flex-1 p-4">
-                            <div className="prose prose-sm max-w-none dark:prose-invert whitespace-pre-wrap text-sm text-foreground leading-relaxed font-mono" data-testid="version-preview-content">
-                              {selectedVersion.content}
-                            </div>
+                            {showDiff && versionDiff ? (
+                              <div className="font-mono text-xs leading-relaxed" data-testid="version-diff-content" aria-label="Diff between selected version and current content">
+                                <div className="flex items-center gap-4 mb-3 text-xs text-muted-foreground">
+                                  <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-red-100 border border-red-300" aria-hidden="true" />Removed since this version</span>
+                                  <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-green-100 border border-green-300" aria-hidden="true" />Added since this version</span>
+                                </div>
+                                {versionDiff.map((part, i) => {
+                                  if (part.removed) {
+                                    return (
+                                      <div key={i} className="bg-red-50 border-l-2 border-red-400 pl-2 -ml-2 whitespace-pre-wrap text-red-800 dark:bg-red-950/30 dark:text-red-300 dark:border-red-600">
+                                        {part.value}
+                                      </div>
+                                    );
+                                  }
+                                  if (part.added) {
+                                    return (
+                                      <div key={i} className="bg-green-50 border-l-2 border-green-400 pl-2 -ml-2 whitespace-pre-wrap text-green-800 dark:bg-green-950/30 dark:text-green-300 dark:border-green-600">
+                                        {part.value}
+                                      </div>
+                                    );
+                                  }
+                                  return (
+                                    <div key={i} className="whitespace-pre-wrap text-foreground">
+                                      {part.value}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <div className="prose prose-sm max-w-none dark:prose-invert whitespace-pre-wrap text-sm text-foreground leading-relaxed font-mono" data-testid="version-preview-content">
+                                {selectedVersion.content}
+                              </div>
+                            )}
                           </ScrollArea>
                         </>
                       ) : (
