@@ -679,10 +679,19 @@ export default function PdfConversion() {
   const handleFixAllAria = useCallback(async () => {
     setIsFixingAllAria(true);
     setFixError(null);
+    setBatchFixNotesSummary([]);
     try {
       const res = await apiRequest("POST", `/api/conversions/${numericId}/fix-all-aria`);
       const data = await res.json();
       await queryClient.invalidateQueries({ queryKey: ["/api/conversions", numericId] });
+      const issues: Array<{ fixNotes?: string }> = data?.complianceReport?.issues ?? [];
+      const ariaFixNotes = issues
+        .map((issue) => issue.fixNotes)
+        .filter((note): note is string => Boolean(note));
+      const uniqueNotes = [...new Set(ariaFixNotes)];
+      if (uniqueNotes.length > 0) {
+        setBatchFixNotesSummary(uniqueNotes);
+      }
       if (data?.wasRetried) {
         toast({
           title: "ARIA fixes applied",
