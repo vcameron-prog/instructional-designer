@@ -26,6 +26,8 @@ import {
   Shield,
   UserCog,
   Gauge,
+  Clock,
+  Trash2,
 } from "lucide-react";
 import {
   Tooltip as UITooltip,
@@ -124,6 +126,11 @@ interface Metrics {
     lastAt: string | null;
     lifetimeCount: number;
     thisMonthCount: number;
+  };
+  rateLimitCleanup: {
+    lastRunAt: string | null;
+    lastErrorAt: string | null;
+    rowsDeletedTotal: number;
   };
   thresholds: {
     warnCount: number;
@@ -855,6 +862,93 @@ export default function AdminDashboard() {
                           : "—"}
                       </p>
                       <p className="text-sm text-muted-foreground">Most recent retry</p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })()}
+
+        {(() => {
+          const cleanup = metrics?.rateLimitCleanup;
+          const lastRunAt = cleanup?.lastRunAt ?? null;
+          const lastErrorAt = cleanup?.lastErrorAt ?? null;
+          const rowsDeletedTotal = cleanup?.rowsDeletedTotal ?? 0;
+
+          const hasError = lastErrorAt !== null && (
+            lastRunAt === null ||
+            new Date(lastErrorAt) > new Date(lastRunAt)
+          );
+
+          return (
+            <Card
+              className={`mb-8 ${hasError ? "border-amber-400 dark:border-amber-600" : ""}`}
+              data-testid="card-rate-limit-cleanup"
+            >
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Clock className={`w-5 h-5 ${hasError ? "text-amber-500" : ""}`} />
+                  Rate-Limit Cleanup
+                  {hasError && (
+                    <span
+                      className="ml-1 inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-950 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300"
+                      data-testid="badge-cleanup-warning"
+                    >
+                      Warning
+                    </span>
+                  )}
+                </CardTitle>
+                <CardDescription>
+                  Periodic job that removes expired anonymous rate-limit rows from the database
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {hasError && (
+                  <div
+                    className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-300 px-4 py-3 mb-4 text-sm"
+                    role="alert"
+                    data-testid="alert-cleanup-error"
+                  >
+                    <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <span>
+                      The cleanup job last recorded an error
+                      {lastErrorAt ? ` on ${format(new Date(lastErrorAt), "MMM d, yyyy 'at' h:mm a")}` : ""}
+                      {lastRunAt ? `, after its last successful run on ${format(new Date(lastRunAt), "MMM d, yyyy 'at' h:mm a")}` : " and has never completed successfully"}.
+                      Check server logs for details.
+                    </span>
+                  </div>
+                )}
+                <div className="grid gap-6 sm:grid-cols-3">
+                  <div className="flex items-start gap-3" data-testid="stat-cleanup-last-run">
+                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${lastRunAt ? "bg-emerald-100 dark:bg-emerald-950" : "bg-muted"}`}>
+                      <Clock className={`w-4 h-4 ${lastRunAt ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`} />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">
+                        {lastRunAt ? format(new Date(lastRunAt), "MMM d, h:mm a") : "Never"}
+                      </p>
+                      <p className="text-sm text-muted-foreground">Last successful run</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3" data-testid="stat-cleanup-last-error">
+                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${hasError ? "bg-amber-100 dark:bg-amber-950" : "bg-muted"}`}>
+                      <AlertCircle className={`w-4 h-4 ${hasError ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`} />
+                    </div>
+                    <div>
+                      <p className={`text-sm font-semibold ${hasError ? "text-amber-700 dark:text-amber-400" : "text-foreground"}`}>
+                        {lastErrorAt ? format(new Date(lastErrorAt), "MMM d, h:mm a") : "None"}
+                      </p>
+                      <p className="text-sm text-muted-foreground">Last error</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3" data-testid="stat-cleanup-rows-deleted">
+                    <div className="w-9 h-9 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center flex-shrink-0">
+                      <Trash2 className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-foreground">{rowsDeletedTotal.toLocaleString()}</p>
+                      <p className="text-sm text-muted-foreground">Rows deleted (total)</p>
                     </div>
                   </div>
                 </div>
