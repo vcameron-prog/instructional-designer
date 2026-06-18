@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import express from "express";
 import { createServer } from "http";
 import request from "supertest";
+import { MAX_CONCURRENT_FIXES } from "./routes";
 
 // ---------------------------------------------------------------------------
 // Hoisted mocks – vi.mock factories are hoisted to the top of the file, so
@@ -417,7 +418,7 @@ describe("POST /api/conversions/:id/fix-issue — guard paths", () => {
   // Same .end() fire-and-forget pattern as the 409 test above.
   // -----------------------------------------------------------------------
   it("returns 503 when the concurrent fix job cap is reached", async () => {
-    const MAX_SLOTS = 3; // mirrors MAX_CONCURRENT_FIXES default in routes.ts
+    const MAX_SLOTS = MAX_CONCURRENT_FIXES;
     const resolvers: Array<(v: typeof FIX_RESULT) => void> = [];
     const inflightDone: Promise<any>[] = [];
 

@@ -99,7 +99,10 @@ let activePdfExports = 0;
 const MAX_CONCURRENT_PDF_EXPORTS = parseInt(process.env.MAX_CONCURRENT_PDF_EXPORTS ?? "2", 10) || 2;
 
 let activeFixJobs = 0;
-const MAX_CONCURRENT_FIXES = parseInt(process.env.MAX_CONCURRENT_FIXES ?? "3", 10) || 3;
+// Exported so the 503 concurrency-cap test can derive its slot count from the
+// same source rather than hardcoding the default value.  If this default ever
+// changes, the test stays correct automatically.
+export const MAX_CONCURRENT_FIXES = parseInt(process.env.MAX_CONCURRENT_FIXES ?? "3", 10) || 3;
 const activeFixKeys = new Set<string>();
 
 let activeDocxExports = 0;
