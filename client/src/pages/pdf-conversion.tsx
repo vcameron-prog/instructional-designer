@@ -496,6 +496,7 @@ export default function PdfConversion() {
   const receivedFromBroadcastRef = useRef(false);
   const [manualFixSummary, setManualFixSummary] = useState<{ title: string; reason: string }[]>([]);
   const [copiedManualFix, setCopiedManualFix] = useState(false);
+  const [copiedError, setCopiedError] = useState(false);
   const [copiedImageKeys, setCopiedImageKeys] = useState<Set<string>>(new Set());
   const [copiedAllKeys, setCopiedAllKeys] = useState<Set<number>>(new Set());
   const [acceptingIndex, setAcceptingIndex] = useState<number | null>(null);
@@ -1642,8 +1643,37 @@ export default function PdfConversion() {
                 role="alert"
               >
                 <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-                <div>
-                  <h2 className="font-bold">Remediation Failed</h2>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h2 className="font-bold">Remediation Failed</h2>
+                    <button
+                      type="button"
+                      data-testid="button-copy-error"
+                      aria-label={copiedError ? "Error message copied" : "Copy error message"}
+                      onClick={() => {
+                        const msg = conversion.errorMessage || "An error occurred. Please try again.";
+                        navigator.clipboard.writeText(msg).then(() => {
+                          setCopiedError(true);
+                          setTimeout(() => setCopiedError(false), 2000);
+                        }).catch(() => {
+                          setCopiedError(false);
+                        });
+                      }}
+                      className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded border border-red-300 dark:border-red-700 bg-red-100 dark:bg-red-900/40 hover:bg-red-200 dark:hover:bg-red-800/50 text-red-600 dark:text-red-400 transition-colors flex-shrink-0"
+                    >
+                      {copiedError ? (
+                        <>
+                          <Check className="w-3 h-3" aria-hidden="true" />
+                          Copied
+                        </>
+                      ) : (
+                        <>
+                          <ClipboardCopy className="w-3 h-3" aria-hidden="true" />
+                          Copy
+                        </>
+                      )}
+                    </button>
+                  </div>
                   <p className="text-sm mt-1">
                     {conversion.errorMessage ||
                       "An error occurred. Please try again."}
