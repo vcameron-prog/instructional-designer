@@ -12,6 +12,9 @@ import {
   ArrowRight,
   HelpCircle,
   Check,
+  Shield,
+  Image,
+  AlignLeft,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { HeaderControls } from "@/components/header-controls";
@@ -302,9 +305,25 @@ export default function PdfUpload() {
             Convert Documents to Accessible Formats
           </h2>
           <p className="text-muted-foreground max-w-xl mx-auto">
-            Upload a PDF or Word document and our AI will generate a WCAG 2.1 AA
-            compliant accessible version. Download as Word (.docx) or HTML.
+            Instantly remediate PDF, Word, PowerPoint, and Excel documents to meet ADA Title II and WCAG 2.1 AA requirements using advanced AI structural analysis and description generation.
           </p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10 max-w-3xl mx-auto">
+          <div className="rounded-lg border bg-card p-5 flex flex-col items-center text-center gap-2">
+            <Shield className="w-7 h-7 text-primary flex-shrink-0" />
+            <h3 className="font-semibold text-foreground">Title II Compliant</h3>
+            <p className="text-sm text-muted-foreground">Ensures your documents meet the rigorous standards required for state and local governments.</p>
+          </div>
+          <div className="rounded-lg border bg-card p-5 flex flex-col items-center text-center gap-2">
+            <Image className="w-7 h-7 text-primary flex-shrink-0" />
+            <h3 className="font-semibold text-foreground">AI Alt Text</h3>
+            <p className="text-sm text-muted-foreground">Automatically detects images and charts, generating accurate semantic alternative text descriptions.</p>
+          </div>
+          <div className="rounded-lg border bg-card p-5 flex flex-col items-center text-center gap-2">
+            <AlignLeft className="w-7 h-7 text-primary flex-shrink-0" />
+            <h3 className="font-semibold text-foreground">Reading Order</h3>
+            <p className="text-sm text-muted-foreground">Restructures complex multi-column layouts into a linear, logical reading order for screen readers.</p>
+          </div>
         </div>
 
         {uploadError && (
