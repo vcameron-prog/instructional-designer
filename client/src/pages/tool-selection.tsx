@@ -3,7 +3,7 @@ import { useLocation, useParams } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, BookOpen, Calendar, FileText, Layout, CheckCircle, Sparkles, Target, ArrowRight, FolderOpen, Loader2, Scale, ShieldCheck, Link2, HelpCircle, GraduationCap, Library, Eye, Wrench, Pencil, Bot } from "lucide-react";
+import { ArrowLeft, BookOpen, Calendar, FileText, Layout, CheckCircle, Sparkles, Target, ArrowRight, FolderOpen, Loader2, Scale, ShieldCheck, Link2, HelpCircle, GraduationCap, Library, Eye, Wrench, Pencil, Bot, AlertTriangle } from "lucide-react";
 import { TOOLS } from "@/lib/constants";
 import { PoweredByFooter } from "@/components/powered-by-footer";
 import { HeaderControls } from "@/components/header-controls";
@@ -82,6 +82,11 @@ export default function ToolSelection() {
 
   const getContentCount = (toolId: string) => {
     return generatedContents.filter(c => c.toolType === toolId).length;
+  };
+
+  const isStale = (content: GeneratedContent): boolean => {
+    if (!course?.syllabusUploadedAt) return false;
+    return new Date(content.createdAt) < new Date(course.syllabusUploadedAt);
   };
 
   return (
@@ -192,6 +197,7 @@ export default function ToolSelection() {
               {generatedContents.filter(c => c.isApproved).map((content) => {
                 const tool = TOOLS.find(t => t.id === content.toolType);
                 const Icon = tool ? iconMap[tool.icon] : FileText;
+                const stale = isStale(content);
                 
                 return (
                   <Card
@@ -208,7 +214,20 @@ export default function ToolSelection() {
                         <Icon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{content.toolName}</p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-medium truncate">{content.toolName}</p>
+                          {stale && (
+                            <span
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300 flex-shrink-0"
+                              title="This was generated before your latest syllabus upload. Consider regenerating."
+                              aria-label="Outdated: This was generated before your latest syllabus upload. Consider regenerating."
+                              data-testid={`badge-outdated-${content.id}`}
+                            >
+                              <AlertTriangle className="w-3 h-3" aria-hidden="true" />
+                              Outdated
+                            </span>
+                          )}
+                        </div>
                         <p className="text-sm text-muted-foreground">
                           Created {new Date(content.createdAt).toLocaleDateString()}
                         </p>
@@ -229,6 +248,7 @@ export default function ToolSelection() {
               {generatedContents.slice(0, 5).map((content) => {
                 const tool = TOOLS.find(t => t.id === content.toolType);
                 const Icon = tool ? iconMap[tool.icon] : FileText;
+                const stale = isStale(content);
                 
                 return (
                   <Card
@@ -245,10 +265,21 @@ export default function ToolSelection() {
                         <Icon className="w-5 h-5 text-primary" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-medium truncate">{content.toolName}</p>
                           {content.isApproved && (
                             <Link2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                          )}
+                          {stale && (
+                            <span
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300 flex-shrink-0"
+                              title="This was generated before your latest syllabus upload. Consider regenerating."
+                              aria-label="Outdated: This was generated before your latest syllabus upload. Consider regenerating."
+                              data-testid={`badge-outdated-${content.id}`}
+                            >
+                              <AlertTriangle className="w-3 h-3" aria-hidden="true" />
+                              Outdated
+                            </span>
                           )}
                         </div>
                         <p className="text-sm text-muted-foreground">

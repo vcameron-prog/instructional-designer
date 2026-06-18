@@ -26,7 +26,7 @@ export interface IStorage {
   getAllCourses(userId: string): Promise<Course[]>;
   getCourse(id: number, userId: string): Promise<Course | undefined>;
   createCourse(course: InsertCourse, userId: string): Promise<Course>;
-  updateCourse(id: number, course: Partial<InsertCourse>, userId: string): Promise<Course | undefined>;
+  updateCourse(id: number, course: Partial<InsertCourse> & { syllabusUploadedAt?: Date | null }, userId: string): Promise<Course | undefined>;
   deleteCourse(id: number, userId: string): Promise<void>;
   
   // Generated Content
@@ -92,7 +92,7 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  async updateCourse(id: number, course: Partial<InsertCourse>, userId: string): Promise<Course | undefined> {
+  async updateCourse(id: number, course: Partial<InsertCourse> & { syllabusUploadedAt?: Date | null }, userId: string): Promise<Course | undefined> {
     const [updated] = await db
       .update(courses)
       .set({ ...course, updatedAt: new Date() })

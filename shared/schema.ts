@@ -32,6 +32,7 @@ export const courses = pgTable("courses", {
   prerequisites: text("prerequisites"),
   existingSyllabus: text("existing_syllabus"),
   additionalContext: text("additional_context"),
+  syllabusUploadedAt: timestamp("syllabus_uploaded_at"),
   createdAt: timestamp("created_at")
     .default(sql`CURRENT_TIMESTAMP`)
     .notNull(),
@@ -45,6 +46,7 @@ export const insertCourseSchema = createInsertSchema(courses).omit({
   userId: true,
   createdAt: true,
   updatedAt: true,
+  syllabusUploadedAt: true,
 });
 
 export type InsertCourse = z.infer<typeof insertCourseSchema>;

@@ -1965,7 +1965,18 @@ export async function registerRoutes(
         if (!parsed.success) {
           return res.status(400).json({ error: parsed.error.message });
         }
-        const course = await storage.updateCourse(id, parsed.data, userId);
+        const updateData: Partial<typeof parsed.data> & { syllabusUploadedAt?: Date | null } = { ...parsed.data };
+        if ("existingSyllabus" in parsed.data) {
+          const existing = await storage.getCourse(id, userId);
+          if (existing) {
+            const incomingSyllabus = parsed.data.existingSyllabus ?? "";
+            const currentSyllabus = existing.existingSyllabus ?? "";
+            if (incomingSyllabus !== currentSyllabus) {
+              updateData.syllabusUploadedAt = incomingSyllabus !== "" ? new Date() : null;
+            }
+          }
+        }
+        const course = await storage.updateCourse(id, updateData, userId);
         if (!course) {
           return res.status(404).json({ error: "Course not found" });
         }
