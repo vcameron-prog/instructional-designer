@@ -13,6 +13,7 @@ import {
   Shield,
   Image,
   AlignLeft,
+  LogIn,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { HeaderControls } from "@/components/header-controls";
@@ -369,6 +370,25 @@ export default function PdfUpload() {
             <p className="text-sm text-muted-foreground">Restructures complex multi-column layouts into a linear, logical reading order for screen readers.</p>
           </div>
         </div>
+
+        {!isAuthenticated && (
+          <div
+            className="w-full max-w-2xl mx-auto mb-6 flex items-center justify-between gap-3 px-4 py-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl text-sm"
+            data-testid="banner-sign-in-nudge"
+          >
+            <p className="text-blue-700 dark:text-blue-300">
+              Sign in to automatically save your conversions to your history.
+            </p>
+            <a
+              href="/api/login"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700 transition-colors whitespace-nowrap"
+              data-testid="link-sign-in"
+            >
+              <LogIn className="w-3.5 h-3.5" aria-hidden="true" />
+              Sign in
+            </a>
+          </div>
+        )}
 
         {uploadError && (
           <div

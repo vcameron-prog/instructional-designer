@@ -30,6 +30,7 @@ import {
   Globe,
   ExternalLink,
   Layers,
+  BookmarkCheck,
 } from "lucide-react";
 import { SiGoogledrive, SiGooglesheets, SiGoogleslides } from "react-icons/si";
 import {
@@ -1316,6 +1317,25 @@ export default function PdfConversion() {
       </header>
 
       <div className="container mx-auto px-4 py-6 space-y-6">
+        {isAuthenticated && (conversion.status === "completed" || conversion.status === "failed") && (
+          <div
+            className="flex items-center justify-between gap-3 px-4 py-2.5 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl text-sm"
+            data-testid="banner-saved-to-account"
+          >
+            <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
+              <BookmarkCheck className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
+              <span>Saved to your account</span>
+            </div>
+            <button
+              onClick={() => navigate("/pdf-accessibility/history")}
+              className="text-green-700 dark:text-green-400 font-semibold underline underline-offset-2 hover:opacity-80 transition-opacity whitespace-nowrap"
+              data-testid="link-view-history"
+            >
+              View history →
+            </button>
+          </div>
+        )}
+
         <div className="bg-card border rounded-2xl p-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
