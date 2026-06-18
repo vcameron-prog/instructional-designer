@@ -2922,7 +2922,10 @@ export default function PdfConversion() {
                                 </div>
                                 <button
                                   onClick={() => {
-                                    navigator.clipboard.writeText(noFixReasons[i]).then(() => {
+                                    const copyText = issue.title
+                                      ? `${issue.title}: ${noFixReasons[i]}`
+                                      : noFixReasons[i];
+                                    navigator.clipboard.writeText(copyText).then(() => {
                                       setCopiedNoFixKeys((prev) => {
                                         const next = new Set(prev);
                                         next.add(i);
