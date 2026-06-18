@@ -126,6 +126,33 @@ export default function PdfUpload() {
     },
   });
 
+  const googleDocMutation = useMutation({
+    mutationFn: async (url: string) => {
+      const res = await apiRequest("POST", "/api/conversions/import-google-doc", { url });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      navigate(`/pdf-accessibility/${data.id}`);
+    },
+    onError: (err: Error) => {
+      const fallback = "Import failed. Please try again. If the problem persists, try refreshing the page.";
+      let message = fallback;
+      const raw = err.message || "";
+      if (isSessionExpiredMessage(raw)) {
+        setUploadError(raw);
+        return;
+      }
+      if (!raw.trimStart().startsWith("<")) {
+        try {
+          const jsonPart = raw.replace(/^\d+:\s*/, "");
+          const parsed = JSON.parse(jsonPart);
+          if (parsed.error) message = parsed.error;
+        } catch {}
+      }
+      setUploadError(message);
+    },
+  });
+
   const googleSheetMutation = useMutation({
     mutationFn: async ({ url, sheetName }: { url: string; sheetName?: string }) => {
       const res = await apiRequest("POST", "/api/conversions/import-google-sheet", {
@@ -179,27 +206,22 @@ export default function PdfUpload() {
     setUploadError(null);
     const trimmed = googleDocUrl.trim();
     if (!trimmed) {
-      setUploadError("Please paste a Google Docs URL.");
+      setUploadError("Please paste a Google Docs, Sheets, or Slides URL.");
       return;
     }
-    if (!trimmed.match(/docs\.google\.com\/document\/d\//)) {
+    if (!trimmed.match(/docs\.google\.com\/(document|spreadsheets|presentation)\/d\//)) {
       setUploadError(
-        "Invalid Google Docs URL. Please paste a link like https://docs.google.com/document/d/...",
+        "Invalid URL. Please paste a Google Docs (docs.google.com/document/d/...), Sheets (docs.google.com/spreadsheets/d/...), or Slides (docs.google.com/presentation/d/...) link.",
       );
       return;
     }
-    const docIdMatch = trimmed.match(/\/document\/d\/([a-zA-Z0-9_-]+)/);
-    if (!docIdMatch) {
-      setUploadError("Could not extract document ID from URL.");
-      return;
+    if (trimmed.match(/docs\.google\.com\/spreadsheets\/d\//)) {
+      googleSheetMutation.mutate({ url: trimmed });
+    } else if (trimmed.match(/docs\.google\.com\/presentation\/d\//)) {
+      googleSlideMutation.mutate(trimmed);
+    } else {
+      googleDocMutation.mutate(trimmed);
     }
-    const docId = docIdMatch[1];
-    window.open(
-      `https://docs.google.com/document/d/${docId}/export?format=docx`,
-      "_blank",
-    );
-    setGoogleDocUrl("");
-    setUploadError(null);
   };
 
   const googleSlideMutation = useMutation({
@@ -507,14 +529,11 @@ export default function PdfUpload() {
             </div>
           </div>
           <div className="p-6" data-testid="google-doc-import-section">
-            <div className="space-y-4">
-              <div className="flex items-start gap-4">
-                <div className="flex-shrink-0 w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold mt-1">
-                  1
-                </div>
-                <div className="flex-1">
+            <div>
+              <div>
+                <div>
                   <p className="text-sm font-semibold text-foreground mb-2">
-                    Paste your Google Docs, Sheets, or Slides link and click Download
+                    Paste your Google Docs, Sheets, or Slides link and click Import
                   </p>
                   <div className="flex gap-2">
                     <div className="relative flex-1">
@@ -540,23 +559,19 @@ export default function PdfUpload() {
                     </div>
                     <button
                       onClick={handleGoogleDocDownload}
-                      disabled={!googleDocUrl.trim()}
+                      disabled={!googleDocUrl.trim() || googleDocMutation.isPending || googleSheetMutation.isPending || googleSlideMutation.isPending}
                       className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl text-sm font-semibold shadow-sm hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:transform-none"
                       data-testid="button-google-doc-import"
                     >
-                      <ArrowRight className="w-4 h-4" aria-hidden="true" />
-                      Download
+                      {(googleDocMutation.isPending || googleSheetMutation.isPending || googleSlideMutation.isPending) ? (
+                        <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+                      ) : (
+                        <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                      )}
+                      Import
                     </button>
                   </div>
                 </div>
-              </div>
-              <div className="flex items-start gap-4">
-                <div className="flex-shrink-0 w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold mt-0.5">
-                  2
-                </div>
-                <p className="text-sm font-semibold text-foreground mt-1">
-                  Upload the downloaded Word file using the upload area above
-                </p>
               </div>
             </div>
             <p
@@ -564,7 +579,7 @@ export default function PdfUpload() {
               data-testid="text-google-doc-hint"
             >
               The document must be shared as "Anyone with the link" for the
-              download to work.
+              import to work.
             </p>
           </div>
         </div>
