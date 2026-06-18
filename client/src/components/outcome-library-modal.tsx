@@ -107,7 +107,13 @@ export function OutcomeLibraryModal({ open, onClose, onAddOutcomes }: OutcomeLib
     },
     onError: (error: any) => {
       const isDuplicate = error?.message?.startsWith("409:");
-      if (isDuplicate) {
+      const isGone = error?.message?.startsWith("404:");
+      if (isGone) {
+        queryClient.invalidateQueries({ queryKey: ["/api/outcomes"] });
+        setEditingId(null);
+        setEditingText("");
+        toast({ title: "Outcome was already removed", description: "It has been removed from your list." });
+      } else if (isDuplicate) {
         toast({ title: "That outcome already exists in your collection.", variant: "destructive" });
       } else {
         toast({ title: "Could not update outcome", variant: "destructive" });
