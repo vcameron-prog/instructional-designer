@@ -308,6 +308,12 @@ export default function PdfConversion() {
           description: "The initial AI response was incomplete. A second attempt succeeded.",
         });
       }
+      if (typeof data?.elementsFixed === "number" && data.elementsFixed > 0) {
+        toast({
+          title: "Instant fix applied",
+          description: `${data.elementsFixed} element${data.elementsFixed === 1 ? "" : "s"} replaced.`,
+        });
+      }
     },
   });
 

@@ -120,6 +120,7 @@ export interface AccessibilityResult {
   accessibleHtml: string;
   complianceReport: ComplianceReport;
   wasRetried?: boolean;
+  elementsFixed?: number;
 }
 
 function buildStructuralSummary(
@@ -1504,6 +1505,30 @@ export function applyAriaHeadingRoleFix(html: string): string {
   return result;
 }
 
+function countAriaButtonRoleTargets(html: string): number {
+  const BUTTON_INPUT_TYPES = new Set(["button", "submit", "reset", "image"]);
+  const root = parseHtml(html);
+  const nodes = root.querySelectorAll("[role='button']");
+  return nodes.filter((el) => {
+    const tag = el.tagName?.toLowerCase();
+    if (tag === "button") return false;
+    if (tag === "input") {
+      const type = (el.getAttribute("type") ?? "").toLowerCase();
+      return !BUTTON_INPUT_TYPES.has(type);
+    }
+    return true;
+  }).length;
+}
+
+function countAriaHeadingRoleTargets(html: string): number {
+  const root = parseHtml(html);
+  const nodes = root.querySelectorAll("[role='heading']");
+  return nodes.filter((el) => {
+    const tag = el.tagName?.toLowerCase();
+    return !/^h[1-6]$/.test(tag ?? "");
+  }).length;
+}
+
 export interface AriaHeadingFallbackAnalysis {
   fallbackCount: number;
   inferredCount: number;
@@ -1750,9 +1775,16 @@ export async function fixComplianceIssue(
   const deterministicFixer = deterministicFixerRegistry[registryKey];
   if (deterministicFixer) {
     const isHeadingFix = registryKey === "1.3.1::ARIA Heading Role on Non-Heading Element";
+    const isButtonFix = registryKey === "4.1.2::ARIA Button Role on Non-Button Element";
     const headingFallbackAnalysis = isHeadingFix
       ? analyzeAriaHeadingFallbacks(currentHtml)
       : null;
+
+    const elementsFixed: number | undefined = isButtonFix
+      ? countAriaButtonRoleTargets(currentHtml)
+      : isHeadingFix
+        ? countAriaHeadingRoleTargets(currentHtml)
+        : undefined;
 
     const fixedHtml = deterministicFixer(currentHtml);
     const updatedIssues = [...existingReport.issues];
@@ -1779,7 +1811,7 @@ export async function fixComplianceIssue(
       }
     }
 
-    return { accessibleHtml: fixedHtml, complianceReport: buildComplianceReport(updatedIssues) };
+    return { accessibleHtml: fixedHtml, complianceReport: buildComplianceReport(updatedIssues), elementsFixed };
   }
 
   const { stripped, uris } = stripDataUris(currentHtml);
