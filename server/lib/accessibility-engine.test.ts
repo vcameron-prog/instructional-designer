@@ -181,6 +181,19 @@ describe("runDeterministicChecks", () => {
       const issues = runDeterministicChecks(html);
       const altCheck = issues.find((i) => i.criterion === "1.1.1");
       expect(altCheck!.status).toBe("pass");
+      expect(altCheck!.details).toBe("All 1 image(s) have text descriptions.");
+    });
+
+    it("pass details scales with the actual image count", () => {
+      const html = `<html lang="en"><body>
+        <img src="a.jpg" alt="Image A">
+        <img src="b.jpg" alt="Image B">
+        <img src="c.jpg" alt="Image C">
+      </body></html>`;
+      const issues = runDeterministicChecks(html);
+      const altCheck = issues.find((i) => i.criterion === "1.1.1");
+      expect(altCheck!.status).toBe("pass");
+      expect(altCheck!.details).toBe("All 3 image(s) have text descriptions.");
     });
 
     it("fails when an image is missing its alt attribute", () => {
@@ -567,6 +580,11 @@ describe("runDeterministicChecks", () => {
         (i) => i.criterion === "1.3.1" && i.title === "Table Header Markup"
       );
       expect(markupIssue).toBeUndefined();
+      const tableHeadersIssue = issues.find(
+        (i) => i.criterion === "1.3.1" && i.title === "Table Headers"
+      );
+      expect(tableHeadersIssue!.status).toBe("pass");
+      expect(tableHeadersIssue!.details).toBe("Found 1 table(s) with properly labeled headers.");
     });
 
     it("warns when a table uses <td role=\"columnheader\"> instead of <th>", () => {
@@ -612,6 +630,11 @@ describe("runDeterministicChecks", () => {
         (i) => i.criterion === "1.3.1" && i.title === "ARIA Role on Table Data Cell"
       );
       expect(ariaIssue).toBeUndefined();
+      const tableHeadersIssue = issues.find(
+        (i) => i.criterion === "1.3.1" && i.title === "Table Headers"
+      );
+      expect(tableHeadersIssue!.status).toBe("pass");
+      expect(tableHeadersIssue!.details).toBe("Found 1 table(s) with properly labeled headers.");
     });
   });
 
@@ -2266,6 +2289,7 @@ describe("runDeterministicChecks – heading order check (1.3.1)", () => {
     );
     expect(orderIssue).toBeDefined();
     expect(orderIssue!.status).toBe("pass");
+    expect(orderIssue!.details).toBe("Headings follow a logical order (h1, h2, h3).");
   });
 
   it("warns when heading levels are skipped", () => {
