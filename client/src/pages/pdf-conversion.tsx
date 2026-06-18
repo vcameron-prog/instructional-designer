@@ -1098,6 +1098,46 @@ export default function PdfConversion() {
                       Google Slide
                     </span>
                   )}
+                  {conversion.sourceType === "doc" && (
+                    <span className="inline-flex items-center gap-1 text-xs bg-secondary text-secondary-foreground px-2 py-0.5 rounded-full font-semibold border">
+                      Word (DOC)
+                    </span>
+                  )}
+                  {conversion.sourceType === "rtf" && (
+                    <span className="inline-flex items-center gap-1 text-xs bg-secondary text-secondary-foreground px-2 py-0.5 rounded-full font-semibold border">
+                      RTF
+                    </span>
+                  )}
+                  {conversion.sourceType === "html" && (
+                    <span className="inline-flex items-center gap-1 text-xs bg-secondary text-secondary-foreground px-2 py-0.5 rounded-full font-semibold border">
+                      HTML
+                    </span>
+                  )}
+                  {conversion.sourceType === "odt" && (
+                    <span className="inline-flex items-center gap-1 text-xs bg-secondary text-secondary-foreground px-2 py-0.5 rounded-full font-semibold border">
+                      OpenDocument Text
+                    </span>
+                  )}
+                  {conversion.sourceType === "ods" && (
+                    <span className="inline-flex items-center gap-1 text-xs bg-secondary text-secondary-foreground px-2 py-0.5 rounded-full font-semibold border">
+                      OpenDocument Spreadsheet
+                    </span>
+                  )}
+                  {conversion.sourceType === "odp" && (
+                    <span className="inline-flex items-center gap-1 text-xs bg-secondary text-secondary-foreground px-2 py-0.5 rounded-full font-semibold border">
+                      OpenDocument Presentation
+                    </span>
+                  )}
+                  {conversion.sourceType === "epub" && (
+                    <span className="inline-flex items-center gap-1 text-xs bg-secondary text-secondary-foreground px-2 py-0.5 rounded-full font-semibold border">
+                      EPUB
+                    </span>
+                  )}
+                  {conversion.sourceType === "csv" && (
+                    <span className="inline-flex items-center gap-1 text-xs bg-secondary text-secondary-foreground px-2 py-0.5 rounded-full font-semibold border">
+                      CSV
+                    </span>
+                  )}
                   {conversion.ocrApplied && (
                     <span className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 px-2 py-0.5 rounded-full font-semibold">
                       OCR Applied

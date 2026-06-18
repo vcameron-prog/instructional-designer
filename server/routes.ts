@@ -3147,6 +3147,23 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    // Legacy Word
+    "application/msword",
+    // Rich Text Format
+    "application/rtf",
+    "text/rtf",
+    // HTML
+    "text/html",
+    // OpenDocument formats
+    "application/vnd.oasis.opendocument.text",
+    "application/vnd.oasis.opendocument.spreadsheet",
+    "application/vnd.oasis.opendocument.presentation",
+    // EPUB
+    "application/epub+zip",
+    // CSV
+    "text/csv",
+    "application/csv",
+    "text/comma-separated-values",
   ]);
 
   const docUpload = multer({
@@ -3156,7 +3173,15 @@ Please generate an IMPROVED version that incorporates the requested changes whil
       if (ACCEPTED_MIMES.has(file.mimetype)) {
         cb(null, true);
       } else {
-        cb(new Error("Only PDF, Word (.docx), Excel (.xlsx), and PowerPoint (.pptx) files are allowed"));
+        // Also accept by file extension for formats where browsers may send
+        // generic MIME types (e.g. application/octet-stream for .doc/.rtf)
+        const name = (file.originalname || "").toLowerCase();
+        const extAccepted = /\.(doc|rtf|html?|odt|ods|odp|epub|csv)$/.test(name);
+        if (extAccepted) {
+          cb(null, true);
+        } else {
+          cb(new Error("Unsupported file type. Please upload PDF, Word (.doc/.docx), Excel (.xlsx), PowerPoint (.pptx), RTF, HTML, ODF (.odt/.ods/.odp), EPUB, or CSV files."));
+        }
       }
     },
   });
@@ -3334,7 +3359,8 @@ Please generate an IMPROVED version that incorporates the requested changes whil
 
       const fileBase64 = file.buffer.toString("base64");
       const explicitSourceType = req.body?.sourceType;
-      const sourceType =
+      const fname = (file.originalname || "").toLowerCase();
+      const sourceType: string =
         explicitSourceType === "google-doc"
           ? "google-doc"
           : file.mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -3343,7 +3369,23 @@ Please generate an IMPROVED version that incorporates the requested changes whil
               ? "xlsx"
               : file.mimetype === "application/vnd.openxmlformats-officedocument.presentationml.presentation"
                 ? "pptx"
-                : "pdf";
+                : file.mimetype === "application/msword" || fname.endsWith(".doc")
+                  ? "doc"
+                  : file.mimetype === "application/rtf" || file.mimetype === "text/rtf" || fname.endsWith(".rtf")
+                    ? "rtf"
+                    : file.mimetype === "text/html" || fname.endsWith(".html") || fname.endsWith(".htm")
+                      ? "html"
+                      : file.mimetype === "application/vnd.oasis.opendocument.text" || fname.endsWith(".odt")
+                        ? "odt"
+                        : file.mimetype === "application/vnd.oasis.opendocument.spreadsheet" || fname.endsWith(".ods")
+                          ? "ods"
+                          : file.mimetype === "application/vnd.oasis.opendocument.presentation" || fname.endsWith(".odp")
+                            ? "odp"
+                            : file.mimetype === "application/epub+zip" || fname.endsWith(".epub")
+                              ? "epub"
+                              : file.mimetype === "text/csv" || file.mimetype === "application/csv" || file.mimetype === "text/comma-separated-values" || fname.endsWith(".csv")
+                                ? "csv"
+                                : "pdf";
 
       const [created] = await db
         .insert(conversions)
@@ -4308,6 +4350,38 @@ Please generate an IMPROVED version that incorporates the requested changes whil
             );
             const { extractDocxContent } = await import("./lib/docx-extractor");
             extraction = await extractDocxContent(fileBuffer);
+          } else if (srcType === "doc") {
+            await updateStatusMessage("Extracting Legacy Word document content…");
+            const { extractDocContent } = await import("./lib/doc-extractor");
+            extraction = await extractDocContent(fileBuffer);
+          } else if (srcType === "rtf") {
+            await updateStatusMessage("Extracting Rich Text Format content…");
+            const { extractRtfContent } = await import("./lib/rtf-extractor");
+            extraction = await extractRtfContent(fileBuffer);
+          } else if (srcType === "html") {
+            await updateStatusMessage("Extracting HTML document content…");
+            const { extractHtmlContent } = await import("./lib/html-extractor");
+            extraction = await extractHtmlContent(fileBuffer);
+          } else if (srcType === "odt") {
+            await updateStatusMessage("Extracting OpenDocument Text content…");
+            const { extractOdfContent } = await import("./lib/odf-extractor");
+            extraction = await extractOdfContent(fileBuffer, "odt");
+          } else if (srcType === "ods") {
+            await updateStatusMessage("Extracting OpenDocument Spreadsheet content…");
+            const { extractOdfContent } = await import("./lib/odf-extractor");
+            extraction = await extractOdfContent(fileBuffer, "ods");
+          } else if (srcType === "odp") {
+            await updateStatusMessage("Extracting OpenDocument Presentation content…");
+            const { extractOdfContent } = await import("./lib/odf-extractor");
+            extraction = await extractOdfContent(fileBuffer, "odp");
+          } else if (srcType === "epub") {
+            await updateStatusMessage("Extracting EPUB content…");
+            const { extractEpubContent } = await import("./lib/epub-extractor");
+            extraction = await extractEpubContent(fileBuffer);
+          } else if (srcType === "csv") {
+            await updateStatusMessage("Extracting CSV data…");
+            const { extractCsvContent } = await import("./lib/csv-extractor");
+            extraction = await extractCsvContent(fileBuffer);
           } else {
             await updateStatusMessage("Extracting PDF content…");
             const { extractPdfContent, needsOcr } = await import(

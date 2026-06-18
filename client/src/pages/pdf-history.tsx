@@ -399,7 +399,23 @@ export default function PdfHistory() {
                               Google Slides
                             </>
                           ) : conv.sourceType === "docx" ? (
-                            "DOCX"
+                            "Word (DOCX)"
+                          ) : conv.sourceType === "doc" ? (
+                            "Word (DOC)"
+                          ) : conv.sourceType === "rtf" ? (
+                            "RTF"
+                          ) : conv.sourceType === "html" ? (
+                            "HTML"
+                          ) : conv.sourceType === "odt" ? (
+                            "OpenDocument Text"
+                          ) : conv.sourceType === "ods" ? (
+                            "OpenDocument Spreadsheet"
+                          ) : conv.sourceType === "odp" ? (
+                            "OpenDocument Presentation"
+                          ) : conv.sourceType === "epub" ? (
+                            "EPUB"
+                          ) : conv.sourceType === "csv" ? (
+                            "CSV"
                           ) : (
                             conv.sourceType.toUpperCase()
                           )}

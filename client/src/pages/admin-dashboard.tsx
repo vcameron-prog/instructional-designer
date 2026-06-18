@@ -157,10 +157,19 @@ function formatSourceType(sourceType: string): string {
   switch (sourceType) {
     case "pdf": return "PDF";
     case "docx": return "Word (DOCX)";
+    case "doc": return "Word (DOC)";
+    case "xlsx": return "Excel (XLSX)";
     case "pptx": return "PowerPoint (PPTX)";
     case "google-doc": return "Google Doc";
     case "google-sheet": return "Google Sheet";
     case "google-slide": return "Google Slides";
+    case "rtf": return "RTF";
+    case "html": return "HTML";
+    case "odt": return "OpenDocument Text";
+    case "ods": return "OpenDocument Spreadsheet";
+    case "odp": return "OpenDocument Presentation";
+    case "epub": return "EPUB";
+    case "csv": return "CSV";
     default: return sourceType.toUpperCase();
   }
 }

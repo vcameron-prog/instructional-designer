@@ -8,6 +8,16 @@ const ACCEPTED_TYPES = {
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"],
   "application/vnd.openxmlformats-officedocument.presentationml.presentation": [".pptx"],
+  "application/msword": [".doc"],
+  "application/rtf": [".rtf"],
+  "text/rtf": [".rtf"],
+  "text/html": [".html", ".htm"],
+  "application/vnd.oasis.opendocument.text": [".odt"],
+  "application/vnd.oasis.opendocument.spreadsheet": [".ods"],
+  "application/vnd.oasis.opendocument.presentation": [".odp"],
+  "application/epub+zip": [".epub"],
+  "text/csv": [".csv"],
+  "application/csv": [".csv"],
 };
 
 const MAX_FILES = 10;
@@ -31,7 +41,7 @@ export function UploadDropzone({
       setLocalError(null);
       if (rejectedFiles.length > 0) {
         setLocalError(
-          "Please upload valid PDF, Word (.docx), Excel (.xlsx), or PowerPoint (.pptx) documents under 20MB.",
+          "Please upload a supported document under 20MB: PDF, Word (.doc/.docx), Excel (.xlsx), PowerPoint (.pptx), RTF, HTML, ODF (.odt/.ods/.odp), EPUB, or CSV.",
         );
         return;
       }
@@ -103,7 +113,7 @@ export function UploadDropzone({
             <div className="flex flex-col items-center gap-2 text-xs text-muted-foreground">
               <span className="flex items-center gap-2 font-semibold uppercase tracking-wider bg-background px-3 py-1.5 rounded-full border shadow-sm">
                 <File className="w-3.5 h-3.5" aria-hidden="true" />
-                PDF, DOCX, XLSX, or PPTX up to 20MB
+                PDF, DOCX, XLSX, PPTX, DOC, RTF, HTML, ODT, EPUB, CSV up to 20MB
               </span>
               {multiple && (
                 <span className="text-muted-foreground">
