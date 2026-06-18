@@ -2306,6 +2306,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         }
 
         let fixedContent = content.content;
+        let tablesFixed: number | undefined;
 
         if (fixType === "convert-markdown-tables") {
           fixedContent = convertMarkdownTablesToHtml(content.content);
@@ -2321,17 +2322,21 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         } else if (fixType === "fix-all-caps") {
           fixedContent = fixAllCaps(content.content);
         } else if (fixType === "fix-html-table-caption") {
-          fixedContent = fixHtmlTableCaption(content.content, captionTexts ?? captionText);
+          const result = fixHtmlTableCaption(content.content, captionTexts ?? captionText);
+          fixedContent = result.html;
+          tablesFixed = result.tablesFixed;
         } else if (fixType === "edit-html-table-caption") {
           fixedContent = editHtmlTableCaption(content.content, captionText ?? "Table summary", captionIndex !== undefined ? Number(captionIndex) : undefined);
         } else if (fixType === "fix-html-table-thead") {
-          fixedContent = fixHtmlTableThead(content.content);
+          const result = fixHtmlTableThead(content.content);
+          fixedContent = result.html;
+          tablesFixed = result.tablesFixed;
         } else {
           return res.status(400).json({ error: "Unknown fix type" });
         }
 
         if (fixedContent === content.content) {
-          return res.json({ ...content, preFixVersionId: null });
+          return res.json({ ...content, preFixVersionId: null, tablesFixed: 0 });
         }
 
         const savedVersion = await storage.createVersion({
@@ -2342,7 +2347,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         await storage.pruneOldVersions(id, VERSION_HISTORY_LIMIT);
 
         const updated = await storage.updateContent(id, fixedContent);
-        res.json({ ...updated, preFixVersionId: savedVersion.id });
+        res.json({ ...updated, preFixVersionId: savedVersion.id, tablesFixed });
       } catch (error) {
         console.error("Error fixing accessibility issue:", error);
         res.status(500).json({ error: "Failed to apply fix" });

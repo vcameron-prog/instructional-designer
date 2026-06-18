@@ -21,7 +21,7 @@ export function _convertRowToHeaderCells(row: string): string {
  * regex produces with nested tables.  insertAdjacentHTML is used for DOM
  * mutation to keep existing child node references stable.
  */
-export function fixHtmlTableCaption(text: string, captionTexts: string | string[] = "Table summary"): string {
+export function fixHtmlTableCaption(text: string, captionTexts: string | string[] = "Table summary"): { html: string; tablesFixed: number } {
   const captions = Array.isArray(captionTexts) ? captionTexts : [captionTexts];
   const root = parse(text);
   const tables = root.querySelectorAll("table");
@@ -38,7 +38,7 @@ export function fixHtmlTableCaption(text: string, captionTexts: string | string[
     }
   }
 
-  return root.toString();
+  return { html: root.toString(), tablesFixed: tableIndex };
 }
 
 /**
@@ -75,9 +75,11 @@ export function editHtmlTableCaption(text: string, newCaption: string, captionIn
  * Uses node-html-parser and processes tables from innermost to outermost so
  * that each table is treated as a self-contained unit regardless of nesting.
  */
-export function fixHtmlTableThead(text: string): string {
+export function fixHtmlTableThead(text: string): { html: string; tablesFixed: number } {
   const root = parse(text);
   const tables = root.querySelectorAll("table");
+
+  let tablesFixed = 0;
 
   // Reverse so innermost tables are processed first; this ensures that when
   // we examine an outer table its inner tables are already complete and their
@@ -101,6 +103,7 @@ export function fixHtmlTableThead(text: string): string {
       const convertedRow = _convertRowToHeaderCells(firstTr.outerHTML);
       firstTr.remove();
       tbody.insertAdjacentHTML("beforebegin", `<thead>\n${convertedRow}\n</thead>\n`);
+      tablesFixed++;
     } else {
       const firstTr = table.children.find(
         (c) => c.tagName.toLowerCase() === "tr",
@@ -111,9 +114,10 @@ export function fixHtmlTableThead(text: string): string {
       const theadNode = parse(`<thead>\n${convertedRow}\n</thead>`).firstChild;
       if (theadNode) {
         firstTr.replaceWith(theadNode);
+        tablesFixed++;
       }
     }
   }
 
-  return root.toString();
+  return { html: root.toString(), tablesFixed };
 }

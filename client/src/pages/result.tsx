@@ -556,16 +556,22 @@ export default function ResultPage() {
       const response = await apiRequest("POST", `/api/content/${contentId}/fix-accessibility`, body);
       return response.json();
     },
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/content", contentId] });
       queryClient.invalidateQueries({ queryKey: ["/api/standalone-content", contentId] });
       queryClient.invalidateQueries({ queryKey: ["/api/content", contentId, "versions"] });
       setFixingIssue(null);
       const preFixVersionId: number | null = data?.preFixVersionId ?? null;
+      const tablesFixed: number | undefined = data?.tablesFixed;
+      const isTableFix = variables.fixType === "fix-html-table-caption" || variables.fixType === "fix-html-table-thead";
+      const tableCountLabel = isTableFix && typeof tablesFixed === "number"
+        ? `Fixed ${tablesFixed} ${tablesFixed === 1 ? "table" : "tables"}. `
+        : "";
+      const versionNote = appConfig ? `Up to ${appConfig.versionHistoryLimit} versions are kept.` : "";
       toast({
         title: "Fix applied successfully!",
-        description: appConfig
-          ? `Up to ${appConfig.versionHistoryLimit} versions are kept.`
+        description: tableCountLabel || versionNote
+          ? `${tableCountLabel}${versionNote}`.trim()
           : undefined,
         action: preFixVersionId
           ? (

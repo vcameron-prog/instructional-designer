@@ -7,33 +7,39 @@ import { fixHtmlTableCaption, fixHtmlTableThead } from "./table-fixers.js";
 describe("fixHtmlTableCaption — flat tables", () => {
   it("adds a caption after the opening tag of a table that has none", () => {
     const input = `<table><tr><td>A</td></tr></table>`;
-    const output = fixHtmlTableCaption(input);
+    const { html: output, tablesFixed } = fixHtmlTableCaption(input);
     expect(output).toBe(
       `<table><caption>Table summary</caption>\n<tr><td>A</td></tr></table>`
     );
+    expect(tablesFixed).toBe(1);
   });
 
   it("leaves a table that already has a <caption> unchanged", () => {
     const input = `<table><caption>My caption</caption><tr><td>A</td></tr></table>`;
-    expect(fixHtmlTableCaption(input)).toBe(input);
+    const { html, tablesFixed } = fixHtmlTableCaption(input);
+    expect(html).toBe(input);
+    expect(tablesFixed).toBe(0);
   });
 
   it("handles a table opening tag that carries attributes", () => {
     const input = `<table class="data"><tr><td>A</td></tr></table>`;
-    const output = fixHtmlTableCaption(input);
+    const { html: output } = fixHtmlTableCaption(input);
     expect(output).toContain('<table class="data"><caption>Table summary</caption>');
   });
 
   it("adds captions to multiple sibling flat tables independently", () => {
     const input = `<table><tr><td>T1</td></tr></table>\n<table><tr><td>T2</td></tr></table>`;
-    const output = fixHtmlTableCaption(input);
+    const { html: output, tablesFixed } = fixHtmlTableCaption(input);
     const count = (output.match(/<caption>Table summary<\/caption>/gi) ?? []).length;
     expect(count).toBe(2);
+    expect(tablesFixed).toBe(2);
   });
 
   it("does not add a second caption to a table that already has one", () => {
     const input = `<table><caption>Existing</caption><tr><td>A</td></tr></table>`;
-    expect(fixHtmlTableCaption(input)).toBe(input);
+    const { html, tablesFixed } = fixHtmlTableCaption(input);
+    expect(html).toBe(input);
+    expect(tablesFixed).toBe(0);
   });
 });
 
@@ -48,11 +54,12 @@ describe("fixHtmlTableCaption — nested tables", () => {
   it("inserts a caption into both the outer and inner table when neither has one", () => {
     const inner = `<table><tr><td>cell</td></tr></table>`;
     const outer = `<table><tr><td>${inner}</td></tr></table>`;
-    const output = fixHtmlTableCaption(outer);
+    const { html: output, tablesFixed } = fixHtmlTableCaption(outer);
 
     // Both tables get a caption.
     const count = (output.match(/<caption>Table summary<\/caption>/gi) ?? []).length;
     expect(count).toBe(2);
+    expect(tablesFixed).toBe(2);
     // Tag balance is maintained.
     expect((output.match(/<table/gi) ?? []).length).toBe(
       (output.match(/<\/table>/gi) ?? []).length
@@ -63,11 +70,12 @@ describe("fixHtmlTableCaption — nested tables", () => {
     // Inner already has a caption so it is left alone; outer still needs one.
     const inner = `<table><caption>Inner</caption><tr><td>cell</td></tr></table>`;
     const outer = `<table><tr><td>${inner}</td></tr></table>`;
-    const output = fixHtmlTableCaption(outer);
+    const { html: output, tablesFixed } = fixHtmlTableCaption(outer);
 
     // Outer now has a caption; inner's caption is preserved unchanged.
     expect(output).toContain("<caption>Table summary</caption>");
     expect(output).toContain("<caption>Inner</caption>");
+    expect(tablesFixed).toBe(1);
     // Inner must not have gained a second caption.
     const innerCaptionCount = (output.match(/<caption>Inner<\/caption>/gi) ?? []).length;
     expect(innerCaptionCount).toBe(1);
@@ -81,10 +89,11 @@ describe("fixHtmlTableCaption — nested tables", () => {
     const inner1 = `<table><tr><td>A</td></tr></table>`;
     const inner2 = `<table><tr><td>B</td></tr></table>`;
     const outer = `<table><tr><td>${inner1}</td><td>${inner2}</td></tr></table>`;
-    const output = fixHtmlTableCaption(outer);
+    const { html: output, tablesFixed } = fixHtmlTableCaption(outer);
     // outer + inner1 + inner2 each get a caption.
     const count = (output.match(/<caption>Table summary<\/caption>/gi) ?? []).length;
     expect(count).toBe(3);
+    expect(tablesFixed).toBe(3);
     expect((output.match(/<table/gi) ?? []).length).toBe(
       (output.match(/<\/table>/gi) ?? []).length
     );
@@ -94,25 +103,27 @@ describe("fixHtmlTableCaption — nested tables", () => {
     const inner1 = `<table><tr><td>A</td></tr></table>`;
     const inner2 = `<table><caption>Existing</caption><tr><td>B</td></tr></table>`;
     const outer = `<table><tr><td>${inner1}</td><td>${inner2}</td></tr></table>`;
-    const output = fixHtmlTableCaption(outer);
+    const { html: output, tablesFixed } = fixHtmlTableCaption(outer);
     // inner2 already has a caption — it must not gain a second one.
     // outer + inner1 each gain a new caption; inner2 keeps its existing one.
     const count = (output.match(/<caption/gi) ?? []).length;
     expect(count).toBe(3); // outer (new) + inner1 (new) + inner2 (existing)
     expect(output).toContain("<caption>Existing</caption>");
+    expect(tablesFixed).toBe(2);
   });
 
   it("keeps tags balanced for three levels of nesting and adds a caption to every table", () => {
     const deep = `<table><tr><td>d</td></tr></table>`;
     const mid = `<table><tr><td>${deep}</td></tr></table>`;
     const outer = `<table><tr><td>${mid}</td></tr></table>`;
-    const output = fixHtmlTableCaption(outer);
+    const { html: output, tablesFixed } = fixHtmlTableCaption(outer);
     expect((output.match(/<table/gi) ?? []).length).toBe(
       (output.match(/<\/table>/gi) ?? []).length
     );
     // All three tables receive a caption.
     const count = (output.match(/<caption>Table summary<\/caption>/gi) ?? []).length;
     expect(count).toBe(3);
+    expect(tablesFixed).toBe(3);
   });
 });
 
@@ -123,51 +134,57 @@ describe("fixHtmlTableCaption — captionTexts array", () => {
   it("applies distinct captions from an array to multiple uncaptioned tables in order", () => {
     const t1 = `<table><tr><td>T1</td></tr></table>`;
     const t2 = `<table><tr><td>T2</td></tr></table>`;
-    const output = fixHtmlTableCaption(`${t1}\n${t2}`, ["Grade distribution", "Attendance log"]);
+    const { html: output, tablesFixed } = fixHtmlTableCaption(`${t1}\n${t2}`, ["Grade distribution", "Attendance log"]);
     expect(output).toContain("<caption>Grade distribution</caption>");
     expect(output).toContain("<caption>Attendance log</caption>");
+    expect(tablesFixed).toBe(2);
   });
 
   it("falls back to 'Table summary' for tables beyond the end of a short array", () => {
     const t1 = `<table><tr><td>T1</td></tr></table>`;
     const t2 = `<table><tr><td>T2</td></tr></table>`;
     const t3 = `<table><tr><td>T3</td></tr></table>`;
-    const output = fixHtmlTableCaption(`${t1}\n${t2}\n${t3}`, ["Only one caption"]);
+    const { html: output, tablesFixed } = fixHtmlTableCaption(`${t1}\n${t2}\n${t3}`, ["Only one caption"]);
     expect(output).toContain("<caption>Only one caption</caption>");
     const fallbackCount = (output.match(/<caption>Table summary<\/caption>/gi) ?? []).length;
     expect(fallbackCount).toBe(2);
+    expect(tablesFixed).toBe(3);
   });
 
   it("ignores extra captions when the array is longer than the number of uncaptioned tables", () => {
     const input = `<table><tr><td>T1</td></tr></table>`;
-    const output = fixHtmlTableCaption(input, ["Caption A", "Caption B", "Caption C"]);
+    const { html: output, tablesFixed } = fixHtmlTableCaption(input, ["Caption A", "Caption B", "Caption C"]);
     expect(output).toContain("<caption>Caption A</caption>");
     const captionCount = (output.match(/<caption/gi) ?? []).length;
     expect(captionCount).toBe(1);
+    expect(tablesFixed).toBe(1);
   });
 
   it("falls back to 'Table summary' for empty string entries in the array", () => {
     const t1 = `<table><tr><td>T1</td></tr></table>`;
     const t2 = `<table><tr><td>T2</td></tr></table>`;
-    const output = fixHtmlTableCaption(`${t1}\n${t2}`, ["", ""]);
+    const { html: output, tablesFixed } = fixHtmlTableCaption(`${t1}\n${t2}`, ["", ""]);
     const fallbackCount = (output.match(/<caption>Table summary<\/caption>/gi) ?? []).length;
     expect(fallbackCount).toBe(2);
+    expect(tablesFixed).toBe(2);
   });
 
   it("falls back to 'Table summary' for whitespace-only string entries in the array", () => {
     const input = `<table><tr><td>T1</td></tr></table>`;
-    const output = fixHtmlTableCaption(input, ["   "]);
+    const { html: output, tablesFixed } = fixHtmlTableCaption(input, ["   "]);
     expect(output).toContain("<caption>Table summary</caption>");
+    expect(tablesFixed).toBe(1);
   });
 
   it("skips already-captioned tables and applies array captions only to uncaptioned ones", () => {
     const captioned = `<table><caption>Existing</caption><tr><td>C</td></tr></table>`;
     const uncaptioned = `<table><tr><td>U</td></tr></table>`;
-    const output = fixHtmlTableCaption(`${captioned}\n${uncaptioned}`, ["New caption"]);
+    const { html: output, tablesFixed } = fixHtmlTableCaption(`${captioned}\n${uncaptioned}`, ["New caption"]);
     expect(output).toContain("<caption>Existing</caption>");
     expect(output).toContain("<caption>New caption</caption>");
     const captionCount = (output.match(/<caption/gi) ?? []).length;
     expect(captionCount).toBe(2);
+    expect(tablesFixed).toBe(1);
   });
 });
 
@@ -177,33 +194,38 @@ describe("fixHtmlTableCaption — captionTexts array", () => {
 describe("fixHtmlTableThead — flat tables", () => {
   it("wraps the first <tr> in a <thead> and converts its cells to <th scope=col>", () => {
     const input = `<table><tr><td>Col A</td><td>Col B</td></tr><tr><td>1</td><td>2</td></tr></table>`;
-    const output = fixHtmlTableThead(input);
+    const { html: output, tablesFixed } = fixHtmlTableThead(input);
     expect(output).toContain("<thead>");
     expect(output).toContain("</thead>");
     expect(output).toContain('<th scope="col">Col A</th>');
     expect(output).toContain('<th scope="col">Col B</th>');
     expect(output).toContain("<td>1</td>");
+    expect(tablesFixed).toBe(1);
   });
 
   it("leaves a table that already has a <thead> unchanged", () => {
     const input = `<table><thead><tr><th>H</th></tr></thead><tbody><tr><td>D</td></tr></tbody></table>`;
-    expect(fixHtmlTableThead(input)).toBe(input);
+    const { html, tablesFixed } = fixHtmlTableThead(input);
+    expect(html).toBe(input);
+    expect(tablesFixed).toBe(0);
   });
 
   it("promotes the first <tr> out of <tbody> when there is no <thead>", () => {
     const input = `<table><tbody><tr><td>H1</td></tr><tr><td>D1</td></tr></tbody></table>`;
-    const output = fixHtmlTableThead(input);
+    const { html: output, tablesFixed } = fixHtmlTableThead(input);
     expect(output).toContain("<thead>");
     expect(output).toContain('<th scope="col">H1</th>');
     expect(output).toContain("<td>D1</td>");
     expect((output.match(/<thead/gi) ?? []).length).toBe(1);
+    expect(tablesFixed).toBe(1);
   });
 
   it("adds <thead> to each of multiple sibling flat tables that lack one", () => {
     const t1 = `<table><tr><td>H1</td></tr></table>`;
     const t2 = `<table><tr><td>H2</td></tr></table>`;
-    const output = fixHtmlTableThead(`${t1}\n${t2}`);
+    const { html: output, tablesFixed } = fixHtmlTableThead(`${t1}\n${t2}`);
     expect((output.match(/<thead/gi) ?? []).length).toBe(2);
+    expect(tablesFixed).toBe(2);
   });
 });
 
@@ -218,11 +240,12 @@ describe("fixHtmlTableThead — nested tables", () => {
   it("inserts <thead> into both the outer and inner table when neither has one", () => {
     const inner = `<table><tr><td>IH</td></tr><tr><td>ID</td></tr></table>`;
     const outer = `<table><tr><td>${inner}</td></tr></table>`;
-    const output = fixHtmlTableThead(outer);
+    const { html: output, tablesFixed } = fixHtmlTableThead(outer);
 
     // Both tables get a <thead>.
     expect((output.match(/<thead/gi) ?? []).length).toBe(2);
     expect(output).toContain("</thead>");
+    expect(tablesFixed).toBe(2);
     // The opening <table> tags (outer + inner) and their matching </table> tags survive.
     expect((output.match(/<table/gi) ?? []).length).toBe(
       (output.match(/<\/table>/gi) ?? []).length
@@ -233,12 +256,13 @@ describe("fixHtmlTableThead — nested tables", () => {
     // Inner already has a thead so it is skipped; outer still needs one.
     const inner = `<table><thead><tr><th>IH</th></tr></thead><tbody><tr><td>ID</td></tr></tbody></table>`;
     const outer = `<table><tr><td>${inner}</td></tr></table>`;
-    const output = fixHtmlTableThead(outer);
+    const { html: output, tablesFixed } = fixHtmlTableThead(outer);
 
     // The inner thead content must be preserved intact.
     expect(output).toContain("<thead><tr><th>IH</th></tr></thead>");
     // Outer gets its own new thead — two theads total.
     expect((output.match(/<thead/gi) ?? []).length).toBe(2);
+    expect(tablesFixed).toBe(1);
     // Tags remain balanced.
     expect((output.match(/<table/gi) ?? []).length).toBe(
       (output.match(/<\/table>/gi) ?? []).length
@@ -248,7 +272,9 @@ describe("fixHtmlTableThead — nested tables", () => {
   it("does not modify either table when both already have a <thead>", () => {
     const inner = `<table><thead><tr><th>IH</th></tr></thead><tbody><tr><td>ID</td></tr></tbody></table>`;
     const outer = `<table><thead><tr><th>OH</th></tr></thead><tbody><tr><td>${inner}</td></tr></tbody></table>`;
-    expect(fixHtmlTableThead(outer)).toBe(outer);
+    const { html, tablesFixed } = fixHtmlTableThead(outer);
+    expect(html).toBe(outer);
+    expect(tablesFixed).toBe(0);
   });
 
   it("preserves the existing <thead> of a second standalone inner sibling", () => {
@@ -257,7 +283,7 @@ describe("fixHtmlTableThead — nested tables", () => {
     const inner1 = `<table><tr><td>H1</td></tr><tr><td>D1</td></tr></table>`;
     const inner2 = `<table><thead><tr><th>H2</th></tr></thead><tbody><tr><td>D2</td></tr></tbody></table>`;
     const outer = `<table><tr><td>${inner1}</td><td>${inner2}</td></tr></table>`;
-    const output = fixHtmlTableThead(outer);
+    const { html: output } = fixHtmlTableThead(outer);
 
     // inner2's thead content must survive.
     expect(output).toContain("<th>H2</th>");
@@ -271,7 +297,7 @@ describe("fixHtmlTableThead — nested tables", () => {
     const deep = `<table><tr><td>dH</td></tr><tr><td>dD</td></tr></table>`;
     const mid = `<table><tr><td>${deep}</td></tr><tr><td>mD</td></tr></table>`;
     const outer = `<table><tr><td>${mid}</td></tr><tr><td>oD</td></tr></table>`;
-    const output = fixHtmlTableThead(outer);
+    const { html: output } = fixHtmlTableThead(outer);
 
     expect((output.match(/<table/gi) ?? []).length).toBe(
       (output.match(/<\/table>/gi) ?? []).length
@@ -293,8 +319,8 @@ describe("full pipeline — fixHtmlTableCaption then fixHtmlTableThead on nested
     const inner = `<table><tr><td>IH</td></tr><tr><td>ID</td></tr></table>`;
     const outer = `<table><tr><td>${inner}</td></tr><tr><td>OD</td></tr></table>`;
 
-    const stage1 = fixHtmlTableCaption(outer);
-    const result = fixHtmlTableThead(stage1);
+    const { html: stage1 } = fixHtmlTableCaption(outer);
+    const { html: result } = fixHtmlTableThead(stage1);
 
     // Both tables must have a caption.
     expect((result.match(/<caption>Table summary<\/caption>/gi) ?? []).length).toBe(2);
@@ -310,8 +336,8 @@ describe("full pipeline — fixHtmlTableCaption then fixHtmlTableThead on nested
     const inner = `<table><caption>Inner cap</caption><thead><tr><th>IH</th></tr></thead><tbody><tr><td>ID</td></tr></tbody></table>`;
     const outer = `<table><tr><td>${inner}</td></tr><tr><td>OD</td></tr></table>`;
 
-    const stage1 = fixHtmlTableCaption(outer);
-    const result = fixHtmlTableThead(stage1);
+    const { html: stage1 } = fixHtmlTableCaption(outer);
+    const { html: result } = fixHtmlTableThead(stage1);
 
     // Outer gets a new caption; inner keeps its own.
     expect(result).toContain("<caption>Table summary</caption>");
@@ -334,8 +360,8 @@ describe("full pipeline — fixHtmlTableCaption then fixHtmlTableThead on nested
     const mid = `<table><tr><td>${deep}</td></tr><tr><td>mD</td></tr></table>`;
     const outer = `<table><tr><td>${mid}</td></tr><tr><td>oD</td></tr></table>`;
 
-    const stage1 = fixHtmlTableCaption(outer);
-    const result = fixHtmlTableThead(stage1);
+    const { html: stage1 } = fixHtmlTableCaption(outer);
+    const { html: result } = fixHtmlTableThead(stage1);
 
     // All three tables receive a caption.
     expect((result.match(/<caption>Table summary<\/caption>/gi) ?? []).length).toBe(3);
@@ -354,8 +380,8 @@ describe("full pipeline — fixHtmlTableCaption then fixHtmlTableThead on nested
     const inner2 = `<table><thead><tr><th>H2</th></tr></thead><tbody><tr><td>D2</td></tr></tbody></table>`;
     const outer = `<table><tr><td>${inner1}</td><td>${inner2}</td></tr></table>`;
 
-    const stage1 = fixHtmlTableCaption(outer);
-    const result = fixHtmlTableThead(stage1);
+    const { html: stage1 } = fixHtmlTableCaption(outer);
+    const { html: result } = fixHtmlTableThead(stage1);
 
     // Outer + inner2 each gain a new caption; inner1 keeps its own (3 total).
     expect((result.match(/<caption/gi) ?? []).length).toBe(3);
@@ -376,7 +402,7 @@ describe("full pipeline — fixHtmlTableCaption then fixHtmlTableThead on nested
     const inner = `<table><tr><td>IH</td></tr><tr><td>ID</td></tr></table>`;
     const outer = `<table><tr><td>${inner}</td></tr><tr><td>OD</td></tr></table>`;
 
-    const runPipeline = (html: string) => fixHtmlTableThead(fixHtmlTableCaption(html));
+    const runPipeline = (html: string) => fixHtmlTableThead(fixHtmlTableCaption(html).html).html;
 
     const once = runPipeline(outer);
     const twice = runPipeline(once);
@@ -388,8 +414,8 @@ describe("full pipeline — fixHtmlTableCaption then fixHtmlTableThead on nested
     const inner = `<table><caption>Inner cap</caption><thead><tr><th scope="col">IH</th></tr></thead><tbody><tr><td>ID</td></tr></tbody></table>`;
     const outer = `<table><caption>Outer cap</caption><thead><tr><th scope="col">OH</th></tr></thead><tbody><tr><td>${inner}</td></tr></tbody></table>`;
 
-    const stage1 = fixHtmlTableCaption(outer);
-    const result = fixHtmlTableThead(stage1);
+    const { html: stage1 } = fixHtmlTableCaption(outer);
+    const { html: result } = fixHtmlTableThead(stage1);
 
     // Nothing should change — both fixers are no-ops on fully-formed tables.
     expect(result).toBe(outer);
