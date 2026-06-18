@@ -17,6 +17,7 @@ import {
   LayoutDashboard,
   Lock,
   Globe,
+  Settings,
 } from "lucide-react";
 import { SiGoogle } from "react-icons/si";
 import { useAuth } from "@/hooks/use-auth";
@@ -346,6 +347,16 @@ export default function LandingPage() {
             >
               <Library className="w-4 h-4 mr-2" />
               Content Library
+            </Button>
+          )}
+          {isAuthenticated && (
+            <Button
+              variant="outline"
+              onClick={() => navigate("/settings")}
+              data-testid="button-settings-footer"
+            >
+              <Settings className="w-4 h-4 mr-2" />
+              Preferences
             </Button>
           )}
           {adminCheck?.isAdmin && (
