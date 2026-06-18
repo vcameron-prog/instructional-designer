@@ -91,6 +91,54 @@ describe("EXTRACTION_ERROR_MESSAGES constant", () => {
       EXTRACTION_ERROR_MESSAGES["not-a-real-format"] ?? EXTRACTION_ERROR_FALLBACK;
     expect(result).toBe(EXTRACTION_ERROR_FALLBACK);
   });
+
+  it("each per-format message contains a human-readable reference to its format", () => {
+    const FORMAT_KEYWORDS: Record<string, RegExp> = {
+      pdf:            /pdf/i,
+      docx:           /word|docx/i,
+      xlsx:           /excel|spreadsheet/i,
+      pptx:           /powerpoint|presentation/i,
+      csv:            /csv/i,
+      rtf:            /rtf/i,
+      html:           /html/i,
+      odt:            /opendocument/i,
+      ods:            /opendocument|spreadsheet/i,
+      odp:            /opendocument|presentation/i,
+      epub:           /epub/i,
+      doc:            /\.doc/i,
+      "google-doc":   /google/i,
+      "google-sheet": /google/i,
+      "google-slide": /google/i,
+    };
+
+    for (const key of SUPPORTED_FORMAT_KEYS) {
+      const msg = EXTRACTION_ERROR_MESSAGES[key];
+      const pattern = FORMAT_KEYWORDS[key];
+      expect(
+        pattern.test(msg),
+        `Message for "${key}" must contain a human-readable reference to its format. Got: "${msg}"`,
+      ).toBe(true);
+    }
+  });
+
+  it("EXTRACTION_ERROR_FALLBACK is a human-readable sentence", () => {
+    expect(
+      EXTRACTION_ERROR_FALLBACK,
+      "Fallback must start with a capital letter",
+    ).toMatch(/^[A-Z]/);
+    expect(
+      EXTRACTION_ERROR_FALLBACK,
+      "Fallback must end with a period",
+    ).toMatch(/\.$/);
+    expect(
+      EXTRACTION_ERROR_FALLBACK,
+      "Fallback must contain at least one space (must be a sentence, not a jargon word)",
+    ).toMatch(/\s/);
+    expect(
+      EXTRACTION_ERROR_FALLBACK,
+      "Fallback must not contain raw technical output (stack traces, error codes, identifiers)",
+    ).not.toMatch(/Error:|at\s+\w+\s*\(|ENOENT|EACCES|undefined|null\b|stack/i);
+  });
 });
 
 // ---------------------------------------------------------------------------
