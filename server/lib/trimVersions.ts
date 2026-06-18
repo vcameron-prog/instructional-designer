@@ -4,7 +4,7 @@ import { eq, desc, and, notInArray, sql } from "drizzle-orm";
 
 const DEFAULT_VERSION_KEEP_COUNT = 10;
 
-function resolveKeepCount(): number {
+export function resolveKeepCount(): number {
   const raw = parseInt(process.env.CONTENT_VERSION_KEEP_COUNT ?? "", 10);
   if (Number.isInteger(raw) && raw >= 1) return raw;
   return DEFAULT_VERSION_KEEP_COUNT;

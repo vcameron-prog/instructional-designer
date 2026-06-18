@@ -13,72 +13,24 @@
  *   CONTENT_VERSION_KEEP_COUNT=5 tsx server/scripts/trim-versions.ts
  */
 
-import { db } from "../db.js";
-import { contentVersions } from "../../shared/schema.js";
-import { eq, desc, and, notInArray, sql } from "drizzle-orm";
+import { trimAllOversizedVersions, resolveKeepCount } from "../lib/trimVersions.js";
 
-const rawKeepCount = parseInt(process.env.CONTENT_VERSION_KEEP_COUNT ?? "10", 10);
-
-if (!Number.isInteger(rawKeepCount) || rawKeepCount < 1) {
-  console.error(
-    `Invalid CONTENT_VERSION_KEEP_COUNT="${process.env.CONTENT_VERSION_KEEP_COUNT}". ` +
-      "Must be a positive integer (e.g. 10). Aborting.",
-  );
-  process.exit(1);
+const raw = process.env.CONTENT_VERSION_KEEP_COUNT;
+if (raw !== undefined) {
+  const parsed = parseInt(raw, 10);
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    console.error(
+      `Invalid CONTENT_VERSION_KEEP_COUNT="${raw}". ` +
+        "Must be a positive integer (e.g. 10). Aborting.",
+    );
+    process.exit(1);
+  }
 }
 
-const KEEP_COUNT = rawKeepCount;
-
 async function main() {
-  console.log(`Starting version trim migration (keep_count=${KEEP_COUNT})...`);
-
-  const oversized = await db
-    .select({
-      contentId: contentVersions.generatedContentId,
-      total: sql<number>`count(*)::int`,
-    })
-    .from(contentVersions)
-    .groupBy(contentVersions.generatedContentId)
-    .having(sql`count(*) > ${KEEP_COUNT}`);
-
-  if (oversized.length === 0) {
-    console.log("No content items exceed the version limit. Nothing to do.");
-    process.exit(0);
-  }
-
-  console.log(
-    `Found ${oversized.length} content item(s) with more than ${KEEP_COUNT} versions.`,
-  );
-
-  let totalDeleted = 0;
-
-  for (const { contentId, total } of oversized) {
-    const toKeep = await db
-      .select({ id: contentVersions.id })
-      .from(contentVersions)
-      .where(eq(contentVersions.generatedContentId, contentId))
-      .orderBy(desc(contentVersions.createdAt))
-      .limit(KEEP_COUNT);
-
-    const keepIds = toKeep.map((v) => v.id);
-
-    await db
-      .delete(contentVersions)
-      .where(
-        and(
-          eq(contentVersions.generatedContentId, contentId),
-          notInArray(contentVersions.id, keepIds),
-        ),
-      );
-
-    const deleted = total - KEEP_COUNT;
-    totalDeleted += deleted;
-    console.log(
-      `  content_id=${contentId}: had ${total}, deleted ${deleted}, kept ${KEEP_COUNT}`,
-    );
-  }
-
-  console.log(`\nDone. Deleted ${totalDeleted} excess version row(s) in total.`);
+  const keepCount = resolveKeepCount();
+  console.log(`Starting version trim migration (keep_count=${keepCount})...`);
+  await trimAllOversizedVersions();
   process.exit(0);
 }
 
