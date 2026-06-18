@@ -1744,6 +1744,25 @@ export default function PdfConversion() {
                               <span className="text-xs font-mono bg-secondary text-secondary-foreground px-2 py-0.5 rounded font-bold">
                                 WCAG {issue.criterion} ({issue.level})
                               </span>
+                              {isFixable && (
+                                isInstant ? (
+                                  <span
+                                    className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800"
+                                    data-testid={`badge-fix-type-${i}`}
+                                  >
+                                    <Zap className="w-3 h-3" aria-hidden="true" />
+                                    Instant fix
+                                  </span>
+                                ) : (
+                                  <span
+                                    className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 border border-violet-200 dark:border-violet-800"
+                                    data-testid={`badge-fix-type-${i}`}
+                                  >
+                                    <Wand2 className="w-3 h-3" aria-hidden="true" />
+                                    AI-powered
+                                  </span>
+                                )
+                              )}
                             </div>
                           </div>
                           <ChevronDown
