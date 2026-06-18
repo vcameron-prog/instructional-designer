@@ -2301,6 +2301,39 @@ describe("runDeterministicChecks – heading order check (1.3.1)", () => {
     expect(orderIssue!.status).toBe("warning");
     expect(orderIssue!.details).toBe("Heading levels appear to skip: h1 → h3. This may confuse screen reader users.");
   });
+
+  it("passes with correct details string for a single heading level (h1 only)", () => {
+    const html = `<html lang="en"><body><h1>Only Heading</h1></body></html>`;
+    const issues = runDeterministicChecks(html);
+    const orderIssue = issues.find(
+      (i) => i.criterion === "1.3.1" && i.title === "Heading Order"
+    );
+    expect(orderIssue).toBeDefined();
+    expect(orderIssue!.status).toBe("pass");
+    expect(orderIssue!.details).toBe("Headings follow a logical order (h1).");
+  });
+
+  it("passes with correct details string for a sequence starting at h2 (h2, h3)", () => {
+    const html = `<html lang="en"><body><h2>Section</h2><h3>Sub</h3></body></html>`;
+    const issues = runDeterministicChecks(html);
+    const orderIssue = issues.find(
+      (i) => i.criterion === "1.3.1" && i.title === "Heading Order"
+    );
+    expect(orderIssue).toBeDefined();
+    expect(orderIssue!.status).toBe("pass");
+    expect(orderIssue!.details).toBe("Headings follow a logical order (h2, h3).");
+  });
+
+  it("passes with correct details string for a longer sequence (h1, h2, h3, h4)", () => {
+    const html = `<html lang="en"><body><h1>Title</h1><h2>Section</h2><h3>Sub</h3><h4>Detail</h4></body></html>`;
+    const issues = runDeterministicChecks(html);
+    const orderIssue = issues.find(
+      (i) => i.criterion === "1.3.1" && i.title === "Heading Order"
+    );
+    expect(orderIssue).toBeDefined();
+    expect(orderIssue!.status).toBe("pass");
+    expect(orderIssue!.details).toBe("Headings follow a logical order (h1, h2, h3, h4).");
+  });
 });
 
 describe("runDeterministicChecks – contrast check (1.4.3)", () => {
