@@ -57,11 +57,14 @@ const anthropic = new Anthropic({
 let aiFixRetryCount = 0;
 let aiFixRetryLastAt: string | null = null;
 
-const AI_FIX_RETRY_KEY = "ai_fix_retry";
+// DB row key used in the app_metrics table.
+// Exported so tests can reference the canonical value instead of repeating
+// the string literal — a rename in source will cause a compile-time mismatch.
+export const AI_FIX_RETRY_METRIC_KEY = "ai_fix_retry";
 
 export async function getAiFixRetryMetrics(): Promise<{ retryCount: number; lastRetryAt: string | null }> {
   try {
-    const [row] = await db.select().from(appMetrics).where(sql`${appMetrics.key} = ${AI_FIX_RETRY_KEY}`);
+    const [row] = await db.select().from(appMetrics).where(sql`${appMetrics.key} = ${AI_FIX_RETRY_METRIC_KEY}`);
     if (row) {
       return {
         retryCount: row.count,
@@ -78,7 +81,7 @@ async function persistAiFixRetry(timestamp: string): Promise<void> {
   try {
     await db
       .insert(appMetrics)
-      .values({ key: AI_FIX_RETRY_KEY, count: 1, lastAt: new Date(timestamp) })
+      .values({ key: AI_FIX_RETRY_METRIC_KEY, count: 1, lastAt: new Date(timestamp) })
       .onConflictDoUpdate({
         target: appMetrics.key,
         set: {
