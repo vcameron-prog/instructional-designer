@@ -2051,20 +2051,41 @@ export default function PdfConversion() {
                                     <p className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wide">
                                       Images missing alt text
                                     </p>
-                                    <button
-                                      onClick={() => copyAllFilenames(issue.imageItems.map((item: any) => item.label), i)}
-                                      className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-800/60 border border-amber-300 dark:border-amber-700 transition-colors"
-                                      data-testid={`button-copy-all-filenames-${i}`}
-                                      title={`Copy all ${issue.imageItems.length} filename${issue.imageItems.length === 1 ? "" : "s"}`}
-                                      aria-label={`Copy all ${issue.imageItems.length} filename${issue.imageItems.length === 1 ? "" : "s"}`}
-                                    >
-                                      {copiedAllKeys.has(i) ? (
-                                        <Check className="w-3 h-3" />
-                                      ) : (
-                                        <ClipboardCopy className="w-3 h-3" />
-                                      )}
-                                      {copiedAllKeys.has(i) ? "Copied!" : `Copy all (${issue.imageItems.length})`}
-                                    </button>
+                                    <div className="flex items-center gap-1">
+                                      <button
+                                        onClick={() => copyAllFilenames(issue.imageItems.map((item: any) => item.label), i)}
+                                        className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-800/60 border border-amber-300 dark:border-amber-700 transition-colors"
+                                        data-testid={`button-copy-all-filenames-${i}`}
+                                        title={`Copy all ${issue.imageItems.length} filename${issue.imageItems.length === 1 ? "" : "s"}`}
+                                        aria-label={`Copy all ${issue.imageItems.length} filename${issue.imageItems.length === 1 ? "" : "s"}`}
+                                      >
+                                        {copiedAllKeys.has(i) ? (
+                                          <Check className="w-3 h-3" />
+                                        ) : (
+                                          <ClipboardCopy className="w-3 h-3" />
+                                        )}
+                                        {copiedAllKeys.has(i) ? "Copied!" : `Copy all (${issue.imageItems.length})`}
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          const text = issue.imageItems.map((item: any) => item.label).join("\n");
+                                          const blob = new Blob([text], { type: "text/plain" });
+                                          const url = URL.createObjectURL(blob);
+                                          const a = document.createElement("a");
+                                          a.href = url;
+                                          a.download = "missing-alt-filenames.txt";
+                                          a.click();
+                                          URL.revokeObjectURL(url);
+                                        }}
+                                        className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-800/60 border border-amber-300 dark:border-amber-700 transition-colors"
+                                        data-testid={`button-download-filenames-${i}`}
+                                        title={`Download list of ${issue.imageItems.length} filename${issue.imageItems.length === 1 ? "" : "s"} as .txt`}
+                                        aria-label={`Download list of ${issue.imageItems.length} filename${issue.imageItems.length === 1 ? "" : "s"} as .txt`}
+                                      >
+                                        <Download className="w-3 h-3" />
+                                        Download list
+                                      </button>
+                                    </div>
                                   </div>
                                   <ul className="space-y-1.5" data-testid="missing-alt-image-list">
                                     {issue.imageItems.map((item: any, imgIdx: number) => (
