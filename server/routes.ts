@@ -191,7 +191,10 @@ setInterval(
   10 * 60 * 1000,
 );
 
-// Per-user AI generation rate limiting
+// Per-user AI generation rate limiting.
+// Authenticated users are checked via checkSharedRateLimit (DB-backed, cross-instance).
+// This process-local Map is used only as the fallback for anonymous users or when
+// the DB is unavailable.
 const aiGenRateLimits = new Map<string, { count: number; resetAt: number }>();
 const AI_GEN_RATE_LIMIT = parseInt(process.env.AI_GEN_RATE_LIMIT ?? "20", 10) || 20;
 const AI_GEN_RATE_WINDOW_MS = 60 * 60 * 1000;
@@ -218,7 +221,10 @@ setInterval(
   10 * 60 * 1000,
 );
 
-// Per-user conversion upload rate limiting
+// Per-user conversion upload rate limiting.
+// Authenticated users are checked via checkSharedRateLimit (DB-backed, cross-instance).
+// This process-local Map is used only as the fallback for anonymous users or when
+// the DB is unavailable.
 const uploadRateLimits = new Map<string, { count: number; resetAt: number }>();
 const UPLOAD_RATE_LIMIT = parseInt(process.env.UPLOAD_RATE_LIMIT ?? "30", 10) || 30;
 const UPLOAD_RATE_WINDOW_MS = 60 * 60 * 1000;
@@ -253,9 +259,11 @@ setInterval(
 // per-instance limits are not globally enforced. The per-conversion
 // deduplication keys (activeProcessingKeys, activeFixKeys) and the DB-backed
 // shared rate limit (checkSharedRateLimit) are the primary cross-instance
-// guards for the most expensive paths. Authenticated-user heavy-op rate
-// limits now use checkSharedRateLimit (backed by the rate_limit_log table)
-// so they are enforced globally across all instances.
+// guards for the most expensive paths. Authenticated-user upload, AI-gen, and
+// heavy-op rate limits all use checkSharedRateLimit (backed by the
+// rate_limit_log table) so they are enforced globally across all instances.
+// The process-local Maps (uploadRateLimits, aiGenRateLimits, heavyOpRateLimits)
+// are retained as anonymous-only fallbacks when the DB is unavailable.
 let activeProcessingJobs = 0;
 const MAX_CONCURRENT_PROCESSING = parseInt(process.env.MAX_CONCURRENT_PROCESSING ?? "3", 10) || 3;
 // Per-conversion in-flight deduplication — prevents the same document from
@@ -2032,7 +2040,7 @@ export async function registerRoutes(
           return res.status(404).json({ error: "Course not found" });
         }
 
-        if (!checkAiGenRateLimit(userId)) {
+        if (!await checkSharedRateLimit(userId, "ai-gen", AI_GEN_RATE_LIMIT, AI_GEN_RATE_WINDOW_MS, () => checkAiGenRateLimit(userId))) {
           return res.status(429).json({ error: "AI generation rate limit exceeded. Please try again later." });
         }
 
@@ -2075,7 +2083,7 @@ export async function registerRoutes(
         const userId = getUserId(req) as string;
         const { toolId, toolName, formData } = req.body;
 
-        if (!checkAiGenRateLimit(userId)) {
+        if (!await checkSharedRateLimit(userId, "ai-gen", AI_GEN_RATE_LIMIT, AI_GEN_RATE_WINDOW_MS, () => checkAiGenRateLimit(userId))) {
           return res.status(429).json({ error: "AI generation rate limit exceeded. Please try again later." });
         }
 
@@ -2182,7 +2190,7 @@ export async function registerRoutes(
           return res.status(404).json({ error: "Content not found" });
         }
 
-        if (!checkAiGenRateLimit(userId)) {
+        if (!await checkSharedRateLimit(userId, "ai-gen", AI_GEN_RATE_LIMIT, AI_GEN_RATE_WINDOW_MS, () => checkAiGenRateLimit(userId))) {
           return res.status(429).json({ error: "AI generation rate limit exceeded. Please try again later." });
         }
 
@@ -2259,9 +2267,11 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         } else if (fixType === "fix-heading-skip") {
           fixedContent = fixHeadingSkip(content.content);
         } else if (fixType === "fix-vague-link-text") {
-          const rateLimitKey = userId ?? (req.ip || req.socket.remoteAddress || "unknown");
-          const rateLimitFn = userId ? checkAiGenRateLimit : checkAnonRateLimit;
-          if (!rateLimitFn(rateLimitKey)) {
+          const ip = req.ip || req.socket.remoteAddress || "unknown";
+          const allowed = userId
+            ? await checkSharedRateLimit(userId, "ai-gen", AI_GEN_RATE_LIMIT, AI_GEN_RATE_WINDOW_MS, () => checkAiGenRateLimit(userId))
+            : checkAnonRateLimit(ip);
+          if (!allowed) {
             return res.status(429).json({ error: "Rate limit exceeded. Please try again later." });
           }
           fixedContent = await fixVagueLinkTextAI(content.content);
@@ -2313,9 +2323,11 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         } else if (fixType === "fix-heading-skip") {
           fixedContent = fixHeadingSkip(content.content);
         } else if (fixType === "fix-vague-link-text") {
-          const rateLimitKey = userId ?? (req.ip || req.socket.remoteAddress || "unknown");
-          const rateLimitFn = userId ? checkAiGenRateLimit : checkAnonRateLimit;
-          if (!rateLimitFn(rateLimitKey)) {
+          const ip = req.ip || req.socket.remoteAddress || "unknown";
+          const allowed = userId
+            ? await checkSharedRateLimit(userId, "ai-gen", AI_GEN_RATE_LIMIT, AI_GEN_RATE_WINDOW_MS, () => checkAiGenRateLimit(userId))
+            : checkAnonRateLimit(ip);
+          if (!allowed) {
             return res.status(429).json({ error: "Rate limit exceeded. Please try again later." });
           }
           fixedContent = await fixVagueLinkTextAI(content.content);
@@ -2910,13 +2922,19 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     },
   );
 
-  const uploadRateLimitGuard = (req: Request, res: Response, next: NextFunction) => {
+  const uploadRateLimitGuard = async (req: Request, res: Response, next: NextFunction) => {
     const userId = getUserId(req);
-    const key = userId ?? (req.ip || req.socket.remoteAddress || "unknown");
-    const fn = userId ? checkUploadRateLimit : checkAnonRateLimit;
-    if (!fn(key)) {
-      res.status(429).json({ error: "Upload rate limit exceeded. Please try again later." });
-      return;
+    if (userId) {
+      if (!await checkSharedRateLimit(userId, "upload", UPLOAD_RATE_LIMIT, UPLOAD_RATE_WINDOW_MS, () => checkUploadRateLimit(userId))) {
+        res.status(429).json({ error: "Upload rate limit exceeded. Please try again later." });
+        return;
+      }
+    } else {
+      const ip = req.ip || req.socket.remoteAddress || "unknown";
+      if (!checkAnonRateLimit(ip)) {
+        res.status(429).json({ error: "Upload rate limit exceeded. Please try again later." });
+        return;
+      }
     }
     next();
   };
@@ -3036,10 +3054,10 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     async (req: Request, res: Response) => {
       const userId = getUserId(req);
 
-      const googleDocRateLimitKey = userId ?? (req.ip || req.socket.remoteAddress || "unknown");
-      const googleDocRateLimitFn = userId ? checkUploadRateLimit : checkAnonRateLimit;
-      if (!googleDocRateLimitFn(googleDocRateLimitKey)) {
-        return res.status(429).json({ error: "Upload rate limit exceeded. Please try again later." });
+      if (userId) {
+        if (!await checkSharedRateLimit(userId, "upload", UPLOAD_RATE_LIMIT, UPLOAD_RATE_WINDOW_MS, () => checkUploadRateLimit(userId))) {
+          return res.status(429).json({ error: "Upload rate limit exceeded. Please try again later." });
+        }
       }
 
       // Shared cross-instance rate limit for anonymous sessions.
@@ -3277,10 +3295,10 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     async (req: Request, res: Response) => {
       const userId = getUserId(req);
 
-      const sheetRateLimitKey = userId ?? (req.ip || req.socket.remoteAddress || "unknown");
-      const sheetRateLimitFn = userId ? checkUploadRateLimit : checkAnonRateLimit;
-      if (!sheetRateLimitFn(sheetRateLimitKey)) {
-        return res.status(429).json({ error: "Upload rate limit exceeded. Please try again later." });
+      if (userId) {
+        if (!await checkSharedRateLimit(userId, "upload", UPLOAD_RATE_LIMIT, UPLOAD_RATE_WINDOW_MS, () => checkUploadRateLimit(userId))) {
+          return res.status(429).json({ error: "Upload rate limit exceeded. Please try again later." });
+        }
       }
 
       // Shared cross-instance rate limit for anonymous sessions.
@@ -3515,10 +3533,10 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     async (req: Request, res: Response) => {
       const userId = getUserId(req);
 
-      const slideRateLimitKey = userId ?? (req.ip || req.socket.remoteAddress || "unknown");
-      const slideRateLimitFn = userId ? checkUploadRateLimit : checkAnonRateLimit;
-      if (!slideRateLimitFn(slideRateLimitKey)) {
-        return res.status(429).json({ error: "Upload rate limit exceeded. Please try again later." });
+      if (userId) {
+        if (!await checkSharedRateLimit(userId, "upload", UPLOAD_RATE_LIMIT, UPLOAD_RATE_WINDOW_MS, () => checkUploadRateLimit(userId))) {
+          return res.status(429).json({ error: "Upload rate limit exceeded. Please try again later." });
+        }
       }
 
       // Shared cross-instance rate limit for anonymous sessions.
