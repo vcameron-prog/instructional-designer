@@ -893,6 +893,20 @@ export default function PdfConversion() {
           duration: 10000,
         });
       }
+
+      const updatedNoFixReasons: Record<number, string> = {};
+      issues.forEach((issue, idx) => {
+        if (
+          issue.title?.includes("ARIA") &&
+          (issue.status === "fail" || issue.status === "warning")
+        ) {
+          updatedNoFixReasons[idx] =
+            "This ARIA issue could not be automatically fixed and requires manual attention.";
+        }
+      });
+      if (Object.keys(updatedNoFixReasons).length > 0) {
+        setNoFixReasons((prev) => ({ ...prev, ...updatedNoFixReasons }));
+      }
     } catch {
       setFixError("Failed to fix ARIA role issues. Please try again.");
     } finally {
