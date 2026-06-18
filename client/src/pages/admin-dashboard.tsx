@@ -180,64 +180,76 @@ export default function AdminDashboard() {
 
   if (isAuthLoading || isCheckingAdmin) {
     return (
-      <main id="main-content" tabIndex={-1} className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 text-primary animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">Loading...</p>
+      <main id="main-content" tabIndex={-1} className="min-h-screen bg-background flex flex-col">
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <Loader2 className="w-12 h-12 text-primary animate-spin mx-auto mb-4" />
+            <p className="text-muted-foreground">Loading...</p>
+          </div>
         </div>
+        <PoweredByFooter />
       </main>
     );
   }
 
   if (!isAuthenticated || !adminCheck?.isAdmin) {
     return (
-      <main id="main-content" tabIndex={-1} className="min-h-screen bg-background flex items-center justify-center">
-        <Card className="max-w-md mx-auto">
-          <CardContent className="p-8 text-center">
-            <ShieldAlert className="w-16 h-16 text-destructive mx-auto mb-4" />
-            <h1 className="text-2xl font-bold mb-2">Access Denied</h1>
-            <p className="text-muted-foreground mb-6">You do not have admin access to view this page.</p>
-            <Button onClick={() => navigate("/")} data-testid="button-back-home">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Home
-            </Button>
-          </CardContent>
-        </Card>
+      <main id="main-content" tabIndex={-1} className="min-h-screen bg-background flex flex-col">
+        <div className="flex-1 flex items-center justify-center">
+          <Card className="max-w-md mx-auto">
+            <CardContent className="p-8 text-center">
+              <ShieldAlert className="w-16 h-16 text-destructive mx-auto mb-4" />
+              <h1 className="text-2xl font-bold mb-2">Access Denied</h1>
+              <p className="text-muted-foreground mb-6">You do not have admin access to view this page.</p>
+              <Button onClick={() => navigate("/")} data-testid="button-back-home">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Home
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+        <PoweredByFooter />
       </main>
     );
   }
 
   if (isError) {
     return (
-      <main id="main-content" tabIndex={-1} className="min-h-screen bg-background flex items-center justify-center">
-        <Card className="max-w-md mx-auto">
-          <CardContent className="p-8 text-center">
-            <ShieldAlert className="w-16 h-16 text-destructive mx-auto mb-4" />
-            <h1 className="text-2xl font-bold mb-2">Failed to Load Dashboard</h1>
-            <p className="text-muted-foreground mb-6">{error?.message || "An error occurred while loading stats."}</p>
-            <div className="flex gap-3 justify-center">
-              <Button variant="outline" onClick={() => navigate("/")} data-testid="button-error-back">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Home
-              </Button>
-              <Button onClick={() => refetch()} data-testid="button-error-retry">
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Retry
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+      <main id="main-content" tabIndex={-1} className="min-h-screen bg-background flex flex-col">
+        <div className="flex-1 flex items-center justify-center">
+          <Card className="max-w-md mx-auto">
+            <CardContent className="p-8 text-center">
+              <ShieldAlert className="w-16 h-16 text-destructive mx-auto mb-4" />
+              <h1 className="text-2xl font-bold mb-2">Failed to Load Dashboard</h1>
+              <p className="text-muted-foreground mb-6">{error?.message || "An error occurred while loading stats."}</p>
+              <div className="flex gap-3 justify-center">
+                <Button variant="outline" onClick={() => navigate("/")} data-testid="button-error-back">
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Home
+                </Button>
+                <Button onClick={() => refetch()} data-testid="button-error-retry">
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Retry
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+        <PoweredByFooter />
       </main>
     );
   }
 
   if (isLoadingStats || !stats) {
     return (
-      <main id="main-content" tabIndex={-1} className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 text-primary animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">Loading dashboard data...</p>
+      <main id="main-content" tabIndex={-1} className="min-h-screen bg-background flex flex-col">
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <Loader2 className="w-12 h-12 text-primary animate-spin mx-auto mb-4" />
+            <p className="text-muted-foreground">Loading dashboard data...</p>
+          </div>
         </div>
+        <PoweredByFooter />
       </main>
     );
   }
