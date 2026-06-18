@@ -79,7 +79,7 @@
     "date-fns": "^3.6.0",
     "diff": "^9.0.0",
     "docx": "^9.5.1",
-    "dompurify": "^3.4.1",
+    "dompurify": "^3.4.11",
     "drizzle-orm": "^0.45.2",
     "drizzle-zod": "^0.7.1",
     "embla-carousel-react": "^8.6.0",
@@ -94,11 +94,11 @@
     "mammoth": "^1.12.0",
     "memoizee": "^0.4.17",
     "memorystore": "^1.6.7",
-    "multer": "^2.1.1",
+    "multer": "^2.2.0",
     "next-themes": "^0.4.6",
     "node-cron": "^4.2.1",
     "node-html-parser": "^7.1.0",
-    "nodemailer": "^8.0.7",
+    "nodemailer": "^8.0.11",
     "openid-client": "^6.8.1",
     "p-limit": "^7.3.0",
     "p-retry": "^7.1.1",
@@ -133,7 +133,7 @@
     "vitest": "^4.1.5",
     "word-extractor": "^1.0.4",
     "wouter": "^3.3.5",
-    "ws": "^8.20.1",
+    "ws": "^8.21.0",
     "zod": "^3.25.76",
     "zod-validation-error": "^3.5.4"
   },
@@ -160,13 +160,14 @@
     "tailwindcss": "^3.4.17",
     "tsx": "^4.20.5",
     "typescript": "5.6.3",
-    "vite": "^7.3.2"
+    "vite": "^7.3.5"
   },
   "overrides": {
     "drizzle-kit": {
       "@esbuild-kit/esm-loader": "npm:tsx@^4.20.4"
     },
-    "uuid": "^14.0.0"
+    "uuid": "^14.0.0",
+    "@babel/core": "^7.29.7"
   },
   "optionalDependencies": {
     "bufferutil": "^4.0.8"
