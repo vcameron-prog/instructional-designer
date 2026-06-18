@@ -129,6 +129,22 @@ function componentFilesWithFooterImport(): string[] {
 }
 
 /**
+ * Returns the paths of every .tsx file in client/src/components/ (recursively)
+ * that imports the LoadingScreen component.
+ *
+ * These files are expected to have at least one loading-guard early-return
+ * branch detectable by `loadingBranchReturnBlocks`.  The helper is
+ * intentionally written to return zero results when no component file imports
+ * LoadingScreen; the companion coverage-check test skips the "must find at
+ * least one file" sanity check so it remains a no-op until such a file exists.
+ */
+function componentFilesWithLoadingImport(): string[] {
+  return collectTsxFiles(COMPONENTS_DIR).filter((filePath) =>
+    readFileSync(filePath, "utf-8").includes("loading-screen"),
+  );
+}
+
+/**
  * Walk `source` starting at `startIdx` (the opening `(`) and return the index
  * of the matching closing `)`, handling string literals so parens inside
  * strings don't confuse the count.  Returns -1 if no match found.
@@ -495,6 +511,40 @@ describe("PoweredByFooter — component loading-branch regression", () => {
             `components/${fileName}: a loading-guard return block is missing <PoweredByFooter />`,
           );
         }
+      }
+    }
+
+    expect(violations).toEqual([]);
+  });
+
+  /**
+   * Coverage check: every component file that imports LoadingScreen must have
+   * at least one loading-guard early-return block detected by
+   * `loadingBranchReturnBlocks`.
+   *
+   * Candidates are discovered dynamically via `componentFilesWithLoadingImport`,
+   * so any new layout component (e.g. an error boundary or access-gate wrapper)
+   * that imports LoadingScreen is automatically included without manual list
+   * maintenance.
+   *
+   * No "must find at least one file" sanity check is performed because it is
+   * valid (and currently the case) that zero component files import LoadingScreen.
+   * The test becomes active automatically once any such file exists.
+   */
+  it("loading-branch detection finds at least one block in each component that imports LoadingScreen", () => {
+    const filePaths = componentFilesWithLoadingImport();
+    const violations: string[] = [];
+
+    for (const filePath of filePaths) {
+      const source = readFileSync(filePath, "utf-8");
+      const fileName = path.relative(COMPONENTS_DIR, filePath);
+      const blocks = loadingBranchReturnBlocks(source);
+
+      if (blocks.length === 0) {
+        violations.push(
+          `components/${fileName}: imports LoadingScreen but no loading-guard return blocks were detected — ` +
+            "either the file was refactored or LOADING_VAR_PATTERN needs updating",
+        );
       }
     }
 
