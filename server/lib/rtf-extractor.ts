@@ -1,23 +1,71 @@
+import { createRequire } from "module";
 import type { PdfExtraction } from "./pdf-processor";
 
+const require = createRequire(import.meta.url);
+
+interface RtfSpan {
+  value: string;
+}
+
+interface RtfParagraph {
+  content: RtfSpan[];
+}
+
+interface RtfDocument {
+  content: RtfParagraph[];
+}
+
+type ParseCallback = (err: Error | null, doc: RtfDocument) => void;
+
+interface RtfParserModule {
+  string: (rtf: string, cb: ParseCallback) => void;
+}
+
+const parseRtf = require("rtf-parser") as RtfParserModule;
+
+function parseRtfToText(rtfString: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    parseRtf.string(rtfString, (err, doc) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+
+      const paragraphs: string[] = [];
+      for (const para of doc.content) {
+        if (!Array.isArray(para.content)) continue;
+        const spanText = para.content
+          .map((span) => (span.value ?? ""))
+          .join("");
+        paragraphs.push(spanText);
+      }
+
+      const text = paragraphs
+        .join("\n")
+        .split("\n")
+        .map((l) => l.trim())
+        .join("\n")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim();
+
+      resolve(text);
+    });
+  });
+}
+
 /**
- * Strip RTF markup and return plain text.
- * RTF is plain ASCII: control words start with `\`, groups are `{...}`.
- * We remove all control words/symbols and group delimiters, then decode
- * common RTF escape sequences (\'XX hex chars) to their UTF-8 equivalents.
+ * Fallback: strip RTF markup with a simple regex approach.
+ * Used only when the library parser fails (e.g. severely malformed files).
  */
-function stripRtf(rtf: string): string {
-  // Remove the RTF header line
+function stripRtfFallback(rtf: string): string {
   let text = rtf;
 
-  // Ignore embedded objects / pictures ({\*\objdata ...}, {\pict ...})
-  // by removing them before general stripping
-  text = text.replace(/\{\\(pict|object|objdata|objclass|objtime|objw|objh|rsidroot|datastore|datafield|bin\d*)[^}]*\}/gi, "");
-
-  // Remove destination groups that contain binary/unneeded data
+  text = text.replace(
+    /\{\\(pict|object|objdata|objclass|objtime|objw|objh|rsidroot|datastore|datafield|bin\d*)[^}]*\}/gi,
+    ""
+  );
   text = text.replace(/\{\\\*[^}]*\}/g, "");
 
-  // Decode RTF unicode escapes: \uN? (unicode codepoint + fallback char)
   text = text.replace(/\\u(\d+)\??/g, (_, n) => {
     const code = parseInt(n, 10);
     try {
@@ -27,12 +75,9 @@ function stripRtf(rtf: string): string {
     }
   });
 
-  // Decode RTF hex escapes: \'XX  (Windows-1252 code points)
   text = text.replace(/\\'([0-9a-fA-F]{2})/g, (_, hex) => {
     const code = parseInt(hex, 16);
     try {
-      // Use a Windows-1252-like decode: for values < 0x80 and 0xa0-0xff
-      // most map directly; 0x80-0x9f have special W1252 mappings
       const W1252: Record<number, number> = {
         0x80: 0x20ac, 0x82: 0x201a, 0x83: 0x0192, 0x84: 0x201e,
         0x85: 0x2026, 0x86: 0x2020, 0x87: 0x2021, 0x88: 0x02c6,
@@ -49,42 +94,34 @@ function stripRtf(rtf: string): string {
     }
   });
 
-  // Replace common RTF paragraph/line break control words with newlines
   text = text.replace(/\\(par|pard|line|page|sect|column)\b/g, "\n");
-  // Tab
   text = text.replace(/\\tab\b/g, "\t");
-  // Soft hyphen / optional hyphen
   text = text.replace(/\\-/g, "");
-  // Non-breaking space
   text = text.replace(/\\~/g, "\u00a0");
-  // En-dash, em-dash
   text = text.replace(/\\endash\b/g, "\u2013");
   text = text.replace(/\\emdash\b/g, "\u2014");
-  // Bullets
   text = text.replace(/\\bullet\b/g, "\u2022");
-
-  // Remove all remaining control words: \word or \word<N> (possibly followed by space)
   text = text.replace(/\\[a-zA-Z]+(-?\d+)? ?/g, "");
-
-  // Remove control symbols (single non-alpha char after \, e.g. \*, \:, \;)
   text = text.replace(/\\[^a-zA-Z]/g, "");
-
-  // Remove group delimiters
   text = text.replace(/[{}]/g, "");
 
-  // Collapse excess whitespace
-  text = text
+  return text
     .split("\n")
     .map((l) => l.trim())
     .join("\n")
-    .replace(/\n{3,}/g, "\n\n");
-
-  return text.trim();
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 export async function extractRtfContent(buffer: Buffer): Promise<PdfExtraction> {
   const raw = buffer.toString("latin1");
-  const text = stripRtf(raw);
+
+  let text: string;
+  try {
+    text = await parseRtfToText(raw);
+  } catch {
+    text = stripRtfFallback(raw);
+  }
 
   const lines = text.split("\n").filter((l) => l.trim().length > 0);
   const estimatedPages = Math.max(1, Math.ceil(lines.length / 40));
