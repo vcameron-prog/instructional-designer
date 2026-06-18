@@ -18,6 +18,9 @@ const {
   mockFixHtmlTableCaption,
   mockEditHtmlTableCaption,
   mockFixHtmlTableThead,
+  mockApplyAriaComboboxRoleFix,
+  mockApplyAriaGridRoleFix,
+  mockApplyAriaTabRoleFix,
 } = vi.hoisted(() => ({
   mockPruneOldVersions: vi.fn(),
   mockGetContent: vi.fn(),
@@ -29,6 +32,9 @@ const {
   mockFixHtmlTableCaption: vi.fn(),
   mockEditHtmlTableCaption: vi.fn(),
   mockFixHtmlTableThead: vi.fn(),
+  mockApplyAriaComboboxRoleFix: vi.fn(),
+  mockApplyAriaGridRoleFix: vi.fn(),
+  mockApplyAriaTabRoleFix: vi.fn(),
 }));
 
 // ---------------------------------------------------------------------------
@@ -120,11 +126,16 @@ vi.mock("./lib/table-fixers.js", () => ({
 }));
 
 // ---------------------------------------------------------------------------
-// Mock: accessibility-engine – only getDeterministicFixerKeys is needed
-// at the module level in routes.ts (for the /api/deterministic-fixers route).
+// Mock: accessibility-engine – getDeterministicFixerKeys is needed at module
+// level in routes.ts (for the /api/deterministic-fixers route). The three
+// ARIA role fixers are dynamically imported inside the route handlers; the
+// vi.mock factory intercepts those dynamic imports too.
 // ---------------------------------------------------------------------------
 vi.mock("./lib/accessibility-engine", () => ({
   getDeterministicFixerKeys: () => [],
+  applyAriaComboboxRoleFix: mockApplyAriaComboboxRoleFix,
+  applyAriaGridRoleFix: mockApplyAriaGridRoleFix,
+  applyAriaTabRoleFix: mockApplyAriaTabRoleFix,
 }));
 
 // ---------------------------------------------------------------------------
@@ -212,6 +223,11 @@ describe("pruneOldVersions is called correctly from route handlers", () => {
       html,
       tablesFixed: 0,
     }));
+
+    // Default: ARIA role fixer mocks are passthroughs (no change).
+    mockApplyAriaComboboxRoleFix.mockImplementation((html: string) => html);
+    mockApplyAriaGridRoleFix.mockImplementation((html: string) => html);
+    mockApplyAriaTabRoleFix.mockImplementation((html: string) => html);
   });
 
   // -------------------------------------------------------------------------
@@ -693,6 +709,359 @@ describe("pruneOldVersions is called correctly from route handlers", () => {
 
       expect(mockCreateVersion).not.toHaveBeenCalled();
       expect(mockPruneOldVersions).not.toHaveBeenCalled();
+    });
+
+    // -----------------------------------------------------------------------
+    // fix-aria-combobox
+    // -----------------------------------------------------------------------
+    it("calls pruneOldVersions and applyAriaComboboxRoleFix when fix-aria-combobox changes content", async () => {
+      const contentId = 630;
+      const originalContent = '<div role="combobox"></div>';
+      const fixedContent = '<div role="combobox" aria-expanded="false"></div>';
+
+      mockGetContent.mockResolvedValue({
+        id: contentId,
+        content: originalContent,
+        toolName: "assignment",
+        courseId: null,
+        userId: null,
+      });
+      mockCreateVersion.mockResolvedValue({
+        id: 631,
+        generatedContentId: contentId,
+        content: originalContent,
+        refinementRequest: "accessibility-fix-snapshot",
+        createdAt: new Date(),
+      });
+      mockUpdateContent.mockResolvedValue({
+        id: contentId,
+        content: fixedContent,
+        toolName: "assignment",
+        courseId: null,
+        userId: null,
+      });
+      mockApplyAriaComboboxRoleFix.mockReturnValue(fixedContent);
+
+      const response = await request(app)
+        .post(`/api/content/${contentId}/fix-accessibility`)
+        .send({ fixType: "fix-aria-combobox" })
+        .expect(200);
+
+      expect(mockApplyAriaComboboxRoleFix).toHaveBeenCalledTimes(1);
+      expect(mockApplyAriaComboboxRoleFix).toHaveBeenCalledWith(originalContent);
+      expect(mockPruneOldVersions).toHaveBeenCalledTimes(1);
+      expect(mockPruneOldVersions).toHaveBeenCalledWith(contentId, EXPECTED_KEEP_COUNT);
+      expect(response.body.preFixVersionId).toBe(631);
+    });
+
+    it("does NOT call pruneOldVersions when fix-aria-combobox leaves content unchanged", async () => {
+      const contentId = 632;
+      const alreadyFixed = '<div role="combobox" aria-expanded="false"></div>';
+
+      mockGetContent.mockResolvedValue({
+        id: contentId,
+        content: alreadyFixed,
+        toolName: "rubric",
+        courseId: null,
+        userId: null,
+      });
+      // Default mock is a passthrough — no change
+
+      await request(app)
+        .post(`/api/content/${contentId}/fix-accessibility`)
+        .send({ fixType: "fix-aria-combobox" })
+        .expect(200);
+
+      expect(mockApplyAriaComboboxRoleFix).toHaveBeenCalledTimes(1);
+      expect(mockCreateVersion).not.toHaveBeenCalled();
+      expect(mockPruneOldVersions).not.toHaveBeenCalled();
+    });
+
+    // -----------------------------------------------------------------------
+    // fix-aria-grid
+    // -----------------------------------------------------------------------
+    it("calls pruneOldVersions and applyAriaGridRoleFix when fix-aria-grid changes content", async () => {
+      const contentId = 610;
+      const originalContent = '<div role="grid"><div role="row"><div role="gridcell">Data</div></div></div>';
+      const fixedContent = '<table role="grid"><tr role="row"><td role="gridcell">Data</td></tr></table>';
+
+      mockGetContent.mockResolvedValue({
+        id: contentId,
+        content: originalContent,
+        toolName: "assignment",
+        courseId: null,
+        userId: null,
+      });
+      mockCreateVersion.mockResolvedValue({
+        id: 611,
+        generatedContentId: contentId,
+        content: originalContent,
+        refinementRequest: "accessibility-fix-snapshot",
+        createdAt: new Date(),
+      });
+      mockUpdateContent.mockResolvedValue({
+        id: contentId,
+        content: fixedContent,
+        toolName: "assignment",
+        courseId: null,
+        userId: null,
+      });
+      mockApplyAriaGridRoleFix.mockReturnValue(fixedContent);
+
+      const response = await request(app)
+        .post(`/api/content/${contentId}/fix-accessibility`)
+        .send({ fixType: "fix-aria-grid" })
+        .expect(200);
+
+      expect(mockApplyAriaGridRoleFix).toHaveBeenCalledTimes(1);
+      expect(mockApplyAriaGridRoleFix).toHaveBeenCalledWith(originalContent);
+      expect(mockPruneOldVersions).toHaveBeenCalledTimes(1);
+      expect(mockPruneOldVersions).toHaveBeenCalledWith(contentId, EXPECTED_KEEP_COUNT);
+      expect(response.body.preFixVersionId).toBe(611);
+    });
+
+    it("does NOT call pruneOldVersions when fix-aria-grid leaves content unchanged", async () => {
+      const contentId = 612;
+      const alreadyFixed = '<table role="grid"><tr role="row"><td role="gridcell">Data</td></tr></table>';
+
+      mockGetContent.mockResolvedValue({
+        id: contentId,
+        content: alreadyFixed,
+        toolName: "rubric",
+        courseId: null,
+        userId: null,
+      });
+
+      await request(app)
+        .post(`/api/content/${contentId}/fix-accessibility`)
+        .send({ fixType: "fix-aria-grid" })
+        .expect(200);
+
+      expect(mockApplyAriaGridRoleFix).toHaveBeenCalledTimes(1);
+      expect(mockCreateVersion).not.toHaveBeenCalled();
+      expect(mockPruneOldVersions).not.toHaveBeenCalled();
+    });
+
+    // -----------------------------------------------------------------------
+    // fix-aria-tab
+    // -----------------------------------------------------------------------
+    it("calls pruneOldVersions and applyAriaTabRoleFix when fix-aria-tab changes content", async () => {
+      const contentId = 620;
+      const originalContent = '<div role="tab">Tab 1</div>';
+      const fixedContent = '<button role="tab" aria-selected="false">Tab 1</button>';
+
+      mockGetContent.mockResolvedValue({
+        id: contentId,
+        content: originalContent,
+        toolName: "assignment",
+        courseId: null,
+        userId: null,
+      });
+      mockCreateVersion.mockResolvedValue({
+        id: 621,
+        generatedContentId: contentId,
+        content: originalContent,
+        refinementRequest: "accessibility-fix-snapshot",
+        createdAt: new Date(),
+      });
+      mockUpdateContent.mockResolvedValue({
+        id: contentId,
+        content: fixedContent,
+        toolName: "assignment",
+        courseId: null,
+        userId: null,
+      });
+      mockApplyAriaTabRoleFix.mockReturnValue(fixedContent);
+
+      const response = await request(app)
+        .post(`/api/content/${contentId}/fix-accessibility`)
+        .send({ fixType: "fix-aria-tab" })
+        .expect(200);
+
+      expect(mockApplyAriaTabRoleFix).toHaveBeenCalledTimes(1);
+      expect(mockApplyAriaTabRoleFix).toHaveBeenCalledWith(originalContent);
+      expect(mockPruneOldVersions).toHaveBeenCalledTimes(1);
+      expect(mockPruneOldVersions).toHaveBeenCalledWith(contentId, EXPECTED_KEEP_COUNT);
+      expect(response.body.preFixVersionId).toBe(621);
+    });
+
+    it("does NOT call pruneOldVersions when fix-aria-tab leaves content unchanged", async () => {
+      const contentId = 622;
+      const alreadyFixed = '<button role="tab" aria-selected="false">Tab 1</button>';
+
+      mockGetContent.mockResolvedValue({
+        id: contentId,
+        content: alreadyFixed,
+        toolName: "rubric",
+        courseId: null,
+        userId: null,
+      });
+
+      await request(app)
+        .post(`/api/content/${contentId}/fix-accessibility`)
+        .send({ fixType: "fix-aria-tab" })
+        .expect(200);
+
+      expect(mockApplyAriaTabRoleFix).toHaveBeenCalledTimes(1);
+      expect(mockCreateVersion).not.toHaveBeenCalled();
+      expect(mockPruneOldVersions).not.toHaveBeenCalled();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // POST /api/content/:id/preview-fix  (dry-run, no save)
+  // -------------------------------------------------------------------------
+  describe("POST /api/content/:id/preview-fix", () => {
+    // -----------------------------------------------------------------------
+    // fix-aria-combobox
+    // -----------------------------------------------------------------------
+    it("returns { before, after } and calls applyAriaComboboxRoleFix for fix-aria-combobox", async () => {
+      const contentId = 700;
+      const originalContent = '<div role="combobox"></div>';
+      const fixedContent = '<div role="combobox" aria-expanded="false"></div>';
+
+      mockGetContent.mockResolvedValue({
+        id: contentId,
+        content: originalContent,
+        toolName: "assignment",
+        courseId: null,
+        userId: null,
+      });
+      mockApplyAriaComboboxRoleFix.mockReturnValue(fixedContent);
+
+      const response = await request(app)
+        .post(`/api/content/${contentId}/preview-fix`)
+        .send({ fixType: "fix-aria-combobox" })
+        .expect(200);
+
+      expect(mockApplyAriaComboboxRoleFix).toHaveBeenCalledTimes(1);
+      expect(mockApplyAriaComboboxRoleFix).toHaveBeenCalledWith(originalContent);
+      expect(response.body).toEqual({ before: originalContent, after: fixedContent });
+      // preview-fix must NOT persist anything
+      expect(mockCreateVersion).not.toHaveBeenCalled();
+      expect(mockUpdateContent).not.toHaveBeenCalled();
+    });
+
+    it("returns identical before/after when fix-aria-combobox makes no change", async () => {
+      const contentId = 701;
+      const unchangedContent = '<div role="combobox" aria-expanded="false"></div>';
+
+      mockGetContent.mockResolvedValue({
+        id: contentId,
+        content: unchangedContent,
+        toolName: "rubric",
+        courseId: null,
+        userId: null,
+      });
+      // Default mock is a passthrough
+
+      const response = await request(app)
+        .post(`/api/content/${contentId}/preview-fix`)
+        .send({ fixType: "fix-aria-combobox" })
+        .expect(200);
+
+      expect(response.body.before).toBe(unchangedContent);
+      expect(response.body.after).toBe(unchangedContent);
+    });
+
+    // -----------------------------------------------------------------------
+    // fix-aria-grid
+    // -----------------------------------------------------------------------
+    it("returns { before, after } and calls applyAriaGridRoleFix for fix-aria-grid", async () => {
+      const contentId = 710;
+      const originalContent = '<div role="grid"><div role="row"><div role="gridcell">X</div></div></div>';
+      const fixedContent = '<table role="grid"><tr role="row"><td role="gridcell">X</td></tr></table>';
+
+      mockGetContent.mockResolvedValue({
+        id: contentId,
+        content: originalContent,
+        toolName: "assignment",
+        courseId: null,
+        userId: null,
+      });
+      mockApplyAriaGridRoleFix.mockReturnValue(fixedContent);
+
+      const response = await request(app)
+        .post(`/api/content/${contentId}/preview-fix`)
+        .send({ fixType: "fix-aria-grid" })
+        .expect(200);
+
+      expect(mockApplyAriaGridRoleFix).toHaveBeenCalledTimes(1);
+      expect(mockApplyAriaGridRoleFix).toHaveBeenCalledWith(originalContent);
+      expect(response.body).toEqual({ before: originalContent, after: fixedContent });
+      expect(mockCreateVersion).not.toHaveBeenCalled();
+      expect(mockUpdateContent).not.toHaveBeenCalled();
+    });
+
+    it("returns identical before/after when fix-aria-grid makes no change", async () => {
+      const contentId = 711;
+      const unchangedContent = '<table role="grid"><tr role="row"><td role="gridcell">X</td></tr></table>';
+
+      mockGetContent.mockResolvedValue({
+        id: contentId,
+        content: unchangedContent,
+        toolName: "rubric",
+        courseId: null,
+        userId: null,
+      });
+
+      const response = await request(app)
+        .post(`/api/content/${contentId}/preview-fix`)
+        .send({ fixType: "fix-aria-grid" })
+        .expect(200);
+
+      expect(response.body.before).toBe(unchangedContent);
+      expect(response.body.after).toBe(unchangedContent);
+    });
+
+    // -----------------------------------------------------------------------
+    // fix-aria-tab
+    // -----------------------------------------------------------------------
+    it("returns { before, after } and calls applyAriaTabRoleFix for fix-aria-tab", async () => {
+      const contentId = 720;
+      const originalContent = '<div role="tab">Tab 1</div>';
+      const fixedContent = '<button role="tab" aria-selected="false">Tab 1</button>';
+
+      mockGetContent.mockResolvedValue({
+        id: contentId,
+        content: originalContent,
+        toolName: "assignment",
+        courseId: null,
+        userId: null,
+      });
+      mockApplyAriaTabRoleFix.mockReturnValue(fixedContent);
+
+      const response = await request(app)
+        .post(`/api/content/${contentId}/preview-fix`)
+        .send({ fixType: "fix-aria-tab" })
+        .expect(200);
+
+      expect(mockApplyAriaTabRoleFix).toHaveBeenCalledTimes(1);
+      expect(mockApplyAriaTabRoleFix).toHaveBeenCalledWith(originalContent);
+      expect(response.body).toEqual({ before: originalContent, after: fixedContent });
+      expect(mockCreateVersion).not.toHaveBeenCalled();
+      expect(mockUpdateContent).not.toHaveBeenCalled();
+    });
+
+    it("returns identical before/after when fix-aria-tab makes no change", async () => {
+      const contentId = 721;
+      const unchangedContent = '<button role="tab" aria-selected="false">Tab 1</button>';
+
+      mockGetContent.mockResolvedValue({
+        id: contentId,
+        content: unchangedContent,
+        toolName: "rubric",
+        courseId: null,
+        userId: null,
+      });
+
+      const response = await request(app)
+        .post(`/api/content/${contentId}/preview-fix`)
+        .send({ fixType: "fix-aria-tab" })
+        .expect(200);
+
+      expect(response.body.before).toBe(unchangedContent);
+      expect(response.body.after).toBe(unchangedContent);
     });
   });
 });
