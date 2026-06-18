@@ -60,23 +60,52 @@ export default function ToolSelection() {
     });
   };
 
-  const handleDownloadSelected = () => {
+  const handleDownloadSelected = async () => {
     if (!courseId || isExporting || selectedIds.size === 0) return;
     setIsExporting(true);
     setExportModalOpen(false);
-    const ids = Array.from(selectedIds).join(",");
-    const a = document.createElement("a");
-    a.href = `/api/courses/${courseId}/export?ids=${ids}`;
-    a.style.display = "none";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
     const count = selectedIds.size;
-    toast({
-      title: `Downloading ${count} ${count === 1 ? "material" : "materials"} as a ZIP…`,
-      duration: 4000,
-    });
-    setTimeout(() => setIsExporting(false), 3000);
+    const ids = Array.from(selectedIds).join(",");
+    try {
+      const res = await fetch(`/api/courses/${courseId}/export?ids=${ids}`);
+      if (!res.ok) {
+        let detail = "";
+        try {
+          const body = await res.json();
+          detail = body?.message || body?.error || "";
+        } catch {
+          // ignore parse errors
+        }
+        toast({
+          title: "Download failed",
+          description: detail || `The server returned an error (${res.status}). Please try again.`,
+          variant: "destructive",
+        });
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `course-materials.zip`;
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast({
+        title: `Downloading ${count} ${count === 1 ? "material" : "materials"} as a ZIP…`,
+        duration: 4000,
+      });
+    } catch (err) {
+      toast({
+        title: "Download failed",
+        description: "Could not reach the server. Please check your connection and try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const { data: course, isLoading: isLoadingCourse } = useQuery<Course>({
