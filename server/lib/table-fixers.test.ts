@@ -676,6 +676,56 @@ describe("editHtmlTableCaption", () => {
     expect(count).toBe(2);
     expect(output).not.toContain("<em>Note</em>");
   });
+
+  it("escapes a bare ampersand (&) in the new caption text as &amp;", () => {
+    const input = `<table><caption>Old</caption></table>`;
+    const output = editHtmlTableCaption(input, "&", 0);
+    expect(output).toContain("<caption>&amp;</caption>");
+    expect(output).not.toContain("<caption>&</caption>");
+  });
+
+  it("escapes a bare less-than sign (<) in the new caption text as &lt;", () => {
+    const input = `<table><caption>Old</caption></table>`;
+    const output = editHtmlTableCaption(input, "<", 0);
+    expect(output).toContain("<caption>&lt;</caption>");
+    expect(output).not.toContain("<caption><<caption>");
+  });
+
+  it("escapes a bare greater-than sign (>) in the new caption text as &gt;", () => {
+    const input = `<table><caption>Old</caption></table>`;
+    const output = editHtmlTableCaption(input, ">", 0);
+    expect(output).toContain("<caption>&gt;</caption>");
+    expect(output).not.toContain("<caption>></caption>");
+  });
+
+  it("neutralises a full HTML-injection payload — tags are rendered as text, not executed", () => {
+    const input = `<table><caption>Old</caption></table>`;
+    const payload = `<img src=x onerror=alert(1)>`;
+    const output = editHtmlTableCaption(input, payload, 0);
+    expect(output).toContain("&lt;img");
+    expect(output).toContain("&gt;");
+    expect(output).not.toContain("<img ");
+    expect((output.match(/<table/gi) ?? []).length).toBe(
+      (output.match(/<\/table>/gi) ?? []).length
+    );
+  });
+
+  it("escapes a compound string containing &, <, and > together", () => {
+    const input = `<table><caption>Old</caption></table>`;
+    const output = editHtmlTableCaption(input, "A & B < C > D", 0);
+    expect(output).toContain("<caption>A &amp; B &lt; C &gt; D</caption>");
+    expect(output).not.toContain("A & B < C > D");
+  });
+
+  it("escapes special characters when editing the second caption in a multi-table document", () => {
+    const input =
+      `<table><caption>First</caption></table>\n` +
+      `<table><caption>Second</caption></table>`;
+    const output = editHtmlTableCaption(input, "A & B", 1);
+    expect(output).toContain("<caption>First</caption>");
+    expect(output).toContain("<caption>A &amp; B</caption>");
+    expect(output).not.toContain("<caption>A & B</caption>");
+  });
 });
 
 // ---------------------------------------------------------------------------
