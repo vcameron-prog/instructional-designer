@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, type ReactNode } from "react";
+import { useState, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { diffLines } from "diff";
 import { isSessionExpiredMessage } from "@/lib/upload-error-utils";
 import { useLocation, useParams } from "wouter";
@@ -432,6 +432,8 @@ export default function ResultPage() {
   const [captionEditIndex, setCaptionEditIndex] = useState<number>(0);
   const [captionEditOtherCaptions, setCaptionEditOtherCaptions] = useState<string[]>([]);
 
+  const firstChangeRef = useRef<HTMLDivElement | null>(null);
+
   useEffect(() => {
     setExpandedSections({});
   }, [contentId]);
@@ -862,6 +864,25 @@ export default function ResultPage() {
     }
     return map;
   }, [versions, content]);
+
+  const hasChanges = useMemo(() => versionDiff?.some(p => p.added || p.removed) ?? false, [versionDiff]);
+
+  useEffect(() => {
+    if (showDiff && versionDiff && hasChanges) {
+      const timer = setTimeout(() => {
+        firstChangeRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 80);
+      return () => clearTimeout(timer);
+    }
+  }, [showDiff, versionDiff, hasChanges]);
+
+  const jumpToFirstChange = () => {
+    if (!showDiff) {
+      setShowDiff(true);
+    } else {
+      firstChangeRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
 
   const tool = content ? TOOLS.find(t => t.id === content.toolType) : null;
   const accessibilityIssues = content ? checkAccessibility(content.content) : [];
@@ -1363,6 +1384,17 @@ export default function ResultPage() {
                                   Full text
                                 </button>
                               </div>
+                              {hasChanges && (
+                                <button
+                                  className="px-2.5 py-1 text-xs font-medium transition-colors rounded-md border bg-background text-muted-foreground hover:bg-muted shrink-0"
+                                  onClick={jumpToFirstChange}
+                                  data-testid="button-jump-to-first-change"
+                                  aria-label="Jump to first change"
+                                  title="Jump to first change"
+                                >
+                                  ↓ First change
+                                </button>
+                              )}
                               <Button
                                 size="sm"
                                 className="gap-1.5 shrink-0"
@@ -1386,27 +1418,32 @@ export default function ResultPage() {
                                   <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-red-100 border border-red-300" aria-hidden="true" />Removed since this version</span>
                                   <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-green-100 border border-green-300" aria-hidden="true" />Added since this version</span>
                                 </div>
-                                {versionDiff.map((part: import("diff").Change, i: number) => {
-                                  if (part.removed) {
+                                {(() => {
+                                  let firstChangeSeen = false;
+                                  return versionDiff.map((part, i) => {
+                                    const isFirst = (part.removed || part.added) && !firstChangeSeen;
+                                    if (isFirst) firstChangeSeen = true;
+                                    if (part.removed) {
+                                      return (
+                                        <div key={i} ref={isFirst ? firstChangeRef : undefined} className="bg-red-50 border-l-2 border-red-400 pl-2 -ml-2 whitespace-pre-wrap text-red-800 dark:bg-red-950/30 dark:text-red-300 dark:border-red-600">
+                                          {part.value}
+                                        </div>
+                                      );
+                                    }
+                                    if (part.added) {
+                                      return (
+                                        <div key={i} ref={isFirst ? firstChangeRef : undefined} className="bg-green-50 border-l-2 border-green-400 pl-2 -ml-2 whitespace-pre-wrap text-green-800 dark:bg-green-950/30 dark:text-green-300 dark:border-green-600">
+                                          {part.value}
+                                        </div>
+                                      );
+                                    }
                                     return (
-                                      <div key={i} className="bg-red-50 border-l-2 border-red-400 pl-2 -ml-2 whitespace-pre-wrap text-red-800 dark:bg-red-950/30 dark:text-red-300 dark:border-red-600">
+                                      <div key={i} className="whitespace-pre-wrap text-foreground">
                                         {part.value}
                                       </div>
                                     );
-                                  }
-                                  if (part.added) {
-                                    return (
-                                      <div key={i} className="bg-green-50 border-l-2 border-green-400 pl-2 -ml-2 whitespace-pre-wrap text-green-800 dark:bg-green-950/30 dark:text-green-300 dark:border-green-600">
-                                        {part.value}
-                                      </div>
-                                    );
-                                  }
-                                  return (
-                                    <div key={i} className="whitespace-pre-wrap text-foreground">
-                                      {part.value}
-                                    </div>
-                                  );
-                                })}
+                                  });
+                                })()}
                               </div>
                             ) : (
                               <div className="prose prose-sm max-w-none dark:prose-invert whitespace-pre-wrap text-sm text-foreground leading-relaxed font-mono" data-testid="version-preview-content">
