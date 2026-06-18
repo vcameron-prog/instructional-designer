@@ -6076,3 +6076,133 @@ describe("fixComplianceIssue – Duplicate Table Captions deterministic fixer", 
     expect(result.accessibleHtml).toContain("<caption>Beta</caption>");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Backtick-quoted attribute values — ATTR_PATTERN coverage
+// These tests confirm that ATTR_PATTERN correctly handles backtick-delimited
+// attribute values so fixers do not mistake the closing backtick for the end
+// of the tag or mismatch the attribute list.
+// ---------------------------------------------------------------------------
+
+describe("applyLangAttributeFix – backtick-quoted attribute value", () => {
+  it("adds lang attribute when <html> tag contains a backtick-quoted attribute value", () => {
+    const html = "<!DOCTYPE html><html data-info=`a b`><head><title>T</title></head><body></body></html>";
+    const result = applyLangAttributeFix(html);
+    expect(result).toMatch(/lang="en"/i);
+  });
+
+  it("does not add lang when lang is already present alongside a backtick-quoted attribute value", () => {
+    const html = "<!DOCTYPE html><html data-info=`a b` lang=\"fr\"><head><title>T</title></head><body></body></html>";
+    const result = applyLangAttributeFix(html);
+    expect(result).toBe(html);
+  });
+
+  it("does not treat a backtick inside the value as the end of the <html> tag", () => {
+    const html = "<!DOCTYPE html><html data-x=`foo`><head><title>T</title></head><body></body></html>";
+    const result = applyLangAttributeFix(html);
+    expect(result).toContain("lang=\"en\"");
+    expect(result).not.toContain("<html><head>");
+  });
+});
+
+describe("applyPageTitleFix – backtick-quoted attribute value", () => {
+  it("inserts <title> into <head> when <head> tag has a backtick-quoted attribute value", () => {
+    const html = "<!DOCTYPE html><html lang=\"en\"><head data-meta=`x`></head><body></body></html>";
+    const result = applyPageTitleFix(html);
+    expect(result).toContain("<title>");
+  });
+
+  it("inserts <head><title> after <html> tag when no <head> present and <html> has a backtick-quoted attribute value", () => {
+    const html = "<!DOCTYPE html><html lang=\"en\" data-info=`a b`><body></body></html>";
+    const result = applyPageTitleFix(html);
+    expect(result).toContain("<title>");
+  });
+
+  it("replaces empty <title> even when <head> tag has a backtick-quoted attribute value", () => {
+    const html = "<!DOCTYPE html><html lang=\"en\"><head data-x=`p`><title></title></head><body></body></html>";
+    const result = applyPageTitleFix(html);
+    expect(result).not.toContain("<title></title>");
+    expect(result).toContain("<title>");
+  });
+});
+
+describe("runDeterministicChecks – backtick-quoted attribute value", () => {
+  it("correctly detects lang attribute on <html> even when an earlier attribute value is backtick-quoted", () => {
+    const html = "<!DOCTYPE html><html data-info=`a b` lang=\"en\"><head><title>T</title></head><body><main><h1>T</h1></main></body></html>";
+    const issues = runDeterministicChecks(html);
+    const langIssue = issues.find((i) => i.criterion === "3.1.1");
+    expect(langIssue).toBeDefined();
+    expect(langIssue!.status).toBe("pass");
+  });
+
+  it("reports lang as missing when <html> has a backtick-quoted attribute value but no lang", () => {
+    const html = "<!DOCTYPE html><html data-info=`a b`><head><title>T</title></head><body><main><h1>T</h1></main></body></html>";
+    const issues = runDeterministicChecks(html);
+    const langIssue = issues.find((i) => i.criterion === "3.1.1");
+    expect(langIssue).toBeDefined();
+    expect(langIssue!.status).toBe("fail");
+  });
+
+  it("passes image alt check when an <img> has a backtick-quoted class attribute and a valid alt", () => {
+    const html = "<html lang=\"en\"><body><img class=`hero` src=\"photo.jpg\" alt=\"A cat\"></body></html>";
+    const issues = runDeterministicChecks(html);
+    const altCheck = issues.find((i) => i.criterion === "1.1.1");
+    expect(altCheck!.status).toBe("pass");
+  });
+
+  it("fails image alt check when an <img> with a backtick-quoted attribute is missing its alt", () => {
+    const html = "<html lang=\"en\"><body><img class=`hero` src=\"photo.jpg\"></body></html>";
+    const issues = runDeterministicChecks(html);
+    const altCheck = issues.find((i) => i.criterion === "1.1.1");
+    expect(altCheck!.status).toBe("fail");
+  });
+});
+
+describe("applyAriaRoleHeaderFix – backtick-quoted attribute value", () => {
+  it("converts td[role=columnheader] to <th scope=col> when td has a backtick-quoted attribute value", () => {
+    const html = "<table><tr><td role=\"columnheader\" data-info=`a b`>Header</td></tr></table>";
+    const result = applyAriaRoleHeaderFix(html);
+    expect(result).toContain("<th scope=\"col\"");
+    expect(result).not.toContain("role=\"columnheader\"");
+  });
+});
+
+describe("applyAriaLinkRoleFix – backtick-quoted attribute value", () => {
+  it("converts div[role=link] to <a> when an attribute value is backtick-quoted", () => {
+    const html = "<div role=\"link\" title=`click here` tabindex=\"0\">Go</div>";
+    const result = applyAriaLinkRoleFix(html);
+    expect(result).toContain("<a ");
+    expect(result).not.toContain("role=\"link\"");
+    expect(result).toContain("Go");
+  });
+});
+
+describe("applyAriaListRoleFix – backtick-quoted attribute value", () => {
+  it("converts div[role=list] to <ul> when an attribute value is backtick-quoted", () => {
+    const html = "<div role=\"list\" data-label=`items`><li>A</li></div>";
+    const result = applyAriaListRoleFix(html);
+    expect(result).toContain("<ul");
+    expect(result).not.toContain("role=\"list\"");
+    expect(result).toContain("<li>A</li>");
+  });
+});
+
+describe("applyAriaListitemRoleFix – backtick-quoted attribute value", () => {
+  it("converts div[role=listitem] to <li> when an attribute value is backtick-quoted", () => {
+    const html = "<ul><div role=\"listitem\" data-label=`item 1`>Entry</div></ul>";
+    const result = applyAriaListitemRoleFix(html);
+    expect(result).toContain("<li");
+    expect(result).not.toContain("role=\"listitem\"");
+    expect(result).toContain("Entry");
+  });
+});
+
+describe("replaceAriaRoleElements (via applyAriaComboboxRoleFix) – backtick-quoted attribute value", () => {
+  it("converts div[role=combobox] to <select> when an attribute value is backtick-quoted", () => {
+    const html = "<div role=\"combobox\" data-label=`opt`><option>A</option></div>";
+    const result = applyAriaComboboxRoleFix(html);
+    expect(result).toContain("<select");
+    expect(result).not.toContain("role=\"combobox\"");
+    expect(result).toContain("<option>A</option>");
+  });
+});
