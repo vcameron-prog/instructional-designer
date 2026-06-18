@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -57,12 +57,40 @@ export function WelcomeModal() {
   const [open, setOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
 
+  const primaryButtonRef = useRef<HTMLButtonElement>(null);
+  const isFirstRender = useRef(true);
+
   useEffect(() => {
     const hasSeenWelcome = localStorage.getItem(WELCOME_SHOWN_KEY);
     if (!hasSeenWelcome) {
       setOpen(true);
     }
   }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    primaryButtonRef.current?.focus();
+  }, [currentStep, open]);
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    setOpen(nextOpen);
+    if (!nextOpen) {
+      const mainHeading = document.querySelector<HTMLElement>("main h1, h1, main");
+      if (mainHeading) {
+        mainHeading.setAttribute("tabindex", "-1");
+        mainHeading.focus();
+        mainHeading.addEventListener(
+          "blur",
+          () => mainHeading.removeAttribute("tabindex"),
+          { once: true }
+        );
+      }
+    }
+  };
 
   const handleNext = () => {
     if (currentStep < steps.length - 1) {
@@ -74,23 +102,28 @@ export function WelcomeModal() {
 
   const handleComplete = () => {
     localStorage.setItem(WELCOME_SHOWN_KEY, "true");
-    setOpen(false);
+    handleOpenChange(false);
   };
 
   const handleSkip = () => {
     localStorage.setItem(WELCOME_SHOWN_KEY, "true");
-    setOpen(false);
+    handleOpenChange(false);
   };
 
   const step = steps[currentStep];
   const Icon = step.icon;
+  const isLastStep = currentStep === steps.length - 1;
+
+  const primaryButtonLabel = isLastStep
+    ? "Get Started — close the welcome tour"
+    : `Next — go to step ${currentStep + 2} of ${steps.length}, ${steps[currentStep + 1].title}`;
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-md" data-testid="dialog-welcome">
         <DialogHeader className="text-center">
           <div className="mx-auto w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
-            <Icon className="w-8 h-8 text-primary" />
+            <Icon className="w-8 h-8 text-primary" aria-hidden="true" />
           </div>
           <DialogTitle className="text-xl">{step.title}</DialogTitle>
           <DialogDescription className="text-base leading-relaxed pt-2">
@@ -98,7 +131,11 @@ export function WelcomeModal() {
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex justify-center gap-1.5 py-4" role="group" aria-label={`Step ${currentStep + 1} of ${steps.length}`}>
+        <div
+          className="flex justify-center gap-1.5 py-4"
+          role="img"
+          aria-label={`Step ${currentStep + 1} of ${steps.length}`}
+        >
           {steps.map((_, index) => (
             <div
               key={index}
@@ -109,16 +146,29 @@ export function WelcomeModal() {
             />
           ))}
         </div>
-        <p className="sr-only" aria-live="polite">Step {currentStep + 1} of {steps.length}: {steps[currentStep].title}</p>
+        <p className="sr-only" aria-live="polite" aria-atomic="true">
+          Step {currentStep + 1} of {steps.length}: {steps[currentStep].title}
+        </p>
 
         <DialogFooter className="flex-row justify-between gap-2 sm:justify-between">
-          <Button variant="ghost" onClick={handleSkip} data-testid="button-skip-tour">
+          <Button
+            variant="ghost"
+            onClick={handleSkip}
+            data-testid="button-skip-tour"
+            aria-label="Skip tour and close this dialog"
+          >
             Skip Tour
           </Button>
-          <Button onClick={handleNext} className="gap-2" data-testid="button-next-step">
-            {currentStep < steps.length - 1 ? (
+          <Button
+            ref={primaryButtonRef}
+            onClick={handleNext}
+            className="gap-2"
+            data-testid="button-next-step"
+            aria-label={primaryButtonLabel}
+          >
+            {!isLastStep ? (
               <>
-                Next <ArrowRight className="w-4 h-4" />
+                Next <ArrowRight className="w-4 h-4" aria-hidden="true" />
               </>
             ) : (
               "Get Started"
