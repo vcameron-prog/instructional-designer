@@ -285,8 +285,9 @@ function parseRtfToText(rtfString: string): Promise<string> {
 /**
  * Fallback: strip RTF markup with a simple regex approach.
  * Used only when the library parser fails (e.g. severely malformed files).
+ * Exported for unit testing.
  */
-function stripRtfFallback(rtf: string, encoding: string): string {
+export function stripRtfFallback(rtf: string, encoding = "windows-1252"): string {
   let text = rtf;
 
   text = text.replace(
