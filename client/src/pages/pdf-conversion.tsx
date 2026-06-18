@@ -2108,13 +2108,10 @@ export default function PdfConversion() {
                                       : "Swaps non-interactive elements that have role=\"tab\" for a native <button> element. The element's tag changes from something like <div> or <span> to <button>, keeping all existing attributes. A native <button> is focusable by keyboard and announced correctly by screen readers without extra ARIA."}
                                   </p>
                                   {(() => {
+                                    const tagCounts = issue.tagCounts as Record<string, number> | undefined;
                                     const countMatch = issue.details?.match(/Found (\d+) element/);
                                     if (!countMatch) return null;
                                     const count = parseInt(countMatch[1], 10);
-                                    const tagsMatch = issue.details?.match(/\(e\.g\. ([^)]+)\)/);
-                                    const sampledTags = tagsMatch
-                                      ? tagsMatch[1].split(", ").map((t: string) => t.trim())
-                                      : [];
                                     const ariaRole =
                                       issue.title === "ARIA Button Role on Non-Button Element" ? "button"
                                       : issue.title === "ARIA Heading Role on Non-Heading Element" ? "heading"
@@ -2126,6 +2123,17 @@ export default function PdfConversion() {
                                       : issue.title === "ARIA Combobox Role on Non-Combobox Element" ? "select"
                                       : issue.title === "ARIA Grid Role on Non-Table Element" ? "table"
                                       : "button";
+
+                                    type DiffRow = { tag: string; count: number };
+                                    let rows: DiffRow[] = [];
+                                    if (tagCounts && Object.keys(tagCounts).length > 0) {
+                                      rows = Object.entries(tagCounts).map(([tag, cnt]) => ({ tag, count: cnt }));
+                                    } else {
+                                      const tagsMatch = issue.details?.match(/\(e\.g\. ([^)]+)\)/);
+                                      if (!tagsMatch) return null;
+                                      rows = tagsMatch[1].split(", ").map((t: string) => ({ tag: t.trim(), count: 0 }));
+                                    }
+
                                     return (
                                       <div
                                         className="border-t border-amber-200 dark:border-amber-800 pt-2"
@@ -2134,47 +2142,35 @@ export default function PdfConversion() {
                                         <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 mb-1.5">
                                           {count === 1 ? "1 element" : `${count} elements`} will be replaced:
                                         </p>
-                                        {sampledTags.length > 0 ? (
-                                          <ul className="space-y-1" aria-label="Elements to be replaced">
-                                            {sampledTags.map((tag: string, idx: number) => {
-                                              const openTag = tag.replace(">", ` role="${ariaRole}">`);
-                                              return (
-                                                <li
-                                                  key={idx}
-                                                  className="flex items-center gap-2 font-mono text-xs flex-wrap"
-                                                  data-testid={`aria-diff-row-${i}-${idx}`}
-                                                >
-                                                  <span className="px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-700 whitespace-nowrap">
-                                                    {openTag}
-                                                  </span>
-                                                  <span className="text-amber-600 dark:text-amber-400 font-bold font-sans" aria-hidden="true">→</span>
-                                                  <span className="px-1.5 py-0.5 rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-700 whitespace-nowrap">
-                                                    {"<"}{targetTag}{">"}
-                                                  </span>
-                                                </li>
-                                              );
-                                            })}
-                                            {count > sampledTags.length && (
+                                        <ul className="space-y-1" aria-label="Elements to be replaced">
+                                          {rows.map(({ tag, count: tagCount }: DiffRow, idx: number) => {
+                                            const openTag = tag.replace(">", ` role="${ariaRole}">`);
+                                            return (
                                               <li
-                                                className="text-xs text-amber-700/70 dark:text-amber-400/70 pl-0.5"
-                                                data-testid={`aria-diff-more-${i}`}
+                                                key={idx}
+                                                className="flex items-center gap-2 font-mono text-xs flex-wrap"
+                                                data-testid={`aria-diff-row-${i}-${idx}`}
                                               >
-                                                + {count - sampledTags.length} more element{count - sampledTags.length !== 1 ? "s" : ""}
+                                                {tagCount > 0 && (
+                                                  <span
+                                                    className="inline-flex items-center justify-center min-w-[1.5rem] px-1.5 py-0.5 rounded-full bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200 font-sans font-bold text-[10px] tabular-nums"
+                                                    title={`${tagCount} element${tagCount !== 1 ? "s" : ""}`}
+                                                    data-testid={`aria-diff-count-${i}-${idx}`}
+                                                  >
+                                                    {tagCount}×
+                                                  </span>
+                                                )}
+                                                <span className="px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-700 whitespace-nowrap">
+                                                  {openTag}
+                                                </span>
+                                                <span className="text-amber-600 dark:text-amber-400 font-bold font-sans" aria-hidden="true">→</span>
+                                                <span className="px-1.5 py-0.5 rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-700 whitespace-nowrap">
+                                                  {"<"}{targetTag}{">"}
+                                                </span>
                                               </li>
-                                            )}
-                                          </ul>
-                                        ) : (
-                                          <p
-                                            className="text-xs text-amber-800 dark:text-amber-300 font-mono"
-                                            data-testid={`aria-diff-row-${i}-0`}
-                                          >
-                                            Each element will have its tag replaced with{" "}
-                                            <span className="px-1 py-0.5 rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-700">
-                                              {"<"}{targetTag}{">"}
-                                            </span>
-                                            .
-                                          </p>
-                                        )}
+                                            );
+                                          })}
+                                        </ul>
                                       </div>
                                     );
                                   })()}

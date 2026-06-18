@@ -108,6 +108,7 @@ const complianceIssueSchema = z.object({
   previousStatus: z.enum(["fail", "warning"]).optional(),
   imageItems: z.array(imageItemSchema).optional(),
   fixNotes: z.string().optional(),
+  tagCounts: z.record(z.number()).optional(),
 });
 
 export interface ImageItem {
@@ -127,6 +128,7 @@ export interface ComplianceIssue {
   previousStatus?: "fail" | "warning";
   imageItems?: ImageItem[];
   fixNotes?: string;
+  tagCounts?: Record<string, number>;
 }
 
 export const complianceReportSchema = z.object({
@@ -721,10 +723,12 @@ export function runDeterministicChecks(html: string): ComplianceIssue[] {
     return true;
   });
   if (nonButtonsWithButtonRole.length > 0) {
-    const tagList = nonButtonsWithButtonRole
-      .slice(0, 5)
-      .map((el) => `<${el.tagName?.toLowerCase()}>`)
-      .join(", ");
+    const buttonTagCounts: Record<string, number> = {};
+    nonButtonsWithButtonRole.forEach((el) => {
+      const tag = `<${el.tagName?.toLowerCase()}>`;
+      buttonTagCounts[tag] = (buttonTagCounts[tag] ?? 0) + 1;
+    });
+    const tagList = Object.keys(buttonTagCounts).slice(0, 5).join(", ");
     issues.push({
       criterion: "4.1.2",
       title: "ARIA Button Role on Non-Button Element",
@@ -732,6 +736,7 @@ export function runDeterministicChecks(html: string): ComplianceIssue[] {
       status: "warning",
       description: "Using role=\"button\" on a non-button element (e.g. <div> or <span>) is fragile and error-prone. Use a native <button> element instead.",
       details: `Found ${nonButtonsWithButtonRole.length} element(s) with role="button" that are not native button elements (e.g. ${tagList}). Replace them with <button> for built-in keyboard and accessibility support.`,
+      tagCounts: buttonTagCounts,
     });
   }
 
@@ -742,10 +747,12 @@ export function runDeterministicChecks(html: string): ComplianceIssue[] {
     return !/^h[1-6]$/.test(tag ?? "");
   });
   if (nonHeadingsWithHeadingRole.length > 0) {
-    const tagList = nonHeadingsWithHeadingRole
-      .slice(0, 5)
-      .map((el) => `<${el.tagName?.toLowerCase()}>`)
-      .join(", ");
+    const headingTagCounts: Record<string, number> = {};
+    nonHeadingsWithHeadingRole.forEach((el) => {
+      const tag = `<${el.tagName?.toLowerCase()}>`;
+      headingTagCounts[tag] = (headingTagCounts[tag] ?? 0) + 1;
+    });
+    const tagList = Object.keys(headingTagCounts).slice(0, 5).join(", ");
     issues.push({
       criterion: "1.3.1",
       title: "ARIA Heading Role on Non-Heading Element",
@@ -753,6 +760,7 @@ export function runDeterministicChecks(html: string): ComplianceIssue[] {
       status: "warning",
       description: "Using role=\"heading\" on a non-heading element (e.g. <div> or <span>) is a misuse of ARIA. Use native <h1>–<h6> elements instead.",
       details: `Found ${nonHeadingsWithHeadingRole.length} element(s) with role="heading" that are not native heading elements (e.g. ${tagList}). Replace them with the appropriate <h1>–<h6> element for proper document structure.`,
+      tagCounts: headingTagCounts,
     });
   }
 
@@ -876,10 +884,12 @@ export function runDeterministicChecks(html: string): ComplianceIssue[] {
     return tag !== "select" && tag !== "input";
   });
   if (nonComboboxWithComboboxRole.length > 0) {
-    const tagList = nonComboboxWithComboboxRole
-      .slice(0, 5)
-      .map((el) => `<${el.tagName?.toLowerCase()}>`)
-      .join(", ");
+    const comboboxTagCounts: Record<string, number> = {};
+    nonComboboxWithComboboxRole.forEach((el) => {
+      const tag = `<${el.tagName?.toLowerCase()}>`;
+      comboboxTagCounts[tag] = (comboboxTagCounts[tag] ?? 0) + 1;
+    });
+    const tagList = Object.keys(comboboxTagCounts).slice(0, 5).join(", ");
     issues.push({
       criterion: "1.3.1",
       title: "ARIA Combobox Role on Non-Combobox Element",
@@ -887,6 +897,7 @@ export function runDeterministicChecks(html: string): ComplianceIssue[] {
       status: "warning",
       description: "Using role=\"combobox\" on a non-interactive element (e.g. <div>) is a misuse of ARIA. Use a native <select> or <input> element with an associated listbox instead.",
       details: `Found ${nonComboboxWithComboboxRole.length} element(s) with role="combobox" that are not native combobox elements (e.g. ${tagList}). Replace them with <select> or <input> for proper semantics.`,
+      tagCounts: comboboxTagCounts,
     });
   }
 
@@ -897,10 +908,12 @@ export function runDeterministicChecks(html: string): ComplianceIssue[] {
     return tag !== "table";
   });
   if (nonTableWithGridRole.length > 0) {
-    const tagList = nonTableWithGridRole
-      .slice(0, 5)
-      .map((el) => `<${el.tagName?.toLowerCase()}>`)
-      .join(", ");
+    const gridTagCounts: Record<string, number> = {};
+    nonTableWithGridRole.forEach((el) => {
+      const tag = `<${el.tagName?.toLowerCase()}>`;
+      gridTagCounts[tag] = (gridTagCounts[tag] ?? 0) + 1;
+    });
+    const tagList = Object.keys(gridTagCounts).slice(0, 5).join(", ");
     issues.push({
       criterion: "1.3.1",
       title: "ARIA Grid Role on Non-Table Element",
@@ -908,6 +921,7 @@ export function runDeterministicChecks(html: string): ComplianceIssue[] {
       status: "warning",
       description: "Using role=\"grid\" on a non-table element (e.g. <div>) is a misuse of ARIA. Use a native <table> element instead.",
       details: `Found ${nonTableWithGridRole.length} element(s) with role="grid" that are not native table elements (e.g. ${tagList}). Replace them with <table> for proper semantics.`,
+      tagCounts: gridTagCounts,
     });
   }
 
@@ -918,10 +932,12 @@ export function runDeterministicChecks(html: string): ComplianceIssue[] {
     return tag !== "button" && tag !== "a";
   });
   if (nonInteractiveWithTabRole.length > 0) {
-    const tagList = nonInteractiveWithTabRole
-      .slice(0, 5)
-      .map((el) => `<${el.tagName?.toLowerCase()}>`)
-      .join(", ");
+    const tabTagCounts: Record<string, number> = {};
+    nonInteractiveWithTabRole.forEach((el) => {
+      const tag = `<${el.tagName?.toLowerCase()}>`;
+      tabTagCounts[tag] = (tabTagCounts[tag] ?? 0) + 1;
+    });
+    const tagList = Object.keys(tabTagCounts).slice(0, 5).join(", ");
     issues.push({
       criterion: "1.3.1",
       title: "ARIA Tab Role on Non-Interactive Element",
@@ -929,6 +945,7 @@ export function runDeterministicChecks(html: string): ComplianceIssue[] {
       status: "warning",
       description: "Using role=\"tab\" on a non-interactive element (e.g. <div> or <span>) is a misuse of ARIA. Use a native <button> or <a> element instead.",
       details: `Found ${nonInteractiveWithTabRole.length} element(s) with role="tab" that are not native interactive elements (e.g. ${tagList}). Replace them with <button> or <a> for proper semantics.`,
+      tagCounts: tabTagCounts,
     });
   }
 
