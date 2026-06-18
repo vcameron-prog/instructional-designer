@@ -1399,6 +1399,36 @@ export async function registerRoutes(
         res.status(500).json({ error: String(err) });
       }
     });
+
+    // ---------------------------------------------------------------------------
+    // Admin-specific helper: inject a pre-authenticated admin session so the
+    // admin-dashboard Playwright test can skip the full OIDC flow.
+    // ---------------------------------------------------------------------------
+    app.get("/api/test/admin-login", (req: Request, res: Response) => {
+      const adminIds = getAdminIds();
+      const adminId = adminIds[0];
+      if (!adminId) {
+        res.status(400).json({ error: "ADMIN_USER_IDS is not configured" });
+        return;
+      }
+      const user = {
+        claims: {
+          sub: adminId,
+          email: adminId.includes("@") ? adminId : `${adminId}@test.invalid`,
+          first_name: "Admin",
+          last_name: "E2E",
+        },
+        access_token: "test-access-token",
+        expires_at: Math.floor(Date.now() / 1000) + 3600,
+      };
+      req.login(user, (err) => {
+        if (err) {
+          res.status(500).json({ error: String(err) });
+          return;
+        }
+        res.json({ ok: true, adminId });
+      });
+    });
   }
 
   // User preferences — authenticated users only
