@@ -1782,7 +1782,10 @@ export default function PdfConversion() {
                               {issue.details}
                             </p>
                             {(issue.title === "ARIA Button Role on Non-Button Element" ||
-                              issue.title === "ARIA Heading Role on Non-Heading Element") && (
+                              issue.title === "ARIA Heading Role on Non-Heading Element" ||
+                              issue.title === "ARIA Combobox Role on Non-Combobox Element" ||
+                              issue.title === "ARIA Grid Role on Non-Table Element" ||
+                              issue.title === "ARIA Tab Role on Non-Interactive Element") && (
                                 <div
                                   className="rounded-lg border bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800 p-3 space-y-2"
                                   data-testid={`aria-misuse-callout-${i}`}
@@ -1797,7 +1800,13 @@ export default function PdfConversion() {
                                   >
                                     {issue.title === "ARIA Button Role on Non-Button Element"
                                       ? "Replace non-button elements using role=\"button\" with a native <button> element for full keyboard and screen reader support."
-                                      : "Replace non-heading elements using role=\"heading\" with the appropriate native <h1>–<h6> element for correct document structure."}
+                                      : issue.title === "ARIA Heading Role on Non-Heading Element"
+                                      ? "Replace non-heading elements using role=\"heading\" with the appropriate native <h1>–<h6> element for correct document structure."
+                                      : issue.title === "ARIA Combobox Role on Non-Combobox Element"
+                                      ? "Replace non-input elements using role=\"combobox\" with a native <select> or <input> element paired with an associated listbox for correct keyboard and screen reader behavior."
+                                      : issue.title === "ARIA Grid Role on Non-Table Element"
+                                      ? "Replace non-table elements using role=\"grid\" with a native <table> element so screen readers can correctly interpret row and cell relationships."
+                                      : "Replace non-interactive elements using role=\"tab\" with a native <button> or <a> element so keyboard users can activate tabs without custom key-handling."}
                                   </p>
                                 </div>
                               )}
