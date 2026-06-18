@@ -365,6 +365,7 @@ export default function PdfConversion() {
     }: {
       id: number;
       issueIndex: number;
+      issueTitle?: string;
     }) => {
       const res = await apiRequest("POST", `/api/conversions/${id}/fix-issue`, {
         issueIndex,
@@ -390,15 +391,16 @@ export default function PdfConversion() {
         delete next[variables.issueIndex];
         return next;
       });
+      const issueSummary = variables.issueTitle ? `'${variables.issueTitle}'` : `Issue ${variables.issueIndex + 1}`;
       if (hadPreviousNoFixReason) {
         toast({
           title: "Fix applied — manual fix no longer needed",
-          description: "The issue was successfully resolved on retry.",
+          description: `${issueSummary} was successfully resolved on retry.`,
         });
       } else if (data?.wasRetried) {
         toast({
           title: "Fix applied after retry",
-          description: "The initial AI response was incomplete. A second attempt succeeded.",
+          description: `${issueSummary}: the initial AI response was incomplete. A second attempt succeeded.`,
         });
       }
       if (typeof data?.elementsFixed === "number" && data.elementsFixed > 0) {
@@ -725,11 +727,11 @@ export default function PdfConversion() {
   }, [toast]);
 
   const handleFixIssue = useCallback(
-    (issueIndex: number) => {
+    (issueIndex: number, issueTitle?: string) => {
       setFixingIndex(issueIndex);
       setFixError(null);
       fixMutation.mutate(
-        { id: numericId, issueIndex },
+        { id: numericId, issueIndex, issueTitle },
         {
           onError: () =>
             setFixError("Failed to fix this issue. Please try again."),
@@ -2551,7 +2553,7 @@ export default function PdfConversion() {
                             {isFixable && (
                               <div className="flex items-center gap-2 flex-wrap">
                                 <button
-                                  onClick={() => handleFixIssue(i)}
+                                  onClick={() => handleFixIssue(i, issue.title)}
                                   disabled={isFixing || fixingIndex !== null || isFixingAll}
                                   className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-bold shadow-sm disabled:opacity-50"
                                   data-testid={`button-fix-${i}`}
