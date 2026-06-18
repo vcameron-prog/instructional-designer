@@ -607,11 +607,14 @@ export default function PdfConversion() {
     setFixError(null);
     setFixAllProgress({ current: 0, total: fixableIndices.length });
 
+    let anyRetried = false;
     try {
       for (let j = 0; j < fixableIndices.length; j++) {
         setFixAllProgress({ current: j + 1, total: fixableIndices.length });
         const issueIndex = fixableIndices[j];
-        await apiRequest("POST", `/api/conversions/${numericId}/fix-issue`, { issueIndex });
+        const res = await apiRequest("POST", `/api/conversions/${numericId}/fix-issue`, { issueIndex });
+        const data = await res.json();
+        if (data?.wasRetried) anyRetried = true;
         await queryClient.invalidateQueries({ queryKey: ["/api/conversions", numericId] });
         // Re-fetch so subsequent iterations use updated HTML + indices
         await queryClient.fetchQuery({ queryKey: ["/api/conversions", numericId] });
@@ -623,7 +626,13 @@ export default function PdfConversion() {
       setFixAllProgress(null);
       queryClient.invalidateQueries({ queryKey: ["/api/conversions", numericId] });
     }
-  }, [conversion, numericId]);
+    if (anyRetried) {
+      toast({
+        title: "One or more fixes required a retry",
+        description: "The initial AI response was incomplete for some issues. A second attempt succeeded — the final result is still correct.",
+      });
+    }
+  }, [conversion, numericId, toast]);
 
   const handleFixAllAria = useCallback(async () => {
     setIsFixingAllAria(true);
