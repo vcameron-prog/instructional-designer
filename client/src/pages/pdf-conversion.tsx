@@ -730,6 +730,7 @@ export default function PdfConversion() {
 
     let anyRetried = false;
     const collectedFixNotes: string[] = [];
+    const manualFixItems: { title: string; reason: string }[] = [];
     try {
       for (let j = 0; j < fixableIndices.length; j++) {
         setFixAllProgress({ current: j + 1, total: fixableIndices.length });
@@ -739,6 +740,8 @@ export default function PdfConversion() {
         if (data?.wasRetried) anyRetried = true;
         if (data?.noFixReason) {
           setNoFixReasons(prev => ({ ...prev, [issueIndex]: data.noFixReason }));
+          const issueTitle = report.issues[issueIndex]?.title ?? `Issue ${issueIndex + 1}`;
+          manualFixItems.push({ title: issueTitle, reason: data.noFixReason });
         }
         const note = data?.complianceReport?.issues?.[issueIndex]?.fixNotes;
         if (note && !collectedFixNotes.includes(note)) {
@@ -763,6 +766,18 @@ export default function PdfConversion() {
           return merged;
         });
       }
+    }
+    if (manualFixItems.length > 0) {
+      const count = manualFixItems.length;
+      const itemList = manualFixItems
+        .map(({ title, reason }) => `• ${title}: ${reason}`)
+        .join("\n");
+      toast({
+        title: `${count} ${count === 1 ? "issue requires" : "issues require"} manual attention`,
+        description: itemList,
+        variant: "destructive",
+        duration: 10000,
+      });
     }
     if (anyRetried) {
       toast({
