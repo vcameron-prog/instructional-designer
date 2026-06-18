@@ -60,6 +60,7 @@ export const generatedContent = pgTable("generated_content", {
     onDelete: "cascade",
   }),
   userId: text("user_id"),
+  visitorToken: varchar("visitor_token"),
   toolType: text("tool_type").notNull(),
   toolName: text("tool_name").notNull(),
   formData: jsonb("form_data").notNull(),

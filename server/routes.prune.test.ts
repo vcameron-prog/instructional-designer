@@ -928,7 +928,7 @@ describe("pruneOldVersions is called correctly from route handlers", () => {
         content: originalContent,
         toolName: "assignment",
         courseId: null,
-        userId: null,
+        userId: "test-user-opt",
       });
       mockApplyAriaComboboxRoleFix.mockReturnValue(fixedContent);
 
@@ -954,7 +954,7 @@ describe("pruneOldVersions is called correctly from route handlers", () => {
         content: unchangedContent,
         toolName: "rubric",
         courseId: null,
-        userId: null,
+        userId: "test-user-opt",
       });
       // Default mock is a passthrough
 
@@ -980,7 +980,7 @@ describe("pruneOldVersions is called correctly from route handlers", () => {
         content: originalContent,
         toolName: "assignment",
         courseId: null,
-        userId: null,
+        userId: "test-user-opt",
       });
       mockApplyAriaGridRoleFix.mockReturnValue(fixedContent);
 
@@ -1005,7 +1005,7 @@ describe("pruneOldVersions is called correctly from route handlers", () => {
         content: unchangedContent,
         toolName: "rubric",
         courseId: null,
-        userId: null,
+        userId: "test-user-opt",
       });
 
       const response = await request(app)
@@ -1030,7 +1030,7 @@ describe("pruneOldVersions is called correctly from route handlers", () => {
         content: originalContent,
         toolName: "assignment",
         courseId: null,
-        userId: null,
+        userId: "test-user-opt",
       });
       mockApplyAriaTabRoleFix.mockReturnValue(fixedContent);
 
@@ -1055,7 +1055,7 @@ describe("pruneOldVersions is called correctly from route handlers", () => {
         content: unchangedContent,
         toolName: "rubric",
         courseId: null,
-        userId: null,
+        userId: "test-user-opt",
       });
 
       const response = await request(app)

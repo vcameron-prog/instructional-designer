@@ -2350,14 +2350,21 @@ export async function registerRoutes(
 
   app.post(
     "/api/generate-standalone",
-    isBsuAuthenticated,
+    optionalAuth,
     async (req: Request, res: Response) => {
       try {
-        const userId = getUserId(req) as string;
+        const userId = getUserId(req);
         const { toolId, toolName, formData, language } = req.body;
 
-        if (!await checkSharedRateLimit(userId, "ai-gen", AI_GEN_RATE_LIMIT, AI_GEN_RATE_WINDOW_MS, () => checkAiGenRateLimit(userId))) {
-          return res.status(429).json({ error: "AI generation rate limit exceeded. Please try again later." });
+        if (userId) {
+          if (!await checkSharedRateLimit(userId, "ai-gen", AI_GEN_RATE_LIMIT, AI_GEN_RATE_WINDOW_MS, () => checkAiGenRateLimit(userId))) {
+            return res.status(429).json({ error: "AI generation rate limit exceeded. Please try again later." });
+          }
+        } else {
+          const ip = req.ip || req.socket.remoteAddress || "unknown";
+          if (!await checkSharedRateLimit(`ip:${ip}`, "ai-gen", ANON_RATE_LIMIT, ANON_RATE_WINDOW_MS, () => checkAnonRateLimit(ip))) {
+            return res.status(429).json({ error: "Rate limit exceeded. Please try again later." });
+          }
         }
 
         const allowedTools = [
@@ -2386,10 +2393,12 @@ export async function registerRoutes(
           .join("\n\n");
 
         const generatedText = convertMarkdownTablesToHtml(rawGeneratedTextStandalone);
+        const visitorToken = userId ? null : ensureVisitorToken(req);
 
         const content = await storage.createContent({
           courseId: null,
           userId,
+          visitorToken,
           toolType: toolId,
           toolName,
           formData,
@@ -2650,8 +2659,13 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           if (!userId) return res.status(403).json({ error: "Unauthorized" });
           const course = await storage.getCourse(content.courseId, userId);
           if (!course) return res.status(404).json({ error: "Content not found" });
-        } else if (content.userId && content.userId !== userId) {
-          return res.status(403).json({ error: "Unauthorized" });
+        } else if (content.userId) {
+          if (content.userId !== userId) return res.status(403).json({ error: "Unauthorized" });
+        } else {
+          const vToken = getVisitorToken(req);
+          if (!vToken || vToken !== content.visitorToken) {
+            return res.status(403).json({ error: "Unauthorized" });
+          }
         }
 
         let fixedContent = content.content;
@@ -2719,8 +2733,13 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           if (!userId) return res.status(403).json({ error: "Unauthorized" });
           const course = await storage.getCourse(content.courseId, userId);
           if (!course) return res.status(404).json({ error: "Content not found" });
-        } else if (!content.userId || content.userId !== userId) {
-          return res.status(403).json({ error: "Unauthorized" });
+        } else if (content.userId) {
+          if (content.userId !== userId) return res.status(403).json({ error: "Unauthorized" });
+        } else {
+          const vToken = getVisitorToken(req);
+          if (!vToken || vToken !== content.visitorToken) {
+            return res.status(403).json({ error: "Unauthorized" });
+          }
         }
 
         let fixedContent = content.content;
@@ -2841,8 +2860,13 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           if (!userId) return res.status(403).json({ error: "Unauthorized" });
           const course = await storage.getCourse(content.courseId, userId);
           if (!course) return res.status(404).json({ error: "Content not found" });
-        } else if (!content.userId || content.userId !== userId) {
-          return res.status(403).json({ error: "Unauthorized" });
+        } else if (content.userId) {
+          if (content.userId !== userId) return res.status(403).json({ error: "Unauthorized" });
+        } else {
+          const vToken = getVisitorToken(req);
+          if (!vToken || vToken !== content.visitorToken) {
+            return res.status(403).json({ error: "Unauthorized" });
+          }
         }
 
         const version = await storage.getVersionById(versionId);
@@ -3266,7 +3290,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
   });
 
   function getVisitorToken(req: Request): string | null {
-    return (req.session as any).visitorToken ?? null;
+    return (req.session as any)?.visitorToken ?? null;
   }
 
   function ensureVisitorToken(req: Request): string {

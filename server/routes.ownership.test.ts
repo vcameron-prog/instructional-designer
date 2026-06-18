@@ -126,12 +126,19 @@ vi.mock("./lib/accessibility-engine", () => ({
 }));
 
 // ---------------------------------------------------------------------------
-// Helper: build a fresh Express app each test
+// Helper: build a fresh Express app each test.
+// A thin session mock is added so getVisitorToken / ensureVisitorToken can
+// read from req.session.  Tests may inject a visitor token via the custom
+// x-visitor-token request header.
 // ---------------------------------------------------------------------------
 async function buildApp() {
   const { registerRoutes } = await import("./routes.js");
   const app = express();
   app.use(express.json());
+  app.use((req: any, _res: any, next: any) => {
+    req.session = { visitorToken: (req.headers["x-visitor-token"] as string) || null };
+    next();
+  });
   const httpServer = createServer(app);
   await registerRoutes(httpServer, app);
   return app;
@@ -298,7 +305,7 @@ describe("POST /api/content/:id/fix-accessibility — ownership checks", () => {
     expect(mockUpdateContent).not.toHaveBeenCalled();
   });
 
-  it("returns 403 for anonymous callers trying to fix anonymous content (userId=null, courseId=null) — same as authenticated callers", async () => {
+  it("returns 403 for anonymous callers trying to fix anonymous content without a visitor token", async () => {
     currentUser.sub = null;
 
     mockGetContent.mockResolvedValue({
@@ -307,6 +314,7 @@ describe("POST /api/content/:id/fix-accessibility — ownership checks", () => {
       toolName: "assignment",
       courseId: null,
       userId: null,
+      visitorToken: "token-owner",
     });
 
     await request(app)
@@ -315,6 +323,49 @@ describe("POST /api/content/:id/fix-accessibility — ownership checks", () => {
       .expect(403);
 
     expect(mockUpdateContent).not.toHaveBeenCalled();
+  });
+
+  it("returns 403 for anonymous callers whose visitor token does not match the stored one", async () => {
+    currentUser.sub = null;
+
+    mockGetContent.mockResolvedValue({
+      id: 10,
+      content: "# A\n### C",
+      toolName: "assignment",
+      courseId: null,
+      userId: null,
+      visitorToken: "token-owner",
+    });
+
+    await request(app)
+      .post("/api/content/10/fix-accessibility")
+      .set("x-visitor-token", "token-intruder")
+      .send({ fixType: "fix-heading-skip" })
+      .expect(403);
+
+    expect(mockUpdateContent).not.toHaveBeenCalled();
+  });
+
+  it("returns 200 for the anonymous caller whose visitor token matches the stored one", async () => {
+    currentUser.sub = null;
+
+    mockGetContent.mockResolvedValue({
+      id: 10,
+      content: "# A\n### C",
+      toolName: "assignment",
+      courseId: null,
+      userId: null,
+      visitorToken: "token-owner",
+    });
+    mockCreateVersion.mockResolvedValue({ id: 1, generatedContentId: 10 });
+    mockPruneOldVersions.mockResolvedValue(undefined);
+    mockUpdateContent.mockResolvedValue({ id: 10, content: "# A\n## B\n### C" });
+
+    await request(app)
+      .post("/api/content/10/fix-accessibility")
+      .set("x-visitor-token", "token-owner")
+      .send({ fixType: "fix-heading-skip" })
+      .expect(200);
   });
 });
 
@@ -384,7 +435,7 @@ describe("POST /api/content/:id/restore-version — ownership checks", () => {
     expect(mockUpdateContent).not.toHaveBeenCalled();
   });
 
-  it("returns 403 for anonymous callers trying to restore anonymous content (userId=null, courseId=null) — same as authenticated callers", async () => {
+  it("returns 403 for anonymous callers trying to restore anonymous content without a visitor token", async () => {
     currentUser.sub = null;
 
     mockGetContent.mockResolvedValue({
@@ -393,6 +444,7 @@ describe("POST /api/content/:id/restore-version — ownership checks", () => {
       toolName: "assignment",
       courseId: null,
       userId: null,
+      visitorToken: "token-owner",
     });
 
     await request(app)
@@ -401,6 +453,46 @@ describe("POST /api/content/:id/restore-version — ownership checks", () => {
       .expect(403);
 
     expect(mockUpdateContent).not.toHaveBeenCalled();
+  });
+
+  it("returns 403 for anonymous callers whose visitor token does not match the stored one", async () => {
+    currentUser.sub = null;
+
+    mockGetContent.mockResolvedValue({
+      id: 10,
+      content: "current",
+      toolName: "assignment",
+      courseId: null,
+      userId: null,
+      visitorToken: "token-owner",
+    });
+
+    await request(app)
+      .post("/api/content/10/restore-version")
+      .set("x-visitor-token", "token-intruder")
+      .send({ versionId: 5 })
+      .expect(403);
+
+    expect(mockUpdateContent).not.toHaveBeenCalled();
+  });
+
+  it("returns 200 for the anonymous caller whose visitor token matches the stored one", async () => {
+    currentUser.sub = null;
+
+    mockGetContent.mockResolvedValue({
+      id: 10,
+      content: "current",
+      toolName: "assignment",
+      courseId: null,
+      userId: null,
+      visitorToken: "token-owner",
+    });
+
+    await request(app)
+      .post("/api/content/10/restore-version")
+      .set("x-visitor-token", "token-owner")
+      .send({ versionId: 5 })
+      .expect(200);
   });
 
   it("returns 404 when the version does not exist or belongs to a different content item", async () => {
@@ -417,5 +509,66 @@ describe("POST /api/content/:id/restore-version — ownership checks", () => {
       .post("/api/content/10/restore-version")
       .send({ versionId: 999 })
       .expect(404);
+  });
+});
+
+describe("POST /api/content/:id/preview-fix — visitor-token ownership checks", () => {
+  let app: express.Express;
+
+  beforeEach(async () => {
+    vi.resetModules();
+    vi.clearAllMocks();
+    currentUser.sub = null;
+    app = await buildApp();
+  });
+
+  it("returns 403 for anonymous callers trying to preview anonymous content without a visitor token", async () => {
+    mockGetContent.mockResolvedValue({
+      id: 10,
+      content: "# A\n### C",
+      toolName: "assignment",
+      courseId: null,
+      userId: null,
+      visitorToken: "token-owner",
+    });
+
+    await request(app)
+      .post("/api/content/10/preview-fix")
+      .send({ fixType: "fix-heading-skip" })
+      .expect(403);
+  });
+
+  it("returns 403 for anonymous callers whose visitor token does not match the stored one", async () => {
+    mockGetContent.mockResolvedValue({
+      id: 10,
+      content: "# A\n### C",
+      toolName: "assignment",
+      courseId: null,
+      userId: null,
+      visitorToken: "token-owner",
+    });
+
+    await request(app)
+      .post("/api/content/10/preview-fix")
+      .set("x-visitor-token", "token-intruder")
+      .send({ fixType: "fix-heading-skip" })
+      .expect(403);
+  });
+
+  it("returns 200 for the anonymous caller whose visitor token matches the stored one", async () => {
+    mockGetContent.mockResolvedValue({
+      id: 10,
+      content: "# A\n### C",
+      toolName: "assignment",
+      courseId: null,
+      userId: null,
+      visitorToken: "token-owner",
+    });
+
+    await request(app)
+      .post("/api/content/10/preview-fix")
+      .set("x-visitor-token", "token-owner")
+      .send({ fixType: "fix-heading-skip" })
+      .expect(200);
   });
 });

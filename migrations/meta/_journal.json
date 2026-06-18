@@ -22,6 +22,13 @@
       "when": 1750291200000,
       "tag": "0002_drop_legacy_user_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1781900000000,
+      "tag": "0003_generated_content_visitor_token",
+      "breakpoints": true
     }
   ]
 }
