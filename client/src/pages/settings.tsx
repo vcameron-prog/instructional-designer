@@ -5,9 +5,23 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { PoweredByFooter } from "@/components/powered-by-footer";
 import { HeaderControls } from "@/components/header-controls";
 import { usePageTitle } from "@/hooks/use-page-title";
-import { ArrowLeft, Settings, Wand2 } from "lucide-react";
+import { ArrowLeft, Settings, Wand2, Globe, LayoutList, Zap } from "lucide-react";
+import { TOOLS } from "@/lib/constants";
 
 const SKIP_PREVIEW_KEY = "a11y-skip-preview";
+const AUTO_EXPAND_KEY = "bsu-auto-expand-sections";
+const DEFAULT_LANGUAGE_KEY = "bsu-default-language";
+const PREFERRED_TOOL_KEY = "bsu-preferred-quick-tool";
+
+const QUICK_TOOL_IDS = ["assignment", "rubric", "alignment", "airesistant", "accessibility", "aistudent"];
+
+const LANGUAGE_OPTIONS = [
+  { value: "English", label: "English" },
+  { value: "Spanish", label: "Spanish (Español)" },
+  { value: "French", label: "French (Français)" },
+  { value: "Portuguese", label: "Portuguese (Português)" },
+  { value: "Haitian Creole", label: "Haitian Creole (Kreyòl ayisyen)" },
+];
 
 export default function SettingsPage() {
   usePageTitle("Preferences | BSU AI Course Assistant");
@@ -17,10 +31,43 @@ export default function SettingsPage() {
     () => localStorage.getItem(SKIP_PREVIEW_KEY) === "true"
   );
 
+  const [autoExpand, setAutoExpand] = useState(
+    () => localStorage.getItem(AUTO_EXPAND_KEY) === "true"
+  );
+
+  const [defaultLanguage, setDefaultLanguage] = useState(
+    () => localStorage.getItem(DEFAULT_LANGUAGE_KEY) || "English"
+  );
+
+  const [preferredTool, setPreferredTool] = useState(
+    () => localStorage.getItem(PREFERRED_TOOL_KEY) || ""
+  );
+
   const handleToggleSkipPreview = (value: boolean) => {
     setSkipPreview(value);
     localStorage.setItem(SKIP_PREVIEW_KEY, value ? "true" : "false");
   };
+
+  const handleToggleAutoExpand = (value: boolean) => {
+    setAutoExpand(value);
+    localStorage.setItem(AUTO_EXPAND_KEY, value ? "true" : "false");
+  };
+
+  const handleLanguageChange = (value: string) => {
+    setDefaultLanguage(value);
+    localStorage.setItem(DEFAULT_LANGUAGE_KEY, value);
+  };
+
+  const handlePreferredToolChange = (value: string) => {
+    setPreferredTool(value);
+    if (value) {
+      localStorage.setItem(PREFERRED_TOOL_KEY, value);
+    } else {
+      localStorage.removeItem(PREFERRED_TOOL_KEY);
+    }
+  };
+
+  const quickTools = TOOLS.filter(t => QUICK_TOOL_IDS.includes(t.id));
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -51,6 +98,80 @@ export default function SettingsPage() {
           </div>
         </div>
 
+        {/* Content Generation */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Globe className="w-4 h-4 text-primary" />
+              <CardTitle className="text-base">Content Generation</CardTitle>
+            </div>
+            <CardDescription>
+              Default settings applied when AI generates course materials
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="space-y-1.5">
+              <label
+                htmlFor="settings-language-select"
+                className="text-sm font-medium"
+              >
+                Default content language
+              </label>
+              <p className="text-sm text-muted-foreground">
+                AI-generated content will be written in this language unless you specify otherwise.
+              </p>
+              <select
+                id="settings-language-select"
+                value={defaultLanguage}
+                onChange={(e) => handleLanguageChange(e.target.value)}
+                className="mt-1 w-full max-w-xs rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer"
+                data-testid="select-settings-language"
+              >
+                {LANGUAGE_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Result Display */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <LayoutList className="w-4 h-4 text-primary" />
+              <CardTitle className="text-base">Result Display</CardTitle>
+            </div>
+            <CardDescription>
+              Control how generated content is shown on result pages
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-start gap-3">
+              <input
+                id="settings-auto-expand-toggle"
+                type="checkbox"
+                className="mt-0.5 w-4 h-4 accent-primary cursor-pointer shrink-0"
+                checked={autoExpand}
+                onChange={(e) => handleToggleAutoExpand(e.target.checked)}
+                data-testid="checkbox-settings-auto-expand"
+              />
+              <div>
+                <label
+                  htmlFor="settings-auto-expand-toggle"
+                  className="text-sm font-medium cursor-pointer select-none"
+                >
+                  Expand all sections by default
+                </label>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  When enabled, supplementary sections like grading criteria, UDL notes, and resources will be fully expanded instead of collapsed when you first view a result.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Accessibility Fixes */}
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
@@ -83,6 +204,42 @@ export default function SettingsPage() {
                 </p>
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Quick Tools */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Zap className="w-4 h-4 text-primary" />
+              <CardTitle className="text-base">Quick Tools</CardTitle>
+            </div>
+            <CardDescription>
+              Set a preferred tool to highlight when using Quick Tools
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <label
+              htmlFor="settings-preferred-tool-select"
+              className="text-sm font-medium"
+            >
+              Preferred Quick Tool
+            </label>
+            <p className="text-sm text-muted-foreground">
+              Your preferred tool will be highlighted with a "Preferred" badge on the Quick Tools page for easy access.
+            </p>
+            <select
+              id="settings-preferred-tool-select"
+              value={preferredTool}
+              onChange={(e) => handlePreferredToolChange(e.target.value)}
+              className="mt-1 w-full max-w-sm rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer"
+              data-testid="select-settings-preferred-tool"
+            >
+              <option value="">No preference</option>
+              {quickTools.map((tool) => (
+                <option key={tool.id} value={tool.id}>{tool.name}</option>
+              ))}
+            </select>
           </CardContent>
         </Card>
       </main>

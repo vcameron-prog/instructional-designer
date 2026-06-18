@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -40,6 +40,8 @@ export default function QuickTools() {
 
   usePageTitle("Quick Tools");
   useEffect(() => { window.scrollTo(0, 0); }, []);
+
+  const [preferredTool] = useState(() => localStorage.getItem("bsu-preferred-quick-tool") || "");
 
   const quickTools = TOOLS.filter(t => QUICK_TOOL_IDS.includes(t.id));
 
@@ -95,7 +97,7 @@ export default function QuickTools() {
             return (
               <Card
                 key={tool.id}
-                className="group cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-lg animate-fade-in-up"
+                className={`group cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-lg animate-fade-in-up${preferredTool === tool.id ? " ring-2 ring-primary/40" : ""}`}
                 style={{ animationDelay: `${index * 50}ms` }}
                 onClick={() => navigate(`/quick-tools/${tool.id}`)}
                 onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate(`/quick-tools/${tool.id}`); } }}
@@ -104,8 +106,15 @@ export default function QuickTools() {
                 data-testid={`card-quick-tool-${tool.id}`}
               >
                 <CardHeader className="pb-3">
-                  <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center text-white group-hover:scale-110 transition-transform">
-                    {Icon && <Icon className="w-6 h-6" />}
+                  <div className="flex items-start justify-between">
+                    <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center text-white group-hover:scale-110 transition-transform">
+                      {Icon && <Icon className="w-6 h-6" />}
+                    </div>
+                    {preferredTool === tool.id && (
+                      <Badge variant="secondary" className="text-xs shrink-0" data-testid={`badge-preferred-${tool.id}`}>
+                        Preferred
+                      </Badge>
+                    )}
                   </div>
                   <CardTitle className="text-lg mt-3 group-hover:text-primary transition-colors">
                     {tool.name}
