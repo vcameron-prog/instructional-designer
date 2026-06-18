@@ -1954,19 +1954,35 @@ export default function PdfConversion() {
                     role="note"
                     data-testid="batch-fix-notes-summary"
                   >
-                    <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-start justify-between gap-2">
                       <p className="text-xs font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wide flex items-center gap-1.5">
                         <Info className="w-3.5 h-3.5" aria-hidden="true" />
                         Heading Level Notes
                       </p>
-                      <button
-                        onClick={() => setBatchFixNotesSummary([])}
-                        className="text-blue-500 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-200 transition-colors"
-                        aria-label="Dismiss heading level notes"
-                        data-testid="button-dismiss-batch-fix-notes"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={() => {
+                            setBatchFixNotesSummary([]);
+                            handleFixAll();
+                          }}
+                          disabled={isFixingAll || isFixingAllAria || fixingIndex !== null}
+                          className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-800/50 border border-blue-300 dark:border-blue-700 rounded-md disabled:opacity-50 transition-colors"
+                          aria-label="Clear notes and run Fix All"
+                          data-testid="button-clear-and-fix-all"
+                        >
+                          <Zap className="w-3 h-3" aria-hidden="true" />
+                          Clear &amp; Fix All
+                        </button>
+                        <button
+                          onClick={() => setBatchFixNotesSummary([])}
+                          className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 bg-transparent hover:bg-blue-100 dark:hover:bg-blue-900/30 border border-blue-300 dark:border-blue-700 rounded-md transition-colors"
+                          aria-label="Clear heading level notes"
+                          data-testid="button-dismiss-batch-fix-notes"
+                        >
+                          <X className="w-3 h-3" aria-hidden="true" />
+                          Clear notes
+                        </button>
+                      </div>
                     </div>
                     <ul className="space-y-1">
                       {batchFixNotesSummary.map((note, idx) => (
