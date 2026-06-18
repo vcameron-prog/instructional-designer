@@ -4705,6 +4705,12 @@ describe("applyBypassBlocksFix", () => {
     expect(result).toBe(html);
   });
 
+  it("does not modify HTML when role='main' is single-quoted", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><div role='main'><h1>Hello</h1></div></body></html>`;
+    const result = applyBypassBlocksFix(html);
+    expect(result).toBe(html);
+  });
+
   it("does not duplicate <main> when already present", () => {
     const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><main><p>Content</p></main></body></html>`;
     const result = applyBypassBlocksFix(html);
@@ -4814,6 +4820,14 @@ describe("applyBypassBlocksFix", () => {
     expect(result).toContain('role="banner"');
     expect(result).toContain("<main>");
     expect(extractMainContent(result)).not.toContain('role="banner"');
+  });
+
+  it("leaves a top-level <div role='banner'> (single-quoted) outside <main> as a sibling", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><div role='banner'><p>Site header</p></div><h1>Content</h1><p>Body</p></body></html>`;
+    const result = applyBypassBlocksFix(html);
+    expect(result).toContain("role='banner'");
+    expect(result).toContain("<main>");
+    expect(extractMainContent(result)).not.toContain("role='banner'");
   });
 
   it('leaves a top-level <div role="navigation"> outside <main> as a sibling', () => {
