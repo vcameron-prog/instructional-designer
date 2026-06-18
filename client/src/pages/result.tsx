@@ -155,11 +155,11 @@ const checkAccessibility = (content: string): AccessibilityIssue[] => {
     });
   }
 
-  if (content.match(/\[click here\]|\[here\]|\[link\]/gi)) {
+  if (content.match(/\[(click here|here|link|read more|learn more|go here|this page|more info|more|click|this link|this article|this resource|view here|find out more|see here|details|info)\]/gi)) {
     issues.push({
       type: "accessibility",
       severity: "warning",
-      message: 'Avoid vague link text like "click here" or "here"',
+      message: 'Avoid vague link text like "click here", "read more", or "learn more"',
       fix: "Use descriptive link text that explains the destination (e.g., [BSU Academic Calendar])",
       fixType: "fix-vague-link-text",
     });

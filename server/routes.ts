@@ -1305,7 +1305,7 @@ async function fixVagueLinkTextAI(text: string): Promise<string> {
         role: "user",
         content: `You are an accessibility editor. Your task is to fix vague link text in the following markdown content.
 
-Vague link text includes phrases like "click here", "here", "link", or similar non-descriptive labels.
+Vague link text includes phrases like "click here", "here", "link", "read more", "learn more", "go here", "this page", "more info", "more", "click", "this link", "this article", "this resource", "view here", "find out more", "see here", "details", "info", or similar non-descriptive labels.
 
 Rules:
 1. For each vague link that has a URL, replace ONLY the link label with a short, descriptive phrase that accurately reflects the link destination based on surrounding context. Preserve the URL exactly as-is.
