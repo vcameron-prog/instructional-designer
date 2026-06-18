@@ -472,18 +472,34 @@ export function runDeterministicChecks(html: string): ComplianceIssue[] {
       : "The document is missing a main heading, making it harder to navigate.",
   });
 
-  const hasLandmarks =
+  const hasMain =
     /<main[\s>]/i.test(html) ||
     /role\s*=\s*["']main["']/i.test(html);
+  const hasOtherLandmarks =
+    /<header[\s>]/i.test(html) ||
+    /<nav[\s>]/i.test(html) ||
+    /<footer[\s>]/i.test(html);
+
+  let bypassDetails: string;
+  if (hasMain) {
+    bypassDetails = "The document is organized into clear, labeled sections.";
+  } else if (hasOtherLandmarks) {
+    bypassDetails =
+      "This document contains header, navigation, or footer sections but has no main content area. " +
+      "All body content appears to be inside landmark elements, so no <main> region could be identified. " +
+      "Add a <main> element (or role=\"main\" on a wrapper) to clearly mark where the primary content begins, " +
+      "so screen reader users can skip directly to it.";
+  } else {
+    bypassDetails = "The document could be better organized into labeled sections for easier navigation.";
+  }
+
   issues.push({
     criterion: "2.4.1",
     title: "Bypass Blocks",
     level: "A",
-    status: hasLandmarks ? "pass" : "warning",
+    status: hasMain ? "pass" : "warning",
     description: "The document should have clear sections so users can skip to the content they need.",
-    details: hasLandmarks
-      ? "The document is organized into clear, labeled sections."
-      : "The document could be better organized into labeled sections for easier navigation.",
+    details: bypassDetails,
   });
 
   const imgTags = html.match(new RegExp(`<img\\s${ATTR_PATTERN}>`, "gi")) || [];

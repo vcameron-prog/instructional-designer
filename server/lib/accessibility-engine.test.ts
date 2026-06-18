@@ -4757,6 +4757,24 @@ describe("applyBypassBlocksFix", () => {
     expect(mainInner).not.toContain('role="contentinfo"');
     expect(mainInner).toContain("<h1>");
   });
+
+  it("all-landmarks-no-content: applyBypassBlocksFix does not insert <main> and 2.4.1 check surfaces a distinct warning", () => {
+    // Document body contains only landmark elements — no non-landmark content at all.
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><header><p>Site header</p></header><nav><a href="#">Home</a></nav><footer><p>Footer</p></footer></body></html>`;
+
+    // The fixer should leave the document unchanged since there is nothing to wrap.
+    const fixed = applyBypassBlocksFix(html);
+    expect(fixed).not.toContain("<main>");
+
+    // The deterministic check should still warn (status: "warning").
+    const issues = runDeterministicChecks(fixed);
+    const bypass = issues.find((i) => i.criterion === "2.4.1")!;
+    expect(bypass.status).toBe("warning");
+
+    // The details message must be the distinct "only-landmarks" explanation, not the generic one.
+    expect(bypass.details).toContain("no main content area");
+    expect(bypass.details).toContain("landmark elements");
+  });
 });
 
 // ---------------------------------------------------------------------------
