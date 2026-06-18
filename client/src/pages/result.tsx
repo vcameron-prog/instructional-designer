@@ -1724,7 +1724,8 @@ export default function ResultPage() {
                             (content.formData as Record<string, any>) ?? {},
                             content.content,
                           );
-                          sessionStorage.setItem("bsu-chain-prefill", JSON.stringify({ targetToolId: chain.targetId, fields: prefill }));
+                          const sourceTool = TOOLS.find(t => t.id === content.toolType);
+                          sessionStorage.setItem("bsu-chain-prefill", JSON.stringify({ targetToolId: chain.targetId, fields: prefill, sourceName: sourceTool?.name ?? content.toolType }));
                           navigate(isStandalone ? `/quick-tools/${chain.targetId}` : `/course/${courseId}/tool/${chain.targetId}`);
                         }}
                         data-testid={`button-chain-${chain.targetId}`}

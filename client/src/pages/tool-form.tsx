@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
-import { ArrowLeft, Loader2, Sparkles, BookOpen, Calendar, FileText, Layout, CheckCircle, Target, Scale, ShieldCheck, Eye, Bot, Globe, BookmarkPlus, ChevronDown, Trash2, SlidersHorizontal, Library } from "lucide-react";
+import { ArrowLeft, Loader2, Sparkles, BookOpen, Calendar, FileText, Layout, CheckCircle, Target, Scale, ShieldCheck, Eye, Bot, Globe, BookmarkPlus, ChevronDown, Trash2, SlidersHorizontal, Library, Info, X } from "lucide-react";
 import { TOOLS, BSU_CALENDAR, LOADING_MESSAGES, COURSE_LEVELS, CONTENT_PREFILL_MAP } from "@/lib/constants";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isSessionExpiredMessage } from "@/lib/upload-error-utils";
@@ -296,14 +296,18 @@ export default function ToolForm() {
 
   const { subject: savedSubject, courseLevel: savedCourseLevel, setSubject: persistSubject, setCourseLevel: persistCourseLevel, clearContext } = useQuickToolContext();
 
+  const [chainSourceName, setChainSourceName] = useState<string | null>(null);
   const [formData, setFormData] = useState<Record<string, any>>(() => {
     const savedDetail = loadOutputDetail();
     const raw = sessionStorage.getItem("bsu-chain-prefill");
     if (raw) {
       try {
-        const parsed = JSON.parse(raw) as { targetToolId: string; fields: Record<string, any> };
+        const parsed = JSON.parse(raw) as { targetToolId: string; fields: Record<string, any>; sourceName?: string };
         sessionStorage.removeItem("bsu-chain-prefill");
         if (parsed.targetToolId === toolId && parsed.fields && typeof parsed.fields === "object") {
+          if (parsed.sourceName) {
+            setTimeout(() => setChainSourceName(parsed.sourceName!), 0);
+          }
           return { outputDetail: savedDetail, ...parsed.fields };
         }
       } catch {
@@ -653,6 +657,7 @@ export default function ToolForm() {
       }
     }
 
+    setChainSourceName(null);
     setIsGenerating(true);
     generateMutation.mutate();
   };
@@ -905,6 +910,28 @@ export default function ToolForm() {
               <CardTitle>Tool Configuration</CardTitle>
               <CardDescription>Customize your {tool.name.toLowerCase()}</CardDescription>
             </CardHeader>
+            {chainSourceName && (
+              <div
+                className="mx-6 mb-2 flex items-start gap-3 rounded-md border border-primary/30 bg-primary/5 px-4 py-3 text-sm text-primary"
+                role="status"
+                aria-live="polite"
+                data-testid="banner-chain-prefill"
+              >
+                <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                <span className="flex-1">
+                  Pre-filled from your <strong>{chainSourceName}</strong> result — review and edit as needed.
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setChainSourceName(null)}
+                  className="shrink-0 rounded p-0.5 hover:bg-primary/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+                  aria-label="Dismiss pre-fill notice"
+                  data-testid="button-dismiss-prefill-banner"
+                >
+                  <X className="h-4 w-4" aria-hidden="true" />
+                </button>
+              </div>
+            )}
             <CardContent className="space-y-6">
               {formFields.map((field) => {
                 const isPrefilled = preFilledFields.has(field.name);
