@@ -1,0 +1,20 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1781796307768,
+      "tag": "0000_skinny_omega_flight",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1781796400000,
+      "tag": "0001_catchup_missing_columns",
+      "breakpoints": true
+    }
+  ]
+}

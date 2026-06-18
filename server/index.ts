@@ -7,8 +7,10 @@ import { trimAllOversizedVersions } from "./lib/trimVersions";
 import { scheduleDailySummary } from "./lib/daily-summary";
 import { clearRateLimiterIntervals, initRateLimitCleanupMetrics } from "./lib/rateLimiters.js";
 import { db } from "./db";
-import { sql, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { conversions } from "../shared/schema";
+import { migrate } from "drizzle-orm/node-postgres/migrator";
+import path from "path";
 
 const app = express();
 const httpServer = createServer(app);
@@ -64,47 +66,13 @@ app.use((req, res, next) => {
   next();
 });
 
-async function runStartupMigrations() {
+async function runMigrations() {
   try {
-    await db.execute(sql`
-      ALTER TABLE users ADD COLUMN IF NOT EXISTS preferences jsonb;
-    `);
-    await db.execute(sql`
-      ALTER TABLE conversions ADD COLUMN IF NOT EXISTS visitor_token varchar;
-    `);
-    await db.execute(sql`
-      ALTER TABLE saved_content ADD COLUMN IF NOT EXISTS user_id varchar NOT NULL DEFAULT '';
-    `);
-    await db.execute(sql`
-      ALTER TABLE saved_content ADD COLUMN IF NOT EXISTS form_data jsonb;
-    `);
-    await db.execute(sql`
-      ALTER TABLE saved_content ADD COLUMN IF NOT EXISTS course_id integer;
-    `);
-    await db.execute(sql`
-      ALTER TABLE courses ADD COLUMN IF NOT EXISTS syllabus_uploaded_at timestamptz;
-    `);
-    await db.execute(sql`
-      ALTER TABLE courses ADD COLUMN IF NOT EXISTS rolled_over_from_id integer;
-    `);
-    await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS app_metrics (
-        key TEXT PRIMARY KEY,
-        count INTEGER NOT NULL DEFAULT 0,
-        last_at TIMESTAMPTZ
-      );
-    `);
-    await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS saved_outcomes (
-        id SERIAL PRIMARY KEY,
-        user_id VARCHAR NOT NULL,
-        text TEXT NOT NULL,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-    log("Startup migrations applied successfully", "startup");
+    const migrationsFolder = path.resolve(process.cwd(), "migrations");
+    await migrate(db, { migrationsFolder });
+    log("Database migrations applied successfully", "startup");
   } catch (err) {
-    console.error("Startup migration failed:", err);
+    console.error("Database migration failed:", err);
     throw err;
   }
 }
@@ -168,7 +136,7 @@ async function resetStaleProcessingJobs() {
   validateThresholdEnvVars();
 
   // Apply any pending schema migrations before starting
-  await runStartupMigrations();
+  await runMigrations();
 
   // Mark any conversions left in "processing" state (e.g. from a previous crash/deploy) as failed
   await resetStaleProcessingJobs();
