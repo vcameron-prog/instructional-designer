@@ -69,6 +69,7 @@ export interface IStorage {
   // Saved Outcomes (personal faculty collection)
   getSavedOutcomes(userId: string): Promise<SavedOutcome[]>;
   createSavedOutcome(text: string, userId: string): Promise<SavedOutcome>;
+  updateSavedOutcome(id: number, text: string, userId: string): Promise<SavedOutcome>;
   deleteSavedOutcome(id: number, userId: string): Promise<void>;
 
   // AI Fix Retry Events
@@ -268,6 +269,16 @@ export class DatabaseStorage implements IStorage {
   async createSavedOutcome(text: string, userId: string): Promise<SavedOutcome> {
     const [created] = await db.insert(savedOutcomes).values({ text, userId }).returning();
     return created;
+  }
+
+  async updateSavedOutcome(id: number, text: string, userId: string): Promise<SavedOutcome> {
+    const [updated] = await db
+      .update(savedOutcomes)
+      .set({ text })
+      .where(and(eq(savedOutcomes.id, id), eq(savedOutcomes.userId, userId)))
+      .returning();
+    if (!updated) throw new Error("Outcome not found or not owned by user");
+    return updated;
   }
 
   async deleteSavedOutcome(id: number, userId: string): Promise<void> {

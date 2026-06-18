@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, Library, Bookmark, BookmarkCheck, Trash2, Plus } from "lucide-react";
+import { Search, Library, Bookmark, BookmarkCheck, Trash2, Plus, Pencil, Check, X } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -49,6 +49,8 @@ export function OutcomeLibraryModal({ open, onClose, onAddOutcomes }: OutcomeLib
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [selectedMine, setSelectedMine] = useState<Set<number>>(new Set());
   const [customText, setCustomText] = useState("");
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingText, setEditingText] = useState("");
 
   const { data: savedOutcomes = [], isLoading: isLoadingMine } = useQuery<SavedOutcome[]>({
     queryKey: ["/api/outcomes"],
@@ -83,6 +85,35 @@ export function OutcomeLibraryModal({ open, onClose, onAddOutcomes }: OutcomeLib
       toast({ title: "Could not delete outcome", variant: "destructive" });
     },
   });
+
+  const updateOutcomeMutation = useMutation({
+    mutationFn: ({ id, text }: { id: number; text: string }) =>
+      apiRequest("PATCH", `/api/outcomes/${id}`, { text }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/outcomes"] });
+      setEditingId(null);
+      setEditingText("");
+    },
+    onError: () => {
+      toast({ title: "Could not update outcome", variant: "destructive" });
+    },
+  });
+
+  const startEditing = (outcome: SavedOutcome) => {
+    setEditingId(outcome.id);
+    setEditingText(outcome.text);
+  };
+
+  const cancelEditing = () => {
+    setEditingId(null);
+    setEditingText("");
+  };
+
+  const commitEdit = (id: number) => {
+    const text = editingText.trim();
+    if (!text) return;
+    updateOutcomeMutation.mutate({ id, text });
+  };
 
   const filtered = useMemo<LearningOutcome[]>(() => {
     const q = search.toLowerCase().trim();
@@ -154,6 +185,8 @@ export function OutcomeLibraryModal({ open, onClose, onAddOutcomes }: OutcomeLib
     setDisciplineFilter("all");
     setBloomsFilter("all");
     setCustomText("");
+    setEditingId(null);
+    setEditingText("");
   };
 
   const handleClose = () => {
@@ -385,6 +418,7 @@ export function OutcomeLibraryModal({ open, onClose, onAddOutcomes }: OutcomeLib
                 <ul className="space-y-2" role="list" aria-label="My saved outcomes">
                   {savedOutcomes.map((outcome) => {
                     const isChecked = selectedMine.has(outcome.id);
+                    const isEditing = editingId === outcome.id;
                     return (
                       <li key={outcome.id}>
                         <div
@@ -398,28 +432,80 @@ export function OutcomeLibraryModal({ open, onClose, onAddOutcomes }: OutcomeLib
                           <Checkbox
                             id={`my-outcome-${outcome.id}`}
                             checked={isChecked}
-                            onCheckedChange={() => toggleMine(outcome.id)}
+                            onCheckedChange={() => { if (!isEditing) toggleMine(outcome.id); }}
                             className="mt-0.5 shrink-0"
                             data-testid={`checkbox-my-outcome-${outcome.id}`}
                             aria-label={outcome.text}
+                            disabled={isEditing}
                           />
-                          <label
-                            htmlFor={`my-outcome-${outcome.id}`}
-                            className="flex-1 min-w-0 text-sm leading-snug cursor-pointer"
-                          >
-                            {outcome.text}
-                          </label>
-                          <button
-                            type="button"
-                            aria-label="Delete this outcome"
-                            title="Delete"
-                            data-testid={`button-delete-outcome-${outcome.id}`}
-                            onClick={() => handleDeleteMine(outcome.id)}
-                            disabled={deleteOutcomeMutation.isPending}
-                            className="shrink-0 p-1 rounded text-muted-foreground hover:text-destructive transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {isEditing ? (
+                            <div className="flex-1 min-w-0 flex items-center gap-2">
+                              <Input
+                                value={editingText}
+                                onChange={(e) => setEditingText(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") commitEdit(outcome.id);
+                                  if (e.key === "Escape") cancelEditing();
+                                }}
+                                autoFocus
+                                className="h-7 text-sm py-1"
+                                data-testid={`input-edit-outcome-${outcome.id}`}
+                                aria-label="Edit outcome text"
+                              />
+                              <button
+                                type="button"
+                                aria-label="Save edit"
+                                title="Save"
+                                data-testid={`button-save-edit-outcome-${outcome.id}`}
+                                onClick={() => commitEdit(outcome.id)}
+                                disabled={!editingText.trim() || updateOutcomeMutation.isPending}
+                                className="shrink-0 p-1 rounded text-muted-foreground hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                              >
+                                <Check className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                aria-label="Cancel edit"
+                                title="Cancel"
+                                data-testid={`button-cancel-edit-outcome-${outcome.id}`}
+                                onClick={cancelEditing}
+                                className="shrink-0 p-1 rounded text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ) : (
+                            <>
+                              <label
+                                htmlFor={`my-outcome-${outcome.id}`}
+                                className="flex-1 min-w-0 text-sm leading-snug cursor-pointer"
+                              >
+                                {outcome.text}
+                              </label>
+                              <button
+                                type="button"
+                                aria-label="Edit this outcome"
+                                title="Edit"
+                                data-testid={`button-edit-outcome-${outcome.id}`}
+                                onClick={() => startEditing(outcome)}
+                                disabled={deleteOutcomeMutation.isPending}
+                                className="shrink-0 p-1 rounded text-muted-foreground hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                aria-label="Delete this outcome"
+                                title="Delete"
+                                data-testid={`button-delete-outcome-${outcome.id}`}
+                                onClick={() => handleDeleteMine(outcome.id)}
+                                disabled={deleteOutcomeMutation.isPending}
+                                className="shrink-0 p-1 rounded text-muted-foreground hover:text-destructive transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </li>
                     );

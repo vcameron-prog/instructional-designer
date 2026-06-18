@@ -2988,6 +2988,27 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     },
   );
 
+  app.patch(
+    "/api/outcomes/:id",
+    isBsuAuthenticated,
+    async (req: Request, res: Response) => {
+      try {
+        const userId = getUserId(req) as string;
+        const id = parseInt(req.params.id as string);
+        if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+        const { text } = req.body;
+        if (!text || typeof text !== "string" || !text.trim()) {
+          return res.status(400).json({ error: "text is required" });
+        }
+        const outcome = await storage.updateSavedOutcome(id, text.trim(), userId);
+        res.json(outcome);
+      } catch (error) {
+        console.error("Error updating saved outcome:", error);
+        res.status(500).json({ error: "Failed to update outcome" });
+      }
+    },
+  );
+
   app.delete(
     "/api/outcomes/:id",
     isBsuAuthenticated,
