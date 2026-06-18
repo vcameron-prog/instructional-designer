@@ -1843,7 +1843,7 @@ export default function ResultPage() {
                         setCaptionTexts(updated);
                       }}
                       placeholder="e.g., Weekly assignment schedule"
-                      onKeyDown={(e) => { if (e.key === "Enter" && index === captionTexts.length - 1 && captionTexts.every((t) => t.trim())) setCaptionStep("preview"); }}
+                      onKeyDown={(e) => { if (e.key === "Enter" && index === captionTexts.length - 1 && captionTexts.every((t) => t.trim()) && !captionTexts.some((t) => t.trim().toLowerCase() === "table summary")) setCaptionStep("preview"); }}
                       data-testid={`input-caption-text-${index}`}
                       autoFocus={index === 0}
                     />
@@ -1867,8 +1867,8 @@ export default function ResultPage() {
                   <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
                   <span>
                     {captionTexts.filter((t) => t.trim().toLowerCase() === "table summary").length > 1
-                      ? `${captionTexts.filter((t) => t.trim().toLowerCase() === "table summary").length} captions still use the default "Table summary" text. Consider replacing them with descriptions of what each table actually contains.`
-                      : `One caption still uses the default "Table summary" text. Consider replacing it with a description of what the table actually contains.`}
+                      ? `${captionTexts.filter((t) => t.trim().toLowerCase() === "table summary").length} captions still use the default "Table summary" text. Replace them with descriptions of what each table actually contains before previewing.`
+                      : `One caption still uses the default "Table summary" text. Replace it with a description of what the table actually contains before previewing.`}
                   </span>
                 </div>
               )}
@@ -1919,7 +1919,7 @@ export default function ResultPage() {
                 <Button
                   onClick={captionEditMode === "edit" ? handleApplyCaptionFix : () => setCaptionStep("preview")}
                   className="gap-2"
-                  disabled={captionEditMode === "edit" ? (!captionEditText.trim() || captionEditText.trim().toLowerCase() === "table summary") : captionTexts.some((t) => !t.trim())}
+                  disabled={captionEditMode === "edit" ? (!captionEditText.trim() || captionEditText.trim().toLowerCase() === "table summary") : (captionTexts.some((t) => !t.trim()) || captionTexts.some((t) => t.trim().toLowerCase() === "table summary"))}
                   data-testid="button-apply-caption"
                 >
                   <CheckCircle className="w-4 h-4" />
