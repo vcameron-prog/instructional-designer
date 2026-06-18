@@ -67,6 +67,9 @@ app.use((req, res, next) => {
 async function runStartupMigrations() {
   try {
     await db.execute(sql`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS preferences jsonb;
+    `);
+    await db.execute(sql`
       ALTER TABLE conversions ADD COLUMN IF NOT EXISTS visitor_token varchar;
     `);
     await db.execute(sql`
