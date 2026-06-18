@@ -1666,7 +1666,10 @@ export default function ResultPage() {
           </DialogHeader>
           {(previewFixType === "1.3.1::ARIA Combobox Role on Non-Combobox Element" ||
             previewFixType === "1.3.1::ARIA Grid Role on Non-Table Element" ||
-            previewFixType === "1.3.1::ARIA Tab Role on Non-Interactive Element") && (
+            previewFixType === "1.3.1::ARIA Tab Role on Non-Interactive Element" ||
+            previewFixType === "fix-aria-combobox" ||
+            previewFixType === "fix-aria-grid" ||
+            previewFixType === "fix-aria-tab") && (
             <div
               className="rounded-lg border bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800 px-3 py-2.5 space-y-1"
               data-testid="dialog-fix-preview-explanation"
@@ -1675,9 +1678,9 @@ export default function ResultPage() {
                 What this fix does
               </p>
               <p className="text-sm text-amber-900 dark:text-amber-200">
-                {previewFixType === "1.3.1::ARIA Combobox Role on Non-Combobox Element"
+                {(previewFixType === "1.3.1::ARIA Combobox Role on Non-Combobox Element" || previewFixType === "fix-aria-combobox")
                   ? "Swaps each element using role=\"combobox\" for a native <select> element, keeping all existing attributes. A native <select> provides the built-in keyboard and screen-reader support that assistive technology expects."
-                  : previewFixType === "1.3.1::ARIA Grid Role on Non-Table Element"
+                  : (previewFixType === "1.3.1::ARIA Grid Role on Non-Table Element" || previewFixType === "fix-aria-grid")
                   ? "Swaps each element using role=\"grid\" for a native <table> element, keeping all existing attributes. A native <table> lets screen readers announce rows and columns without relying on ARIA."
                   : "Swaps each element using role=\"tab\" for a native <button> element, keeping all existing attributes. A native <button> is keyboard-focusable and announced correctly by screen readers without extra ARIA."}
               </p>
