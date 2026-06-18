@@ -149,7 +149,7 @@ export function HeaderControls({
         </Tooltip>
       )}
 
-      {showSettings && (
+      {showSettings && isAuthenticated && (
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
