@@ -164,4 +164,102 @@ test.describe("Outcome edit flow", () => {
     await expect(outcomeRow).toContainText(updatedText, { timeout: 10_000 });
     await expect(outcomeRow).not.toContainText(originalText);
   });
+
+  /**
+   * 204 success path: deleting an outcome removes it from the My Outcomes list.
+   */
+  test("deleting an outcome (204) removes it from the My Outcomes list", async ({
+    page,
+    context,
+  }) => {
+    const sub = `outcome-delete-204-e2e-${uid()}`;
+    const email = `${sub}@bridgew.edu`;
+
+    await loginAs(context, sub, email);
+
+    const outcomeText = `Delete 204 test outcome ${uid()}`;
+    const outcomeId = await createOutcome(context, outcomeText);
+
+    await page.goto(`${BASE}/new-course`);
+
+    const browseBtn = page.getByTestId("button-browse-outcome-library");
+    await expect(browseBtn).toBeVisible({ timeout: 15_000 });
+    await browseBtn.click();
+
+    const myOutcomesTab = page.getByTestId("tab-my-outcomes");
+    await expect(myOutcomesTab).toBeVisible({ timeout: 5_000 });
+    await myOutcomesTab.click();
+
+    const outcomeRow = page.getByTestId(`my-outcome-row-${outcomeId}`);
+    await expect(outcomeRow).toBeVisible({ timeout: 10_000 });
+
+    const deleteBtn = page.getByTestId(`button-delete-outcome-${outcomeId}`);
+    await expect(deleteBtn).toBeVisible();
+    await deleteBtn.click();
+
+    await expect(outcomeRow).not.toBeVisible({ timeout: 10_000 });
+  });
+
+  /**
+   * 404 delete path: when the DELETE endpoint returns 404 (item already removed
+   * by another session), the UI shows the "Outcome was already removed" toast
+   * and the item disappears from the My Outcomes list after the query is
+   * invalidated and the server returns an updated list.
+   */
+  test("deleting an outcome that returns 404 shows 'Outcome was already removed' toast and removes item from list", async ({
+    page,
+    context,
+  }) => {
+    const sub = `outcome-delete-404-e2e-${uid()}`;
+    const email = `${sub}@bridgew.edu`;
+
+    await loginAs(context, sub, email);
+
+    const outcomeText = `404 delete test outcome ${uid()}`;
+    const outcomeId = await createOutcome(context, outcomeText);
+
+    await page.goto(`${BASE}/new-course`);
+
+    const browseBtn = page.getByTestId("button-browse-outcome-library");
+    await expect(browseBtn).toBeVisible({ timeout: 15_000 });
+    await browseBtn.click();
+
+    const myOutcomesTab = page.getByTestId("tab-my-outcomes");
+    await expect(myOutcomesTab).toBeVisible({ timeout: 5_000 });
+    await myOutcomesTab.click();
+
+    const outcomeRow = page.getByTestId(`my-outcome-row-${outcomeId}`);
+    await expect(outcomeRow).toBeVisible({ timeout: 10_000 });
+
+    // Simulate the item being removed by another session so the server-side
+    // GET /api/outcomes will return an empty list on the next refetch.
+    await context.request.delete(`${BASE}/api/outcomes/${outcomeId}`);
+
+    // Now intercept the DELETE in the browser so it returns 404, matching the
+    // scenario where the UI still shows a stale item that no longer exists.
+    await page.route(`**/api/outcomes/${outcomeId}`, async (route) => {
+      if (route.request().method() === "DELETE") {
+        await route.fulfill({
+          status: 404,
+          contentType: "application/json",
+          body: JSON.stringify({ message: "Not found" }),
+        });
+      } else {
+        await route.continue();
+      }
+    });
+
+    const deleteBtn = page.getByTestId(`button-delete-outcome-${outcomeId}`);
+    await expect(deleteBtn).toBeVisible();
+    await deleteBtn.click();
+
+    // The "already removed" toast must appear.
+    await expect(
+      page.getByText("Outcome was already removed"),
+    ).toBeVisible({ timeout: 10_000 });
+
+    // The query invalidation causes a real GET which returns the updated list
+    // (item no longer exists server-side), so the row must disappear.
+    await expect(outcomeRow).not.toBeVisible({ timeout: 10_000 });
+  });
 });
