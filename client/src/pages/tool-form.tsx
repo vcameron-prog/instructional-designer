@@ -273,6 +273,15 @@ const LANGUAGE_OPTIONS = [
 ];
 
 const DEFAULT_LANGUAGE_KEY = "bsu-default-language";
+const DEFAULT_OUTPUT_DETAIL_KEY = "bsu-default-output-detail";
+
+function loadOutputDetail(): string {
+  try {
+    const val = localStorage.getItem(DEFAULT_OUTPUT_DETAIL_KEY);
+    if (val === "concise" || val === "standard") return val;
+  } catch {}
+  return "concise";
+}
 
 export default function ToolForm() {
   const params = useParams();
@@ -286,24 +295,26 @@ export default function ToolForm() {
   const { subject: savedSubject, courseLevel: savedCourseLevel, setSubject: persistSubject, setCourseLevel: persistCourseLevel, clearContext } = useQuickToolContext();
 
   const [formData, setFormData] = useState<Record<string, any>>(() => {
+    const savedDetail = loadOutputDetail();
     const raw = sessionStorage.getItem("bsu-chain-prefill");
     if (raw) {
       try {
         const parsed = JSON.parse(raw) as { targetToolId: string; fields: Record<string, any> };
         sessionStorage.removeItem("bsu-chain-prefill");
         if (parsed.targetToolId === toolId && parsed.fields && typeof parsed.fields === "object") {
-          return parsed.fields;
+          return { outputDetail: savedDetail, ...parsed.fields };
         }
       } catch {
         sessionStorage.removeItem("bsu-chain-prefill");
       }
     }
 
-    if (!isStandalone) return {};
+    if (!isStandalone) return { outputDetail: savedDetail };
     const params = new URLSearchParams(window.location.search);
     const urlSubject = params.get("subject") ?? "";
     const urlCourseLevel = params.get("courseLevel") ?? "";
     return {
+      outputDetail: savedDetail,
       subject: urlSubject || savedSubject,
       courseLevel: urlCourseLevel || savedCourseLevel,
     };
@@ -480,6 +491,9 @@ export default function ToolForm() {
     if (isStandalone) {
       if (name === "subject") persistSubject(value);
       if (name === "courseLevel") persistCourseLevel(value);
+    }
+    if (name === "outputDetail") {
+      try { localStorage.setItem(DEFAULT_OUTPUT_DETAIL_KEY, value); } catch {}
     }
   };
 
