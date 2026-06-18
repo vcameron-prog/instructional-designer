@@ -119,6 +119,16 @@ export const MAX_CONCURRENT_DOCX_EXPORTS = parseInt(process.env.MAX_CONCURRENT_D
 export function _testSetActiveDocxExports(n: number): void {
   activeDocxExports = n;
 }
+// Test-only: prime / clear the reprocess deduplication key for a given
+// conversion ID so the 409-guard test can simulate an in-flight reprocess
+// job without needing a real running background job.
+// Never call these in production code.
+export function _testAddReprocessKey(id: number): void {
+  activeProcessingKeys.add(`reprocess:${id}`);
+}
+export function _testDeleteReprocessKey(id: number): void {
+  activeProcessingKeys.delete(`reprocess:${id}`);
+}
 // Per-conversion export dedup keys — prevent the same completed document from
 // being exported multiple times concurrently on the same instance, which would
 // duplicate Chromium/DOCX-builder work and exhaust concurrency slots.
