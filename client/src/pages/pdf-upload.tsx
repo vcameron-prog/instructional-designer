@@ -499,10 +499,10 @@ export default function PdfUpload() {
                 className="font-bold text-foreground text-lg"
                 data-testid="heading-google-section"
               >
-                Import from Google Docs
+                Import from Google Workspace
               </h3>
               <p className="text-sm text-muted-foreground">
-                Convert a shared Google Doc to an accessible format
+                Convert a shared Google Doc, Sheet, or Slide to an accessible format
               </p>
             </div>
           </div>
@@ -514,12 +514,12 @@ export default function PdfUpload() {
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-foreground mb-2">
-                    Paste your Google Docs link and click Download
+                    Paste your Google Docs, Sheets, or Slides link and click Download
                   </p>
                   <div className="flex gap-2">
                     <div className="relative flex-1">
                       <label htmlFor="google-doc-url" className="sr-only">
-                        Google Docs URL
+                        Google Workspace URL (Docs, Sheets, or Slides)
                       </label>
                       <SiGoogledrive
                         className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"
@@ -533,7 +533,7 @@ export default function PdfUpload() {
                         onKeyDown={(e) => {
                           if (e.key === "Enter") handleGoogleDocDownload();
                         }}
-                        placeholder="https://docs.google.com/document/d/..."
+                        placeholder="Paste a Google Docs, Sheets, or Slides URL"
                         className="w-full pl-10 pr-3 py-2.5 border border-border rounded-xl bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all"
                         data-testid="input-google-doc-url"
                       />
