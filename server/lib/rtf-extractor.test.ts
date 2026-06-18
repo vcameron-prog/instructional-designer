@@ -270,6 +270,68 @@ describe("extractRtfContent — primary parser path", () => {
       expect(result.pageCount).toBe(1);
     });
   });
+
+  describe("RTF encoding warning (detectCodepage)", () => {
+    it("does not warn when \\ansicpg is declared and high bytes are present", async () => {
+      const rtf = Buffer.from(
+        "{\\rtf1\\ansi\\ansicpg1252\\deff0 caf\\'e9\\par}",
+        "latin1"
+      );
+      const result = await extractRtfContent(rtf);
+
+      expect(result.warnings).toBeUndefined();
+    });
+
+    it("warns when no \\ansicpg is declared and high-byte escapes are present", async () => {
+      const rtf = Buffer.from("{\\rtf1\\ansi\\deff0 caf\\'e9\\par}", "latin1");
+      const result = await extractRtfContent(rtf);
+
+      expect(Array.isArray(result.warnings)).toBe(true);
+      expect(result.warnings!.length).toBeGreaterThan(0);
+      expect(result.warnings![0]).toMatch(/\\ansicpg/);
+      expect(result.warnings![0]).toMatch(/Windows-1252/);
+    });
+
+    it("does not warn when no \\ansicpg is declared but the file is pure ASCII", async () => {
+      const rtf = Buffer.from(
+        "{\\rtf1\\ansi\\deff0 Hello world\\par}",
+        "latin1"
+      );
+      const result = await extractRtfContent(rtf);
+
+      const hasWarning =
+        Array.isArray(result.warnings) && result.warnings.length > 0;
+      expect(hasWarning).toBe(false);
+    });
+
+    it("warning message advises re-saving from Microsoft Word", async () => {
+      const rtf = Buffer.from("{\\rtf1\\ansi\\deff0 caf\\'e9\\par}", "latin1");
+      const result = await extractRtfContent(rtf);
+
+      expect(result.warnings![0]).toMatch(/Microsoft Word/i);
+    });
+
+    it("warns only once even when multiple high-byte sequences appear", async () => {
+      const rtf = Buffer.from(
+        "{\\rtf1\\ansi\\deff0 \\'e9\\'f0\\'e8\\par}",
+        "latin1"
+      );
+      const result = await extractRtfContent(rtf);
+
+      expect(Array.isArray(result.warnings)).toBe(true);
+      expect(result.warnings!.length).toBe(1);
+    });
+
+    it("does not warn when \\ansicpg is declared even with high-byte escapes present", async () => {
+      const rtf = Buffer.from(
+        "{\\rtf1\\ansi\\ansicpg1252\\deff0 some text \\'a9 copyright\\par}",
+        "latin1"
+      );
+      const result = await extractRtfContent(rtf);
+
+      expect(result.warnings).toBeUndefined();
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
