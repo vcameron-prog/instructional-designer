@@ -122,6 +122,54 @@ function loadingBranchReturnBlocks(source: string): string[] {
   return blocks;
 }
 
+/**
+ * Extracts the content of `return ( ... )` blocks that immediately follow an
+ * `if ( <anyCondition> ) {` guard at component scope, where:
+ *   - the condition does NOT reference a loading variable (those are already
+ *     handled by `loadingBranchReturnBlocks`), and
+ *   - the returned block contains a `<main` element (i.e. it renders a full
+ *     page layout rather than a small helper component or callback return).
+ *
+ * This catches "not found", "error", and "access-denied" early-return branches
+ * that a developer might forget to include `<PoweredByFooter />` in.
+ */
+function nonLoadingGuardedMainReturnBlocks(source: string): string[] {
+  const blocks: string[] = [];
+  const IF_RE = /\bif\s*\(/g;
+  let m: RegExpExecArray | null;
+
+  while ((m = IF_RE.exec(source)) !== null) {
+    const condOpenIdx = m.index + m[0].length - 1;
+    const condCloseIdx = findMatchingParen(source, condOpenIdx);
+    if (condCloseIdx === -1) continue;
+
+    const condition = source.slice(condOpenIdx, condCloseIdx + 1);
+
+    // Skip loading-condition guards — those are already covered by the
+    // loadingBranchReturnBlocks helper and the companion test above.
+    if (LOADING_VAR_PATTERN.test(condition)) continue;
+
+    const afterCond = source.slice(condCloseIdx + 1);
+    const immediateReturn = /^[\s]*(?:\{[\s]*)?return\s*\(/.exec(afterCond);
+    if (!immediateReturn) continue;
+
+    const returnOpenOffset = immediateReturn[0].lastIndexOf("(");
+    const returnOpenIdx = condCloseIdx + 1 + returnOpenOffset;
+    const returnCloseIdx = findMatchingParen(source, returnOpenIdx);
+    if (returnCloseIdx === -1) continue;
+
+    const block = source.slice(returnOpenIdx, returnCloseIdx + 1);
+
+    // Only consider blocks that render a <main> element — those represent
+    // full-page layouts that should include the disclaimer footer.
+    if (!block.includes("<main")) continue;
+
+    blocks.push(block);
+  }
+
+  return blocks;
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -214,6 +262,72 @@ describe("PoweredByFooter — loading-branch regression", () => {
         violations.push(
           `${fileName}: expected loading-guard return blocks but none were found — ` +
             "either the file was refactored or LOADING_VAR_PATTERN needs updating",
+        );
+      }
+    }
+
+    expect(violations).toEqual([]);
+  });
+
+  /**
+   * Non-loading early-return guard:
+   *
+   * For every page file that imports PoweredByFooter, any early-return block
+   * guarded by a non-loading `if` condition that renders a `<main>` element
+   * must also render `<PoweredByFooter />`.
+   *
+   * This catches "not found", "error", and "access-denied" states that a
+   * developer might add without remembering to include the footer.
+   */
+  it("every non-loading-guard <main> return block renders <PoweredByFooter />", () => {
+    const violations: string[] = [];
+    const filePaths = pageFilesWithFooterImport();
+
+    expect(filePaths.length).toBeGreaterThan(0);
+
+    for (const filePath of filePaths) {
+      const source = readFileSync(filePath, "utf-8");
+      const fileName = path.basename(filePath);
+      const blocks = nonLoadingGuardedMainReturnBlocks(source);
+
+      for (const block of blocks) {
+        if (!block.includes("PoweredByFooter")) {
+          violations.push(
+            `${fileName}: a non-loading-guard <main> return block is missing <PoweredByFooter />`,
+          );
+        }
+      }
+    }
+
+    expect(violations).toEqual([]);
+  });
+
+  /**
+   * Coverage check: pages known to have non-loading early returns that render
+   * a <main> element must be detected by `nonLoadingGuardedMainReturnBlocks`.
+   *
+   * If a file is refactored to remove all such guards, remove it from this list.
+   */
+  it("non-loading-guard detection finds at least one <main> block in each known page with non-loading early returns", () => {
+    const knownNonLoadingPages = [
+      "result.tsx",           // "content not found" — if (!content)
+      "pdf-conversion.tsx",   // "error / not found" — if (isError || !conversion)
+      "tool-form.tsx",        // "tool not found"    — if (!tool)
+      "tool-selection.tsx",   // "course not found"  — if (!course)
+      "admin-dashboard.tsx",  // "access denied"     — if (!isAuthenticated || !adminCheck?.isAdmin)
+    ];
+
+    const violations: string[] = [];
+
+    for (const fileName of knownNonLoadingPages) {
+      const filePath = path.join(PAGES_DIR, fileName);
+      const source = readFileSync(filePath, "utf-8");
+      const blocks = nonLoadingGuardedMainReturnBlocks(source);
+
+      if (blocks.length === 0) {
+        violations.push(
+          `${fileName}: expected non-loading-guard <main> return blocks but none were found — ` +
+            "either the file was refactored or the detection logic needs updating",
         );
       }
     }
