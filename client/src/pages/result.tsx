@@ -1700,7 +1700,7 @@ export default function ResultPage() {
           </CardContent>
         </Card>
 
-        {isStandalone && (() => {
+        {(() => {
           const chains = tool?.chains ?? [];
           if (chains.length === 0) return null;
           return (
@@ -1734,7 +1734,7 @@ export default function ResultPage() {
                             content.content,
                           );
                           sessionStorage.setItem("bsu-chain-prefill", JSON.stringify({ targetToolId: chain.targetId, fields: prefill }));
-                          navigate(`/quick-tools/${chain.targetId}`);
+                          navigate(isStandalone ? `/quick-tools/${chain.targetId}` : `/course/${courseId}/tool/${chain.targetId}`);
                         }}
                         data-testid={`button-chain-${chain.targetId}`}
                       >
