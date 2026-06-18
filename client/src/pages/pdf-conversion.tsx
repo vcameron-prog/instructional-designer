@@ -181,15 +181,37 @@ function ComplianceChart({ report }: { report: any }) {
 }
 
 const PIPELINE_STEPS = [
-  { key: "analyze", label: "Analyze", match: /analyz/i },
-  { key: "convert", label: "Convert", match: /convert/i },
-  { key: "fix",     label: "Fix",     match: /fix/i },
-  { key: "check",   label: "Check",   match: /check/i },
+  {
+    key: "extract",
+    label: "Extracting text",
+    description: "Reading document content and structure",
+    thresholdSec: 0,
+  },
+  {
+    key: "analyse",
+    label: "Analysing structure",
+    description: "Identifying headings, tables, and layout",
+    thresholdSec: 12,
+  },
+  {
+    key: "generate",
+    label: "Generating accessible HTML",
+    description: "Creating WCAG 2.1 AA compliant markup",
+    thresholdSec: 25,
+  },
+  {
+    key: "check",
+    label: "Checking compliance",
+    description: "Verifying accessibility standards",
+    thresholdSec: 45,
+  },
 ] as const;
 
-function getActiveStep(msg: string | null | undefined): number {
-  if (!msg) return -1;
-  return PIPELINE_STEPS.findIndex(s => s.match.test(msg));
+function getActiveStep(elapsedSeconds: number): number {
+  for (let i = PIPELINE_STEPS.length - 1; i >= 0; i--) {
+    if (elapsedSeconds >= PIPELINE_STEPS[i].thresholdSec) return i;
+  }
+  return 0;
 }
 
 export default function PdfConversion() {
@@ -393,11 +415,6 @@ export default function PdfConversion() {
     });
   }, [conversion?.accessibleHtml]);
 
-  const activeStep = useMemo(
-    () => getActiveStep(conversion?.statusMessage),
-    [conversion?.statusMessage],
-  );
-
   const autoStartedRef = useRef<number | null>(null);
   const htmlPreviewRef = useRef<HTMLDivElement | null>(null);
   const processingStartRef = useRef<number | null>(null);
@@ -406,6 +423,11 @@ export default function PdfConversion() {
 
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [secondsSinceStatusChange, setSecondsSinceStatusChange] = useState(0);
+
+  const activeStep = useMemo(
+    () => getActiveStep(elapsedSeconds),
+    [elapsedSeconds],
+  );
 
   const isProcessingOrUploaded =
     conversion?.status === "processing" || conversion?.status === "uploaded";
@@ -941,15 +963,17 @@ export default function PdfConversion() {
               className="mt-6 pt-6 border-t"
               role="status"
               aria-live="polite"
+              aria-label="Document processing progress"
             >
-              <div className="flex items-center justify-center gap-3 mb-5">
-                <p className="font-bold text-center text-primary flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin" />
+              {/* Header row */}
+              <div className="flex items-center justify-between mb-5">
+                <p className="font-bold text-primary flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
                   {conversion.status === "uploaded" ? "Preparing…" : "AI Remediation in Progress"}
                 </p>
                 {elapsedSeconds > 0 && (
                   <span
-                    className="text-xs text-muted-foreground tabular-nums"
+                    className="text-xs text-muted-foreground tabular-nums bg-secondary px-2 py-0.5 rounded-full"
                     data-testid="text-elapsed-timer"
                     aria-label={`Elapsed time: ${Math.floor(elapsedSeconds / 60)} minutes ${elapsedSeconds % 60} seconds`}
                   >
@@ -960,58 +984,75 @@ export default function PdfConversion() {
                 )}
               </div>
 
-              {/* Pipeline step indicators */}
-              <div className="flex items-start justify-between mb-4 relative px-2" aria-hidden="true">
-                <div className="absolute top-3 left-8 right-8 h-0.5 bg-border" />
+              {/* Vertical step list */}
+              <ol className="space-y-3 mb-4" data-testid="processing-steps-list">
                 {PIPELINE_STEPS.map((step, i) => {
                   const done = activeStep > i;
                   const active = activeStep === i;
+                  const pending = activeStep < i;
                   return (
-                    <div key={step.key} className={cn(
-                      "flex flex-col items-center gap-1.5 relative z-10 flex-1",
-                      active && step.key === "convert" ? "max-w-[120px]" : "max-w-[72px]"
-                    )}>
+                    <li
+                      key={step.key}
+                      className={cn(
+                        "flex items-start gap-3 rounded-xl px-4 py-3 transition-all",
+                        done    ? "bg-green-50 dark:bg-green-950/20" :
+                        active  ? "bg-primary/8 border border-primary/20 shadow-sm" :
+                                  "bg-secondary/40",
+                      )}
+                      data-testid={`step-${step.key}`}
+                      aria-current={active ? "step" : undefined}
+                    >
+                      {/* Step icon */}
                       <div className={cn(
-                        "w-6 h-6 rounded-full flex items-center justify-center border-2 transition-all text-xs font-bold",
-                        done   ? "bg-green-600 border-green-600 text-white" :
-                        active ? "bg-primary border-primary text-primary-foreground" :
-                                 "bg-background border-border text-muted-foreground"
+                        "w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 border-2 transition-all mt-0.5",
+                        done    ? "bg-green-600 border-green-600 text-white" :
+                        active  ? "bg-primary border-primary text-primary-foreground" :
+                                  "bg-background border-border text-muted-foreground",
                       )}>
-                        {done   ? <Check className="w-3 h-3" /> :
-                         active ? <Loader2 className="w-3 h-3 animate-spin" /> :
-                                  <span>{i + 1}</span>}
+                        {done   ? <Check className="w-3.5 h-3.5" aria-hidden="true" /> :
+                         active ? <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" /> :
+                                  <span className="text-xs font-bold">{i + 1}</span>}
                       </div>
-                      <span className={cn(
-                        "text-[10px] font-medium text-center leading-tight",
-                        done   ? "text-green-600" :
-                        active ? "text-primary" :
-                                 "text-muted-foreground"
-                      )}>
-                        {step.label}
-                      </span>
-                      {active && step.key === "convert" && conversion.statusMessage && (
-                        <span
-                          className="text-[9px] text-primary/80 text-center leading-tight break-words w-full"
-                          data-testid="text-convert-progress-detail"
-                          aria-live="polite"
-                        >
-                          {conversion.statusMessage}
+
+                      {/* Step label + description */}
+                      <div className="min-w-0 flex-1">
+                        <p className={cn(
+                          "text-sm font-semibold leading-tight",
+                          done    ? "text-green-700 dark:text-green-400" :
+                          active  ? "text-primary" :
+                                    "text-muted-foreground",
+                        )}>
+                          {step.label}
+                          {done && (
+                            <span className="ml-2 text-[10px] font-normal text-green-600 dark:text-green-500 uppercase tracking-wide">
+                              Done
+                            </span>
+                          )}
+                        </p>
+                        <p className={cn(
+                          "text-xs mt-0.5 leading-snug",
+                          active ? "text-primary/70" : "text-muted-foreground/70",
+                        )}>
+                          {step.description}
+                        </p>
+                      </div>
+
+                      {/* Active step status badge */}
+                      {active && (
+                        <span className="text-[10px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full flex-shrink-0 mt-0.5 whitespace-nowrap">
+                          In progress
                         </span>
                       )}
-                    </div>
+                      {pending && (
+                        <span className="text-[10px] font-medium text-muted-foreground/60 flex-shrink-0 mt-0.5 whitespace-nowrap">
+                          Waiting
+                        </span>
+                      )}
+                    </li>
                   );
                 })}
-              </div>
+              </ol>
 
-              {conversion.statusMessage && activeStep !== 1 && (
-                <p
-                  className="mt-1 text-sm font-medium text-primary text-center"
-                  data-testid="text-status-message"
-                  aria-live="polite"
-                >
-                  {conversion.statusMessage}
-                </p>
-              )}
               {secondsSinceStatusChange >= 60 && (
                 <p
                   className="mt-2 text-xs text-amber-600 dark:text-amber-400 text-center"
