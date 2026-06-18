@@ -502,8 +502,11 @@ ${wcagRequirements}
 - Keep output clean and readable without complex formatting symbols
 - Do NOT include sentences like "If you find you are spending significantly more time, please reach out for support." — avoid any meta-commentary about estimated completion time or encouragement to seek help if the task takes longer than expected`;
 
+  const outputDetail = ((toolData.outputDetail as string) || "concise").toLowerCase();
+  const isConcise = outputDetail !== "standard";
+
   let inclusiveDesignSection = "";
-  if (hasAnyInclusive) {
+  if (hasAnyInclusive && !isConcise) {
     inclusiveDesignSection = `
 
 **INCLUSIVE DESIGN SECTION** (include this as a dedicated section in the output with research citations):
@@ -593,10 +596,26 @@ The instructor specified a SHORT duration ("${duration}"). You MUST scope the as
 - Do NOT include sentences like "If you find you are spending significantly more time, please reach out for support." — avoid any meta-commentary about estimated completion time or encouragement to seek help if the task takes longer than expected\n`
     : "";
 
+  const conciseGuidance = isConcise
+    ? `\n**OUTPUT DETAIL — CONCISE MODE:**
+Produce focused, practical output. Cover only the 3–4 most essential sections.
+- Keep bullet points to 2–4 items per section
+- Omit dedicated inclusive design research-citation blocks; weave accessibility and equity naturally where relevant
+- Avoid exhaustive resource lists, extensive timelines, milestones, and padding
+- Aim for output a busy faculty member can read in under 3 minutes\n`
+    : "";
+
   const prompts: Record<string, string> = {
     assignment: `${assignmentBaseContext}
-${durationGuidance}
-Create a COMPLETE assignment that includes:
+${durationGuidance}${conciseGuidance}
+${isConcise
+  ? `Create a focused, ready-to-use assignment covering:
+1. Clear title and overview
+2. Learning objectives (2–3 key outcomes)
+3. Step-by-step instructions
+4. Submission requirements for Blackboard Ultra
+5. Grading criteria overview${hasAnyInclusive ? `\nWeave ${inclusiveOptions.join(", ")} principles naturally into the instructions where relevant.` : ""}`
+  : `Create a COMPLETE assignment that includes:
 1. Clear title and overview
 2. Detailed learning objectives
 3. Comprehensive step-by-step instructions
@@ -604,7 +623,8 @@ Create a COMPLETE assignment that includes:
 5. Grading criteria overview
 6. Resources and support materials
 ${!isShortDuration ? "7. Timeline and milestones" : ""}
-${inclusiveDesignSection}
+${inclusiveDesignSection}`}
+
 Assignment Type: ${toolData.assignmentType}
 Learning Objectives: ${toolData.learningObjectives}
 Duration: ${duration}
@@ -612,8 +632,15 @@ ${hasAnyInclusive ? `Selected Inclusive Design Frameworks: ${inclusiveOptions.jo
 Additional Context: ${toolData.additionalContext || "None"}`,
 
     rubric: `${baseContext}
-
-Create a COMPLETE rubric with:
+${conciseGuidance}
+${isConcise
+  ? `Create a focused rubric with:
+1. Clear title and purpose
+2. Criteria descriptions with observable behaviors for each level
+3. Performance level descriptors (${toolData.levels})
+4. Point values totaling ${toolData.totalPoints} points
+Use supportive, growth-oriented language throughout.`
+  : `Create a COMPLETE rubric with:
 1. Clear title and purpose
 2. Detailed criteria descriptions
 3. Performance level descriptors (${toolData.levels})
@@ -624,7 +651,7 @@ Create a COMPLETE rubric with:
 **INCLUSIVE DESIGN CONSIDERATIONS** (weave these into the rubric criteria):
 7. **UDL-Aligned Criteria**: Criteria that allow diverse approaches to demonstrating mastery, not just one "right way"
 8. **Culturally Responsive Assessment**: Criteria free from cultural bias, recognizing diverse communication styles and perspectives
-9. **Growth-Oriented Language**: Use supportive, developmental framing that emphasizes learning over judgment
+9. **Growth-Oriented Language**: Use supportive, developmental framing that emphasizes learning over judgment`}
 
 Assessment Type: ${toolData.assessmentType}
 Total Points: ${toolData.totalPoints}
@@ -632,8 +659,16 @@ Criteria: ${toolData.criteria}
 Additional Context: ${toolData.additionalContext || "None"}`,
 
     module: `${baseContext}
-
-Create a COMPLETE module with:
+${conciseGuidance}
+${isConcise
+  ? `Create a focused module outline with:
+1. Module title and overview
+2. Learning outcomes (3–4 key outcomes)
+3. Week-by-week content breakdown
+4. Key learning activities with brief instructions
+5. Assessment components
+Weave UDL, cultural relevance, and SEL naturally into activities where appropriate.`
+  : `Create a COMPLETE module with:
 1. Module title and overview
 2. Detailed learning outcomes
 3. Week-by-week content breakdown
@@ -654,7 +689,7 @@ Create a COMPLETE module with:
 10. **SEL Integration**:
     - Community-building activities
     - Reflection and self-assessment opportunities
-    - Stress management and pacing considerations
+    - Stress management and pacing considerations`}
 
 Module Title: ${toolData.moduleTitle}
 Duration: ${toolData.moduleDuration}
@@ -763,8 +798,15 @@ IMPORTANT FORMATTING NOTES:
 - Ready to paste into Blackboard Ultra or Word document`,
 
     schedule: `${baseContext}
-
-Create a COMPREHENSIVE course schedule with ACTUAL CALENDAR DATES:
+${conciseGuidance}
+${isConcise
+  ? `Create a focused course schedule with actual calendar dates:
+1. Week-by-week breakdown with specific dates
+2. Topics and key readings/materials
+3. Assignment and assessment due dates
+4. Breaks and holidays
+Avoid clustering deadlines and note major observances inline where relevant.`
+  : `Create a COMPREHENSIVE course schedule with ACTUAL CALENDAR DATES:
 1. Week-by-week breakdown with specific dates
 2. Topics and learning objectives
 3. Readings and materials
@@ -775,7 +817,7 @@ Create a COMPREHENSIVE course schedule with ACTUAL CALENDAR DATES:
 **INCLUSIVE DESIGN CONSIDERATIONS** (integrate into the schedule):
 7. **UDL Pacing**: Build in flexibility, avoid clustering too many deadlines
 8. **Cultural Awareness**: Note major religious/cultural observances, consider diverse heritage months
-9. **SEL-Informed Timing**: Include lighter weeks after intensive periods, build in check-in points for student wellbeing
+9. **SEL-Informed Timing**: Include lighter weeks after intensive periods, build in check-in points for student wellbeing`}
 
 Course Dates: ${toolData.startDate} to ${toolData.endDate}
 Format: ${toolData.courseFormat}
@@ -860,8 +902,8 @@ Make the policy:
 - Aligned with BSU's TTC guidelines`,
 
     alignment: `${baseContext}
-
-Perform a DETAILED ALIGNMENT ANALYSIS between learning outcomes and assessments.
+${conciseGuidance}
+Perform an alignment analysis between learning outcomes and assessments.
 
 COURSE LEARNING OUTCOMES:
 ${toolData.learningOutcomes}
@@ -874,7 +916,16 @@ ${toolData.checkType?.map((c: string) => `- ${c}`).join("\n") || "Full alignment
 
 ADDITIONAL CONTEXT: ${toolData.additionalContext || "None"}
 
-Please provide:
+${isConcise
+  ? `Please provide:
+1. **Alignment Matrix** - Show which assignments assess which outcomes (use an accessible HTML table or bold-label list)
+2. **Gap Identification** - Any outcomes not assessed or under-assessed
+3. **Recommendations** - Specific, actionable suggestions to improve alignment
+4. **Strengths** - What's working well
+
+Note equity considerations and UDL opportunities inline where relevant.
+Format the matrix clearly so it can be used for accreditation documentation.`
+  : `Please provide:
 1. **Alignment Matrix** - Show which assignments assess which outcomes (use an accessible HTML table with caption, thead, and th scope, or bullet points with bold labels)
 2. **Coverage Analysis** - Are all outcomes adequately assessed?
 3. **Gap Identification** - Any outcomes not assessed or under-assessed
@@ -889,11 +940,11 @@ Please provide:
 10. **SEL Integration**: Are there opportunities for reflection, collaboration, and growth mindset throughout?
 11. **Equity Considerations**: Any barriers that might disadvantage certain student populations?
 
-Format the matrix clearly so it can be used for accreditation documentation or course improvement.`,
+Format the matrix clearly so it can be used for accreditation documentation or course improvement.`}`,
 
     grading: `${baseContext}
-
-Design an EQUITABLE GRADING POLICY based on Grading for Equity principles (Joe Feldman) that measures student content knowledge rather than compliance behaviors.
+${conciseGuidance}
+Design an equitable grading policy based on Grading for Equity principles (Joe Feldman) that measures student content knowledge rather than compliance behaviors.
 
 CURRENT GRADING APPROACH:
 ${toolData.currentGradingApproach || "Not specified - design a new system from scratch"}
@@ -912,9 +963,22 @@ ${toolData.constraints || "None specified"}
 
 ADDITIONAL CONTEXT: ${toolData.additionalContext || "None"}
 
-Create a comprehensive grading policy that includes:
+Create a ${isConcise ? "focused" : "comprehensive"} grading policy that includes:
 
-1. **GRADING PHILOSOPHY STATEMENT**
+${isConcise
+  ? `1. **GRADING PHILOSOPHY STATEMENT** — brief rationale grounded in equitable grading research
+2. **GRADE BREAKDOWN** — recommended weights with rationale
+3. **LATE WORK & REVISION POLICY** — equitable approach that doesn't penalize life circumstances
+4. **GRADING SCALE** — recommended scale with clear criteria
+5. **SAMPLE SYLLABUS LANGUAGE** — ready-to-use policy text
+
+Weave UDL, culturally responsive, and equity considerations naturally into each section.
+
+Make the policy:
+- Grounded in Grading for Equity research (Joe Feldman)
+- Practical and implementable
+- Ready to paste into syllabus`
+  : `1. **GRADING PHILOSOPHY STATEMENT**
    - Clear statement of the grading approach and its pedagogical foundation
    - How this system measures content knowledge, not compliance
    - Connection to research on equitable grading
@@ -995,10 +1059,10 @@ Make the policy:
 - Grounded in Grading for Equity research (Joe Feldman)
 - Practical and implementable
 - Ready to paste into syllabus
-- Supportive of student learning while maintaining rigor`,
+- Supportive of student learning while maintaining rigor`}`,
 
     airesistant: `${baseContext}
-
+${conciseGuidance}
 You are an expert in academic integrity and authentic assessment design. Analyze the following assignment for its vulnerability to AI-generated completion, and provide specific, research-based strategies to make it more AI-resistant while maintaining educational value.
 
 EXISTING ASSIGNMENT:
@@ -1014,9 +1078,27 @@ ${toolData.constraints?.map((c: string) => `- ${c}`).join("\n") || "None specifi
 
 ADDITIONAL CONTEXT: ${toolData.additionalContext || "None"}
 
-Provide a comprehensive analysis with the following sections:
+Provide a ${isConcise ? "focused" : "comprehensive"} analysis with the following sections:
 
-## 1. AI VULNERABILITY ASSESSMENT
+${isConcise
+  ? `## 1. AI VULNERABILITY ASSESSMENT
+
+**Vulnerability Score: [LOW / MEDIUM / HIGH / VERY HIGH]**
+
+Briefly note what AI can easily do vs. what it would struggle with on this specific assignment.
+
+## 2. AI-RESISTANT ENHANCEMENT STRATEGIES
+
+Recommend 3–5 specific, high-impact changes using evidence-based strategies (lived experience, process documentation, hyperlocal content, metacognitive reflection). For each, give a concrete example.
+
+## 3. REVISED ASSIGNMENT (If Requested)
+
+Provide a rewritten version incorporating the recommended changes. Maintain original learning objectives and keep workload reasonable.
+
+**Key Principle:** Authentic assessment that measures genuine student learning naturally resists AI completion.
+
+Format all output clearly with headers and bullet points.`
+  : `## 1. AI VULNERABILITY ASSESSMENT
 
 **Vulnerability Score: [LOW / MEDIUM / HIGH / VERY HIGH]**
 
@@ -1102,7 +1184,7 @@ Draft language for communicating expectations:
 
 **Key Principle:** The goal is authentic assessment that measures genuine student learning, not simply making students' lives harder. Every recommendation should serve the learning objectives while naturally requiring human engagement.
 
-Format all output clearly with headers and bullet points for easy reading.`,
+Format all output clearly with headers and bullet points for easy reading.`}`,
 
     accessibility: `${accessibilityBaseContext}
 
@@ -1231,10 +1313,36 @@ Cite the research and standards that inform these recommendations:
 Format all output clearly with headers and bullet points for easy reading.`,
 
     aistudent: `${baseContext}
+${conciseGuidance}
+Design a${isConcise ? "" : " COMPLETE"} AI-POWERED STUDENT ACTIVITY where students intentionally use AI as a learning tool. Grounded in evidence-based AI pedagogy research (EDUCAUSE 2025, Mollick & Mollick 2023, Bowen & Watson 2024, UNESCO 2023).
 
-Design a COMPLETE AI-POWERED STUDENT ACTIVITY where students intentionally use AI as a learning tool. This activity should be grounded in evidence-based AI pedagogy research (EDUCAUSE 2025, Mollick & Mollick 2023, Bowen & Watson 2024, UNESCO 2023).
+${isConcise
+  ? `Create a focused, ready-to-implement activity that includes:
 
-Create a comprehensive, ready-to-implement activity that includes ALL of the following sections:
+## 1. ACTIVITY TITLE AND OVERVIEW
+- Clear title, brief overview of what students will do, and connection to learning objectives
+
+## 2. LEARNING OBJECTIVES
+- 2–3 content-specific objectives plus 1–2 AI literacy objectives (Bloom's level targeted)
+
+## 3. STEP-BY-STEP STUDENT INSTRUCTIONS
+- Numbered steps with AI interaction points clearly marked
+- For each AI interaction: sample prompt, what to look for, how to evaluate the output critically
+
+## 4. CRITICAL THINKING CHECKPOINTS
+- 2–3 specific questions students must answer about the AI's output accuracy, gaps, or assumptions
+
+## 5. SUBMISSION REQUIREMENTS
+- What to submit, documentation of AI interactions, Blackboard Ultra format
+
+Activity Type: ${toolData.activityType}
+Learning Objectives: ${toolData.learningObjectives}
+Recommended AI Tool: ${toolData.aiToolRecommendation || "Any AI Assistant"}
+Student AI Experience Level: ${toolData.studentLevel || "Intermediate"}
+Critical Thinking Focus Areas: ${toolData.criticalThinkingFocus?.join(", ") || "General critical thinking"}
+Activity Guardrails: ${toolData.guardrails?.join(", ") || "Standard guardrails"}
+Additional Context: ${toolData.additionalContext || "None"}`
+  : `Create a comprehensive, ready-to-implement activity that includes ALL of the following sections:
 
 ## 1. ACTIVITY TITLE AND OVERVIEW
 - A clear, engaging title for the activity
@@ -1309,7 +1417,7 @@ Recommended AI Tool: ${toolData.aiToolRecommendation || "Any AI Assistant"}
 Student AI Experience Level: ${toolData.studentLevel || "Intermediate"}
 Critical Thinking Focus Areas: ${toolData.criticalThinkingFocus?.join(", ") || "General critical thinking"}
 Activity Guardrails: ${toolData.guardrails?.join(", ") || "Standard guardrails"}
-Additional Context: ${toolData.additionalContext || "None"}`,
+Additional Context: ${toolData.additionalContext || "None"}`}`,
   };
 
   return (prompts[toolId] || baseContext) + languageInstruction;

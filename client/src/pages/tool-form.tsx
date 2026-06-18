@@ -11,8 +11,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
-import { ArrowLeft, Loader2, Sparkles, BookOpen, Calendar, FileText, Layout, CheckCircle, Target, Scale, ShieldCheck, Eye, Bot, Globe, BookmarkPlus, ChevronDown, Trash2 } from "lucide-react";
-import { TOOLS, BSU_CALENDAR, LOADING_MESSAGES, COURSE_LEVELS } from "@/lib/constants";
+import { ArrowLeft, Loader2, Sparkles, BookOpen, Calendar, FileText, Layout, CheckCircle, Target, Scale, ShieldCheck, Eye, Bot, Globe, BookmarkPlus, ChevronDown, Trash2, SlidersHorizontal } from "lucide-react";
+import { TOOLS, BSU_CALENDAR, LOADING_MESSAGES, COURSE_LEVELS, CONTENT_PREFILL_MAP } from "@/lib/constants";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isSessionExpiredMessage } from "@/lib/upload-error-utils";
 import { useToast } from "@/hooks/use-toast";
@@ -969,6 +969,48 @@ export default function ToolForm() {
               })}
             </CardContent>
           </Card>
+
+          {toolId && !["syllabus", "aipolicy", "accessibility"].includes(toolId) && (
+            <Card className="bg-muted/30">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <SlidersHorizontal className="w-4 h-4 text-muted-foreground shrink-0" aria-hidden="true" />
+                  <div className="flex-1 min-w-0">
+                    <Label className="text-sm font-medium">Output Detail</Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {(formData.outputDetail || "concise") === "concise"
+                        ? "Concise: focused output covering the essential sections — faster to read and act on."
+                        : "Standard: comprehensive output with full inclusive design sections and resources."}
+                    </p>
+                  </div>
+                  <div
+                    className="flex rounded-md border overflow-hidden shrink-0"
+                    role="group"
+                    aria-label="Output detail level"
+                  >
+                    <button
+                      type="button"
+                      className={`px-3 py-1.5 text-sm font-medium transition-colors ${(formData.outputDetail || "concise") === "concise" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
+                      onClick={() => handleInputChange("outputDetail", "concise")}
+                      aria-pressed={(formData.outputDetail || "concise") === "concise"}
+                      data-testid="button-output-detail-concise"
+                    >
+                      Concise
+                    </button>
+                    <button
+                      type="button"
+                      className={`px-3 py-1.5 text-sm font-medium transition-colors ${(formData.outputDetail || "concise") === "standard" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
+                      onClick={() => handleInputChange("outputDetail", "standard")}
+                      aria-pressed={(formData.outputDetail || "concise") === "standard"}
+                      data-testid="button-output-detail-standard"
+                    >
+                      Standard
+                    </button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           <Card className="bg-muted/30">
             <CardContent className="p-4">
