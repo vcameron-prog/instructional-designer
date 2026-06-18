@@ -145,6 +145,22 @@ function componentFilesWithLoadingImport(): string[] {
 }
 
 /**
+ * Returns the paths of every .tsx file in client/src/components/ (recursively)
+ * that contains a `<main` element but does NOT import `powered-by-footer`.
+ *
+ * These are candidates for full-page layout components that may have forgotten
+ * to include <PoweredByFooter />.  Each file returned here must either be an
+ * explicitly allowlisted layout primitive (e.g. a shadcn/ui utility) or be
+ * updated to import and render the footer.
+ */
+function componentFilesWithMainButNoFooter(): string[] {
+  return collectTsxFiles(COMPONENTS_DIR).filter((filePath) => {
+    const source = readFileSync(filePath, "utf-8");
+    return source.includes("<main") && !source.includes("powered-by-footer");
+  });
+}
+
+/**
  * Walk `source` starting at `startIdx` (the opening `(`) and return the index
  * of the matching closing `)`, handling string literals so parens inside
  * strings don't confuse the count.  Returns -1 if no match found.
@@ -591,6 +607,39 @@ describe("PoweredByFooter — component loading-branch regression", () => {
             `components/${fileName}: a non-loading-guard <main> return block is missing <PoweredByFooter />`,
           );
         }
+      }
+    }
+
+    expect(violations).toEqual([]);
+  });
+
+  /**
+   * Structural guard: every component file that renders a <main> element but
+   * does NOT import PoweredByFooter must be an explicitly allowlisted layout
+   * primitive (e.g. a shadcn/ui utility, a canvas host) rather than a
+   * full-page layout component that forgot the footer.
+   *
+   * Add a path to COMPONENT_MAIN_ALLOWLIST (relative to client/src/components/)
+   * only when the file is genuinely a layout primitive with no full-page layout
+   * intent.  New full-page layout components that render <main> should import
+   * and render <PoweredByFooter /> instead of being allowlisted.
+   */
+  it("every component with <main> but no footer import is an allowlisted primitive", () => {
+    // Paths relative to COMPONENTS_DIR.  Add only genuine layout primitives here.
+    const COMPONENT_MAIN_ALLOWLIST = new Set([
+      "ui/sidebar.tsx", // shadcn/ui sidebar primitive — layout utility, not a full-page component
+    ]);
+
+    const violations: string[] = [];
+    const filePaths = componentFilesWithMainButNoFooter();
+
+    for (const filePath of filePaths) {
+      const relative = path.relative(COMPONENTS_DIR, filePath);
+      if (!COMPONENT_MAIN_ALLOWLIST.has(relative)) {
+        violations.push(
+          `components/${relative}: renders <main> but does not import powered-by-footer — ` +
+            "either add a PoweredByFooter import or add this file to COMPONENT_MAIN_ALLOWLIST if it is a layout primitive",
+        );
       }
     }
 
