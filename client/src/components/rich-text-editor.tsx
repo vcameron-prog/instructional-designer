@@ -274,6 +274,10 @@ export function RichTextEditor({
       AccessibilityAttributes,
     ],
     content: initialHtml,
+    // Required in TipTap v3: re-render the component (and thus toolbar buttons)
+    // whenever a ProseMirror transaction fires so that aria-pressed / disabled
+    // states on toolbar buttons stay in sync with the current editor state.
+    shouldRerenderOnTransaction: true,
     onUpdate: ({ editor }) => {
       onChange(editor.getHTML());
     },
