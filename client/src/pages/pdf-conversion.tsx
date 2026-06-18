@@ -816,7 +816,7 @@ export default function PdfConversion() {
         toast({ title: "No ARIA issues found to fix" });
       }
 
-      const issues: Array<{ fixNotes?: string }> = data?.complianceReport?.issues ?? [];
+      const issues: Array<{ title?: string; status?: string; fixNotes?: string }> = data?.complianceReport?.issues ?? [];
       const ariaFixNotes = issues
         .map((issue) => issue.fixNotes)
         .filter((note): note is string => Boolean(note));
@@ -835,6 +835,24 @@ export default function PdfConversion() {
           ? `Fixed ${count} ${elementLabel} across all ARIA checks.${retryNote}`
           : `No ARIA role issues found to fix.${retryNote}`,
       });
+
+      const manualFixItems = issues.filter(
+        (issue) =>
+          issue.title?.includes("ARIA") &&
+          (issue.status === "fail" || issue.status === "warning"),
+      );
+      if (manualFixItems.length > 0) {
+        const manualCount = manualFixItems.length;
+        const itemList = manualFixItems
+          .map(({ title }) => `• ${title ?? "ARIA issue"}: This issue could not be automatically fixed and requires manual attention.`)
+          .join("\n");
+        toast({
+          title: `${manualCount} ${manualCount === 1 ? "issue requires" : "issues require"} manual attention`,
+          description: itemList,
+          variant: "destructive",
+          duration: 10000,
+        });
+      }
     } catch {
       setFixError("Failed to fix ARIA role issues. Please try again.");
     } finally {
