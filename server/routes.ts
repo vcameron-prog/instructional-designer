@@ -135,6 +135,10 @@ export function _testDeleteReprocessKey(id: number): void {
 const activeDocxExportKeys = new Set<string>();
 const activePdfExportKeys = new Set<string>();
 
+let activeXlsxExports = 0;
+const MAX_CONCURRENT_XLSX_EXPORTS = parseInt(process.env.MAX_CONCURRENT_XLSX_EXPORTS ?? "3", 10) || 3;
+const activeXlsxExportKeys = new Set<string>();
+
 // Generate prompt based on tool and course info
 function generatePrompt(
   toolId: string,
@@ -5762,6 +5766,110 @@ Please generate an IMPROVED version that incorporates the requested changes whil
       } finally {
         activeDocxExports--;
         activeDocxExportKeys.delete(docxExportKey);
+      }
+    },
+  );
+
+  app.get(
+    "/api/conversions/:id/download-xlsx",
+    optionalAuth,
+    async (req: Request, res: Response) => {
+      const userId = getUserId(req);
+      const id = parseInt(req.params.id as string);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid ID" });
+        return;
+      }
+
+      const [conversion] = await db
+        .select({
+          accessibleHtml: conversions.accessibleHtml,
+          originalFilename: conversions.originalFilename,
+          status: conversions.status,
+          sourceType: conversions.sourceType,
+        })
+        .from(conversions)
+        .where(conversionOwnerFilter(id, userId, getVisitorToken(req)));
+
+      if (!conversion) {
+        res.status(404).json({ error: "Conversion not found" });
+        return;
+      }
+
+      const SPREADSHEET_SOURCE_TYPES = new Set(["xlsx", "google-sheet", "ods", "csv"]);
+      if (!SPREADSHEET_SOURCE_TYPES.has(conversion.sourceType ?? "")) {
+        res.status(400).json({ error: "XLSX export is only available for spreadsheet conversions" });
+        return;
+      }
+
+      if (conversion.status !== "completed" || !conversion.accessibleHtml) {
+        res.status(400).json({ error: "HTML not available" });
+        return;
+      }
+
+      if (!userId) {
+        const ip = req.ip || req.socket.remoteAddress || "unknown";
+        if (!await checkSharedRateLimit(
+          `ip:${ip}`, "xlsx_export", SHARED_HEAVY_OP_RATE_LIMIT, HEAVY_OP_RATE_WINDOW_MS,
+          () => checkHeavyOpRateLimit(`xlsx:ip:${ip}`),
+        )) {
+          res.status(429).json({ error: "Too many XLSX export requests. Please wait before trying again." });
+          return;
+        }
+      } else {
+        if (!await checkSharedRateLimit(
+          `user:${userId}`, "xlsx_export", SHARED_HEAVY_OP_RATE_LIMIT, HEAVY_OP_RATE_WINDOW_MS,
+          () => checkHeavyOpRateLimit(`xlsx:user:${userId}`),
+        )) {
+          res.status(429).json({ error: "Too many XLSX export requests. Please wait before trying again." });
+          return;
+        }
+      }
+
+      const xlsxExportKey = String(id);
+      if (activeXlsxExportKeys.has(xlsxExportKey)) {
+        res.status(409).json({ error: "An XLSX export for this document is already in progress. Please wait." });
+        return;
+      }
+      activeXlsxExportKeys.add(xlsxExportKey);
+
+      if (activeXlsxExports >= MAX_CONCURRENT_XLSX_EXPORTS) {
+        activeXlsxExportKeys.delete(xlsxExportKey);
+        res.status(503).json({ error: "Server is busy generating XLSX files. Please try again shortly." });
+        return;
+      }
+      activeXlsxExports++;
+
+      const titleMatch = conversion.accessibleHtml.match(/<title[^>]*>(.*?)<\/title>/i);
+      const docTitle = titleMatch
+        ? titleMatch[1]
+        : conversion.originalFilename.replace(/\.[^.]+$/i, "");
+
+      try {
+        const { buildXlsx } = await import("./lib/xlsx-builder");
+        const xlsxBuffer = await buildXlsx(conversion.accessibleHtml, docTitle);
+
+        const filename = sanitizeHeaderFilename(
+          conversion.originalFilename
+            .replace(/\.[^.]+$/i, "")
+            .replace(/[^\w\s.-]/g, "_") + "-accessible.xlsx"
+        );
+        res.setHeader(
+          "Content-Type",
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        );
+        res.setHeader(
+          "Content-Disposition",
+          `attachment; filename="${filename}"`,
+        );
+        res.setHeader("Content-Length", xlsxBuffer.length);
+        res.end(xlsxBuffer);
+      } catch (err) {
+        console.error("XLSX conversion error:", err);
+        res.status(500).json({ error: "Failed to generate XLSX file" });
+      } finally {
+        activeXlsxExports--;
+        activeXlsxExportKeys.delete(xlsxExportKey);
       }
     },
   );

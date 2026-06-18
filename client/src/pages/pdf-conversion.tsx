@@ -484,6 +484,13 @@ export default function PdfConversion() {
   const [isDownloading, setIsDownloading] = useState(false);
   const [isDownloadingDocx, setIsDownloadingDocx] = useState(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [isDownloadingXlsx, setIsDownloadingXlsx] = useState(false);
+
+  const isSpreadsheet =
+    conversion?.sourceType === "xlsx" ||
+    conversion?.sourceType === "google-sheet" ||
+    conversion?.sourceType === "ods" ||
+    conversion?.sourceType === "csv";
   const [expandedIssues, setExpandedIssues] = useState<Set<string>>(new Set());
   const [fixingIndex, setFixingIndex] = useState<number | null>(null);
   const [fixError, setFixError] = useState<string | null>(null);
@@ -1141,6 +1148,44 @@ export default function PdfConversion() {
     }
   };
 
+  const handleDownloadXlsx = async () => {
+    setIsDownloadingXlsx(true);
+    try {
+      const resp = await fetch(`/api/conversions/${numericId}/download-xlsx`, {
+        credentials: "include",
+      });
+      if (!resp.ok) {
+        const errData = await resp
+          .json()
+          .catch(() => ({ error: "XLSX generation failed" }));
+        toast({
+          title: "Download failed",
+          description: errData.error || "Could not generate XLSX file",
+          variant: "destructive",
+        });
+        return;
+      }
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download =
+        conversion.originalFilename.replace(/\.[^.]+$/i, "") + "-accessible.xlsx";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      toast({
+        title: "Download failed",
+        description: "An unexpected error occurred generating the XLSX file",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDownloadingXlsx(false);
+    }
+  };
+
   const handleDownloadPdf = async () => {
     setIsDownloadingPdf(true);
     try {
@@ -1426,7 +1471,7 @@ export default function PdfConversion() {
                         data-testid="button-download-as"
                         aria-label="Download as a different format"
                       >
-                        {(isDownloading || isDownloadingDocx || isDownloadingPdf) ? (
+                        {(isDownloading || isDownloadingDocx || isDownloadingPdf || isDownloadingXlsx) ? (
                           <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
                         ) : (
                           <Download className="w-4 h-4" aria-hidden="true" />
@@ -1478,6 +1523,22 @@ export default function PdfConversion() {
                         Tagged PDF
                         <span className="ml-auto text-xs text-muted-foreground">(.pdf)</span>
                       </DropdownMenuItem>
+                      {isSpreadsheet && (
+                        <DropdownMenuItem
+                          onClick={handleDownloadXlsx}
+                          disabled={isDownloadingXlsx}
+                          data-testid="menu-download-xlsx"
+                          className="gap-2 cursor-pointer"
+                        >
+                          {isDownloadingXlsx ? (
+                            <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+                          ) : (
+                            <FileText className="w-4 h-4" aria-hidden="true" />
+                          )}
+                          Accessible Excel
+                          <span className="ml-auto text-xs text-muted-foreground">(.xlsx)</span>
+                        </DropdownMenuItem>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                   <button
