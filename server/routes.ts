@@ -2363,16 +2363,9 @@ export async function registerRoutes(
 
         const assignmentText = convertMarkdownTablesToHtml(rawAssignmentText);
 
-        const assignmentContent = await storage.createContent({
-          courseId: resolvedCourseId,
-          userId,
-          toolType: "assignment",
-          toolName: "Assignment Design",
-          formData,
-          content: assignmentText,
-        });
-
-        // Build rubric prompt derived from the assignment
+        // Build rubric prompt derived from the assignment text — do this before
+        // any DB writes so that if the rubric AI call fails we haven't saved an
+        // orphan assignment record yet.
         const rubricFormData = {
           assessmentType: formData.assignmentType || "Assignment",
           totalPoints: rubricConfig?.totalPoints || "100",
@@ -2394,6 +2387,17 @@ export async function registerRoutes(
           .join("\n\n");
 
         const rubricText = convertMarkdownTablesToHtml(rawRubricText);
+
+        // Both AI calls succeeded — now persist both records. Any DB error here
+        // is transient infrastructure, not a duplicate-charge risk.
+        const assignmentContent = await storage.createContent({
+          courseId: resolvedCourseId,
+          userId,
+          toolType: "assignment",
+          toolName: "Assignment Design",
+          formData,
+          content: assignmentText,
+        });
 
         const rubricContent = await storage.createContent({
           courseId: resolvedCourseId,
