@@ -157,7 +157,7 @@ export default function PdfHistory() {
     if (search.trim()) params.set("q", search.trim());
     if (dateRange !== "all") params.set("range", dateRange);
     const qs = params.toString();
-    const newPath = qs ? `/pdf-history?${qs}` : "/pdf-history";
+    const newPath = qs ? `/pdf-accessibility/history?${qs}` : "/pdf-accessibility/history";
     window.history.replaceState(null, "", newPath);
   }, [search, dateRange]);
 
