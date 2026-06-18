@@ -3014,8 +3014,8 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           if (!course) {
             return res.status(404).json({ error: "Content not found" });
           }
-        } else if (content.userId !== userId) {
-          return res.status(404).json({ error: "Content not found" });
+        } else if (!content.userId || content.userId !== userId) {
+          return res.status(403).json({ error: "Forbidden" });
         }
 
         const buffer = await buildContentDocx(content, course);
