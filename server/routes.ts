@@ -3363,6 +3363,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           statusMessage: conversions.statusMessage,
           errorMessage: conversions.errorMessage,
           ocrApplied: conversions.ocrApplied,
+          extractionWarnings: conversions.extractionWarnings,
           processingStartedAt: conversions.processingStartedAt,
           createdAt: conversions.createdAt,
           updatedAt: conversions.updatedAt,
@@ -4708,6 +4709,9 @@ Please generate an IMPROVED version that incorporates the requested changes whil
               originalComplianceReport: originalReport,
               ocrApplied,
               pdfData: null,
+              extractionWarnings: extraction.warnings && extraction.warnings.length > 0
+                ? extraction.warnings
+                : null,
               updatedAt: new Date(),
             })
             .where(eq(conversions.id, id));

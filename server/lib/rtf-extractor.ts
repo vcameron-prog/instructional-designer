@@ -83,9 +83,19 @@ const CJK_ENCODINGS = new Set(
   [...DBCS_CODEPAGES].map((cp) => CODEPAGE_TO_ENCODING[cp]).filter(Boolean)
 );
 
-function detectCodepage(rtf: string): number {
+interface CodepageDetection {
+  codepage: number;
+  hasAnsicpg: boolean;
+  hasHighBytes: boolean;
+}
+
+function detectCodepage(rtf: string): CodepageDetection {
   const m = rtf.match(/\\ansicpg(\d+)/);
-  return m ? parseInt(m[1], 10) : 1252;
+  const hasAnsicpg = m !== null;
+  const codepage = hasAnsicpg ? parseInt(m![1], 10) : 1252;
+  // Check for \'XX escapes with byte values > 0x7F (non-ASCII content)
+  const hasHighBytes = /\\'([89a-fA-F][0-9a-fA-F])/i.test(rtf);
+  return { codepage, hasAnsicpg, hasHighBytes };
 }
 
 /**
@@ -351,8 +361,21 @@ export async function extractRtfContent(buffer: Buffer): Promise<PdfExtraction> 
   // Read as latin1 to preserve raw byte values in \'XX sequences.
   const raw = buffer.toString("latin1");
 
-  const codepage = detectCodepage(raw);
+  const { codepage, hasAnsicpg, hasHighBytes } = detectCodepage(raw);
   const defaultEncoding = CODEPAGE_TO_ENCODING[codepage] ?? "windows-1252";
+
+  // Build warnings list. If the file contains non-ASCII byte escapes but
+  // declares no \ansicpg codepage, the decoded text may be garbled.
+  const warnings: string[] = [];
+  if (!hasAnsicpg && hasHighBytes) {
+    warnings.push(
+      "This RTF file does not declare an \\ansicpg codepage. " +
+        "Characters outside basic ASCII have been decoded using the Windows-1252 " +
+        "default, which may produce garbled text for non-Western content. " +
+        "To fix this, re-save the document from Microsoft Word and ensure the " +
+        "correct language and codepage are set before exporting to RTF."
+    );
+  }
 
   // Build per-font encoding map from the \fonttbl in the RTF header.
   const fontEncodings = buildFontEncodingMap(raw);
@@ -385,5 +408,6 @@ export async function extractRtfContent(buffer: Buffer): Promise<PdfExtraction> 
     metadata: {},
     images: [],
     tables: [],
+    ...(warnings.length > 0 ? { warnings } : {}),
   };
 }

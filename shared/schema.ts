@@ -147,6 +147,7 @@ export const conversions = pgTable("conversions", {
   pdfData: text("pdf_data"),
   manualFixItems: jsonb("manual_fix_items"),
   ocrApplied: boolean("ocr_applied").notNull().default(false),
+  extractionWarnings: jsonb("extraction_warnings").$type<string[]>(),
   selectedSheet: text("selected_sheet"),
   processingStartedAt: timestamp("processing_started_at", { withTimezone: true }),
   userId: varchar("user_id"),

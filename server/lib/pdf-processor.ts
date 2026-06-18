@@ -24,6 +24,8 @@ export interface PdfExtraction {
   };
   images: ExtractedImage[];
   tables: ExtractedTable[];
+  /** Non-fatal warnings about the source file that users should be aware of. */
+  warnings?: string[];
 }
 
 export async function extractPdfContent(

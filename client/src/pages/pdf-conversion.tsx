@@ -1694,6 +1694,36 @@ export default function PdfConversion() {
           )}
         </div>
 
+        {conversion.status === "completed" &&
+          Array.isArray((conversion as any).extractionWarnings) &&
+          (conversion as any).extractionWarnings.length > 0 && (
+            <div
+              className="flex items-start gap-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-4"
+              role="alert"
+              data-testid="extraction-warnings-banner"
+            >
+              <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" aria-hidden="true" />
+              <div>
+                <p className="text-sm font-bold text-amber-800 dark:text-amber-200 mb-1">
+                  Source File Warning
+                </p>
+                <ul className="space-y-1">
+                  {((conversion as any).extractionWarnings as string[]).map(
+                    (w: string, i: number) => (
+                      <li
+                        key={i}
+                        className="text-sm text-amber-800 dark:text-amber-200"
+                        data-testid={`extraction-warning-${i}`}
+                      >
+                        {w}
+                      </li>
+                    )
+                  )}
+                </ul>
+              </div>
+            </div>
+          )}
+
         {conversion.status === "completed" && (
           <div
             className="flex items-start gap-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-xl p-4"

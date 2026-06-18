@@ -1,0 +1,1 @@
+ALTER TABLE "conversions" ADD COLUMN IF NOT EXISTS "extraction_warnings" jsonb;
