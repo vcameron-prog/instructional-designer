@@ -5730,6 +5730,56 @@ describe("replaceAriaRoleElements (via applyAriaComboboxRoleFix) – angle brack
   });
 });
 
+describe("applyAriaButtonRoleFix – angle bracket in attribute value", () => {
+  it("converts div[role=button] to <button> when an attribute value contains literal '>'", () => {
+    const html = `<div role="button" data-label="count > 0">Click me</div>`;
+    const result = applyAriaButtonRoleFix(html);
+    expect(result).toContain("<button");
+    expect(result).not.toContain('role="button"');
+    expect(result).toContain("Click me");
+  });
+});
+
+describe("applyAriaCheckboxRoleFix – angle bracket in attribute value", () => {
+  it("converts div[role=checkbox] to <input type=checkbox> when an attribute value contains literal '>'", () => {
+    const html = `<div role="checkbox" data-label="score > 0">Accept</div>`;
+    const result = applyAriaCheckboxRoleFix(html);
+    expect(result).toContain('<input type="checkbox"');
+    expect(result).not.toContain('role="checkbox"');
+    expect(result).toContain("Accept");
+  });
+});
+
+describe("applyAriaRadioRoleFix – angle bracket in attribute value", () => {
+  it("converts div[role=radio] to <input type=radio> when an attribute value contains literal '>'", () => {
+    const html = `<div role="radio" data-label="value > 1">Option</div>`;
+    const result = applyAriaRadioRoleFix(html);
+    expect(result).toContain('<input type="radio"');
+    expect(result).not.toContain('role="radio"');
+    expect(result).toContain("Option");
+  });
+});
+
+describe("applyAriaGridRoleFix – angle bracket in attribute value", () => {
+  it("converts div[role=grid] to <table> when an attribute value contains literal '>'", () => {
+    const html = `<div role="grid" data-label="rows > 0"><tr><td>Cell</td></tr></div>`;
+    const result = applyAriaGridRoleFix(html);
+    expect(result).toContain("<table");
+    expect(result).not.toContain('role="grid"');
+    expect(result).toContain("<td>Cell</td>");
+  });
+});
+
+describe("applyAriaTabRoleFix – angle bracket in attribute value", () => {
+  it("converts div[role=tab] to <button> when an attribute value contains literal '>'", () => {
+    const html = `<div role="tab" data-label="step > 1">Tab One</div>`;
+    const result = applyAriaTabRoleFix(html);
+    expect(result).toContain("<button");
+    expect(result).not.toContain('role="tab"');
+    expect(result).toContain("Tab One");
+  });
+});
+
 // ---------------------------------------------------------------------------
 // registerDeterministicFixer
 // ---------------------------------------------------------------------------
@@ -6293,5 +6343,55 @@ describe("replaceAriaRoleElements (via applyAriaComboboxRoleFix) – backtick-qu
     expect(result).toContain("<select");
     expect(result).not.toContain("role=\"combobox\"");
     expect(result).toContain("<option>A</option>");
+  });
+});
+
+describe("applyAriaButtonRoleFix – backtick-quoted attribute value", () => {
+  it("converts div[role=button] to <button> when an attribute value is backtick-quoted", () => {
+    const html = "<div role=\"button\" data-label=`action`>Click me</div>";
+    const result = applyAriaButtonRoleFix(html);
+    expect(result).toContain("<button");
+    expect(result).not.toContain("role=\"button\"");
+    expect(result).toContain("Click me");
+  });
+});
+
+describe("applyAriaCheckboxRoleFix – backtick-quoted attribute value", () => {
+  it("converts div[role=checkbox] to <input type=checkbox> when an attribute value is backtick-quoted", () => {
+    const html = "<div role=\"checkbox\" data-label=`opt`>Accept</div>";
+    const result = applyAriaCheckboxRoleFix(html);
+    expect(result).toContain('<input type="checkbox"');
+    expect(result).not.toContain("role=\"checkbox\"");
+    expect(result).toContain("Accept");
+  });
+});
+
+describe("applyAriaRadioRoleFix – backtick-quoted attribute value", () => {
+  it("converts div[role=radio] to <input type=radio> when an attribute value is backtick-quoted", () => {
+    const html = "<div role=\"radio\" data-label=`choice`>Option</div>";
+    const result = applyAriaRadioRoleFix(html);
+    expect(result).toContain('<input type="radio"');
+    expect(result).not.toContain("role=\"radio\"");
+    expect(result).toContain("Option");
+  });
+});
+
+describe("applyAriaGridRoleFix – backtick-quoted attribute value", () => {
+  it("converts div[role=grid] to <table> when an attribute value is backtick-quoted", () => {
+    const html = "<div role=\"grid\" data-label=`grid`><tr><td>Cell</td></tr></div>";
+    const result = applyAriaGridRoleFix(html);
+    expect(result).toContain("<table");
+    expect(result).not.toContain("role=\"grid\"");
+    expect(result).toContain("<td>Cell</td>");
+  });
+});
+
+describe("applyAriaTabRoleFix – backtick-quoted attribute value", () => {
+  it("converts div[role=tab] to <button> when an attribute value is backtick-quoted", () => {
+    const html = "<div role=\"tab\" data-label=`tab1`>Tab One</div>";
+    const result = applyAriaTabRoleFix(html);
+    expect(result).toContain("<button");
+    expect(result).not.toContain("role=\"tab\"");
+    expect(result).toContain("Tab One");
   });
 });
