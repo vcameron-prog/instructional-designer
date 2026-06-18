@@ -2895,6 +2895,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           statusMessage: conversions.statusMessage,
           errorMessage: conversions.errorMessage,
           ocrApplied: conversions.ocrApplied,
+          processingStartedAt: conversions.processingStartedAt,
           createdAt: conversions.createdAt,
           updatedAt: conversions.updatedAt,
         })
@@ -3861,6 +3862,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           .set({
             status: "processing",
             statusMessage: "Starting conversion…",
+            processingStartedAt: new Date(),
             updatedAt: new Date(),
           })
           .where(
@@ -3886,10 +3888,12 @@ Please generate an IMPROVED version that incorporates the requested changes whil
       }
 
       const { pdfData: _pdfData, ...safeConversion } = conversion;
+      const processingStartedAt = new Date();
       res.json({
         ...safeConversion,
         status: "processing",
         statusMessage: "Starting conversion…",
+        processingStartedAt,
       });
 
       const updateStatusMessage = async (message: string) => {
@@ -4189,7 +4193,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
       // Atomically claim the conversion (only if still in a reprocessable state).
       const claimed = await db
         .update(conversions)
-        .set({ status: "processing", statusMessage: "Starting re-conversion…", updatedAt: new Date() })
+        .set({ status: "processing", statusMessage: "Starting re-conversion…", processingStartedAt: new Date(), updatedAt: new Date() })
         .where(and(eq(conversions.id, id), inArray(conversions.status, ["completed", "failed"])))
         .returning({ id: conversions.id });
 
@@ -4199,7 +4203,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         return;
       }
 
-      res.json({ id, status: "processing", statusMessage: "Starting re-conversion…" });
+      res.json({ id, status: "processing", statusMessage: "Starting re-conversion…", processingStartedAt: new Date() });
 
       // Background work — same pattern as the main /process route.
       const REPROCESS_TIMEOUT_MS = 10 * 60 * 1000;

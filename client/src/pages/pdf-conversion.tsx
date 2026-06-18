@@ -448,10 +448,17 @@ export default function PdfConversion() {
 
   useEffect(() => {
     if (isProcessingOrUploaded) {
-      if (processingStartRef.current === null) {
+      const serverStart = conversion?.processingStartedAt
+        ? new Date(conversion.processingStartedAt).getTime()
+        : null;
+      // Always rebase to the server timestamp when it is available,
+      // so a post-refresh poll immediately corrects the baseline.
+      if (serverStart !== null) {
+        processingStartRef.current = serverStart;
+      } else if (processingStartRef.current === null) {
         processingStartRef.current = Date.now();
-        setElapsedSeconds(0);
       }
+      setElapsedSeconds(Math.floor((Date.now() - (processingStartRef.current ?? Date.now())) / 1000));
       const interval = setInterval(() => {
         const start = processingStartRef.current ?? Date.now();
         setElapsedSeconds(Math.floor((Date.now() - start) / 1000));
@@ -461,7 +468,7 @@ export default function PdfConversion() {
       processingStartRef.current = null;
       setElapsedSeconds(0);
     }
-  }, [isProcessingOrUploaded]);
+  }, [isProcessingOrUploaded, conversion?.processingStartedAt]);
 
   useEffect(() => {
     const msg = conversion?.statusMessage ?? null;
