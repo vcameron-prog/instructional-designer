@@ -46,6 +46,10 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024, files: 1 },
 });
 
+// Process-local fallback store used only when the DB is unavailable.
+// All anonymous rate-limit paths use checkSharedRateLimit (DB-backed,
+// cross-instance) as the primary check and pass checkAnonRateLimit as the
+// fallbackFn so the limiter degrades gracefully under DB failures.
 const anonRateLimits = new Map<string, { count: number; resetAt: number }>();
 const ANON_RATE_LIMIT = 10;
 const ANON_RATE_WINDOW_MS = 60 * 60 * 1000;
@@ -259,11 +263,12 @@ setInterval(
 // per-instance limits are not globally enforced. The per-conversion
 // deduplication keys (activeProcessingKeys, activeFixKeys) and the DB-backed
 // shared rate limit (checkSharedRateLimit) are the primary cross-instance
-// guards for the most expensive paths. Authenticated-user upload, AI-gen, and
-// heavy-op rate limits all use checkSharedRateLimit (backed by the
+// guards for the most expensive paths. Authenticated-user AND anonymous upload,
+// AI-gen, and heavy-op rate limits all use checkSharedRateLimit (backed by the
 // rate_limit_log table) so they are enforced globally across all instances.
-// The process-local Maps (uploadRateLimits, aiGenRateLimits, heavyOpRateLimits)
-// are retained as anonymous-only fallbacks when the DB is unavailable.
+// Anonymous paths key by "ip:<ip>" to prevent bypass via visitor-token rotation.
+// The process-local Maps (anonRateLimits, uploadRateLimits, aiGenRateLimits,
+// heavyOpRateLimits) are retained only as DB-unavailable fallbacks.
 let activeProcessingJobs = 0;
 const MAX_CONCURRENT_PROCESSING = parseInt(process.env.MAX_CONCURRENT_PROCESSING ?? "3", 10) || 3;
 // Per-conversion in-flight deduplication — prevents the same document from
@@ -2397,7 +2402,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           const ip = req.ip || req.socket.remoteAddress || "unknown";
           const allowed = userId
             ? await checkSharedRateLimit(userId, "ai-gen", AI_GEN_RATE_LIMIT, AI_GEN_RATE_WINDOW_MS, () => checkAiGenRateLimit(userId))
-            : checkAnonRateLimit(ip);
+            : await checkSharedRateLimit(`ip:${ip}`, "ai-gen", ANON_RATE_LIMIT, ANON_RATE_WINDOW_MS, () => checkAnonRateLimit(ip));
           if (!allowed) {
             return res.status(429).json({ error: "Rate limit exceeded. Please try again later." });
           }
@@ -2462,7 +2467,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           const ip = req.ip || req.socket.remoteAddress || "unknown";
           const allowed = userId
             ? await checkSharedRateLimit(userId, "ai-gen", AI_GEN_RATE_LIMIT, AI_GEN_RATE_WINDOW_MS, () => checkAiGenRateLimit(userId))
-            : checkAnonRateLimit(ip);
+            : await checkSharedRateLimit(`ip:${ip}`, "ai-gen", ANON_RATE_LIMIT, ANON_RATE_WINDOW_MS, () => checkAnonRateLimit(ip));
           if (!allowed) {
             return res.status(429).json({ error: "Rate limit exceeded. Please try again later." });
           }
@@ -2585,9 +2590,10 @@ Please generate an IMPROVED version that incorporates the requested changes whil
   // File upload for syllabus
   app.post(
     "/api/upload-syllabus",
-    (req: Request, res: Response, next: NextFunction) => {
+    async (req: Request, res: Response, next: NextFunction) => {
       const ip = req.ip || req.socket.remoteAddress || "unknown";
-      if (!checkAnonRateLimit(ip)) {
+      // Cross-instance rate limit keyed by IP so token-rotation cannot bypass it.
+      if (!await checkSharedRateLimit(`ip:${ip}`, "upload", SHARED_ANON_UPLOAD_RATE_LIMIT, ANON_RATE_WINDOW_MS, () => checkAnonRateLimit(ip))) {
         return res.status(429).json({ error: "Rate limit exceeded. Please try again later." });
       }
       next();
@@ -3098,13 +3104,10 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         res.status(429).json({ error: "Upload rate limit exceeded. Please try again later." });
         return;
       }
-    } else {
-      const ip = req.ip || req.socket.remoteAddress || "unknown";
-      if (!checkAnonRateLimit(ip)) {
-        res.status(429).json({ error: "Upload rate limit exceeded. Please try again later." });
-        return;
-      }
     }
+    // Anonymous users are handled by anonDbUploadRateLimitGuard (DB-backed,
+    // cross-instance) which runs immediately after this guard on every upload
+    // route. No process-local check here to avoid the double-check pattern.
     next();
   };
 
