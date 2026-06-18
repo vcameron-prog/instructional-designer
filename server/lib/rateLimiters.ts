@@ -33,13 +33,18 @@ export const SHARED_HEAVY_OP_RATE_LIMIT =
 // grow without bound.  Runs every 15 minutes.
 // Delegates to cleanupRateLimitLog (shared-rate-limit.ts) so the deletion
 // predicate is exercised in automated tests independently of this module.
-export const sharedRateLimitCleanupInterval = setInterval(async () => {
+export async function sharedRateLimitCleanupCallback(): Promise<void> {
   try {
     await cleanupRateLimitLog();
   } catch {
     // Non-critical; next interval will retry.
   }
-}, 15 * 60 * 1000);
+}
+
+export const sharedRateLimitCleanupInterval = setInterval(
+  sharedRateLimitCleanupCallback,
+  15 * 60 * 1000,
+);
 
 // ---------------------------------------------------------------------------
 // Process-local in-memory limiters (DB-unavailable fallbacks)
@@ -62,12 +67,17 @@ export function checkAnonRateLimit(ip: string): boolean {
   return true;
 }
 
-export const anonRateLimitCleanupInterval = setInterval(() => {
+export function anonRateLimitCleanupCallback(): void {
   const now = Date.now();
   for (const [ip, entry] of anonRateLimits) {
     if (now > entry.resetAt) anonRateLimits.delete(ip);
   }
-}, 10 * 60 * 1000);
+}
+
+export const anonRateLimitCleanupInterval = setInterval(
+  anonRateLimitCleanupCallback,
+  10 * 60 * 1000,
+);
 
 // Heavy-operation limiter
 export const heavyOpRateLimits = new Map<string, { count: number; resetAt: number }>();
@@ -86,12 +96,17 @@ export function checkHeavyOpRateLimit(key: string): boolean {
   return true;
 }
 
-export const heavyOpRateLimitCleanupInterval = setInterval(() => {
+export function heavyOpRateLimitCleanupCallback(): void {
   const now = Date.now();
   for (const [key, entry] of heavyOpRateLimits) {
     if (now > entry.resetAt) heavyOpRateLimits.delete(key);
   }
-}, 10 * 60 * 1000);
+}
+
+export const heavyOpRateLimitCleanupInterval = setInterval(
+  heavyOpRateLimitCleanupCallback,
+  10 * 60 * 1000,
+);
 
 // AI generation limiter
 export const aiGenRateLimits = new Map<string, { count: number; resetAt: number }>();
@@ -110,12 +125,17 @@ export function checkAiGenRateLimit(key: string): boolean {
   return true;
 }
 
-export const aiGenRateLimitCleanupInterval = setInterval(() => {
+export function aiGenRateLimitCleanupCallback(): void {
   const now = Date.now();
   for (const [key, entry] of aiGenRateLimits) {
     if (now > entry.resetAt) aiGenRateLimits.delete(key);
   }
-}, 10 * 60 * 1000);
+}
+
+export const aiGenRateLimitCleanupInterval = setInterval(
+  aiGenRateLimitCleanupCallback,
+  10 * 60 * 1000,
+);
 
 // Upload limiter
 export const uploadRateLimits = new Map<string, { count: number; resetAt: number }>();
@@ -134,9 +154,14 @@ export function checkUploadRateLimit(key: string): boolean {
   return true;
 }
 
-export const uploadRateLimitCleanupInterval = setInterval(() => {
+export function uploadRateLimitCleanupCallback(): void {
   const now = Date.now();
   for (const [key, entry] of uploadRateLimits) {
     if (now > entry.resetAt) uploadRateLimits.delete(key);
   }
-}, 10 * 60 * 1000);
+}
+
+export const uploadRateLimitCleanupInterval = setInterval(
+  uploadRateLimitCleanupCallback,
+  10 * 60 * 1000,
+);

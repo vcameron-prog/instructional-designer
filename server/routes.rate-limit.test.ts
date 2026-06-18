@@ -5,7 +5,7 @@
  * Anthropic, and no storage mock required.  The only external dependency is
  * `db` (for checkSharedRateLimit), which is mocked below.
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // ---------------------------------------------------------------------------
 // Hoisted mocks
@@ -51,6 +51,11 @@ import {
   ANON_RATE_LIMIT,
   UPLOAD_RATE_LIMIT,
   HEAVY_OP_RATE_LIMIT,
+  anonRateLimitCleanupCallback,
+  aiGenRateLimitCleanupCallback,
+  uploadRateLimitCleanupCallback,
+  heavyOpRateLimitCleanupCallback,
+  sharedRateLimitCleanupCallback,
 } from "./lib/rateLimiters.js";
 
 // ---------------------------------------------------------------------------
@@ -649,5 +654,311 @@ describe("checkHeavyOpRateLimit – in-memory per-key heavy-operation rate limit
     entry.resetAt = Date.now() - 1;
 
     expect(checkHeavyOpRateLimit(key)).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: in-memory cleanup callbacks (fake timers)
+// ---------------------------------------------------------------------------
+
+describe("anonRateLimitCleanupCallback – prunes stale entries, keeps fresh ones", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    anonRateLimits.clear();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("removes entries whose resetAt is in the past", () => {
+    const staleKey = freshKey("anon-stale");
+    anonRateLimits.set(staleKey, { count: 3, resetAt: Date.now() - 1 });
+
+    anonRateLimitCleanupCallback();
+
+    expect(anonRateLimits.has(staleKey)).toBe(false);
+  });
+
+  it("keeps entries whose resetAt is in the future", () => {
+    const freshIp = freshKey("anon-fresh");
+    anonRateLimits.set(freshIp, { count: 1, resetAt: Date.now() + 60_000 });
+
+    anonRateLimitCleanupCallback();
+
+    expect(anonRateLimits.has(freshIp)).toBe(true);
+  });
+
+  it("removes only stale entries when both exist", () => {
+    const staleKey = freshKey("anon-mix-stale");
+    const freshIp = freshKey("anon-mix-fresh");
+    anonRateLimits.set(staleKey, { count: 5, resetAt: Date.now() - 1 });
+    anonRateLimits.set(freshIp, { count: 2, resetAt: Date.now() + 60_000 });
+
+    anonRateLimitCleanupCallback();
+
+    expect(anonRateLimits.has(staleKey)).toBe(false);
+    expect(anonRateLimits.has(freshIp)).toBe(true);
+  });
+
+  it("advances the clock past resetAt and then the callback removes the entry", () => {
+    const ip = freshKey("anon-adv");
+    const windowMs = 60_000;
+    anonRateLimits.set(ip, { count: 1, resetAt: Date.now() + windowMs });
+
+    // Before the window elapses the entry should survive cleanup.
+    anonRateLimitCleanupCallback();
+    expect(anonRateLimits.has(ip)).toBe(true);
+
+    // Advance past the window; now the entry should be pruned.
+    vi.advanceTimersByTime(windowMs + 1);
+    anonRateLimitCleanupCallback();
+    expect(anonRateLimits.has(ip)).toBe(false);
+  });
+});
+
+describe("aiGenRateLimitCleanupCallback – prunes stale entries, keeps fresh ones", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    aiGenRateLimits.clear();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("removes entries whose resetAt is in the past", () => {
+    const staleKey = freshKey("aigen-stale");
+    aiGenRateLimits.set(staleKey, { count: 3, resetAt: Date.now() - 1 });
+
+    aiGenRateLimitCleanupCallback();
+
+    expect(aiGenRateLimits.has(staleKey)).toBe(false);
+  });
+
+  it("keeps entries whose resetAt is in the future", () => {
+    const freshKey2 = freshKey("aigen-fresh");
+    aiGenRateLimits.set(freshKey2, { count: 1, resetAt: Date.now() + 60_000 });
+
+    aiGenRateLimitCleanupCallback();
+
+    expect(aiGenRateLimits.has(freshKey2)).toBe(true);
+  });
+
+  it("removes only stale entries when both exist", () => {
+    const staleKey = freshKey("aigen-mix-stale");
+    const freshKey2 = freshKey("aigen-mix-fresh");
+    aiGenRateLimits.set(staleKey, { count: 10, resetAt: Date.now() - 1 });
+    aiGenRateLimits.set(freshKey2, { count: 2, resetAt: Date.now() + 60_000 });
+
+    aiGenRateLimitCleanupCallback();
+
+    expect(aiGenRateLimits.has(staleKey)).toBe(false);
+    expect(aiGenRateLimits.has(freshKey2)).toBe(true);
+  });
+
+  it("advances the clock past resetAt and then the callback removes the entry", () => {
+    const key = freshKey("aigen-adv");
+    const windowMs = 60_000;
+    aiGenRateLimits.set(key, { count: 1, resetAt: Date.now() + windowMs });
+
+    aiGenRateLimitCleanupCallback();
+    expect(aiGenRateLimits.has(key)).toBe(true);
+
+    vi.advanceTimersByTime(windowMs + 1);
+    aiGenRateLimitCleanupCallback();
+    expect(aiGenRateLimits.has(key)).toBe(false);
+  });
+});
+
+describe("uploadRateLimitCleanupCallback – prunes stale entries, keeps fresh ones", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    uploadRateLimits.clear();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("removes entries whose resetAt is in the past", () => {
+    const staleKey = freshKey("upload-stale");
+    uploadRateLimits.set(staleKey, { count: 5, resetAt: Date.now() - 1 });
+
+    uploadRateLimitCleanupCallback();
+
+    expect(uploadRateLimits.has(staleKey)).toBe(false);
+  });
+
+  it("keeps entries whose resetAt is in the future", () => {
+    const freshKey2 = freshKey("upload-fresh");
+    uploadRateLimits.set(freshKey2, { count: 1, resetAt: Date.now() + 60_000 });
+
+    uploadRateLimitCleanupCallback();
+
+    expect(uploadRateLimits.has(freshKey2)).toBe(true);
+  });
+
+  it("removes only stale entries when both exist", () => {
+    const staleKey = freshKey("upload-mix-stale");
+    const freshKey2 = freshKey("upload-mix-fresh");
+    uploadRateLimits.set(staleKey, { count: 15, resetAt: Date.now() - 1 });
+    uploadRateLimits.set(freshKey2, { count: 3, resetAt: Date.now() + 60_000 });
+
+    uploadRateLimitCleanupCallback();
+
+    expect(uploadRateLimits.has(staleKey)).toBe(false);
+    expect(uploadRateLimits.has(freshKey2)).toBe(true);
+  });
+
+  it("advances the clock past resetAt and then the callback removes the entry", () => {
+    const key = freshKey("upload-adv");
+    const windowMs = 60_000;
+    uploadRateLimits.set(key, { count: 1, resetAt: Date.now() + windowMs });
+
+    uploadRateLimitCleanupCallback();
+    expect(uploadRateLimits.has(key)).toBe(true);
+
+    vi.advanceTimersByTime(windowMs + 1);
+    uploadRateLimitCleanupCallback();
+    expect(uploadRateLimits.has(key)).toBe(false);
+  });
+});
+
+describe("heavyOpRateLimitCleanupCallback – prunes stale entries, keeps fresh ones", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    heavyOpRateLimits.clear();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("removes entries whose resetAt is in the past", () => {
+    const staleKey = freshKey("heavy-stale");
+    heavyOpRateLimits.set(staleKey, { count: 2, resetAt: Date.now() - 1 });
+
+    heavyOpRateLimitCleanupCallback();
+
+    expect(heavyOpRateLimits.has(staleKey)).toBe(false);
+  });
+
+  it("keeps entries whose resetAt is in the future", () => {
+    const freshKey2 = freshKey("heavy-fresh");
+    heavyOpRateLimits.set(freshKey2, { count: 1, resetAt: Date.now() + 60_000 });
+
+    heavyOpRateLimitCleanupCallback();
+
+    expect(heavyOpRateLimits.has(freshKey2)).toBe(true);
+  });
+
+  it("removes only stale entries when both exist", () => {
+    const staleKey = freshKey("heavy-mix-stale");
+    const freshKey2 = freshKey("heavy-mix-fresh");
+    heavyOpRateLimits.set(staleKey, { count: 4, resetAt: Date.now() - 1 });
+    heavyOpRateLimits.set(freshKey2, { count: 1, resetAt: Date.now() + 60_000 });
+
+    heavyOpRateLimitCleanupCallback();
+
+    expect(heavyOpRateLimits.has(staleKey)).toBe(false);
+    expect(heavyOpRateLimits.has(freshKey2)).toBe(true);
+  });
+
+  it("advances the clock past resetAt and then the callback removes the entry", () => {
+    const key = freshKey("heavy-adv");
+    const windowMs = 60_000;
+    heavyOpRateLimits.set(key, { count: 1, resetAt: Date.now() + windowMs });
+
+    heavyOpRateLimitCleanupCallback();
+    expect(heavyOpRateLimits.has(key)).toBe(true);
+
+    vi.advanceTimersByTime(windowMs + 1);
+    heavyOpRateLimitCleanupCallback();
+    expect(heavyOpRateLimits.has(key)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: sharedRateLimitCleanupCallback – DB cutoff is two hours in the past
+// ---------------------------------------------------------------------------
+
+describe("sharedRateLimitCleanupCallback – DB delete uses a two-hour cutoff", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("calls db.delete(rateLimitLog) once per invocation", async () => {
+    const mockWhere = vi.fn().mockResolvedValue(undefined);
+    mockDbDelete.mockReturnValue({ where: mockWhere });
+
+    await sharedRateLimitCleanupCallback();
+
+    expect(mockDbDelete).toHaveBeenCalledOnce();
+    expect(mockWhere).toHaveBeenCalledOnce();
+  });
+
+  it("passes a cutoff approximately two hours before Date.now()", async () => {
+    const fixedNow = new Date("2026-06-18T12:00:00.000Z").getTime();
+    vi.setSystemTime(fixedNow);
+
+    let capturedSqlArg: any;
+    const mockWhere = vi.fn().mockImplementation((arg) => {
+      capturedSqlArg = arg;
+      return Promise.resolve(undefined);
+    });
+    mockDbDelete.mockReturnValue({ where: mockWhere });
+
+    await sharedRateLimitCleanupCallback();
+
+    // The cutoff should be serialised in the SQL template literal.  We
+    // stringify and inspect it — the exact Date value that was used is
+    // embedded in the Drizzle SQL object's params array.
+    const sqlJson = JSON.stringify(capturedSqlArg);
+    const expectedCutoff = new Date(fixedNow - 2 * 60 * 60 * 1000).toISOString();
+    expect(sqlJson).toContain(expectedCutoff);
+  });
+
+  it("uses a later cutoff after the clock advances by one hour", async () => {
+    const baseNow = new Date("2026-06-18T12:00:00.000Z").getTime();
+    vi.setSystemTime(baseNow);
+
+    const capturedArgs: any[] = [];
+    mockDbDelete.mockReturnValue({
+      where: vi.fn().mockImplementation((arg) => {
+        capturedArgs.push(JSON.stringify(arg));
+        return Promise.resolve(undefined);
+      }),
+    });
+
+    await sharedRateLimitCleanupCallback();
+
+    vi.advanceTimersByTime(60 * 60 * 1000); // +1 hour
+    mockDbDelete.mockReturnValue({
+      where: vi.fn().mockImplementation((arg) => {
+        capturedArgs.push(JSON.stringify(arg));
+        return Promise.resolve(undefined);
+      }),
+    });
+    await sharedRateLimitCleanupCallback();
+
+    // Second cutoff should be one hour later than the first.
+    const cutoff1 = new Date(baseNow - 2 * 60 * 60 * 1000).toISOString();
+    const cutoff2 = new Date(baseNow + 60 * 60 * 1000 - 2 * 60 * 60 * 1000).toISOString();
+    expect(capturedArgs[0]).toContain(cutoff1);
+    expect(capturedArgs[1]).toContain(cutoff2);
+  });
+
+  it("swallows DB errors silently and does not throw", async () => {
+    mockDbDelete.mockReturnValue({
+      where: vi.fn().mockRejectedValue(new Error("DB connection lost")),
+    });
+
+    await expect(sharedRateLimitCleanupCallback()).resolves.toBeUndefined();
   });
 });
