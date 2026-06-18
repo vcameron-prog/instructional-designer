@@ -34,7 +34,8 @@ export function getSession() {
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      // Secure in production; allow HTTP cookies in Playwright test mode.
+      secure: process.env.NODE_ENV === "production" && process.env.PLAYWRIGHT_TEST !== "1",
       sameSite: "lax",
       maxAge: sessionTtl,
     },

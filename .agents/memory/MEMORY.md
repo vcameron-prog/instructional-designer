@@ -1,0 +1,1 @@
+- [Playwright session cookie over HTTP](playwright-session-http.md) — req.login() doesn't emit Set-Cookie over HTTP; write req.session.passport directly + session.save() instead.

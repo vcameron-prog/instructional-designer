@@ -5432,5 +5432,91 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     },
   );
 
+  // -------------------------------------------------------------------------
+  // Test-only login endpoint — only active when PLAYWRIGHT_TEST=1.
+  // Allows Playwright e2e specs to establish an authenticated session without
+  // going through the real Replit OIDC flow.
+  // -------------------------------------------------------------------------
+  if (process.env.PLAYWRIGHT_TEST === "1") {
+    // POST /api/test/login
+    // Creates a server-side session for a synthetic BSU user without going
+    // through the real Replit OIDC flow.  Only active when PLAYWRIGHT_TEST=1.
+    app.post("/api/test/login", async (req: Request, res: Response) => {
+      const { sub, email, firstName, lastName } = req.body as {
+        sub: string;
+        email: string;
+        firstName?: string;
+        lastName?: string;
+      };
+      if (!sub || !email) {
+        res.status(400).json({ error: "sub and email are required" });
+        return;
+      }
+      // Ensure the user row exists in the DB so foreign-key checks pass.
+      await db
+        .insert(users)
+        .values({ id: sub, email, firstName: firstName ?? null, lastName: lastName ?? null })
+        .onConflictDoUpdate({
+          target: users.id,
+          set: { email, firstName: firstName ?? null, lastName: lastName ?? null },
+        });
+
+      const sessionUser = {
+        claims: {
+          sub,
+          email,
+          first_name: firstName ?? "",
+          last_name: lastName ?? "",
+        },
+        access_token: "playwright-test-token",
+        refresh_token: "playwright-test-refresh",
+        // Expires 2 hours from now so isBsuAuthenticated does not try to refresh.
+        expires_at: Math.floor(Date.now() / 1000) + 7200,
+      };
+
+      // Write directly to req.session (bypassing Passport serialization) and
+      // explicitly save so express-session commits the row and sends Set-Cookie.
+      (req.session as any).passport = { user: sessionUser };
+      req.session.save((err) => {
+        if (err) {
+          res.status(500).json({ error: String(err) });
+          return;
+        }
+        res.json({ ok: true, sub, email, sessionId: req.sessionID });
+      });
+    });
+
+    // POST /api/test/seed-content
+    // Inserts a generated_content row directly, bypassing AI generation.
+    // Used by Playwright specs to set up result pages without hitting the
+    // Anthropic API.  Only active when PLAYWRIGHT_TEST=1.
+    app.post("/api/test/seed-content", async (req: Request, res: Response) => {
+      const { toolType, toolName, formData, content, userId } = req.body as {
+        toolType: string;
+        toolName: string;
+        formData: Record<string, unknown>;
+        content: string;
+        userId: string;
+      };
+      if (!toolType || !toolName || !formData || !content || !userId) {
+        res.status(400).json({ error: "toolType, toolName, formData, content and userId are required" });
+        return;
+      }
+      const [row] = await db
+        .insert(generatedContent)
+        .values({
+          toolType,
+          toolName,
+          formData,
+          content,
+          userId,
+          courseId: null,
+          isApproved: false,
+        })
+        .returning();
+      res.status(201).json({ id: row.id });
+    });
+  }
+
   return httpServer;
 }
