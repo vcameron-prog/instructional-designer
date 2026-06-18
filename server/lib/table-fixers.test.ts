@@ -128,6 +128,87 @@ describe("fixHtmlTableCaption — nested tables", () => {
 });
 
 // ---------------------------------------------------------------------------
+// fixHtmlTableCaption — single string parameter
+// ---------------------------------------------------------------------------
+describe("fixHtmlTableCaption — single string parameter", () => {
+  it("inserts the custom string verbatim when a non-empty string is passed", () => {
+    const input = `<table><tr><td>A</td></tr></table>`;
+    const { html: output, tablesFixed } = fixHtmlTableCaption(input, "Course grades");
+    expect(output).toContain("<caption>Course grades</caption>");
+    expect(tablesFixed).toBe(1);
+  });
+
+  it("applies the custom string to the first uncaptioned table and falls back for subsequent ones", () => {
+    const t1 = `<table><tr><td>T1</td></tr></table>`;
+    const t2 = `<table><tr><td>T2</td></tr></table>`;
+    const { html: output, tablesFixed } = fixHtmlTableCaption(`${t1}\n${t2}`, "First caption");
+    // Single string is treated as a one-element array; first table gets the
+    // custom text, second table falls back to "Table summary".
+    expect(output).toContain("<caption>First caption</caption>");
+    expect(output).toContain("<caption>Table summary</caption>");
+    expect(tablesFixed).toBe(2);
+  });
+
+  it("falls back to 'Table summary' when an empty string is passed as a single string", () => {
+    const input = `<table><tr><td>A</td></tr></table>`;
+    const { html: output, tablesFixed } = fixHtmlTableCaption(input, "");
+    expect(output).toContain("<caption>Table summary</caption>");
+    expect(tablesFixed).toBe(1);
+  });
+
+  it("falls back to 'Table summary' when a whitespace-only string is passed", () => {
+    const input = `<table><tr><td>A</td></tr></table>`;
+    const { html: output, tablesFixed } = fixHtmlTableCaption(input, "   ");
+    expect(output).toContain("<caption>Table summary</caption>");
+    expect(tablesFixed).toBe(1);
+  });
+
+  it("does not overwrite an existing caption when a custom string is passed", () => {
+    const input = `<table><caption>Original</caption><tr><td>A</td></tr></table>`;
+    const { html: output, tablesFixed } = fixHtmlTableCaption(input, "Replacement");
+    expect(output).toContain("<caption>Original</caption>");
+    expect(output).not.toContain("<caption>Replacement</caption>");
+    expect(tablesFixed).toBe(0);
+  });
+
+  it("escapes raw ampersands in caption text as &amp;", () => {
+    const input = `<table><tr><td>A</td></tr></table>`;
+    const { html: output } = fixHtmlTableCaption(input, "Grades & Attendance");
+    expect(output).toContain("<caption>Grades &amp; Attendance</caption>");
+    expect(output).not.toContain("Grades & Attendance</caption>");
+  });
+
+  it("escapes raw angle brackets in caption text so they render as text, not markup", () => {
+    const input = `<table><tr><td>A</td></tr></table>`;
+    const { html: output } = fixHtmlTableCaption(input, "A < B > C");
+    expect(output).toContain("<caption>A &lt; B &gt; C</caption>");
+    expect(output).not.toContain("<caption>A < B > C</caption>");
+    // Table tag balance must be maintained.
+    expect((output.match(/<table/gi) ?? []).length).toBe(
+      (output.match(/<\/table>/gi) ?? []).length
+    );
+  });
+
+  it("neutralises an HTML injection payload in caption text — tags are rendered as text", () => {
+    const input = `<table><tr><td>A</td></tr></table>`;
+    const payload = `<img src=x onerror=alert(1)>`;
+    const { html: output } = fixHtmlTableCaption(input, payload);
+    expect(output).toContain("&lt;img");
+    expect(output).not.toContain("<img ");
+    // Table structure must remain balanced.
+    expect((output.match(/<table/gi) ?? []).length).toBe(
+      (output.match(/<\/table>/gi) ?? []).length
+    );
+  });
+
+  it("handles numeric and punctuation characters in caption text without escaping", () => {
+    const input = `<table><tr><td>A</td></tr></table>`;
+    const { html: output } = fixHtmlTableCaption(input, "Table 1: Q1 Results (2024)");
+    expect(output).toContain("<caption>Table 1: Q1 Results (2024)</caption>");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // fixHtmlTableCaption — captionTexts array path
 // ---------------------------------------------------------------------------
 describe("fixHtmlTableCaption — captionTexts array", () => {

@@ -1,6 +1,20 @@
 import { parse } from "node-html-parser";
 
 /**
+ * Escapes HTML-special characters in plain text so the value can be safely
+ * embedded as text content inside an HTML element without being interpreted
+ * as markup.
+ */
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/**
  * Converts a header row's cells from <td> to <th scope="col">.
  */
 export function _convertRowToHeaderCells(row: string): string {
@@ -32,9 +46,9 @@ export function fixHtmlTableCaption(text: string, captionTexts: string | string[
       (c) => c.tagName.toLowerCase() === "caption",
     );
     if (!hasCaption) {
-      const safeCaption = (captions[tableIndex] || "Table summary").trim() || "Table summary";
+      const rawCaption = (captions[tableIndex] || "Table summary").trim() || "Table summary";
       tableIndex++;
-      table.insertAdjacentHTML("afterbegin", `<caption>${safeCaption}</caption>\n`);
+      table.insertAdjacentHTML("afterbegin", `<caption>${escapeHtml(rawCaption)}</caption>\n`);
     }
   }
 
