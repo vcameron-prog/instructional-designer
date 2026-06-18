@@ -398,6 +398,7 @@ export default function ResultPage() {
   const [captionStep, setCaptionStep] = useState<"input" | "preview">("input");
   const [captionTablePreviews, setCaptionTablePreviews] = useState<string[][]>([]);
   const [captionEditIndex, setCaptionEditIndex] = useState<number>(0);
+  const [captionEditOtherCaptions, setCaptionEditOtherCaptions] = useState<string[]>([]);
 
   useEffect(() => {
     setExpandedSections({});
@@ -592,6 +593,19 @@ export default function ResultPage() {
     },
   });
 
+  const extractAllCaptions = (html: string): string[] => {
+    const captionRegex = /<caption(?:\s[^>]*)?>([\s\S]*?)<\/caption>/gi;
+    const captions: string[] = [];
+    let match;
+    while ((match = captionRegex.exec(html)) !== null) {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(match[1], "text/html");
+      const text = doc.body.textContent?.trim() ?? "";
+      if (text) captions.push(text);
+    }
+    return captions;
+  };
+
   const countTablesWithoutCaptions = (html: string): number => {
     const tableRegex = /<table(?:\s[^>]*)?>[\s\S]*?<\/table>/gi;
     let count = 0;
@@ -644,6 +658,9 @@ export default function ResultPage() {
     setCaptionEditMode("edit");
     setCaptionEditText(currentCaption);
     setCaptionEditIndex(captionIndex);
+    const allCaptions = content ? extractAllCaptions(content.content) : [];
+    const others = allCaptions.filter((_, i) => i !== captionIndex);
+    setCaptionEditOtherCaptions(others);
     setCaptionDialogOpen(true);
   };
 
@@ -1787,6 +1804,12 @@ export default function ResultPage() {
                   </div>
                 ))}
               </div>
+              {captionEditMode === "edit" && captionEditText.trim() && captionEditOtherCaptions.some((c) => c.trim().toLowerCase() === captionEditText.trim().toLowerCase()) && (
+                <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300" role="alert" data-testid="warning-duplicate-caption-edit">
+                  <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
+                  <span>Another table already uses this caption. Each caption should uniquely describe its table.</span>
+                </div>
+              )}
               {captionEditMode === "add" && captionTexts.some((t) => t.trim().toLowerCase() === "table summary") && (
                 <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300" role="alert" data-testid="warning-generic-caption">
                   <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
