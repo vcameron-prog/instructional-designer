@@ -624,6 +624,35 @@ export function runDeterministicChecks(html: string): ComplianceIssue[] {
         details: `Found ${tablesWithAriaRoleHeaders.length} table(s) with <td> cells using ARIA header roles. Replace these cells with <th scope="col"> or <th scope="row"> for proper semantic markup.`,
       });
     }
+
+    // 1.3.1 – Duplicate table captions
+    const captionMap = new Map<string, number[]>();
+    allTableNodes.forEach((table, idx) => {
+      const captionEl = table.querySelector("caption");
+      if (captionEl) {
+        const normalized = captionEl.text.trim().toLowerCase();
+        if (normalized) {
+          const group = captionMap.get(normalized) ?? [];
+          group.push(idx + 1);
+          captionMap.set(normalized, group);
+        }
+      }
+    });
+    const duplicateCaptionGroups = [...captionMap.entries()].filter(([, indices]) => indices.length > 1);
+    if (duplicateCaptionGroups.length > 0) {
+      const groupDescriptions = duplicateCaptionGroups.map(([text, indices]) => {
+        const tableList = indices.map((n) => `Table ${n}`).join(", ");
+        return `${tableList} share the caption "${text}"`;
+      });
+      issues.push({
+        criterion: "1.3.1",
+        title: "Duplicate Table Captions",
+        level: "A",
+        status: "warning",
+        description: "Each table should have a unique caption so screen reader users can distinguish between tables.",
+        details: `Found ${duplicateCaptionGroups.length} group(s) of tables with duplicate captions: ${groupDescriptions.join("; ")}.`,
+      });
+    }
   }
 
   // 4.1.2 – ARIA role="button" on non-button elements

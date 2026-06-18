@@ -607,6 +607,64 @@ describe("runDeterministicChecks", () => {
     });
   });
 
+  // 1.3.1 Duplicate Table Captions
+  describe("criterion 1.3.1 – Duplicate Table Captions", () => {
+    it("warns when two tables share the same caption text", () => {
+      const html = `<html lang="en"><body>
+        <table><caption>Student Grades</caption><thead><tr><th>Name</th></tr></thead><tbody><tr><td>Alice</td></tr></tbody></table>
+        <table><caption>Student Grades</caption><thead><tr><th>Name</th></tr></thead><tbody><tr><td>Bob</td></tr></tbody></table>
+      </body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.criterion === "1.3.1" && i.title === "Duplicate Table Captions");
+      expect(issue).toBeDefined();
+      expect(issue!.status).toBe("warning");
+      expect(issue!.details).toContain("Table 1");
+      expect(issue!.details).toContain("Table 2");
+      expect(issue!.details).toContain("student grades");
+    });
+
+    it("treats duplicate detection as case-insensitive", () => {
+      const html = `<html lang="en"><body>
+        <table><caption>Summary</caption><thead><tr><th>Col</th></tr></thead><tbody><tr><td>A</td></tr></tbody></table>
+        <table><caption>SUMMARY</caption><thead><tr><th>Col</th></tr></thead><tbody><tr><td>B</td></tr></tbody></table>
+      </body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.criterion === "1.3.1" && i.title === "Duplicate Table Captions");
+      expect(issue).toBeDefined();
+      expect(issue!.status).toBe("warning");
+    });
+
+    it("does not warn when all captions are unique", () => {
+      const html = `<html lang="en"><body>
+        <table><caption>Table One</caption><thead><tr><th>A</th></tr></thead><tbody><tr><td>1</td></tr></tbody></table>
+        <table><caption>Table Two</caption><thead><tr><th>B</th></tr></thead><tbody><tr><td>2</td></tr></tbody></table>
+      </body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.criterion === "1.3.1" && i.title === "Duplicate Table Captions");
+      expect(issue).toBeUndefined();
+    });
+
+    it("does not warn when there are no tables with captions", () => {
+      const html = `<html lang="en"><body><p>No tables here.</p></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.criterion === "1.3.1" && i.title === "Duplicate Table Captions");
+      expect(issue).toBeUndefined();
+    });
+
+    it("reports multiple duplicate groups when more than one caption is shared", () => {
+      const html = `<html lang="en"><body>
+        <table><caption>Grades</caption><thead><tr><th>N</th></tr></thead><tbody><tr><td>A</td></tr></tbody></table>
+        <table><caption>Grades</caption><thead><tr><th>N</th></tr></thead><tbody><tr><td>B</td></tr></tbody></table>
+        <table><caption>Schedule</caption><thead><tr><th>D</th></tr></thead><tbody><tr><td>Mon</td></tr></tbody></table>
+        <table><caption>Schedule</caption><thead><tr><th>D</th></tr></thead><tbody><tr><td>Tue</td></tr></tbody></table>
+      </body></html>`;
+      const issues = runDeterministicChecks(html);
+      const issue = issues.find((i) => i.criterion === "1.3.1" && i.title === "Duplicate Table Captions");
+      expect(issue).toBeDefined();
+      expect(issue!.details).toContain("2 group(s)");
+    });
+  });
+
   // 4.1.2 ARIA Button Role on Non-Button Element
   describe("criterion 4.1.2 – ARIA Button Role on Non-Button Element", () => {
     it("warns when a <div> uses role=\"button\"", () => {
