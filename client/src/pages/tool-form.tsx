@@ -410,10 +410,12 @@ export default function ToolForm() {
     },
     onSuccess: (data) => {
       if (isStandalone && toolId === "assignment" && generateRubric && data.assignmentId && data.rubricId) {
+        queryClient.invalidateQueries({ queryKey: ["/api/content/recent-quick-tools"] });
         navigate(`/quick-tools/result-batch/${data.assignmentId}/${data.rubricId}`);
         return;
       }
       if (isStandalone) {
+        queryClient.invalidateQueries({ queryKey: ["/api/content/recent-quick-tools"] });
         if (data.id) {
           navigate(`/quick-tools/result/${data.id}`);
         } else {
