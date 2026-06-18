@@ -40,19 +40,26 @@
     {
       "idx": 5,
       "version": "7",
+      "when": 1781797400000,
+      "tag": "0005_investigate",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
       "when": 1750300000000,
       "tag": "0006_conversions_extraction_warnings",
       "breakpoints": true
     },
     {
-      "idx": 6,
+      "idx": 7,
       "version": "7",
       "when": 1781798166345,
       "tag": "0007_conversions_extraction_warnings",
       "breakpoints": true
     },
     {
-      "idx": 7,
+      "idx": 8,
       "version": "7",
       "when": 1750294800000,
       "tag": "0008_conversions_selected_sheet",

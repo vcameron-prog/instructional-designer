@@ -200,6 +200,15 @@ describe("GET /api/conversions/:id/download-xlsx — error cases", () => {
     mockBuildXlsx.mockResolvedValue(Buffer.from("PK\x03\x04fake-xlsx"));
   });
 
+  it("returns 400 for a non-numeric ID without touching the database", async () => {
+    const res = await request(app).get("/api/conversions/abc/download-xlsx");
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/invalid id/i);
+    expect(mockDbSelectWhere).not.toHaveBeenCalled();
+    expect(mockBuildXlsx).not.toHaveBeenCalled();
+  });
+
   it("returns 404 when the conversion does not exist", async () => {
     mockDbSelectWhere.mockResolvedValue([]);
 
