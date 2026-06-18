@@ -289,3 +289,22 @@ export const LOADING_MESSAGES = [
   "Finalizing your materials...",
   "Designing AI-powered student activities...",
 ];
+
+export const FIX_TYPE_DESCRIPTIONS: Record<string, string> = {
+  "fix-aria-combobox":
+    'Swaps each element using role="combobox" for a native <select> element, keeping all existing attributes. A native <select> provides the built-in keyboard and screen-reader support that assistive technology expects.',
+  "fix-aria-grid":
+    'Swaps each element using role="grid" for a native <table> element, keeping all existing attributes. A native <table> lets screen readers announce rows and columns without relying on ARIA.',
+  "fix-aria-tab":
+    'Swaps each element using role="tab" for a native <button> element, keeping all existing attributes. A native <button> is keyboard-focusable and announced correctly by screen readers without extra ARIA.',
+};
+
+const FIX_TYPE_ALIASES: Record<string, string> = {
+  "1.3.1::ARIA Combobox Role on Non-Combobox Element": "fix-aria-combobox",
+  "1.3.1::ARIA Grid Role on Non-Table Element": "fix-aria-grid",
+  "1.3.1::ARIA Tab Role on Non-Interactive Element": "fix-aria-tab",
+};
+
+export function getFixTypeDescription(fixType: string): string | undefined {
+  return FIX_TYPE_DESCRIPTIONS[fixType] ?? FIX_TYPE_DESCRIPTIONS[FIX_TYPE_ALIASES[fixType]];
+}

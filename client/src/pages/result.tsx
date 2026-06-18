@@ -46,7 +46,7 @@ import { HeaderControls } from "@/components/header-controls";
 import { ArrowLeft, ArrowRight, Copy, Download, FileText, RefreshCw, CheckCircle, AlertTriangle, Lightbulb, ChevronDown, ChevronRight, Loader2, Library, Link2, Link2Off, History, RotateCcw, Pencil, Zap } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { TOOLS, LOADING_MESSAGES, getChainPrefillFields } from "@/lib/constants";
+import { TOOLS, LOADING_MESSAGES, getChainPrefillFields, getFixTypeDescription } from "@/lib/constants";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { ToastAction } from "@/components/ui/toast";
@@ -1245,9 +1245,7 @@ export default function ResultPage() {
                               <strong>Title II notice:</strong> When applied, this fix will update your link text to meet Title II accessibility requirements using AI-generated descriptions based on surrounding context. The destination URLs are preserved — please verify each link still points to the correct location after applying.
                             </div>
                           )}
-                          {(issue.fixType === "fix-aria-combobox" ||
-                            issue.fixType === "fix-aria-grid" ||
-                            issue.fixType === "fix-aria-tab") && (
+                          {issue.fixType && getFixTypeDescription(issue.fixType) && (
                             <div
                               className="mt-2 rounded-lg border bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800 px-3 py-2.5 space-y-1"
                               data-testid={`aria-fix-callout-${issue.fixType}`}
@@ -1256,11 +1254,7 @@ export default function ResultPage() {
                                 What this fix does
                               </p>
                               <p className="text-sm text-amber-900 dark:text-amber-200">
-                                {issue.fixType === "fix-aria-combobox"
-                                  ? "Swaps each element using role=\"combobox\" for a native <select> element, keeping all existing attributes. A native <select> provides the built-in keyboard and screen-reader support that assistive technology expects."
-                                  : issue.fixType === "fix-aria-grid"
-                                  ? "Swaps each element using role=\"grid\" for a native <table> element, keeping all existing attributes. A native <table> lets screen readers announce rows and columns without relying on ARIA."
-                                  : "Swaps each element using role=\"tab\" for a native <button> element, keeping all existing attributes. A native <button> is keyboard-focusable and announced correctly by screen readers without extra ARIA."}
+                                {getFixTypeDescription(issue.fixType)}
                               </p>
                             </div>
                           )}
@@ -1753,12 +1747,7 @@ export default function ResultPage() {
               <span className="text-green-600 dark:text-green-400 font-medium">green</span> will be added.
             </DialogDescription>
           </DialogHeader>
-          {(previewFixType === "1.3.1::ARIA Combobox Role on Non-Combobox Element" ||
-            previewFixType === "1.3.1::ARIA Grid Role on Non-Table Element" ||
-            previewFixType === "1.3.1::ARIA Tab Role on Non-Interactive Element" ||
-            previewFixType === "fix-aria-combobox" ||
-            previewFixType === "fix-aria-grid" ||
-            previewFixType === "fix-aria-tab") && (
+          {previewFixType && getFixTypeDescription(previewFixType) && (
             <div
               className="rounded-lg border bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800 px-3 py-2.5 space-y-1"
               data-testid="dialog-fix-preview-explanation"
@@ -1767,11 +1756,7 @@ export default function ResultPage() {
                 What this fix does
               </p>
               <p className="text-sm text-amber-900 dark:text-amber-200">
-                {(previewFixType === "1.3.1::ARIA Combobox Role on Non-Combobox Element" || previewFixType === "fix-aria-combobox")
-                  ? "Swaps each element using role=\"combobox\" for a native <select> element, keeping all existing attributes. A native <select> provides the built-in keyboard and screen-reader support that assistive technology expects."
-                  : (previewFixType === "1.3.1::ARIA Grid Role on Non-Table Element" || previewFixType === "fix-aria-grid")
-                  ? "Swaps each element using role=\"grid\" for a native <table> element, keeping all existing attributes. A native <table> lets screen readers announce rows and columns without relying on ARIA."
-                  : "Swaps each element using role=\"tab\" for a native <button> element, keeping all existing attributes. A native <button> is keyboard-focusable and announced correctly by screen readers without extra ARIA."}
+                {getFixTypeDescription(previewFixType)}
               </p>
             </div>
           )}
