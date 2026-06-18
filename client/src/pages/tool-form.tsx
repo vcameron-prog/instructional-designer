@@ -298,7 +298,15 @@ export default function ToolForm() {
         sessionStorage.removeItem("bsu-chain-prefill");
       }
     }
-    return isStandalone ? { subject: savedSubject, courseLevel: savedCourseLevel } : {};
+
+    if (!isStandalone) return {};
+    const params = new URLSearchParams(window.location.search);
+    const urlSubject = params.get("subject") ?? "";
+    const urlCourseLevel = params.get("courseLevel") ?? "";
+    return {
+      subject: urlSubject || savedSubject,
+      courseLevel: urlCourseLevel || savedCourseLevel,
+    };
   });
   const [isGenerating, setIsGenerating] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("");
@@ -438,7 +446,27 @@ export default function ToolForm() {
   }, [isGenerating]);
 
   const handleInputChange = (name: string, value: any) => {
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData(prev => {
+      const next = { ...prev, [name]: value };
+      if (isStandalone && (name === "subject" || name === "courseLevel")) {
+        const urlParams = new URLSearchParams(window.location.search);
+        const subject = name === "subject" ? value : (next.subject ?? "");
+        const courseLevel = name === "courseLevel" ? value : (next.courseLevel ?? "");
+        if (subject) {
+          urlParams.set("subject", subject);
+        } else {
+          urlParams.delete("subject");
+        }
+        if (courseLevel) {
+          urlParams.set("courseLevel", courseLevel);
+        } else {
+          urlParams.delete("courseLevel");
+        }
+        const newSearch = urlParams.toString();
+        window.history.replaceState(null, "", newSearch ? `?${newSearch}` : window.location.pathname);
+      }
+      return next;
+    });
     setPreFilledFields(prev => { const next = new Set(prev); next.delete(name); return next; });
     if (isStandalone) {
       if (name === "subject") persistSubject(value);
@@ -717,6 +745,11 @@ export default function ToolForm() {
                       onClick={() => {
                         clearContext();
                         setFormData(prev => ({ ...prev, subject: "", courseLevel: "" }));
+                        const urlParams = new URLSearchParams(window.location.search);
+                        urlParams.delete("subject");
+                        urlParams.delete("courseLevel");
+                        const newSearch = urlParams.toString();
+                        window.history.replaceState(null, "", newSearch ? `?${newSearch}` : window.location.pathname);
                       }}
                       className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
                       data-testid="button-clear-context"
