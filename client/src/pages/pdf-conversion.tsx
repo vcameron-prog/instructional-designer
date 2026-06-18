@@ -549,6 +549,7 @@ export default function PdfConversion() {
   const processingStartRef = useRef<number | null>(null);
   const lastStatusMessageRef = useRef<string | null | undefined>(undefined);
   const lastStatusChangeRef = useRef<number | null>(null);
+  const syncFailWarnedRef = useRef(false);
 
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [secondsSinceStatusChange, setSecondsSinceStatusChange] = useState(0);
@@ -652,6 +653,11 @@ export default function PdfConversion() {
     return () => { cancelled = true; };
   }, [numericId]);
 
+  // Reset sync-failure warning when switching to a different conversion
+  useEffect(() => {
+    syncFailWarnedRef.current = false;
+  }, [numericId]);
+
   // Sync to localStorage and server whenever state changes (only after load for this ID)
   useEffect(() => {
     if (!manualFixStorageKey || loadedManualFixIdRef.current !== numericId) return;
@@ -662,12 +668,17 @@ export default function PdfConversion() {
         localStorage.setItem(manualFixStorageKey, JSON.stringify(manualFixSummary));
       } catch {}
     }
-    apiRequest("PUT", `/api/conversions/${numericId}/manual-fixes`, { items: manualFixSummary }).catch(() => {
-      toast({
-        title: "Notes not saved to server",
-        description: "Your accessibility notes are stored locally but could not be synced to the server. They may not be available on other devices.",
-        variant: "destructive",
-      });
+    apiRequest("PUT", `/api/conversions/${numericId}/manual-fixes`, { items: manualFixSummary }).then(() => {
+      syncFailWarnedRef.current = false;
+    }).catch(() => {
+      if (!syncFailWarnedRef.current) {
+        syncFailWarnedRef.current = true;
+        toast({
+          title: "Notes not saved to server",
+          description: "Your accessibility notes are stored locally but could not be synced to the server. They may not be available on other devices.",
+          variant: "destructive",
+        });
+      }
     });
     // Notify other tabs — but skip if this update itself came from a broadcast to avoid loops
     if (!receivedFromBroadcastRef.current) {
