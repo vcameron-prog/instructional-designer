@@ -709,6 +709,10 @@ export default function PdfConversion() {
 
     setIsFixingAll(true);
     setFixError(null);
+    // Clear stale notes from any previous run before accumulating fresh ones.
+    // CONTRACT: every batch-fix handler must call setBatchFixNotesSummary([])
+    // at the start so the notes panel never shows notes from a prior run.
+    setBatchFixNotesSummary([]);
     setFixAllProgress({ current: 0, total: fixableIndices.length });
 
     let anyRetried = false;
@@ -764,6 +768,9 @@ export default function PdfConversion() {
 
     setIsFixingAllAria(true);
     setFixError(null);
+    // Clear stale notes from any previous run before accumulating fresh ones.
+    // CONTRACT: every batch-fix handler must call setBatchFixNotesSummary([])
+    // at the start so the notes panel never shows notes from a prior run.
     setBatchFixNotesSummary([]);
     try {
       const res = await apiRequest("POST", `/api/conversions/${numericId}/fix-all-aria`);
