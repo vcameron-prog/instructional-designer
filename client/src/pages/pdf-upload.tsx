@@ -43,6 +43,7 @@ export default function PdfUpload() {
   const [googleDocUrl, setGoogleDocUrl] = useState("");
   const [googleSheetUrl, setGoogleSheetUrl] = useState("");
   const [googleSlideUrl, setGoogleSlideUrl] = useState("");
+  const [googleSheetTab, setGoogleSheetTab] = useState("");
 
   // Batch upload queue — used when multiple files are dropped at once.
   const [fileQueue, setFileQueue] = useState<Array<{
@@ -126,8 +127,11 @@ export default function PdfUpload() {
   });
 
   const googleSheetMutation = useMutation({
-    mutationFn: async (url: string) => {
-      const res = await apiRequest("POST", "/api/conversions/import-google-sheet", { url });
+    mutationFn: async ({ url, sheetName }: { url: string; sheetName?: string }) => {
+      const res = await apiRequest("POST", "/api/conversions/import-google-sheet", {
+        url,
+        ...(sheetName ? { sheetName } : {}),
+      });
       return res.json();
     },
     onSuccess: (data) => {
@@ -165,7 +169,10 @@ export default function PdfUpload() {
       );
       return;
     }
-    googleSheetMutation.mutate(trimmed);
+    googleSheetMutation.mutate({
+      url: trimmed,
+      sheetName: googleSheetTab.trim() || undefined,
+    });
   };
 
   const handleGoogleDocDownload = () => {
@@ -617,12 +624,30 @@ export default function PdfUpload() {
                 {googleSheetMutation.isPending ? "Importing…" : "Import"}
               </button>
             </div>
+            <div className="mt-3">
+              <label htmlFor="google-sheet-tab" className="block text-xs font-medium text-muted-foreground mb-1">
+                Tab name or number <span className="font-normal">(optional — leave blank to import the first tab)</span>
+              </label>
+              <input
+                id="google-sheet-tab"
+                type="text"
+                value={googleSheetTab}
+                onChange={(e) => setGoogleSheetTab(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleGoogleSheetImport();
+                }}
+                placeholder='e.g. "Sheet2" or 3'
+                className="w-full px-3 py-2 border border-border rounded-xl bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all"
+                data-testid="input-google-sheet-tab"
+                disabled={googleSheetMutation.isPending}
+              />
+            </div>
             <p
-              className="mt-4 text-xs text-muted-foreground"
+              className="mt-3 text-xs text-muted-foreground"
               data-testid="text-google-sheet-hint"
             >
               The spreadsheet must be shared as "Anyone with the link" in Google
-              Sheets. Only the first sheet is imported.
+              Sheets.
             </p>
           </div>
         </div>

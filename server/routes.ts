@@ -3303,12 +3303,16 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         }
       }
 
-      const { url } = req.body;
+      const { url, sheetName } = req.body;
       if (!url || typeof url !== "string") {
         return res
           .status(400)
           .json({ error: "A Google Sheets URL is required." });
       }
+      const selectedSheet =
+        typeof sheetName === "string" && sheetName.trim().length > 0
+          ? sheetName.trim()
+          : null;
 
       let parsedUrl: URL;
       try {
@@ -3472,6 +3476,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
             sourceType: "google-sheet",
             status: "uploaded",
             pdfData: fileBase64,
+            selectedSheet: selectedSheet,
             userId: userId || null,
             visitorToken: googleSheetVisitorToken,
           })
@@ -3945,7 +3950,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
                 : "Extracting Google Sheet content…"
             );
             const { extractXlsxContent } = await import("./lib/xlsx-extractor");
-            extraction = await extractXlsxContent(fileBuffer);
+            extraction = await extractXlsxContent(fileBuffer, conversion.selectedSheet);
           } else if (srcType === "pptx" || srcType === "google-slide") {
             await updateStatusMessage(
               srcType === "google-slide"

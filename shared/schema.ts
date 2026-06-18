@@ -140,6 +140,7 @@ export const conversions = pgTable("conversions", {
   errorMessage: text("error_message"),
   pdfData: text("pdf_data"),
   ocrApplied: boolean("ocr_applied").notNull().default(false),
+  selectedSheet: text("selected_sheet"),
   userId: varchar("user_id"),
   visitorToken: varchar("visitor_token"),
   createdAt: timestamp("created_at", { withTimezone: true })

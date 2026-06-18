@@ -21,7 +21,10 @@ function cellToString(cell: ExcelJS.CellValue): string {
   return "";
 }
 
-export async function extractXlsxContent(buffer: Buffer): Promise<PdfExtraction> {
+export async function extractXlsxContent(
+  buffer: Buffer,
+  selectedSheet?: string | null,
+): Promise<PdfExtraction> {
   inspectZip(buffer, "XLSX");
 
   const workbook = new ExcelJS.Workbook();
@@ -33,12 +36,42 @@ export async function extractXlsxContent(buffer: Buffer): Promise<PdfExtraction>
     );
   }
 
+  let sheetsToProcess: ExcelJS.Worksheet[];
+
+  if (selectedSheet && selectedSheet.trim().length > 0) {
+    const trimmed = selectedSheet.trim();
+    const asNumber = Number(trimmed);
+
+    let found: ExcelJS.Worksheet | undefined;
+
+    if (!isNaN(asNumber) && Number.isInteger(asNumber) && asNumber >= 1) {
+      // 1-based index
+      found = workbook.worksheets[asNumber - 1];
+    }
+
+    if (!found) {
+      // Case-insensitive name match
+      found = workbook.worksheets.find(
+        (ws) => ws.name.toLowerCase() === trimmed.toLowerCase(),
+      );
+    }
+
+    if (!found) {
+      const names = workbook.worksheets.map((ws) => `"${ws.name}"`).join(", ");
+      throw new Error(
+        `Sheet "${trimmed}" not found. Available sheets: ${names}`,
+      );
+    }
+
+    sheetsToProcess = [found];
+  } else {
+    sheetsToProcess = workbook.worksheets.slice(0, 1);
+  }
+
   const tables: ExtractedTable[] = [];
   const textParts: string[] = [];
 
   let totalCells = 0;
-
-  const sheetsToProcess = workbook.worksheets.slice(0, 1);
 
   for (const worksheet of sheetsToProcess) {
     const rows: string[][] = [];
