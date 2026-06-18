@@ -515,11 +515,38 @@ export default function ToolForm() {
         existingAssignment: item.content,
         assignmentType: fd.assignmentType || "",
       };
+    } else if (toolId === "accessibility" && item.toolType === "assignment") {
+      fields = {
+        contentToAnalyze: item.content,
+      };
+    } else if (toolId === "module" && item.toolType === "assignment") {
+      fields = {
+        learningOutcomes: fd.learningObjectives || "",
+      };
+    } else if (toolId === "module" && item.toolType === "syllabus") {
+      // Syllabus formData has no learningOutcomes field — extract from generated content
+      const syllabusContent = item.content || "";
+      const outcomesSectionMatch = syllabusContent.match(
+        /##?\s*(?:Course\s+)?Learning\s+Outcomes[\s\S]*?\n([\s\S]*?)(?:\n##|\n---|\n\*\*\*|$)/i
+      );
+      const extractedOutcomes = outcomesSectionMatch
+        ? outcomesSectionMatch[1].trim()
+        : syllabusContent.slice(0, 600).trim();
+      fields = {
+        learningOutcomes: extractedOutcomes,
+      };
+    } else if (toolId === "aistudent" && item.toolType === "assignment") {
+      fields = {
+        learningObjectives: fd.learningObjectives || "",
+      };
     }
 
-    if (Object.keys(fields).length > 0) {
-      setFormData(prev => ({ ...prev, ...fields }));
-      setPreFilledFields(new Set(Object.keys(fields)));
+    const nonEmptyFields = Object.fromEntries(
+      Object.entries(fields).filter(([, v]) => v !== "" && v !== null && v !== undefined)
+    );
+    if (Object.keys(nonEmptyFields).length > 0) {
+      setFormData(prev => ({ ...prev, ...nonEmptyFields }));
+      setPreFilledFields(new Set(Object.keys(nonEmptyFields)));
       toast({ title: "Form pre-filled", description: "Fields have been populated from the selected item. Review and adjust as needed." });
     }
   };

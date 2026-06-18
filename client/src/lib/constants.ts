@@ -273,7 +273,9 @@ export const CONTENT_PREFILL_MAP: Record<string, string[]> = {
   rubric: ["assignment"],
   alignment: ["assignment", "rubric"],
   airesistant: ["assignment"],
-  aistudent: ["airesistant"],
+  accessibility: ["assignment"],
+  module: ["assignment", "syllabus"],
+  aistudent: ["airesistant", "assignment"],
 };
 
 export const LOADING_MESSAGES = [
