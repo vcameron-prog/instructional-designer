@@ -29,6 +29,14 @@ function formatBytes(bytes: number): string {
 }
 
 type DateRange = "7" | "30" | "all";
+type SortOption = "newest" | "oldest" | "filename" | "status";
+
+const STATUS_ORDER: Record<string, number> = {
+  completed: 0,
+  processing: 1,
+  uploaded: 2,
+  failed: 3,
+};
 
 export default function PdfHistory() {
   usePageTitle("Conversion History");
@@ -40,6 +48,7 @@ export default function PdfHistory() {
 
   const [search, setSearch] = useState("");
   const [dateRange, setDateRange] = useState<DateRange>("all");
+  const [sortBy, setSortBy] = useState<SortOption>("newest");
 
   const { data: conversions, isLoading } = useQuery<any[]>({
     queryKey: ["/api/conversions"],
@@ -57,7 +66,7 @@ export default function PdfHistory() {
 
   const filteredConversions = useMemo(() => {
     if (!conversions) return [];
-    let result = conversions;
+    let result = [...conversions];
 
     if (search.trim()) {
       const q = search.trim().toLowerCase();
@@ -73,8 +82,24 @@ export default function PdfHistory() {
       );
     }
 
+    if (sortBy === "oldest") {
+      result.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    } else if (sortBy === "filename") {
+      result.sort((a, b) =>
+        (a.originalFilename ?? "").localeCompare(b.originalFilename ?? "", undefined, { sensitivity: "base" })
+      );
+    } else if (sortBy === "status") {
+      result.sort((a, b) => {
+        const sa = STATUS_ORDER[a.status] ?? 99;
+        const sb = STATUS_ORDER[b.status] ?? 99;
+        return sa !== sb ? sa - sb : new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+    } else {
+      result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }
+
     return result;
-  }, [conversions, search, dateRange]);
+  }, [conversions, search, dateRange, sortBy]);
 
   const isFiltering = search.trim() !== "" || dateRange !== "all";
 
@@ -177,6 +202,18 @@ export default function PdfHistory() {
               <option value="all">All time</option>
               <option value="7">Last 7 days</option>
               <option value="30">Last 30 days</option>
+            </select>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as SortOption)}
+              className="px-3 py-2 rounded-xl border bg-card text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 cursor-pointer"
+              data-testid="select-sort"
+              aria-label="Sort conversions"
+            >
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+              <option value="filename">Filename A–Z</option>
+              <option value="status">Status</option>
             </select>
           </div>
         )}
