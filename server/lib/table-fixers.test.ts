@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { fixHtmlTableCaption, fixHtmlTableThead, editHtmlTableCaption } from "./table-fixers.js";
+import { fixHtmlTableCaption, fixHtmlTableThead, editHtmlTableCaption, fixDuplicateTableCaptions } from "./table-fixers.js";
 
 // ---------------------------------------------------------------------------
 // fixHtmlTableCaption — flat tables
@@ -675,5 +675,83 @@ describe("editHtmlTableCaption", () => {
     const count = (output.match(/&lt;em&gt;Note&lt;\/em&gt;/gi) ?? []).length;
     expect(count).toBe(2);
     expect(output).not.toContain("<em>Note</em>");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// fixDuplicateTableCaptions
+// ---------------------------------------------------------------------------
+describe("fixDuplicateTableCaptions", () => {
+  it("leaves captions unchanged when all are already unique", () => {
+    const html =
+      `<table><caption>Alpha</caption><tbody><tr><td>A</td></tr></tbody></table>` +
+      `<table><caption>Beta</caption><tbody><tr><td>B</td></tr></tbody></table>`;
+    const result = fixDuplicateTableCaptions(html);
+    expect(result).toContain("<caption>Alpha</caption>");
+    expect(result).toContain("<caption>Beta</caption>");
+    expect(result).not.toContain("of 2");
+  });
+
+  it("appends positional suffixes when two tables share the same caption", () => {
+    const html =
+      `<table><caption>Summary</caption><tbody><tr><td>1</td></tr></tbody></table>` +
+      `<table><caption>Summary</caption><tbody><tr><td>2</td></tr></tbody></table>`;
+    const result = fixDuplicateTableCaptions(html);
+    expect(result).toContain("Summary (1 of 2)");
+    expect(result).toContain("Summary (2 of 2)");
+  });
+
+  it("handles two independent duplicate groups at the same time", () => {
+    const html =
+      `<table><caption>Grades</caption><tbody><tr><td>A</td></tr></tbody></table>` +
+      `<table><caption>Roster</caption><tbody><tr><td>B</td></tr></tbody></table>` +
+      `<table><caption>Grades</caption><tbody><tr><td>C</td></tr></tbody></table>` +
+      `<table><caption>Roster</caption><tbody><tr><td>D</td></tr></tbody></table>`;
+    const result = fixDuplicateTableCaptions(html);
+    expect(result).toContain("Grades (1 of 2)");
+    expect(result).toContain("Grades (2 of 2)");
+    expect(result).toContain("Roster (1 of 2)");
+    expect(result).toContain("Roster (2 of 2)");
+  });
+
+  it("skips tables with no caption and still suffixes the duplicates", () => {
+    const html =
+      `<table><tbody><tr><td>no caption</td></tr></tbody></table>` +
+      `<table><caption>Data</caption><tbody><tr><td>X</td></tr></tbody></table>` +
+      `<table><caption>Data</caption><tbody><tr><td>Y</td></tr></tbody></table>`;
+    const result = fixDuplicateTableCaptions(html);
+    expect(result).toContain("Data (1 of 2)");
+    expect(result).toContain("Data (2 of 2)");
+    const captionCount = (result.match(/<caption/gi) ?? []).length;
+    expect(captionCount).toBe(2);
+  });
+
+  it("skips whitespace-only captions and does not add suffixes to them", () => {
+    const html =
+      `<table><caption>   </caption><tbody><tr><td>A</td></tr></tbody></table>` +
+      `<table><caption>   </caption><tbody><tr><td>B</td></tr></tbody></table>`;
+    const result = fixDuplicateTableCaptions(html);
+    expect(result).not.toContain("of 2");
+    expect(result).not.toContain("1 of");
+  });
+
+  it("preserves original casing in the suffix text", () => {
+    const html =
+      `<table><caption>Course OUTCOMES</caption><tbody><tr><td>1</td></tr></tbody></table>` +
+      `<table><caption>course outcomes</caption><tbody><tr><td>2</td></tr></tbody></table>`;
+    const result = fixDuplicateTableCaptions(html);
+    expect(result).toContain("Course OUTCOMES (1 of 2)");
+    expect(result).toContain("course outcomes (2 of 2)");
+  });
+
+  it("uses the correct total when three tables share the same caption", () => {
+    const html =
+      `<table><caption>Report</caption><tbody><tr><td>a</td></tr></tbody></table>` +
+      `<table><caption>Report</caption><tbody><tr><td>b</td></tr></tbody></table>` +
+      `<table><caption>Report</caption><tbody><tr><td>c</td></tr></tbody></table>`;
+    const result = fixDuplicateTableCaptions(html);
+    expect(result).toContain("Report (1 of 3)");
+    expect(result).toContain("Report (2 of 3)");
+    expect(result).toContain("Report (3 of 3)");
   });
 });
