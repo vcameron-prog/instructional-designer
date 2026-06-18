@@ -1927,6 +1927,9 @@ export async function registerRoutes(
           })(),
           config: {
             versionHistoryLimit: VERSION_HISTORY_LIMIT,
+            anonRateLimit: ANON_RATE_LIMIT,
+            statsApiKeySet: Boolean(process.env.STATS_API_KEY),
+            adminUserCount: getAdminIds().length,
           },
         });
       } catch (error) {

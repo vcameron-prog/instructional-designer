@@ -23,6 +23,9 @@ import {
   RotateCcw,
   Info,
   Settings,
+  Shield,
+  UserCog,
+  Gauge,
 } from "lucide-react";
 import {
   Tooltip as UITooltip,
@@ -108,6 +111,9 @@ interface AdminStats {
   };
   config: {
     versionHistoryLimit: number;
+    anonRateLimit: number;
+    statsApiKeySet: boolean;
+    adminUserCount: number;
   };
 }
 
@@ -887,16 +893,54 @@ export default function AdminDashboard() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex items-start gap-3" data-testid="stat-version-history-limit">
-              <div className="w-9 h-9 rounded-lg bg-sky-100 dark:bg-sky-950 flex items-center justify-center flex-shrink-0">
-                <RotateCcw className="w-4 h-4 text-sky-600 dark:text-sky-400" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div className="flex items-start gap-3" data-testid="stat-version-history-limit">
+                <div className="w-9 h-9 rounded-lg bg-sky-100 dark:bg-sky-950 flex items-center justify-center flex-shrink-0">
+                  <RotateCcw className="w-4 h-4 text-sky-600 dark:text-sky-400" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-foreground">{stats.config.versionHistoryLimit}</p>
+                  <p className="text-sm text-muted-foreground">Version History Limit</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Max versions per content item (<code className="font-mono bg-muted px-1 rounded">VERSION_HISTORY_LIMIT</code>)
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-2xl font-bold text-foreground">{stats.config.versionHistoryLimit}</p>
-                <p className="text-sm text-muted-foreground">Version History Limit</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Maximum versions kept per content item (set via <code className="font-mono bg-muted px-1 rounded">VERSION_HISTORY_LIMIT</code> env var)
-                </p>
+              <div className="flex items-start gap-3" data-testid="stat-anon-rate-limit">
+                <div className="w-9 h-9 rounded-lg bg-amber-100 dark:bg-amber-950 flex items-center justify-center flex-shrink-0">
+                  <Gauge className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-foreground">{stats.config.anonRateLimit}</p>
+                  <p className="text-sm text-muted-foreground">Anonymous Rate Limit</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Max AI requests per anonymous session (<code className="font-mono bg-muted px-1 rounded">ANON_RATE_LIMIT</code>)
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3" data-testid="stat-stats-api-key">
+                <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${stats.config.statsApiKeySet ? "bg-green-100 dark:bg-green-950" : "bg-muted"}`}>
+                  <Shield className={`w-4 h-4 ${stats.config.statsApiKeySet ? "text-green-600 dark:text-green-400" : "text-muted-foreground"}`} />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-foreground">{stats.config.statsApiKeySet ? "Set" : "Not set"}</p>
+                  <p className="text-sm text-muted-foreground">Stats API Key</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Whether the public stats endpoint requires an API key (<code className="font-mono bg-muted px-1 rounded">STATS_API_KEY</code>)
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3" data-testid="stat-admin-user-count">
+                <div className="w-9 h-9 rounded-lg bg-violet-100 dark:bg-violet-950 flex items-center justify-center flex-shrink-0">
+                  <UserCog className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-foreground">{stats.config.adminUserCount}</p>
+                  <p className="text-sm text-muted-foreground">Configured Admins</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Number of user IDs with admin access (<code className="font-mono bg-muted px-1 rounded">ADMIN_USER_IDS</code>)
+                  </p>
+                </div>
               </div>
             </div>
           </CardContent>
