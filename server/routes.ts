@@ -4719,8 +4719,17 @@ Please generate an IMPROVED version that incorporates the requested changes whil
       // Rate-limit AI fix calls. Both anonymous and authenticated users use
       // the shared cross-instance DB-backed limit so the quota is globally
       // enforced across all autoscaled instances.
+      //
+      // If the database is unavailable, checkSharedRateLimit catches the error
+      // and invokes the fallback function instead.  Both branches supply a
+      // process-local fallback (checkHeavyOpRateLimit) so that:
+      //   - anonymous callers: keyed by IP to prevent token-rotation bypasses.
+      //   - authenticated callers: keyed by userId for per-user process-local
+      //     enforcement.
+      // Without a fallback the call would fail closed (return false → 429) for
+      // authenticated users while anonymous users remain on the process-local
+      // limiter — an undocumented asymmetry that could surprise callers.
       if (!userId) {
-        const vToken = ensureVisitorToken(req);
         const ip = req.ip || req.socket.remoteAddress || "unknown";
         // Key by IP so token-rotation attacks cannot bypass the shared limit.
         if (!await checkSharedRateLimit(
@@ -4731,8 +4740,12 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           return;
         }
       } else {
+        // Authenticated callers are also given a process-local fallback so that
+        // a transient DB outage does not automatically deny every authenticated
+        // request while anonymous traffic continues unimpeded.
         if (!await checkSharedRateLimit(
           `user:${userId}`, "fix", SHARED_HEAVY_OP_RATE_LIMIT, HEAVY_OP_RATE_WINDOW_MS,
+          () => checkHeavyOpRateLimit(`fix:user:${userId}`),
         )) {
           res.status(429).json({ error: "Too many fix requests. Please wait before trying again." });
           return;

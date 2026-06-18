@@ -8,11 +8,12 @@ import { MAX_CONCURRENT_FIXES } from "./routes";
 // Hoisted mocks – vi.mock factories are hoisted to the top of the file, so
 // any variables they capture must be created with vi.hoisted().
 // ---------------------------------------------------------------------------
-const { mockFixComplianceIssue, mockDbSelectWhere, mockDbUpdateReturning, mockCheckSharedRateLimit } = vi.hoisted(() => ({
+const { mockFixComplianceIssue, mockDbSelectWhere, mockDbUpdateReturning, mockCheckSharedRateLimit, mockCheckHeavyOpRateLimit } = vi.hoisted(() => ({
   mockFixComplianceIssue: vi.fn(),
   mockDbSelectWhere: vi.fn(),
   mockDbUpdateReturning: vi.fn(),
   mockCheckSharedRateLimit: vi.fn(),
+  mockCheckHeavyOpRateLimit: vi.fn(),
 }));
 
 // ---------------------------------------------------------------------------
@@ -126,10 +127,11 @@ vi.mock("./lib/table-fixers.js", () => ({
 // ---------------------------------------------------------------------------
 vi.mock("./lib/rateLimiters.js", () => {
   mockCheckSharedRateLimit.mockResolvedValue(true);
+  mockCheckHeavyOpRateLimit.mockReturnValue(true);
   return {
     checkSharedRateLimit: mockCheckSharedRateLimit,
     checkAnonRateLimit: vi.fn().mockReturnValue(true),
-    checkHeavyOpRateLimit: vi.fn().mockReturnValue(true),
+    checkHeavyOpRateLimit: mockCheckHeavyOpRateLimit,
     checkAiGenRateLimit: vi.fn().mockReturnValue(true),
     checkUploadRateLimit: vi.fn().mockReturnValue(true),
     SHARED_ANON_UPLOAD_RATE_LIMIT: 10,
@@ -249,6 +251,26 @@ async function buildApp() {
   app.use(express.json());
   app.use((req: any, _res: any, next: any) => {
     req.session = req.session ?? {};
+    next();
+  });
+  const httpServer = createServer(app);
+  await registerRoutes(httpServer, app);
+  return app;
+}
+
+// ---------------------------------------------------------------------------
+// Helper: build an app where every request is treated as authenticated.
+// Inserts a middleware BEFORE registerRoutes that populates req.user with the
+// supplied userId so getUserId(req) returns a non-null value in the handler.
+// This lets us exercise the `else` branch of the rate-limit block without
+// touching the optionalAuth mock.
+// ---------------------------------------------------------------------------
+async function buildAppWithAuth(userId: string) {
+  const app = express();
+  app.use(express.json());
+  app.use((req: any, _res: any, next: any) => {
+    req.session = req.session ?? {};
+    req.user = { claims: { sub: userId } };
     next();
   });
   const httpServer = createServer(app);
@@ -458,4 +480,106 @@ describe("POST /api/conversions/:id/fix-issue — guard paths", () => {
     resolvers.forEach(r => r(FIX_RESULT));
     await Promise.all(inflightDone);
   }, 15_000);
+});
+
+// ---------------------------------------------------------------------------
+// DB-unavailable fallback tests for authenticated callers
+//
+// When checkSharedRateLimit throws (e.g. because the database is down), the
+// fix-issue handler must invoke the process-local checkHeavyOpRateLimit
+// fallback for authenticated users, exactly as it does for anonymous callers.
+// Without this fallback, authenticated users would receive a 429 every time
+// the database is temporarily unavailable — even if they are well within their
+// quota — while anonymous callers would continue unimpeded via the fallback.
+//
+// These tests simulate the DB-down scenario by making mockCheckSharedRateLimit
+// reject with an error.  The mocked checkHeavyOpRateLimit then determines the
+// outcome: returning true → 200 (allowed), returning false → 429 (denied).
+// ---------------------------------------------------------------------------
+describe("POST /api/conversions/:id/fix-issue — authenticated caller DB-unavailable fallback", () => {
+  const TEST_USER_ID = "test-user-abc";
+
+  const FIX_RESULT = {
+    accessibleHtml: ACCESSIBLE_HTML,
+    complianceReport: FIXED_REPORT,
+    elementsFixed: 0,
+    wasRetried: false,
+  };
+
+  let app: express.Express;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    // Restore the allow-by-default returns that vi.clearAllMocks() wipes.
+    mockCheckSharedRateLimit.mockResolvedValue(true);
+    mockCheckHeavyOpRateLimit.mockReturnValue(true);
+
+    app = await buildAppWithAuth(TEST_USER_ID);
+
+    mockDbSelectWhere.mockResolvedValue([BASE_CONVERSION]);
+    mockDbUpdateReturning.mockResolvedValue([UPDATED_ROW]);
+    mockFixComplianceIssue.mockResolvedValue(FIX_RESULT);
+  });
+
+  // -----------------------------------------------------------------------
+  // Fallback allows — DB down, process-local limiter says OK
+  //
+  // checkSharedRateLimit catches the DB error and invokes the fallback fn
+  // that was passed to it (the real implementation behaviour).  Here the mock
+  // simulates that internal catch→fallback path: when the mock is set to
+  // "DB down", it calls its fallbackFn argument directly instead of rejecting
+  // so the route-level await never throws (matching the real function's contract).
+  // checkHeavyOpRateLimit returns true → request proceeds → 200.
+  // -----------------------------------------------------------------------
+  it("allows an authenticated request when checkSharedRateLimit invokes the process-local fallback and the fallback permits it", async () => {
+    // Simulate a DB outage: the real checkSharedRateLimit catches the DB error
+    // and calls fallbackFn if provided. We replicate that here.
+    mockCheckSharedRateLimit.mockImplementationOnce(
+      async (_key: string, _action: string, _limit: number, _windowMs: number, fallbackFn?: () => boolean) => {
+        if (fallbackFn) return fallbackFn();
+        return false; // fail closed when no fallback (matches real implementation)
+      },
+    );
+
+    const response = await request(app)
+      .post("/api/conversions/1/fix-issue")
+      .send({ issueIndex: 0 })
+      .expect(200);
+
+    // The fallback (checkHeavyOpRateLimit) must have been invoked with the
+    // authenticated user key.
+    expect(mockCheckHeavyOpRateLimit).toHaveBeenCalledWith(
+      expect.stringContaining(TEST_USER_ID),
+    );
+    // The response should contain a normal success payload.
+    expect(response.body).toHaveProperty("complianceReport");
+  });
+
+  // -----------------------------------------------------------------------
+  // Fallback denies — DB down, process-local limiter says NO
+  //
+  // checkSharedRateLimit invokes the fallback → checkHeavyOpRateLimit returns
+  // false → the route returns 429.  Without the fallback wired up for
+  // authenticated callers this test would never reach the fallback path.
+  // -----------------------------------------------------------------------
+  it("denies an authenticated request when checkSharedRateLimit invokes the process-local fallback and the fallback rejects it", async () => {
+    // Simulate a DB outage (same catch→fallback pattern as above).
+    mockCheckSharedRateLimit.mockImplementationOnce(
+      async (_key: string, _action: string, _limit: number, _windowMs: number, fallbackFn?: () => boolean) => {
+        if (fallbackFn) return fallbackFn();
+        return false;
+      },
+    );
+    // Process-local limiter says the caller is over quota.
+    mockCheckHeavyOpRateLimit.mockReturnValueOnce(false);
+
+    const response = await request(app)
+      .post("/api/conversions/1/fix-issue")
+      .send({ issueIndex: 0 })
+      .expect(429);
+
+    expect(response.body.error).toMatch(/too many/i);
+    // The fallback must have been consulted — the fix engine must NOT have run.
+    expect(mockFixComplianceIssue).not.toHaveBeenCalled();
+  });
 });
