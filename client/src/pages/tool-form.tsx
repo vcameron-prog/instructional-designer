@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Loader2, Sparkles, BookOpen, Calendar, FileText, Layout, CheckCircle, Target, Scale, ShieldCheck, Eye, Bot } from "lucide-react";
+import { ArrowLeft, Loader2, Sparkles, BookOpen, Calendar, FileText, Layout, CheckCircle, Target, Scale, ShieldCheck, Eye, Bot, Globe } from "lucide-react";
 import { TOOLS, BSU_CALENDAR, LOADING_MESSAGES, COURSE_LEVELS, CONTENT_PREFILL_MAP } from "@/lib/constants";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isSessionExpiredMessage } from "@/lib/upload-error-utils";
@@ -261,6 +261,16 @@ const toolIconMap: Record<string, any> = {
   Bot,
 };
 
+const LANGUAGE_OPTIONS = [
+  { value: "English", label: "English" },
+  { value: "Spanish", label: "Spanish (Español)" },
+  { value: "French", label: "French (Français)" },
+  { value: "Portuguese", label: "Portuguese (Português)" },
+  { value: "Haitian Creole", label: "Haitian Creole (Kreyòl ayisyen)" },
+];
+
+const DEFAULT_LANGUAGE_KEY = "bsu-default-language";
+
 export default function ToolForm() {
   const params = useParams();
   const courseId = params.id ? parseInt(params.id) : undefined;
@@ -281,6 +291,9 @@ export default function ToolForm() {
   const [loadingMessage, setLoadingMessage] = useState("");
   const [selectedPrefillId, setSelectedPrefillId] = useState<string>("");
   const [preFilledFields, setPreFilledFields] = useState<Set<string>>(new Set());
+  const [language, setLanguage] = useState(
+    () => localStorage.getItem(DEFAULT_LANGUAGE_KEY) || "English"
+  );
 
   const tool = TOOLS.find(t => t.id === toolId);
 
@@ -328,6 +341,7 @@ export default function ToolForm() {
           toolId,
           toolName: tool?.name,
           formData,
+          language,
         });
         return response.json();
       }
@@ -335,6 +349,7 @@ export default function ToolForm() {
         toolId,
         toolName: tool?.name,
         formData,
+        language,
       });
       return response.json();
     },
@@ -747,6 +762,35 @@ export default function ToolForm() {
                 </div>
                 );
               })}
+            </CardContent>
+          </Card>
+
+          <Card className="bg-muted/30">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <Globe className="w-4 h-4 text-muted-foreground shrink-0" aria-hidden="true" />
+                <div className="flex-1 min-w-0">
+                  <Label htmlFor="output-language" className="text-sm font-medium">
+                    Output Language
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Generate content in this language. Default set in Preferences.
+                  </p>
+                </div>
+                <Select
+                  value={language}
+                  onValueChange={setLanguage}
+                >
+                  <SelectTrigger id="output-language" className="w-48" data-testid="select-output-language">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LANGUAGE_OPTIONS.map(opt => (
+                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </CardContent>
           </Card>
 

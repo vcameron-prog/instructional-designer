@@ -298,10 +298,16 @@ function generatePrompt(
   toolId: string,
   toolData: Record<string, any>,
   course: Course | null,
+  language = "English",
 ): string {
   const syllabusContext = course?.existingSyllabus
     ? `\n\nEXISTING SYLLABUS CONTENT (use this to maintain consistency with the course's established structure, topics, assessments, and terminology):\n${course.existingSyllabus}`
     : "";
+
+  const languageInstruction =
+    language && language !== "English"
+      ? `\n**OUTPUT LANGUAGE — MANDATORY:** Generate ALL content (headings, body text, labels, examples, instructions) entirely in ${language}. Do not switch to English at any point.\n`
+      : "";
 
   // Build inclusive design sections based on user selections (for assignment tool)
   const inclusiveOptions = toolData.inclusiveDesignOptions || [];
@@ -327,7 +333,7 @@ All generated content MUST meet WCAG 2.1 Level AA accessibility standards:
 - LINKS: All links must have descriptive text. Never use "click here" or "read more" as link text.
 - CONTRAST: When specifying colors in inline styles, ensure at least 4.5:1 contrast ratio for normal text and 3:1 for large text.
 - READING ORDER: Content must follow a logical linear reading order in the DOM. Do not use absolute positioning or visual-only ordering.
-- LANGUAGE: If outputting a full HTML document, include lang="en" on the <html> element.
+- LANGUAGE: If outputting a full HTML document, include the appropriate BCP 47 language tag on the <html> element (e.g., lang="en" for English, lang="es" for Spanish, lang="fr" for French, lang="pt" for Portuguese, lang="ht" for Haitian Creole). Match the output language of the document.
 - IMAGES: Every <img> must have a meaningful, descriptive alt attribute. Use alt="" only for purely decorative images.
 - LANDMARKS: Use ARIA landmarks or HTML5 semantic containers (<main>, <nav>, <header>, <footer>, <section>, <article>) for document structure.
 - CLEAR LANGUAGE: Use plain, direct language. Define jargon and acronyms on first use.
@@ -1301,7 +1307,7 @@ Activity Guardrails: ${toolData.guardrails?.join(", ") || "Standard guardrails"}
 Additional Context: ${toolData.additionalContext || "None"}`,
   };
 
-  return prompts[toolId] || baseContext;
+  return (prompts[toolId] || baseContext) + languageInstruction;
 }
 
 async function fixVagueLinkTextAI(text: string): Promise<string> {
@@ -2092,7 +2098,7 @@ export async function registerRoutes(
       try {
         const userId = getUserId(req) as string;
         const courseId = parseInt(req.params.id as string);
-        const { toolId, toolName, formData } = req.body;
+        const { toolId, toolName, formData, language } = req.body;
 
         const course = await storage.getCourse(courseId, userId);
         if (!course) {
@@ -2103,7 +2109,7 @@ export async function registerRoutes(
           return res.status(429).json({ error: "AI generation rate limit exceeded. Please try again later." });
         }
 
-        const prompt = generatePrompt(toolId, formData, course);
+        const prompt = generatePrompt(toolId, formData, course, language);
 
         const message = await anthropic.messages.create({
           model: "claude-sonnet-4-5",
@@ -2140,7 +2146,7 @@ export async function registerRoutes(
     async (req: Request, res: Response) => {
       try {
         const userId = getUserId(req) as string;
-        const { toolId, toolName, formData } = req.body;
+        const { toolId, toolName, formData, language } = req.body;
 
         if (!await checkSharedRateLimit(userId, "ai-gen", AI_GEN_RATE_LIMIT, AI_GEN_RATE_WINDOW_MS, () => checkAiGenRateLimit(userId))) {
           return res.status(429).json({ error: "AI generation rate limit exceeded. Please try again later." });
@@ -2158,7 +2164,7 @@ export async function registerRoutes(
           return res.status(400).json({ error: "This tool requires a course" });
         }
 
-        const prompt = generatePrompt(toolId, formData, null);
+        const prompt = generatePrompt(toolId, formData, null, language);
 
         const message = await anthropic.messages.create({
           model: "claude-sonnet-4-5",
