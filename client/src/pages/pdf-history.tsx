@@ -125,7 +125,10 @@ function useConversionDownload() {
     }
   };
 
-  return { downloading, downloadHtml, downloadDocx, downloadPdf };
+  const isDownloadingRow = (id: number) =>
+    !!(downloading[`html-${id}`] || downloading[`docx-${id}`] || downloading[`pdf-${id}`]);
+
+  return { downloading, isDownloadingRow, downloadHtml, downloadDocx, downloadPdf };
 }
 
 export default function PdfHistory() {
@@ -135,7 +138,7 @@ export default function PdfHistory() {
   }, []);
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [, navigate] = useLocation();
-  const { downloading, downloadHtml, downloadDocx, downloadPdf } = useConversionDownload();
+  const { downloading, isDownloadingRow, downloadHtml, downloadDocx, downloadPdf } = useConversionDownload();
 
   const [search, setSearch] = useState("");
   const [dateRange, setDateRange] = useState<DateRange>("all");
@@ -359,8 +362,14 @@ export default function PdfHistory() {
             {filteredConversions.map((conv: any) => (
               <div
                 key={conv.id}
-                className="flex items-center gap-4 p-4 bg-card border rounded-xl hover:border-primary/30 transition-all group"
+                className={cn(
+                  "flex items-center gap-4 p-4 bg-card border rounded-xl transition-all group",
+                  isDownloadingRow(conv.id)
+                    ? "border-primary/50 bg-primary/5 animate-pulse"
+                    : "hover:border-primary/30",
+                )}
                 data-testid={`card-history-${conv.id}`}
+                aria-busy={isDownloadingRow(conv.id)}
               >
                 <button
                   onClick={() => navigate(`/pdf-accessibility/${conv.id}`)}
@@ -372,8 +381,14 @@ export default function PdfHistory() {
                     aria-hidden="true"
                   />
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-foreground truncate">
+                    <p className="font-medium text-foreground truncate flex items-center gap-1.5">
                       {conv.originalFilename}
+                      {isDownloadingRow(conv.id) && (
+                        <Loader2
+                          className="w-3.5 h-3.5 animate-spin text-primary flex-shrink-0"
+                          aria-label="Download in progress"
+                        />
+                      )}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {conv.sourceType && conv.sourceType !== "pdf" && (
