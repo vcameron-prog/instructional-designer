@@ -158,14 +158,43 @@ function safePlainText(el: HTMLElement): string {
   }
 }
 
+function getDirectTableRows(table: HTMLElement): HTMLElement[] {
+  const rows: HTMLElement[] = [];
+  const SECTION_TAGS = new Set(["thead", "tbody", "tfoot"]);
+  for (const child of table.childNodes) {
+    const el = child as HTMLElement;
+    const tag = el.tagName?.toLowerCase();
+    if (tag === "tr") {
+      rows.push(el);
+    } else if (SECTION_TAGS.has(tag)) {
+      for (const sectionChild of el.childNodes) {
+        const sEl = sectionChild as HTMLElement;
+        if (sEl.tagName?.toLowerCase() === "tr") {
+          rows.push(sEl);
+        }
+      }
+    }
+  }
+  return rows;
+}
+
+function getDirectCells(tr: HTMLElement): HTMLElement[] {
+  return tr.childNodes
+    .map((c) => c as HTMLElement)
+    .filter((c) => {
+      const t = c.tagName?.toLowerCase();
+      return t === "td" || t === "th";
+    });
+}
+
 export function processTable(el: HTMLElement): Table | null {
   const rows: TableRow[] = [];
-  const tableRows = el.querySelectorAll("tr");
+  const tableRows = getDirectTableRows(el);
   if (tableRows.length === 0) return null;
 
   let gridColCount = 0;
   for (const tr of tableRows) {
-    const cells = tr.querySelectorAll("th, td");
+    const cells = getDirectCells(tr);
     let rowCols = 0;
     for (const cell of cells) {
       rowCols += parseInt(cell.getAttribute("colspan") || "1", 10) || 1;
@@ -181,7 +210,7 @@ export function processTable(el: HTMLElement): Table | null {
 
   for (let rowIdx = 0; rowIdx < tableRows.length; rowIdx++) {
     const tr = tableRows[rowIdx];
-    const cells = tr.querySelectorAll("th, td");
+    const cells = getDirectCells(tr);
     const tableCells: TableCell[] = [];
     let cellIdx = 0;
     let colPos = 0;
@@ -228,7 +257,7 @@ export function processTable(el: HTMLElement): Table | null {
         }
       }
 
-      let cellChildren: Paragraph[];
+      let cellChildren: (Paragraph | Table)[];
       try {
         cellChildren = extractCellChildren(cell);
       } catch {
@@ -275,8 +304,8 @@ export function processTable(el: HTMLElement): Table | null {
   });
 }
 
-function extractCellChildren(cell: HTMLElement): Paragraph[] {
-  const result: Paragraph[] = [];
+function extractCellChildren(cell: HTMLElement): (Paragraph | Table)[] {
+  const result: (Paragraph | Table)[] = [];
   let pendingInline: InlineChild[] = [];
 
   const flushInline = () => {
@@ -292,6 +321,12 @@ function extractCellChildren(cell: HTMLElement): Paragraph[] {
     if (tag === "ul" || tag === "ol") {
       flushInline();
       result.push(...processListItems(childEl, tag === "ol", 0));
+    } else if (tag === "table") {
+      flushInline();
+      const nestedTable = processTable(childEl);
+      if (nestedTable) {
+        result.push(nestedTable);
+      }
     } else if (tag === "p") {
       flushInline();
       const inlineChildren = extractInlineChildren(childEl);

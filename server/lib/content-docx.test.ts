@@ -295,3 +295,82 @@ describe("processTable — nested lists in cells", () => {
     expect(paragraphs).toHaveLength(1);
   });
 });
+
+describe("processTable — nested table in cell", () => {
+  function parseTable(html: string) {
+    const root = parse(html);
+    const el = root.querySelector("table");
+    if (!el) throw new Error("no table found");
+    return el;
+  }
+
+  function getOuterRows(table: ReturnType<typeof processTable>) {
+    const tableAny = table as any;
+    return (tableAny.root as any[]).filter((n: any) => n.rootKey === "w:tr");
+  }
+
+  function getDirectCellsInRow(row: any) {
+    return (row.root as any[]).filter((n: any) => n.rootKey === "w:tc");
+  }
+
+  function getChildrenInFirstCell(table: ReturnType<typeof processTable>) {
+    const rows = getOuterRows(table);
+    const cell = (rows[0].root as any[]).find((n: any) => n.rootKey === "w:tc");
+    return cell.root as any[];
+  }
+
+  it("produces a nested Table (w:tbl) object inside the cell", () => {
+    const html = `<table>
+      <tr>
+        <td>
+          <table>
+            <tr><td>Inner A</td><td>Inner B</td></tr>
+          </table>
+        </td>
+      </tr>
+    </table>`;
+    const outer = processTable(parseTable(html));
+    expect(outer).not.toBeNull();
+
+    const outerRows = getOuterRows(outer);
+    expect(outerRows).toHaveLength(1);
+    const outerCells = getDirectCellsInRow(outerRows[0]);
+    expect(outerCells).toHaveLength(1);
+
+    const cellChildren = getChildrenInFirstCell(outer);
+    const nestedTable = cellChildren.find((n: any) => n.rootKey === "w:tbl");
+    expect(nestedTable).toBeDefined();
+
+    const innerRows = (nestedTable.root as any[]).filter(
+      (n: any) => n.rootKey === "w:tr",
+    );
+    expect(innerRows).toHaveLength(1);
+    const innerCells = getDirectCellsInRow(innerRows[0]);
+    expect(innerCells).toHaveLength(2);
+  });
+
+  it("preserves text before the nested table as a paragraph", () => {
+    const html = `<table>
+      <tr>
+        <td>
+          <p>Label</p>
+          <table>
+            <tr><td>Val</td></tr>
+          </table>
+        </td>
+      </tr>
+    </table>`;
+    const outer = processTable(parseTable(html));
+    expect(outer).not.toBeNull();
+
+    const outerRows = getOuterRows(outer);
+    expect(outerRows).toHaveLength(1);
+    expect(getDirectCellsInRow(outerRows[0])).toHaveLength(1);
+
+    const cellChildren = getChildrenInFirstCell(outer);
+    const paragraphs = cellChildren.filter((n: any) => n.rootKey === "w:p");
+    const nestedTable = cellChildren.find((n: any) => n.rootKey === "w:tbl");
+    expect(paragraphs.length).toBeGreaterThanOrEqual(1);
+    expect(nestedTable).toBeDefined();
+  });
+});
