@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation, useParams } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
@@ -9,7 +9,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Loader2, Sparkles, BookOpen, Calendar, FileText, Layout, CheckCircle, Target, Scale, ShieldCheck, Eye, Bot, Globe } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ArrowLeft, Loader2, Sparkles, BookOpen, Calendar, FileText, Layout, CheckCircle, Target, Scale, ShieldCheck, Eye, Bot, Globe, BookmarkPlus, ChevronDown, Trash2 } from "lucide-react";
 import { TOOLS, BSU_CALENDAR, LOADING_MESSAGES, COURSE_LEVELS, CONTENT_PREFILL_MAP } from "@/lib/constants";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isSessionExpiredMessage } from "@/lib/upload-error-utils";
@@ -21,6 +22,7 @@ import { UdlTips } from "@/components/udl-tips";
 import { AccessibilityTips } from "@/components/accessibility-tips";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useQuickToolContext } from "@/hooks/use-quick-tool-context";
+import { useToolPresets } from "@/hooks/use-tool-presets";
 
 interface ToolFormField {
   name: string;
@@ -295,6 +297,12 @@ export default function ToolForm() {
     () => localStorage.getItem(DEFAULT_LANGUAGE_KEY) || "English"
   );
 
+  const { presets, savePreset, deletePreset } = useToolPresets(isStandalone ? toolId : undefined);
+  const [presetOpen, setPresetOpen] = useState(false);
+  const [isSavingPreset, setIsSavingPreset] = useState(false);
+  const [presetName, setPresetName] = useState("");
+  const presetNameInputRef = useRef<HTMLInputElement>(null);
+
   const tool = TOOLS.find(t => t.id === toolId);
 
   usePageTitle(tool ? tool.name : "Tool");
@@ -444,6 +452,41 @@ export default function ToolForm() {
     }
   };
 
+  const hasFormValues = Object.values(formData).some(v =>
+    v !== undefined && v !== "" && v !== null && !(Array.isArray(v) && v.length === 0)
+  );
+
+  const handleLoadPreset = (presetName: string) => {
+    const preset = presets.find(p => p.name === presetName);
+    if (preset) {
+      const values = preset.values;
+      if (typeof values !== "object" || values === null || Array.isArray(values)) {
+        toast({ title: "Could not load preset: invalid data", variant: "destructive" });
+        return;
+      }
+      const safe: Record<string, any> = {};
+      for (const [k, v] of Object.entries(values)) {
+        if (typeof k === "string") safe[k] = v;
+      }
+      setFormData(safe);
+      setPresetOpen(false);
+      toast({ title: `Preset "${preset.name}" loaded` });
+    }
+  };
+
+  const handleSavePreset = () => {
+    const trimmed = presetName.trim();
+    if (!trimmed) {
+      toast({ title: "Please enter a preset name", variant: "destructive" });
+      presetNameInputRef.current?.focus();
+      return;
+    }
+    savePreset(trimmed, formData);
+    toast({ title: `Preset "${trimmed}" saved` });
+    setPresetName("");
+    setIsSavingPreset(false);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -554,6 +597,64 @@ export default function ToolForm() {
                 <p className="text-sm text-muted-foreground">
                   Creating for: <span className="font-medium text-foreground">{course.courseName}</span> ({course.courseNumber})
                 </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {isStandalone && presets.length > 0 && (
+            <Card className="bg-muted/30">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <Label className="text-sm font-medium shrink-0">Saved Presets</Label>
+                  <Popover open={presetOpen} onOpenChange={setPresetOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="flex-1 justify-between text-muted-foreground font-normal"
+                        data-testid="button-open-presets"
+                        aria-label="Load a saved preset"
+                      >
+                        <span>Load a preset…</span>
+                        <ChevronDown className="w-4 h-4 ml-2 opacity-60" aria-hidden="true" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-72 p-1" align="end">
+                      <ul role="listbox" aria-label="Saved presets">
+                        {presets.map((preset) => (
+                          <li
+                            key={preset.name}
+                            className="flex items-center gap-1 rounded-sm"
+                            role="option"
+                            aria-selected={false}
+                          >
+                            <button
+                              type="button"
+                              className="flex-1 text-left text-sm px-3 py-2 rounded-sm hover:bg-accent hover:text-accent-foreground transition-colors truncate"
+                              onClick={() => handleLoadPreset(preset.name)}
+                              data-testid={`button-load-preset-${preset.name}`}
+                            >
+                              {preset.name}
+                            </button>
+                            <button
+                              type="button"
+                              className="p-2 rounded-sm text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deletePreset(preset.name);
+                                toast({ title: `Preset "${preset.name}" deleted` });
+                              }}
+                              aria-label={`Delete preset "${preset.name}"`}
+                              data-testid={`button-delete-preset-${preset.name}`}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </PopoverContent>
+                  </Popover>
+                </div>
               </CardContent>
             </Card>
           )}
@@ -793,6 +894,60 @@ export default function ToolForm() {
               </div>
             </CardContent>
           </Card>
+
+          {isStandalone && hasFormValues && (
+            <div className="flex items-start gap-3">
+              {!isSavingPreset ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 text-muted-foreground"
+                  onClick={() => {
+                    setIsSavingPreset(true);
+                    setTimeout(() => presetNameInputRef.current?.focus(), 50);
+                  }}
+                  data-testid="button-save-preset-open"
+                >
+                  <BookmarkPlus className="w-4 h-4" aria-hidden="true" />
+                  Save as preset
+                </Button>
+              ) : (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Input
+                    ref={presetNameInputRef}
+                    placeholder="Preset name (e.g. COMM 201 Undergrad Essay)"
+                    value={presetName}
+                    onChange={(e) => setPresetName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") { e.preventDefault(); handleSavePreset(); }
+                      if (e.key === "Escape") { setIsSavingPreset(false); setPresetName(""); }
+                    }}
+                    className="w-72 h-9 text-sm"
+                    aria-label="Preset name"
+                    data-testid="input-preset-name"
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleSavePreset}
+                    data-testid="button-save-preset-confirm"
+                  >
+                    Save
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => { setIsSavingPreset(false); setPresetName(""); }}
+                    data-testid="button-save-preset-cancel"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="flex justify-end gap-4">
             <Button
