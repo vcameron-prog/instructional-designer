@@ -377,7 +377,7 @@ export default function PdfUpload() {
             data-testid="banner-sign-in-nudge"
           >
             <p className="text-blue-700 dark:text-blue-300">
-              Sign in to automatically save your conversions to your history.
+              BSU employees: sign in with your BSU account to automatically save your conversions to your history.
             </p>
             <a
               href="/api/login"
