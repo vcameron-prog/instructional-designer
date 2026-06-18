@@ -1246,8 +1246,8 @@ export default function ResultPage() {
                       {selectedVersion ? (
                         <>
                           <div className="px-4 py-3 border-b bg-muted/30 shrink-0 flex items-center justify-between gap-3 flex-wrap">
-                            <div>
-                              <p className="text-sm font-medium">{getVersionLabel(selectedVersion)}</p>
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium break-words">{getVersionLabel(selectedVersion)}</p>
                               <p className="text-xs text-muted-foreground">
                                 {new Date(selectedVersion.createdAt).toLocaleString()}
                               </p>
