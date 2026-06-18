@@ -2326,20 +2326,33 @@ export async function registerRoutes(
     },
   );
 
-  // Batch generation: assignment + matching rubric in one request (standalone only)
+  // Batch generation: assignment + matching rubric in one request (standalone or course-based)
   app.post(
     "/api/generate-batch-assignment-rubric",
     isBsuAuthenticated,
     async (req: Request, res: Response) => {
       try {
         const userId = getUserId(req) as string;
-        const { formData, rubricConfig } = req.body;
+        const { formData, rubricConfig, courseId: rawCourseId } = req.body;
+
+        let resolvedCourseId: number | null = null;
+        if (rawCourseId) {
+          const courseIdNum = parseInt(String(rawCourseId), 10);
+          if (isNaN(courseIdNum)) {
+            return res.status(400).json({ error: "Invalid courseId" });
+          }
+          const course = await storage.getCourse(courseIdNum, userId);
+          if (!course) {
+            return res.status(404).json({ error: "Course not found" });
+          }
+          resolvedCourseId = courseIdNum;
+        }
 
         if (!checkAiGenRateLimit(userId)) {
           return res.status(429).json({ error: "AI generation rate limit exceeded. Please try again later." });
         }
 
-        const assignmentPrompt = generatePrompt("assignment", formData, null);
+        const assignmentPrompt = generatePrompt("assignment", formData, resolvedCourseId ? await storage.getCourse(resolvedCourseId, userId) || null : null);
 
         const assignmentMessage = await anthropic.messages.create({
           model: "claude-sonnet-4-5",
@@ -2355,7 +2368,7 @@ export async function registerRoutes(
         const assignmentText = convertMarkdownTablesToHtml(rawAssignmentText);
 
         const assignmentContent = await storage.createContent({
-          courseId: null,
+          courseId: resolvedCourseId,
           userId,
           toolType: "assignment",
           toolName: "Assignment Design",
@@ -2387,7 +2400,7 @@ export async function registerRoutes(
         const rubricText = convertMarkdownTablesToHtml(rawRubricText);
 
         const rubricContent = await storage.createContent({
-          courseId: null,
+          courseId: resolvedCourseId,
           userId,
           toolType: "rubric",
           toolName: "Rubric Builder",

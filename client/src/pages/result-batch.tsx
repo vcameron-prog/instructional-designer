@@ -237,9 +237,10 @@ interface ContentPanelProps {
   contentId: number;
   badgeColor: string;
   testIdPrefix: string;
+  courseId?: number;
 }
 
-function ContentPanel({ label, contentId, badgeColor, testIdPrefix }: ContentPanelProps) {
+function ContentPanel({ label, contentId, badgeColor, testIdPrefix, courseId }: ContentPanelProps) {
   const { toast } = useToast();
   const { isAuthenticated } = useAuth();
   const [copied, setCopied] = useState(false);
@@ -256,7 +257,7 @@ function ContentPanel({ label, contentId, badgeColor, testIdPrefix }: ContentPan
   const [libraryDescription, setLibraryDescription] = useState("");
 
   const { data: content, isLoading } = useQuery<GeneratedContent>({
-    queryKey: ["/api/standalone-content", contentId],
+    queryKey: courseId ? ["/api/content", contentId] : ["/api/standalone-content", contentId],
   });
 
   const accessibilityIssues = content ? checkAccessibility(content.content) : [];
@@ -489,7 +490,7 @@ function ContentPanel({ label, contentId, badgeColor, testIdPrefix }: ContentPan
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => navigate(`/quick-tools/result/${contentId}`)}
+              onClick={() => navigate(courseId ? `/course/${courseId}/result/${contentId}` : `/quick-tools/result/${contentId}`)}
               data-testid={`button-open-full-${testIdPrefix}`}
             >
               <ExternalLink className="w-4 h-4 mr-1.5" />
@@ -631,6 +632,11 @@ export default function ResultBatchPage() {
 
   const assignmentId = params.assignmentId ? parseInt(params.assignmentId) : 0;
   const rubricId = params.rubricId ? parseInt(params.rubricId) : 0;
+  const courseId = params.id ? parseInt(params.id) : undefined;
+  const isCourseBased = !!courseId;
+
+  const backPath = isCourseBased ? `/course/${courseId}/tools` : "/quick-tools";
+  const backLabel = isCourseBased ? "Back to Course Tools" : "Back to Quick Tools";
 
   usePageTitle("Assignment & Rubric Results");
 
@@ -643,8 +649,8 @@ export default function ResultBatchPage() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => navigate("/quick-tools")}
-                aria-label="Back to Quick Tools"
+                onClick={() => navigate(backPath)}
+                aria-label={backLabel}
                 data-testid="button-back-tools"
               >
                 <ArrowLeft className="w-5 h-5" />
@@ -670,12 +676,14 @@ export default function ResultBatchPage() {
           contentId={assignmentId}
           badgeColor="bg-primary/10 text-primary"
           testIdPrefix="assignment"
+          courseId={courseId}
         />
         <ContentPanel
           label="Your Rubric"
           contentId={rubricId}
           badgeColor="bg-secondary/10 text-secondary-foreground"
           testIdPrefix="rubric"
+          courseId={courseId}
         />
       </div>
 

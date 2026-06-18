@@ -383,11 +383,12 @@ export default function ToolForm() {
 
   const generateMutation = useMutation({
     mutationFn: async () => {
-      if (isStandalone && toolId === "assignment" && generateRubric) {
+      if (toolId === "assignment" && generateRubric) {
         const response = await apiRequest("POST", "/api/generate-batch-assignment-rubric", {
           formData,
           rubricConfig: { totalPoints: rubricTotalPoints, levels: rubricLevels },
           language,
+          courseId: isStandalone ? undefined : courseId,
         });
         return response.json();
       }
@@ -409,9 +410,15 @@ export default function ToolForm() {
       return response.json();
     },
     onSuccess: (data) => {
-      if (isStandalone && toolId === "assignment" && generateRubric && data.assignmentId && data.rubricId) {
-        queryClient.invalidateQueries({ queryKey: ["/api/content/recent-quick-tools"] });
-        navigate(`/quick-tools/result-batch/${data.assignmentId}/${data.rubricId}`);
+      if (toolId === "assignment" && generateRubric && data.assignmentId && data.rubricId) {
+        if (isStandalone) {
+          queryClient.invalidateQueries({ queryKey: ["/api/content/recent-quick-tools"] });
+          navigate(`/quick-tools/result-batch/${data.assignmentId}/${data.rubricId}`);
+        } else {
+          queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId, "content"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId, "tool-usage"] });
+          navigate(`/course/${courseId}/result-batch/${data.assignmentId}/${data.rubricId}`);
+        }
         return;
       }
       if (isStandalone) {
@@ -1097,7 +1104,7 @@ export default function ToolForm() {
             </div>
           )}
 
-          {toolId === "assignment" && isStandalone && (
+          {toolId === "assignment" && (
             <Card>
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
@@ -1161,7 +1168,7 @@ export default function ToolForm() {
             </Button>
             <Button type="submit" className="gap-2" data-testid="button-generate">
               <Sparkles className="w-4 h-4" />
-              {toolId === "assignment" && isStandalone && generateRubric
+              {toolId === "assignment" && generateRubric
                 ? "Generate Assignment & Rubric"
                 : `Generate ${tool.name}`}
             </Button>

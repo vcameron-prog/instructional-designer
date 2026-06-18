@@ -60,6 +60,7 @@ function Router() {
       <Route path="/course/:id/tools" component={ToolSelection} />
       <Route path="/course/:id/tool/:toolId" component={ToolForm} />
       <Route path="/course/:id/result/:contentId" component={ResultPage} />
+      <Route path="/course/:id/result-batch/:assignmentId/:rubricId" component={ResultBatchPage} />
       <Route path="/quick-tools" component={QuickToolsPage} />
       <Route path="/quick-tools/result/:contentId" component={ResultPage} />
       <Route path="/quick-tools/result-batch/:assignmentId/:rubricId" component={ResultBatchPage} />
