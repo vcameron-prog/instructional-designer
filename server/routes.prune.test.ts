@@ -125,16 +125,20 @@ vi.mock("./lib/accessibility-engine", () => ({
 }));
 
 // ---------------------------------------------------------------------------
-// Module under test
+// Module under test – imported dynamically inside buildApp() so that
+// vi.resetModules() can reset module-level counters (activeFixJobs,
+// activeUploadJobs, activeProcessingKeys, etc.) before each test, preventing
+// in-memory state from bleeding across test cases.
 // ---------------------------------------------------------------------------
-import { registerRoutes } from "./routes.js";
 
 // ---------------------------------------------------------------------------
 // Helper: build a minimal Express app with all routes registered.
-// Called in beforeEach so each test starts with a fresh route table and clean
-// in-memory state (e.g. rate-limit counters for the refine route).
+// vi.resetModules() is called in beforeEach before this function so that each
+// invocation gets a freshly evaluated routes.ts with all counters/Sets reset
+// to their initial values.
 // ---------------------------------------------------------------------------
 async function buildApp() {
+  const { registerRoutes } = await import("./routes.js");
   const app = express();
   app.use(express.json());
   const httpServer = createServer(app);
@@ -169,6 +173,12 @@ describe("pruneOldVersions is called correctly from route handlers", () => {
   const EXPECTED_KEEP_COUNT = 10;
 
   beforeEach(async () => {
+    // Reset the module registry so routes.ts is re-evaluated with fresh
+    // module-level counters (activeFixJobs, activeUploadJobs, etc.) and
+    // empty deduplication Sets (activeFixKeys, activeProcessingKeys, etc.).
+    // The vi.mock() factories remain registered and are re-applied on the
+    // dynamic import inside buildApp().
+    vi.resetModules();
     vi.clearAllMocks();
     app = await buildApp();
 
