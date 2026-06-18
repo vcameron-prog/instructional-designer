@@ -81,8 +81,19 @@ export function OutcomeLibraryModal({ open, onClose, onAddOutcomes }: OutcomeLib
         return next;
       });
     },
-    onError: () => {
-      toast({ title: "Could not delete outcome", variant: "destructive" });
+    onError: (error: unknown, id: number) => {
+      const is404 = error instanceof Error && error.message.startsWith("404:");
+      if (is404) {
+        queryClient.invalidateQueries({ queryKey: ["/api/outcomes"] });
+        setSelectedMine((prev) => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+        toast({ title: "Outcome was already removed", description: "It has been removed from your list." });
+      } else {
+        toast({ title: "Could not delete outcome", variant: "destructive" });
+      }
     },
   });
 
