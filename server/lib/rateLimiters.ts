@@ -19,6 +19,8 @@
 
 export { checkSharedRateLimit } from "./shared-rate-limit.js";
 import { cleanupRateLimitLog } from "./shared-rate-limit.js";
+import { db } from "../db";
+import { sql } from "drizzle-orm";
 
 // ---------------------------------------------------------------------------
 // Shared (DB-backed) rate limiter constants
@@ -29,13 +31,40 @@ export const SHARED_ANON_UPLOAD_RATE_LIMIT =
 export const SHARED_HEAVY_OP_RATE_LIMIT =
   parseInt(process.env.HEAVY_OP_RATE_LIMIT ?? "5", 10) || 5;
 
-// Periodic cleanup — remove rows older than 2 hours so the table does not
-// grow without bound.  Runs every 15 minutes.
+// Periodic cleanup — remove rows older than RATE_LIMIT_LOG_TTL_HOURS (default 2)
+// so the table does not grow without bound.
+// Interval is controlled by RATE_LIMIT_CLEANUP_INTERVAL_MINUTES (default 15).
+// On multi-instance deployments a PostgreSQL advisory lock ensures only one
+// instance performs the delete on each cycle; the others skip silently.
 // Delegates to cleanupRateLimitLog (shared-rate-limit.ts) so the deletion
 // predicate is exercised in automated tests independently of this module.
+const RATE_LIMIT_LOG_TTL_HOURS =
+  parseFloat(process.env.RATE_LIMIT_LOG_TTL_HOURS ?? "2") || 2;
+const RATE_LIMIT_CLEANUP_INTERVAL_MINUTES =
+  parseFloat(process.env.RATE_LIMIT_CLEANUP_INTERVAL_MINUTES ?? "15") || 15;
+
+// Stable advisory lock key (arbitrary constant, crc32-inspired, fits int4).
+const RATE_LIMIT_CLEANUP_LOCK_KEY = 0x7a3f1c2d;
+
 export async function sharedRateLimitCleanupCallback(): Promise<void> {
   try {
-    await cleanupRateLimitLog();
+    // Try to acquire a non-blocking session-level advisory lock.
+    // Returns true if this instance won; false if another holds it.
+    const lockResult = await db.execute<{ acquired: boolean }>(
+      sql`SELECT pg_try_advisory_lock(${RATE_LIMIT_CLEANUP_LOCK_KEY}) AS acquired`,
+    );
+    const acquired = lockResult.rows?.[0]?.acquired ?? true;
+    if (!acquired) return; // Another instance is handling cleanup this cycle.
+
+    try {
+      const ttlMs = RATE_LIMIT_LOG_TTL_HOURS * 60 * 60 * 1000;
+      await cleanupRateLimitLog(ttlMs);
+    } finally {
+      // Always release so the next cycle is contested fairly.
+      await db.execute(
+        sql`SELECT pg_advisory_unlock(${RATE_LIMIT_CLEANUP_LOCK_KEY})`,
+      );
+    }
   } catch {
     // Non-critical; next interval will retry.
   }
@@ -43,7 +72,7 @@ export async function sharedRateLimitCleanupCallback(): Promise<void> {
 
 export const sharedRateLimitCleanupInterval = setInterval(
   sharedRateLimitCleanupCallback,
-  15 * 60 * 1000,
+  RATE_LIMIT_CLEANUP_INTERVAL_MINUTES * 60 * 1000,
 );
 
 // ---------------------------------------------------------------------------
