@@ -974,7 +974,7 @@ export function runDeterministicChecks(html: string): ComplianceIssue[] {
 
   // 2.4.4 – Vague link text
   const vaguePattern = /^(click here|here|read more|more|learn more|link|this link|this|details|info|more info|click|download|view|see more|continue)$/i;
-  const linkTextRegex = /<a\s[^>]*>([\s\S]*?)<\/a>/gi;
+  const linkTextRegex = new RegExp(`<a\\s${ATTR_PATTERN}>([\\s\\S]*?)<\\/a>`, "gi");
   const vagueLinks: string[] = [];
   let vagueMatch: RegExpExecArray | null;
   while ((vagueMatch = linkTextRegex.exec(html)) !== null) {
@@ -994,7 +994,7 @@ export function runDeterministicChecks(html: string): ComplianceIssue[] {
 
   // 2.4.6 – Empty headings
   const emptyHeadings: string[] = [];
-  const headingContentRegex = /<h([1-6])(?:[^>]*)>([\s\S]*?)<\/h[1-6]>/gi;
+  const headingContentRegex = new RegExp(`<h([1-6])(?:${ATTR_PATTERN})>([\\s\\S]*?)<\\/h[1-6]>`, "gi");
   let hcMatch: RegExpExecArray | null;
   while ((hcMatch = headingContentRegex.exec(html)) !== null) {
     const text = hcMatch[2].replace(/<[^>]+>/g, "").trim();
@@ -1012,7 +1012,7 @@ export function runDeterministicChecks(html: string): ComplianceIssue[] {
   }
 
   // 1.3.1 – Fake lists (paragraphs using bullet characters instead of <ul>/<li>)
-  const fakeBulletRegex = /<p[^>]*>\s*[•·▪▸►▶→✓✗⚫●○▷◆◇▼▽\-\*]{1}\s+[^<\s]/gi;
+  const fakeBulletRegex = new RegExp(`<p${ATTR_PATTERN}>\\s*[•·▪▸►▶→✓✗⚫●○▷◆◇▼▽\\-\\*]{1}\\s+[^<\\s]`, "gi");
   const fakeBulletMatches = html.match(fakeBulletRegex) || [];
   if (fakeBulletMatches.length >= 3) {
     issues.push({
@@ -1307,7 +1307,7 @@ export function applyBypassBlocksFix(html: string): string {
     return landmarkRoles.has(role);
   }
 
-  return html.replace(/(<body[^>]*>)([\s\S]*?)(<\/body>)/i, (_match, open, inner, close) => {
+  return html.replace(new RegExp(`(<body${ATTR_PATTERN}>)([\\s\\S]*?)(<\\/body>)`, "i"), (_match, open, inner, close) => {
     const root = parseHtml(inner);
     const children = root.childNodes;
 
@@ -1356,12 +1356,12 @@ export function applyBypassBlocksFix(html: string): string {
 }
 
 export function extractPageTitleInfo(html: string): { title: string; headingLevel: "h1" | "h2" | null } {
-  const h1Match = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+  const h1Match = html.match(new RegExp(`<h1${ATTR_PATTERN}>([\\s\\S]*?)<\\/h1>`, "i"));
   if (h1Match) {
     const text = h1Match[1].replace(/<[^>]+>/g, "").trim();
     if (text) return { title: text, headingLevel: "h1" };
   }
-  const h2Match = html.match(/<h2[^>]*>([\s\S]*?)<\/h2>/i);
+  const h2Match = html.match(new RegExp(`<h2${ATTR_PATTERN}>([\\s\\S]*?)<\\/h2>`, "i"));
   if (h2Match) {
     const text = h2Match[1].replace(/<[^>]+>/g, "").trim();
     if (text) return { title: text, headingLevel: "h2" };
@@ -2098,7 +2098,7 @@ function ensureMissingTables(html: string, tables: ExtractedTable[]): string {
 
 /** Extract a heading outline from generated HTML to pass as context to continuation chunks. */
 function extractHeadingOutline(html: string): string {
-  const headingRegex = /<h([1-6])(?:[^>]*)>([\s\S]*?)<\/h[1-6]>/gi;
+  const headingRegex = new RegExp(`<h([1-6])(?:${ATTR_PATTERN})>([\\s\\S]*?)<\\/h[1-6]>`, "gi");
   const headings: string[] = [];
   let match: RegExpExecArray | null;
   while ((match = headingRegex.exec(html)) !== null) {
@@ -2122,7 +2122,7 @@ async function generateVisionAltText(
   const weakAltPattern = /^(document image|image[\s:\-]*\S{0,30}|photo|picture|img|icon|graphic|figure|untitled|\s*)$/i;
 
   const candidates: Array<{ dataUrl: string }> = [];
-  const imgTagRegex = /<img\s([^>]*?)>/gi;
+  const imgTagRegex = new RegExp(`<img\\s(${ATTR_PATTERN})>`, "gi");
   let m: RegExpExecArray | null;
   while ((m = imgTagRegex.exec(html)) !== null) {
     const attrs = m[1];
@@ -2172,7 +2172,7 @@ async function generateVisionAltText(
 
   if (altMap.size === 0) return html;
 
-  return html.replace(/<img\s([^>]*?)>/gi, (fullMatch: string, attrs: string) => {
+  return html.replace(new RegExp(`<img\\s(${ATTR_PATTERN})>`, "gi"), (fullMatch: string, attrs: string) => {
     const srcMatch = attrs.match(/src="(data:[^"]+)"/i);
     if (!srcMatch) return fullMatch;
     const newAlt = altMap.get(srcMatch[1]);

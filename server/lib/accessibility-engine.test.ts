@@ -133,6 +133,13 @@ describe("runDeterministicChecks", () => {
       const headings = issues.find((i) => i.criterion === "2.4.6");
       expect(headings!.details).toContain("2");
     });
+
+    it("correctly detects a non-empty h1 whose open tag contains an attribute value with '>'", () => {
+      const html = `<html lang="en"><body><h1 data-cmp="x>y">Real Heading</h1></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const headings = issues.find((i) => i.criterion === "2.4.6");
+      expect(headings!.status).toBe("pass");
+    });
   });
 
   // 2.4.1 Bypass Blocks
@@ -4477,6 +4484,12 @@ describe("applyPageTitleFix", () => {
     const result = applyPageTitleFix(html);
     expect(result).toContain("<title>Products</title>");
   });
+
+  it("extracts h1 text correctly when the h1 tag has an attribute value containing '>'", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title></title></head><body><h1 data-label="x>y">Safe Heading</h1></body></html>`;
+    const result = applyPageTitleFix(html);
+    expect(result).toContain("<title>Safe Heading</title>");
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -4554,6 +4567,13 @@ describe("applyBypassBlocksFix", () => {
     const result = applyBypassBlocksFix(html);
     const mainCount = (result.match(/<main/gi) ?? []).length;
     expect(mainCount).toBe(1);
+  });
+
+  it("wraps body content even when the <body> tag has an attribute value containing '>'", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body data-x="a>b"><h1>Hello</h1></body></html>`;
+    const result = applyBypassBlocksFix(html);
+    expect(result).toContain("<main>");
+    expect(result).toContain("</main>");
   });
 
   it("fixed HTML no longer triggers the 2.4.1 Bypass Blocks warning", () => {
