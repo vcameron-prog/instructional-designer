@@ -1531,6 +1531,62 @@ describe("runDeterministicChecks", () => {
       });
     });
 
+    describe("role=\"list\" tagCounts", () => {
+      it("populates tagCounts with a single key when all offending elements share the same tag", () => {
+        const html = `<html lang="en"><body><main><h1>Page</h1>
+          <div role="list">A</div>
+          <div role="list">B</div>
+          <div role="list">C</div>
+        </main></body></html>`;
+        const issues = runDeterministicChecks(html);
+        const issue = issues.find((i) => i.title === "ARIA List Role on Non-List Element");
+        expect(issue).toBeDefined();
+        expect(issue!.tagCounts).toBeDefined();
+        expect(Object.keys(issue!.tagCounts!)).toHaveLength(1);
+        expect(issue!.tagCounts!["<div>"]).toBe(3);
+      });
+
+      it("populates tagCounts with one key per distinct offending tag", () => {
+        const html = `<html lang="en"><body><main><h1>Page</h1>
+          <div role="list">A</div>
+          <div role="list">B</div>
+          <span role="list">C</span>
+          <p role="list">D</p>
+        </main></body></html>`;
+        const issues = runDeterministicChecks(html);
+        const issue = issues.find((i) => i.title === "ARIA List Role on Non-List Element");
+        expect(issue).toBeDefined();
+        expect(issue!.tagCounts).toBeDefined();
+        expect(issue!.tagCounts!["<div>"]).toBe(2);
+        expect(issue!.tagCounts!["<span>"]).toBe(1);
+        expect(issue!.tagCounts!["<p>"]).toBe(1);
+      });
+
+      it("tagCounts sum equals the total count reported in details", () => {
+        const html = `<html lang="en"><body><main><h1>Page</h1>
+          <div role="list">A</div>
+          <span role="list">B</span>
+          <p role="list">C</p>
+        </main></body></html>`;
+        const issues = runDeterministicChecks(html);
+        const issue = issues.find((i) => i.title === "ARIA List Role on Non-List Element");
+        expect(issue).toBeDefined();
+        const total = Object.values(issue!.tagCounts!).reduce((s, n) => s + n, 0);
+        expect(total).toBe(3);
+        expect(issue!.details).toContain("3 element(s)");
+      });
+
+      it("does not flag native ul or ol elements with role=\"list\"", () => {
+        const html = `<html lang="en"><body><main><h1>Page</h1>
+          <ul role="list"><li>Item A</li></ul>
+          <ol role="list"><li>Item B</li></ol>
+        </main></body></html>`;
+        const issues = runDeterministicChecks(html);
+        const issue = issues.find((i) => i.title === "ARIA List Role on Non-List Element");
+        expect(issue).toBeUndefined();
+      });
+    });
+
     describe("role=\"listitem\" tagCounts", () => {
       it("populates tagCounts with a single key when all offending elements share the same tag", () => {
         const html = `<html lang="en"><body><main><h1>Page</h1>

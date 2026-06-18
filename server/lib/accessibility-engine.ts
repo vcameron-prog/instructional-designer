@@ -852,10 +852,12 @@ export function runDeterministicChecks(html: string): ComplianceIssue[] {
     return tag !== "ul" && tag !== "ol";
   });
   if (nonListsWithListRole.length > 0) {
-    const tagList = nonListsWithListRole
-      .slice(0, 5)
-      .map((el) => `<${el.tagName?.toLowerCase()}>`)
-      .join(", ");
+    const listTagCounts: Record<string, number> = {};
+    nonListsWithListRole.forEach((el) => {
+      const tag = `<${el.tagName?.toLowerCase()}>`;
+      listTagCounts[tag] = (listTagCounts[tag] ?? 0) + 1;
+    });
+    const tagList = Object.keys(listTagCounts).slice(0, 5).join(", ");
     issues.push({
       criterion: "1.3.1",
       title: "ARIA List Role on Non-List Element",
@@ -863,6 +865,7 @@ export function runDeterministicChecks(html: string): ComplianceIssue[] {
       status: "warning",
       description: "Using role=\"list\" on a non-list element (e.g. <div>) is a misuse of ARIA. Use a native <ul> or <ol> element instead.",
       details: `Found ${nonListsWithListRole.length} element(s) with role="list" that are not native list elements (e.g. ${tagList}). Replace them with <ul> or <ol> for proper semantics.`,
+      tagCounts: listTagCounts,
     });
   }
 
