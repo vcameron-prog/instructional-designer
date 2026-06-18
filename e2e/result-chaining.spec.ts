@@ -202,6 +202,144 @@ test.describe("Quick Tools chaining — Rubric → Alignment", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Assignment → Alignment chain
+// ---------------------------------------------------------------------------
+
+const ASSIGNMENT_FORM_DATA = {
+  assignmentType: "Research Essay",
+  learningObjectives:
+    "Students will evaluate primary sources and construct evidence-based arguments",
+};
+
+const ASSIGNMENT_CONTENT =
+  "## Assignment Overview\n\n" +
+  "In this research essay, students will investigate a historical controversy using primary sources.\n\n" +
+  "## Learning Objectives\n\n" +
+  "- Evaluate the credibility and relevance of primary sources\n" +
+  "- Construct a well-supported, evidence-based argument\n" +
+  "- Apply proper citation conventions\n\n" +
+  "## Instructions\n\n" +
+  "1. Select a topic from the provided list.\n" +
+  "2. Locate at least three primary sources from the library database.\n" +
+  "3. Draft a 5–7 page essay that presents and defends a clear thesis.\n\n" +
+  "## Submission Requirements\n\n" +
+  "Submit a PDF via Blackboard Ultra by 11:59 PM on the due date.\n\n" +
+  "## Grading Criteria\n\n" +
+  "Argument clarity (30%), Source quality (30%), Writing mechanics (20%), Citation accuracy (20%).";
+
+test.describe("Quick Tools chaining — Assignment → Alignment", () => {
+  test("Next Steps card and alignment chain button are visible on an assignment result page", async ({
+    page,
+  }) => {
+    await loginAsTestUser(page);
+    const contentId = await seedContent(
+      page,
+      "assignment",
+      "Assignment Design",
+      ASSIGNMENT_FORM_DATA,
+      ASSIGNMENT_CONTENT,
+    );
+
+    await page.goto(`/quick-tools/result/${contentId}`);
+
+    await expect(page.locator("text=Assignment Overview")).toBeVisible({
+      timeout: 15_000,
+    });
+
+    await expect(page.getByTestId("card-next-steps")).toBeVisible();
+
+    await expect(page.getByTestId("button-chain-alignment")).toBeVisible();
+    await expect(page.getByTestId("button-chain-alignment")).toContainText(
+      "Check alignment for this",
+    );
+  });
+
+  test("clicking 'Check alignment for this' navigates to the alignment form", async ({
+    page,
+  }) => {
+    await loginAsTestUser(page);
+    const contentId = await seedContent(
+      page,
+      "assignment",
+      "Assignment Design",
+      ASSIGNMENT_FORM_DATA,
+      ASSIGNMENT_CONTENT,
+    );
+
+    await page.goto(`/quick-tools/result/${contentId}`);
+    await expect(page.getByTestId("card-next-steps")).toBeVisible({
+      timeout: 15_000,
+    });
+
+    await page.getByTestId("button-chain-alignment").click();
+
+    await expect(page).toHaveURL(/\/quick-tools\/alignment/, {
+      timeout: 5_000,
+    });
+  });
+
+  test("alignment form is pre-filled with learningObjectives in learningOutcomes and generatedContent in assignments", async ({
+    page,
+  }) => {
+    await loginAsTestUser(page);
+    const contentId = await seedContent(
+      page,
+      "assignment",
+      "Assignment Design",
+      ASSIGNMENT_FORM_DATA,
+      ASSIGNMENT_CONTENT,
+    );
+
+    await page.goto(`/quick-tools/result/${contentId}`);
+    await expect(page.getByTestId("card-next-steps")).toBeVisible({
+      timeout: 15_000,
+    });
+
+    await page.getByTestId("button-chain-alignment").click();
+    await expect(page).toHaveURL(/\/quick-tools\/alignment/, {
+      timeout: 5_000,
+    });
+
+    // learningOutcomes is pre-filled from the assignment form's learningObjectives
+    await expect(page.getByTestId("textarea-learningOutcomes")).toHaveValue(
+      ASSIGNMENT_FORM_DATA.learningObjectives,
+    );
+
+    // assignments is pre-filled with up to 1500 chars of the generated content
+    const expectedAssignments = ASSIGNMENT_CONTENT.slice(0, 1500);
+    await expect(page.getByTestId("textarea-assignments")).toHaveValue(
+      expectedAssignments,
+    );
+  });
+
+  test("chain prefill banner is shown on the alignment form", async ({
+    page,
+  }) => {
+    await loginAsTestUser(page);
+    const contentId = await seedContent(
+      page,
+      "assignment",
+      "Assignment Design",
+      ASSIGNMENT_FORM_DATA,
+      ASSIGNMENT_CONTENT,
+    );
+
+    await page.goto(`/quick-tools/result/${contentId}`);
+    await expect(page.getByTestId("card-next-steps")).toBeVisible({
+      timeout: 15_000,
+    });
+
+    await page.getByTestId("button-chain-alignment").click();
+    await expect(page).toHaveURL(/\/quick-tools\/alignment/, {
+      timeout: 5_000,
+    });
+
+    // The prefill banner signals to the user that fields were carried over.
+    await expect(page.getByTestId("banner-chain-prefill")).toBeVisible();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // AI-Resistant → AI-Student Activity chain
 // ---------------------------------------------------------------------------
 
