@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 import type { SavedContent, Course, Conversion } from "@shared/schema";
 import { format } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { isSessionExpiredMessage } from "@/lib/upload-error-utils";
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -88,7 +89,8 @@ export default function LibraryPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/library"] });
       toast({ title: "Removed from library" });
     },
-    onError: () => {
+    onError: (error: Error) => {
+      if (isSessionExpiredMessage(error.message)) return;
       toast({ title: "Failed to remove from library", variant: "destructive" });
     },
   });
@@ -106,7 +108,8 @@ export default function LibraryPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/conversions"] });
       toast({ title: "Conversion deleted" });
     },
-    onError: () => {
+    onError: (error: Error) => {
+      if (isSessionExpiredMessage(error.message)) return;
       toast({ title: "Failed to delete conversion", variant: "destructive" });
     },
   });
@@ -119,7 +122,8 @@ export default function LibraryPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
       toast({ title: "Course deleted" });
     },
-    onError: () => {
+    onError: (error: Error) => {
+      if (isSessionExpiredMessage(error.message)) return;
       toast({ title: "Failed to delete course", variant: "destructive" });
     },
   });
@@ -133,7 +137,8 @@ export default function LibraryPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
       toast({ title: "Course duplicated", description: `Created "${data.courseName}"` });
     },
-    onError: () => {
+    onError: (error: Error) => {
+      if (isSessionExpiredMessage(error.message)) return;
       toast({ title: "Failed to duplicate course", variant: "destructive" });
     },
   });

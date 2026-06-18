@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, type ReactNode } from "react";
 import { diffLines } from "diff";
+import { isSessionExpiredMessage } from "@/lib/upload-error-utils";
 import { useLocation, useParams } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import ReactMarkdown, { type Components } from "react-markdown";
@@ -490,8 +491,9 @@ export default function ResultPage() {
       toast({ title: "Content refined successfully!" });
     },
     onError: (error) => {
-      toast({ title: "Refinement failed", description: error.message, variant: "destructive" });
       setIsRefining(false);
+      if (isSessionExpiredMessage(error.message)) return;
+      toast({ title: "Refinement failed", description: error.message, variant: "destructive" });
     },
   });
 
@@ -513,6 +515,7 @@ export default function ResultPage() {
       toast({ title: "Saved as template!", description: "You can access this template from the Content Library to use in any course." });
     },
     onError: (error) => {
+      if (isSessionExpiredMessage(error.message)) return;
       toast({ title: "Failed to save", description: error.message, variant: "destructive" });
     },
   });
@@ -536,6 +539,7 @@ export default function ResultPage() {
       });
     },
     onError: (error) => {
+      if (isSessionExpiredMessage(error.message)) return;
       toast({ title: "Failed to update", description: error.message, variant: "destructive" });
     },
   });
@@ -557,6 +561,7 @@ export default function ResultPage() {
       });
     },
     onError: (error) => {
+      if (isSessionExpiredMessage(error.message)) return;
       toast({ title: "Undo failed", description: error.message, variant: "destructive" });
     },
   });
@@ -575,6 +580,7 @@ export default function ResultPage() {
       toast({ title: "Version restored", description: "Content has been restored to the selected version." });
     },
     onError: (error) => {
+      if (isSessionExpiredMessage(error.message)) return;
       toast({ title: "Restore failed", description: error.message, variant: "destructive" });
     },
   });
@@ -619,8 +625,9 @@ export default function ResultPage() {
       });
     },
     onError: (error) => {
-      toast({ title: "Fix failed", description: error.message, variant: "destructive" });
       setFixingIssue(null);
+      if (isSessionExpiredMessage(error.message)) return;
+      toast({ title: "Fix failed", description: error.message, variant: "destructive" });
     },
   });
 
@@ -718,6 +725,7 @@ export default function ResultPage() {
       setPreviewOpen(true);
     },
     onError: (error) => {
+      if (isSessionExpiredMessage(error.message)) return;
       toast({ title: "Preview failed", description: error.message, variant: "destructive" });
     },
   });

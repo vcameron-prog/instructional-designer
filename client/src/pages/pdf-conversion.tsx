@@ -50,6 +50,7 @@ import { usePageTitle } from "@/hooks/use-page-title";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
 import { PoweredByFooter } from "@/components/powered-by-footer";
+import { isSessionExpiredMessage } from "@/lib/upload-error-utils";
 import { format } from "date-fns";
 import {
   PieChart,
@@ -284,6 +285,7 @@ export default function PdfConversion() {
       queryClient.invalidateQueries({ queryKey: ["/api/conversions", numericId] });
     },
     onError: (err: Error) => {
+      if (isSessionExpiredMessage(err.message)) return;
       toast({
         title: "Re-conversion failed",
         description: err.message || "Could not start re-conversion.",

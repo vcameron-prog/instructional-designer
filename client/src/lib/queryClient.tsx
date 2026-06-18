@@ -1,10 +1,12 @@
-import { QueryClient, QueryFunction } from "@tanstack/react-query";
-import { SESSION_EXPIRED_MESSAGE } from "./upload-error-utils";
+import { QueryClient, QueryFunction, MutationCache, QueryCache } from "@tanstack/react-query";
+import { SESSION_EXPIRED_MESSAGE, isSessionExpiredMessage } from "./upload-error-utils";
+import { toast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
-    if (text.trimStart().startsWith("<")) {
+    if (res.status === 401 || res.status === 403 || text.trimStart().startsWith("<")) {
       throw new Error(SESSION_EXPIRED_MESSAGE);
     }
     throw new Error(`${res.status}: ${text}`);
@@ -45,7 +47,36 @@ export const getQueryFn: <T>(options: {
     return await res.json();
   };
 
+function showSessionExpiredToast() {
+  toast({
+    title: "Session expired",
+    description: SESSION_EXPIRED_MESSAGE,
+    variant: "destructive",
+    duration: Infinity,
+    action: (
+      <ToastAction
+        altText="Sign in again"
+        onClick={() => { window.location.href = "/api/login"; }}
+      >
+        Sign in again
+      </ToastAction>
+    ),
+  });
+}
+
+function handleGlobalError(error: unknown) {
+  if (error instanceof Error && isSessionExpiredMessage(error.message)) {
+    showSessionExpiredToast();
+  }
+}
+
 export const queryClient = new QueryClient({
+  mutationCache: new MutationCache({
+    onError: handleGlobalError,
+  }),
+  queryCache: new QueryCache({
+    onError: handleGlobalError,
+  }),
   defaultOptions: {
     queries: {
       queryFn: getQueryFn({ on401: "throw" }),

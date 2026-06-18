@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft, Loader2, Sparkles, BookOpen, Calendar, FileText, Layout, CheckCircle, Target, Scale, ShieldCheck, Eye, Bot } from "lucide-react";
 import { TOOLS, BSU_CALENDAR, LOADING_MESSAGES, COURSE_LEVELS, CONTENT_PREFILL_MAP } from "@/lib/constants";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { isSessionExpiredMessage } from "@/lib/upload-error-utils";
 import { useToast } from "@/hooks/use-toast";
 import { PoweredByFooter } from "@/components/powered-by-footer";
 import { HeaderControls } from "@/components/header-controls";
@@ -350,8 +351,9 @@ export default function ToolForm() {
       }
     },
     onError: (error) => {
-      toast({ title: "Generation failed", description: error.message, variant: "destructive" });
       setIsGenerating(false);
+      if (isSessionExpiredMessage(error.message)) return;
+      toast({ title: "Generation failed", description: error.message, variant: "destructive" });
     },
   });
 

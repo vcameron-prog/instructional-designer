@@ -26,6 +26,7 @@ import { usePageTitle } from "@/hooks/use-page-title";
 import type { Course } from "@shared/schema";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { isSessionExpiredMessage } from "@/lib/upload-error-utils";
 import { useToast } from "@/hooks/use-toast";
 import { CourseCard } from "@/components/course-card";
 import { PoweredByFooter } from "@/components/powered-by-footer";
@@ -72,7 +73,8 @@ export default function LandingPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
       toast({ title: "Course duplicated", description: `Created "${data.courseName}"` });
     },
-    onError: () => {
+    onError: (error: Error) => {
+      if (isSessionExpiredMessage(error.message)) return;
       toast({ title: "Failed to duplicate course", variant: "destructive" });
     },
   });

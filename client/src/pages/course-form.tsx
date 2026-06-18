@@ -190,7 +190,8 @@ export default function CourseForm({ courseId }: { courseId?: number }) {
       toast({ title: "Course created successfully!" });
       navigate(`/course/${data.id}/tools`);
     },
-    onError: () => {
+    onError: (error: Error) => {
+      if (isSessionExpiredMessage(error.message)) return;
       toast({ title: "Failed to create course", variant: "destructive" });
     },
   });
@@ -205,7 +206,8 @@ export default function CourseForm({ courseId }: { courseId?: number }) {
       toast({ title: "Course updated successfully!" });
       navigate(`/course/${courseId}/tools`);
     },
-    onError: () => {
+    onError: (error: Error) => {
+      if (isSessionExpiredMessage(error.message)) return;
       toast({ title: "Failed to update course", variant: "destructive" });
     },
   });
