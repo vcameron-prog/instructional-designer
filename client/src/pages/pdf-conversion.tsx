@@ -2716,9 +2716,16 @@ export default function PdfConversion() {
                                 <span className="mt-0.5 flex-shrink-0 inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-800/60 border border-amber-300 dark:border-amber-600 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">
                                   Manual fix needed
                                 </span>
-                                <p className="text-xs text-amber-800 dark:text-amber-200 leading-relaxed">
-                                  {noFixReasons[i]}
-                                </p>
+                                <div className="flex flex-col gap-0.5">
+                                  {issue.title && (
+                                    <p className="text-xs font-semibold text-amber-800 dark:text-amber-200">
+                                      {issue.title}
+                                    </p>
+                                  )}
+                                  <p className="text-xs text-amber-800 dark:text-amber-200 leading-relaxed">
+                                    {noFixReasons[i]}
+                                  </p>
+                                </div>
                               </div>
                             )}
                             {showAcceptForm === i && isFixable && (
