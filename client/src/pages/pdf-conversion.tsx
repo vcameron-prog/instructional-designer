@@ -378,9 +378,10 @@ export default function PdfConversion() {
       });
       if (data?.noFixReason) {
         setNoFixReasons(prev => ({ ...prev, [variables.issueIndex]: data.noFixReason }));
+        const noFixIssueSummary = variables.issueTitle ? `'${variables.issueTitle}': ` : "";
         toast({
           title: "Manual fix needed",
-          description: data.noFixReason,
+          description: `${noFixIssueSummary}${data.noFixReason}`,
           duration: 10000,
         });
         return;
