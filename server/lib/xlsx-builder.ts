@@ -60,6 +60,19 @@ function tableCaption(table: HTMLElement): string | null {
   return null;
 }
 
+function getSpan(cell: HTMLElement, attr: string): number {
+  const raw = cell.getAttribute(attr);
+  if (!raw) return 1;
+  const n = parseInt(raw, 10);
+  return Number.isFinite(n) && n >= 1 ? n : 1;
+}
+
+const HEADER_FILL: ExcelJS.FillPattern = {
+  type: "pattern",
+  pattern: "solid",
+  fgColor: { argb: "FFE8E8E8" },
+};
+
 export async function buildXlsx(
   html: string,
   docTitle: string = "Accessible Spreadsheet",
@@ -89,22 +102,56 @@ export async function buildXlsx(
     const tableRows = getDirectTableRows(table);
     if (tableRows.length === 0) return;
 
-    for (const tr of tableRows) {
+    // Track which (excelRow, excelCol) positions are already consumed by a
+    // spanning cell from an earlier row or an earlier cell in the same row.
+    // Keys are "row,col" strings (both 1-indexed).
+    const occupied = new Set<string>();
+
+    for (let rowIdx = 0; rowIdx < tableRows.length; rowIdx++) {
+      const tr = tableRows[rowIdx];
       const cells = getDirectCells(tr);
-      const isHeaderRow = cells.length > 0 && cells[0].tagName?.toLowerCase() === "th";
+      const excelRow = rowIdx + 1; // 1-indexed
 
-      const rowValues: string[] = cells.map((cell) => cellText(cell));
-      const row = sheet.addRow(rowValues);
+      let colCursor = 1; // 1-indexed column position
 
-      if (isHeaderRow) {
-        row.eachCell((cell) => {
-          cell.font = { bold: true };
-          cell.fill = {
-            type: "pattern",
-            pattern: "solid",
-            fgColor: { argb: "FFE8E8E8" },
-          };
-        });
+      for (const cell of cells) {
+        // Advance past any positions already consumed by earlier rowspans
+        while (occupied.has(`${excelRow},${colCursor}`)) {
+          colCursor++;
+        }
+
+        const colspan = getSpan(cell, "colspan");
+        const rowspan = getSpan(cell, "rowspan");
+        const isHeader = cell.tagName?.toLowerCase() === "th";
+
+        // Write the cell value at the resolved position
+        const xlCell = sheet.getCell(excelRow, colCursor);
+        xlCell.value = cellText(cell);
+
+        if (isHeader) {
+          xlCell.font = { bold: true };
+          xlCell.fill = HEADER_FILL;
+        }
+
+        // Handle merging when the cell spans multiple columns and/or rows
+        if (colspan > 1 || rowspan > 1) {
+          const endRow = excelRow + rowspan - 1;
+          const endCol = colCursor + colspan - 1;
+
+          // Mark every position in the span (except the master) as occupied
+          for (let r = excelRow; r <= endRow; r++) {
+            for (let c = colCursor; c <= endCol; c++) {
+              if (r !== excelRow || c !== colCursor) {
+                occupied.add(`${r},${c}`);
+              }
+            }
+          }
+
+          // ExcelJS merge: master cell keeps its value; slave cells become empty
+          sheet.mergeCells(excelRow, colCursor, endRow, endCol);
+        }
+
+        colCursor += colspan;
       }
     }
 
