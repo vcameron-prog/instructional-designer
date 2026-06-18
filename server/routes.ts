@@ -4541,69 +4541,92 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           let extraction: import("./lib/pdf-processor").PdfExtraction;
           let ocrApplied = false;
 
-          if (srcType === "google-sheet" || srcType === "xlsx") {
-            await updateStatusMessage(
-              srcType === "xlsx"
-                ? "Extracting Excel spreadsheet content…"
-                : "Extracting Google Sheet content…"
-            );
-            const { extractXlsxContent } = await import("./lib/xlsx-extractor");
-            extraction = await extractXlsxContent(fileBuffer, conversion.selectedSheet);
-          } else if (srcType === "pptx" || srcType === "google-slide") {
-            await updateStatusMessage(
-              srcType === "google-slide"
-                ? "Extracting Google Slides content…"
-                : "Extracting PowerPoint slide content…"
-            );
-            const { extractPptxContent } = await import("./lib/pptx-extractor");
-            extraction = await extractPptxContent(fileBuffer);
-          } else if (srcType === "docx" || srcType === "google-doc") {
-            await updateStatusMessage(
-              srcType === "google-doc"
-                ? "Extracting Google Doc content…"
-                : "Extracting Word document content…",
-            );
-            const { extractDocxContent } = await import("./lib/docx-extractor");
-            extraction = await extractDocxContent(fileBuffer);
-          } else if (srcType === "doc") {
-            await updateStatusMessage("Extracting Legacy Word document content…");
-            const { extractDocContent } = await import("./lib/doc-extractor");
-            extraction = await extractDocContent(fileBuffer);
-          } else if (srcType === "rtf") {
-            await updateStatusMessage("Extracting Rich Text Format content…");
-            const { extractRtfContent } = await import("./lib/rtf-extractor");
-            extraction = await extractRtfContent(fileBuffer);
-          } else if (srcType === "html") {
-            await updateStatusMessage("Extracting HTML document content…");
-            const { extractHtmlContent } = await import("./lib/html-extractor");
-            extraction = await extractHtmlContent(fileBuffer);
-          } else if (srcType === "odt") {
-            await updateStatusMessage("Extracting OpenDocument Text content…");
-            const { extractOdfContent } = await import("./lib/odf-extractor");
-            extraction = await extractOdfContent(fileBuffer, "odt");
-          } else if (srcType === "ods") {
-            await updateStatusMessage("Extracting OpenDocument Spreadsheet content…");
-            const { extractOdfContent } = await import("./lib/odf-extractor");
-            extraction = await extractOdfContent(fileBuffer, "ods");
-          } else if (srcType === "odp") {
-            await updateStatusMessage("Extracting OpenDocument Presentation content…");
-            const { extractOdfContent } = await import("./lib/odf-extractor");
-            extraction = await extractOdfContent(fileBuffer, "odp");
-          } else if (srcType === "epub") {
-            await updateStatusMessage("Extracting EPUB content…");
-            const { extractEpubContent } = await import("./lib/epub-extractor");
-            extraction = await extractEpubContent(fileBuffer);
-          } else if (srcType === "csv") {
-            await updateStatusMessage("Extracting CSV data…");
-            const { extractCsvContent } = await import("./lib/csv-extractor");
-            extraction = await extractCsvContent(fileBuffer);
-          } else {
-            await updateStatusMessage("Extracting PDF content…");
-            const { extractPdfContent, needsOcr } = await import(
-              "./lib/pdf-processor"
-            );
-            extraction = await extractPdfContent(fileBuffer);
-            ocrApplied = needsOcr(extraction.text, extraction.pageCount);
+          try {
+            if (srcType === "google-sheet" || srcType === "xlsx") {
+              await updateStatusMessage(
+                srcType === "xlsx"
+                  ? "Extracting Excel spreadsheet content…"
+                  : "Extracting Google Sheet content…"
+              );
+              const { extractXlsxContent } = await import("./lib/xlsx-extractor");
+              extraction = await extractXlsxContent(fileBuffer, conversion.selectedSheet);
+            } else if (srcType === "pptx" || srcType === "google-slide") {
+              await updateStatusMessage(
+                srcType === "google-slide"
+                  ? "Extracting Google Slides content…"
+                  : "Extracting PowerPoint slide content…"
+              );
+              const { extractPptxContent } = await import("./lib/pptx-extractor");
+              extraction = await extractPptxContent(fileBuffer);
+            } else if (srcType === "docx" || srcType === "google-doc") {
+              await updateStatusMessage(
+                srcType === "google-doc"
+                  ? "Extracting Google Doc content…"
+                  : "Extracting Word document content…",
+              );
+              const { extractDocxContent } = await import("./lib/docx-extractor");
+              extraction = await extractDocxContent(fileBuffer);
+            } else if (srcType === "doc") {
+              await updateStatusMessage("Extracting Legacy Word document content…");
+              const { extractDocContent } = await import("./lib/doc-extractor");
+              extraction = await extractDocContent(fileBuffer);
+            } else if (srcType === "rtf") {
+              await updateStatusMessage("Extracting Rich Text Format content…");
+              const { extractRtfContent } = await import("./lib/rtf-extractor");
+              extraction = await extractRtfContent(fileBuffer);
+            } else if (srcType === "html") {
+              await updateStatusMessage("Extracting HTML document content…");
+              const { extractHtmlContent } = await import("./lib/html-extractor");
+              extraction = await extractHtmlContent(fileBuffer);
+            } else if (srcType === "odt") {
+              await updateStatusMessage("Extracting OpenDocument Text content…");
+              const { extractOdfContent } = await import("./lib/odf-extractor");
+              extraction = await extractOdfContent(fileBuffer, "odt");
+            } else if (srcType === "ods") {
+              await updateStatusMessage("Extracting OpenDocument Spreadsheet content…");
+              const { extractOdfContent } = await import("./lib/odf-extractor");
+              extraction = await extractOdfContent(fileBuffer, "ods");
+            } else if (srcType === "odp") {
+              await updateStatusMessage("Extracting OpenDocument Presentation content…");
+              const { extractOdfContent } = await import("./lib/odf-extractor");
+              extraction = await extractOdfContent(fileBuffer, "odp");
+            } else if (srcType === "epub") {
+              await updateStatusMessage("Extracting EPUB content…");
+              const { extractEpubContent } = await import("./lib/epub-extractor");
+              extraction = await extractEpubContent(fileBuffer);
+            } else if (srcType === "csv") {
+              await updateStatusMessage("Extracting CSV data…");
+              const { extractCsvContent } = await import("./lib/csv-extractor");
+              extraction = await extractCsvContent(fileBuffer);
+            } else {
+              await updateStatusMessage("Extracting PDF content…");
+              const { extractPdfContent, needsOcr } = await import(
+                "./lib/pdf-processor"
+              );
+              extraction = await extractPdfContent(fileBuffer);
+              ocrApplied = needsOcr(extraction.text, extraction.pageCount);
+            }
+          } catch (extractErr: any) {
+            console.error(`[conversion #${id}] extraction failed (${srcType}): ${extractErr.message}`);
+            const friendlyMessages: Record<string, string> = {
+              "google-sheet": "This Google Sheet could not be read. It may be in an unsupported format or corrupted.",
+              xlsx: "This Excel spreadsheet could not be read. It may be corrupted, password-protected, or in an unsupported format.",
+              pptx: "This PowerPoint file could not be read. It may be corrupted, password-protected, or in an unsupported format.",
+              "google-slide": "This Google Slides file could not be read. It may be in an unsupported format or corrupted.",
+              docx: "This Word document could not be read. It may be corrupted, password-protected, or in an unsupported format.",
+              "google-doc": "This Google Doc could not be extracted. It may be in an unsupported format or corrupted.",
+              doc: "This file could not be read. It may be corrupted or in an unsupported variant of the .doc format.",
+              rtf: "This RTF file could not be read. It may be corrupted or in an unsupported format.",
+              html: "This HTML file could not be parsed. Check that it is a valid HTML document.",
+              odt: "This OpenDocument Text file could not be read. It may be corrupted or in an unsupported format.",
+              ods: "This OpenDocument Spreadsheet could not be read. It may be corrupted or in an unsupported format.",
+              odp: "This OpenDocument Presentation could not be read. It may be corrupted or in an unsupported format.",
+              epub: "This EPUB file could not be opened. It may be corrupted or not a valid EPUB.",
+              csv: "This CSV file could not be parsed. Check that it is a valid, well-formed CSV file.",
+              pdf: "This PDF could not be read. It may be corrupted, password-protected, or not a valid PDF.",
+            };
+            const friendly = friendlyMessages[srcType] ?? "This file could not be read. It may be corrupted or in an unsupported format.";
+            throw new Error(friendly);
           }
 
           // Bail out early if the timeout already fired during extraction.
