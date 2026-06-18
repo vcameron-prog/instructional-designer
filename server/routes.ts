@@ -1462,12 +1462,25 @@ export async function registerRoutes(
   app.get("/api/metrics", async (_req: Request, res: Response) => {
     const { retryCount, lastRetryAt } = await getAiFixRetryMetrics();
     const dbStats = await storage.getAiFixRetryStats().catch(() => ({ lifetimeCount: 0, thisMonthCount: 0 }));
+
+    const warnCount    = parseInt(process.env.RETRY_WARN_COUNT    ?? "10",   10);
+    const warnRate     = parseFloat(process.env.RETRY_WARN_RATE   ?? "0.05");
+    const criticalCount = parseInt(process.env.RETRY_CRITICAL_COUNT ?? "25", 10);
+    const criticalRate  = parseFloat(process.env.RETRY_CRITICAL_RATE ?? "0.10");
+
+
     res.json({
       aiFixRetry: {
         count: retryCount,
         lastAt: lastRetryAt,
         lifetimeCount: dbStats.lifetimeCount,
         thisMonthCount: dbStats.thisMonthCount,
+      },
+      thresholds: {
+        warnCount:     isNaN(warnCount)    ? 10   : warnCount,
+        warnRate:      isNaN(warnRate)     ? 0.05 : warnRate,
+        criticalCount: isNaN(criticalCount) ? 25  : criticalCount,
+        criticalRate:  isNaN(criticalRate)  ? 0.10: criticalRate,
       },
     });
   });

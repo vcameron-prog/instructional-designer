@@ -118,6 +118,12 @@ interface Metrics {
     lifetimeCount: number;
     thisMonthCount: number;
   };
+  thresholds: {
+    warnCount: number;
+    warnRate: number;
+    criticalCount: number;
+    criticalRate: number;
+  };
 }
 
 const CHART_COLORS = [
@@ -715,8 +721,13 @@ export default function AdminDashboard() {
           const aiChecksRun = stats.accessibilityStats?.aiChecksRun ?? 0;
           const retryRate = aiChecksRun > 0 ? retryCount / aiChecksRun : 0;
 
-          const isCritical = retryCount > 25 || (aiChecksRun > 0 && retryRate > 0.10);
-          const isWarning = !isCritical && (retryCount > 10 || (aiChecksRun > 0 && retryRate > 0.05));
+          const warnCount    = metrics?.thresholds?.warnCount    ?? 10;
+          const warnRate     = metrics?.thresholds?.warnRate     ?? 0.05;
+          const criticalCount = metrics?.thresholds?.criticalCount ?? 25;
+          const criticalRate  = metrics?.thresholds?.criticalRate  ?? 0.10;
+
+          const isCritical = retryCount > criticalCount || (aiChecksRun > 0 && retryRate > criticalRate);
+          const isWarning = !isCritical && (retryCount > warnCount || (aiChecksRun > 0 && retryRate > warnRate));
 
           const cardBorderClass = isCritical
             ? "border-red-400 dark:border-red-600"
@@ -758,12 +769,12 @@ export default function AdminDashboard() {
                       <UITooltipContent side="left" className="max-w-xs text-sm">
                         <p className="font-medium mb-1">Retry rate thresholds</p>
                         <p className="text-muted-foreground">
-                          <span className="text-amber-600 dark:text-amber-400 font-medium">Elevated</span> — more than 10 retries or more than 5% of AI checks needed a second attempt.
+                          <span className="text-amber-600 dark:text-amber-400 font-medium">Elevated</span> — more than {warnCount} retries or more than {(warnRate * 100).toFixed(0)}% of AI checks needed a second attempt.
                         </p>
                         <p className="text-muted-foreground mt-1">
-                          <span className="text-red-600 dark:text-red-400 font-medium">High</span> — more than 25 retries or more than 10% of AI checks needed a second attempt.
+                          <span className="text-red-600 dark:text-red-400 font-medium">High</span> — more than {criticalCount} retries or more than {(criticalRate * 100).toFixed(0)}% of AI checks needed a second attempt.
                         </p>
-                        <p className="text-muted-foreground mt-1">Thresholds apply to the since-restart count. Lifetime and monthly counts persist across restarts.</p>
+                        <p className="text-muted-foreground mt-1">Thresholds apply to the since-restart count. Lifetime and monthly counts persist across restarts. Thresholds can be adjusted via the <code className="font-mono text-xs">RETRY_WARN_COUNT</code>, <code className="font-mono text-xs">RETRY_WARN_RATE</code>, <code className="font-mono text-xs">RETRY_CRITICAL_COUNT</code>, and <code className="font-mono text-xs">RETRY_CRITICAL_RATE</code> environment variables.</p>
                       </UITooltipContent>
                     </UITooltip>
                   </UITooltipProvider>
