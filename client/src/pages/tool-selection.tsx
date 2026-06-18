@@ -533,12 +533,16 @@ export default function ToolSelection() {
             </Button>
             <Button
               onClick={handleDownloadSelected}
-              disabled={selectedIds.size === 0}
+              disabled={selectedIds.size === 0 || isExporting}
               data-testid="button-download-selected"
-              aria-label={selectedIds.size === 0 ? "Select at least one item to download" : `Download ${selectedIds.size} selected item${selectedIds.size === 1 ? "" : "s"}`}
+              aria-label={isExporting ? "Preparing ZIP download…" : selectedIds.size === 0 ? "Select at least one item to download" : `Download ${selectedIds.size} selected item${selectedIds.size === 1 ? "" : "s"}`}
             >
-              <Download className="w-4 h-4 mr-1.5" aria-hidden="true" />
-              Download selected ({selectedIds.size})
+              {isExporting ? (
+                <Loader2 className="w-4 h-4 mr-1.5 animate-spin" aria-hidden="true" />
+              ) : (
+                <Download className="w-4 h-4 mr-1.5" aria-hidden="true" />
+              )}
+              {isExporting ? "Preparing…" : `Download selected (${selectedIds.size})`}
             </Button>
           </DialogFooter>
         </DialogContent>
