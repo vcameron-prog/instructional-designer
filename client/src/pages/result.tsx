@@ -704,6 +704,9 @@ export default function ResultPage() {
   };
 
   const handleApplyCaptionFix = () => {
+    if (captionEditMode === "edit" && (!captionEditText.trim() || captionEditText.trim().toLowerCase() === "table summary")) {
+      return;
+    }
     setCaptionDialogOpen(false);
     if (captionEditMode === "edit") {
       setFixingIssue("edit-html-table-caption");
@@ -2016,7 +2019,7 @@ export default function ResultPage() {
               {captionEditMode === "edit" && captionEditText.trim().toLowerCase() === "table summary" && (
                 <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300" role="alert" data-testid="warning-generic-caption">
                   <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
-                  <span>This caption uses the default "Table summary" text. Consider replacing it with a description of what the table actually contains.</span>
+                  <span>This caption still uses the default "Table summary" text. Replace it with a description of what the table actually contains before saving.</span>
                 </div>
               )}
               {captionEditMode === "add" && captionTexts.some((t) => t.trim().toLowerCase() === "table summary") && (
@@ -2076,7 +2079,7 @@ export default function ResultPage() {
                 <Button
                   onClick={captionEditMode === "edit" ? handleApplyCaptionFix : () => setCaptionStep("preview")}
                   className="gap-2"
-                  disabled={captionEditMode === "edit" ? !captionEditText.trim() : captionTexts.some((t) => !t.trim())}
+                  disabled={captionEditMode === "edit" ? (!captionEditText.trim() || captionEditText.trim().toLowerCase() === "table summary") : captionTexts.some((t) => !t.trim())}
                   data-testid="button-apply-caption"
                 >
                   <CheckCircle className="w-4 h-4" />
