@@ -1,12 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PoweredByFooter } from "@/components/powered-by-footer";
 import { HeaderControls } from "@/components/header-controls";
 import { usePageTitle } from "@/hooks/use-page-title";
-import { ArrowLeft, Settings, Wand2, Globe, LayoutList, Zap } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
+import { ArrowLeft, Settings, Wand2, Globe, LayoutList, Zap, Cloud, CloudOff } from "lucide-react";
 import { TOOLS } from "@/lib/constants";
+import { apiRequest } from "@/lib/queryClient";
 
 const SKIP_PREVIEW_KEY = "a11y-skip-preview";
 const AUTO_EXPAND_KEY = "bsu-auto-expand-sections";
@@ -23,39 +26,103 @@ const LANGUAGE_OPTIONS = [
   { value: "Haitian Creole", label: "Haitian Creole (Kreyòl ayisyen)" },
 ];
 
+interface UserPreferences {
+  skipPreview?: boolean;
+  autoExpand?: boolean;
+  defaultLanguage?: string;
+  preferredTool?: string;
+}
+
 export default function SettingsPage() {
   usePageTitle("Preferences | BSU AI Course Assistant");
   const [, navigate] = useLocation();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const queryClient = useQueryClient();
 
   const [skipPreview, setSkipPreview] = useState(
     () => localStorage.getItem(SKIP_PREVIEW_KEY) === "true"
   );
-
   const [autoExpand, setAutoExpand] = useState(
     () => localStorage.getItem(AUTO_EXPAND_KEY) === "true"
   );
-
   const [defaultLanguage, setDefaultLanguage] = useState(
     () => localStorage.getItem(DEFAULT_LANGUAGE_KEY) || "English"
   );
-
   const [preferredTool, setPreferredTool] = useState(
     () => localStorage.getItem(PREFERRED_TOOL_KEY) || ""
   );
+  const [hydrated, setHydrated] = useState(false);
+
+  const { data: serverPrefs, isLoading: prefsLoading } = useQuery<UserPreferences>({
+    queryKey: ["/api/preferences"],
+    queryFn: async () => {
+      const res = await fetch("/api/preferences", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch preferences");
+      return res.json();
+    },
+    enabled: isAuthenticated && !authLoading,
+    staleTime: 1000 * 60 * 5,
+    retry: false,
+  });
+
+  useEffect(() => {
+    if (!isAuthenticated || prefsLoading || hydrated) return;
+    if (!serverPrefs) return;
+
+    if (serverPrefs.skipPreview !== undefined) {
+      setSkipPreview(serverPrefs.skipPreview);
+      localStorage.setItem(SKIP_PREVIEW_KEY, serverPrefs.skipPreview ? "true" : "false");
+    }
+    if (serverPrefs.autoExpand !== undefined) {
+      setAutoExpand(serverPrefs.autoExpand);
+      localStorage.setItem(AUTO_EXPAND_KEY, serverPrefs.autoExpand ? "true" : "false");
+    }
+    if (serverPrefs.defaultLanguage) {
+      setDefaultLanguage(serverPrefs.defaultLanguage);
+      localStorage.setItem(DEFAULT_LANGUAGE_KEY, serverPrefs.defaultLanguage);
+    }
+    if (serverPrefs.preferredTool !== undefined) {
+      setPreferredTool(serverPrefs.preferredTool ?? "");
+      if (serverPrefs.preferredTool) {
+        localStorage.setItem(PREFERRED_TOOL_KEY, serverPrefs.preferredTool);
+      } else {
+        localStorage.removeItem(PREFERRED_TOOL_KEY);
+      }
+    }
+    setHydrated(true);
+  }, [serverPrefs, prefsLoading, isAuthenticated, hydrated]);
+
+  const saveMutation = useMutation({
+    mutationFn: async (patch: Partial<UserPreferences>) => {
+      return apiRequest("PATCH", "/api/preferences", patch);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/preferences"] });
+    },
+  });
+
+  const persist = (patch: Partial<UserPreferences>) => {
+    if (isAuthenticated) {
+      saveMutation.mutate(patch);
+    }
+  };
 
   const handleToggleSkipPreview = (value: boolean) => {
     setSkipPreview(value);
     localStorage.setItem(SKIP_PREVIEW_KEY, value ? "true" : "false");
+    persist({ skipPreview: value });
   };
 
   const handleToggleAutoExpand = (value: boolean) => {
     setAutoExpand(value);
     localStorage.setItem(AUTO_EXPAND_KEY, value ? "true" : "false");
+    persist({ autoExpand: value });
   };
 
   const handleLanguageChange = (value: string) => {
     setDefaultLanguage(value);
     localStorage.setItem(DEFAULT_LANGUAGE_KEY, value);
+    persist({ defaultLanguage: value });
   };
 
   const handlePreferredToolChange = (value: string) => {
@@ -65,9 +132,11 @@ export default function SettingsPage() {
     } else {
       localStorage.removeItem(PREFERRED_TOOL_KEY);
     }
+    persist({ preferredTool: value });
   };
 
   const quickTools = TOOLS.filter(t => QUICK_TOOL_IDS.includes(t.id));
+  const isSyncing = saveMutation.isPending;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -92,10 +161,38 @@ export default function SettingsPage() {
           <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
             <Settings className="w-5 h-5 text-primary" />
           </div>
-          <div>
+          <div className="flex-1">
             <h1 className="text-2xl font-bold">Preferences</h1>
             <p className="text-sm text-muted-foreground">Customize how the app behaves for you</p>
           </div>
+          {isAuthenticated && (
+            <div
+              className="flex items-center gap-1.5 text-xs text-muted-foreground"
+              data-testid="status-sync"
+              aria-live="polite"
+            >
+              {isSyncing ? (
+                <>
+                  <Cloud className="w-3.5 h-3.5 animate-pulse" />
+                  <span>Saving…</span>
+                </>
+              ) : (
+                <>
+                  <Cloud className="w-3.5 h-3.5 text-green-500" />
+                  <span>Synced to your account</span>
+                </>
+              )}
+            </div>
+          )}
+          {!isAuthenticated && !authLoading && (
+            <div
+              className="flex items-center gap-1.5 text-xs text-muted-foreground"
+              data-testid="status-local-only"
+            >
+              <CloudOff className="w-3.5 h-3.5" />
+              <span>Saved locally only</span>
+            </div>
+          )}
         </div>
 
         {/* Content Generation */}

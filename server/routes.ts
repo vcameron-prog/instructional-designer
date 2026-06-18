@@ -1409,6 +1409,41 @@ export async function registerRoutes(
     res.json({ versionHistoryLimit: VERSION_HISTORY_LIMIT });
   });
 
+  // User preferences — authenticated users only
+  app.get("/api/preferences", isAuthenticated, async (req: Request, res: Response) => {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+    try {
+      const prefs = await storage.getUserPreferences(userId);
+      res.json(prefs ?? {});
+    } catch (err) {
+      console.error("[preferences] GET error:", err);
+      res.status(500).json({ message: "Failed to fetch preferences" });
+    }
+  });
+
+  app.patch("/api/preferences", isAuthenticated, async (req: Request, res: Response) => {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+    const allowedKeys = new Set(["skipPreview", "autoExpand", "defaultLanguage", "preferredTool"]);
+    const patch = req.body as Record<string, unknown>;
+    const sanitized: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(patch)) {
+      if (allowedKeys.has(k)) sanitized[k] = v;
+    }
+
+    try {
+      const existing = (await storage.getUserPreferences(userId)) ?? {};
+      const merged = { ...existing, ...sanitized };
+      await storage.setUserPreferences(userId, merged);
+      res.json(merged);
+    } catch (err) {
+      console.error("[preferences] PATCH error:", err);
+      res.status(500).json({ message: "Failed to save preferences" });
+    }
+  });
+
   app.get("/api/deterministic-fixers", (_req: Request, res: Response) => {
     res.json({ keys: getDeterministicFixerKeys().sort() });
   });

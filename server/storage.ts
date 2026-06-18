@@ -14,8 +14,13 @@ import {
   type SavedContent,
   type InsertSavedContent,
 } from "@shared/schema";
+import { users } from "../shared/models/auth";
 
 export interface IStorage {
+  // User preferences (server-synced)
+  getUserPreferences(userId: string): Promise<Record<string, unknown> | null>;
+  setUserPreferences(userId: string, prefs: Record<string, unknown>): Promise<void>;
+
   // Courses (user-scoped)
   getAllCourses(userId: string): Promise<Course[]>;
   getCourse(id: number, userId: string): Promise<Course | undefined>;
@@ -55,6 +60,17 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  // User preferences (server-synced)
+  async getUserPreferences(userId: string): Promise<Record<string, unknown> | null> {
+    const [row] = await db.select({ preferences: users.preferences }).from(users).where(eq(users.id, userId));
+    if (!row) return null;
+    return (row.preferences as Record<string, unknown>) ?? null;
+  }
+
+  async setUserPreferences(userId: string, prefs: Record<string, unknown>): Promise<void> {
+    await db.update(users).set({ preferences: prefs, updatedAt: new Date() }).where(eq(users.id, userId));
+  }
+
   // Courses (user-scoped)
   async getAllCourses(userId: string): Promise<Course[]> {
     return db.select().from(courses).where(eq(courses.userId, userId)).orderBy(desc(courses.updatedAt));

@@ -1352,7 +1352,7 @@ export default function ResultPage() {
                                   <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-red-100 border border-red-300" aria-hidden="true" />Removed since this version</span>
                                   <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-green-100 border border-green-300" aria-hidden="true" />Added since this version</span>
                                 </div>
-                                {versionDiff.map((part, i) => {
+                                {versionDiff.map((part: import("diff").Change, i: number) => {
                                   if (part.removed) {
                                     return (
                                       <div key={i} className="bg-red-50 border-l-2 border-red-400 pl-2 -ml-2 whitespace-pre-wrap text-red-800 dark:bg-red-950/30 dark:text-red-300 dark:border-red-600">
