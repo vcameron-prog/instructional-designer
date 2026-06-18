@@ -1,0 +1,1 @@
+ALTER TABLE "conversions" ADD COLUMN "manual_fix_items" jsonb;
