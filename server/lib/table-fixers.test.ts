@@ -117,6 +117,61 @@ describe("fixHtmlTableCaption — nested tables", () => {
 });
 
 // ---------------------------------------------------------------------------
+// fixHtmlTableCaption — captionTexts array path
+// ---------------------------------------------------------------------------
+describe("fixHtmlTableCaption — captionTexts array", () => {
+  it("applies distinct captions from an array to multiple uncaptioned tables in order", () => {
+    const t1 = `<table><tr><td>T1</td></tr></table>`;
+    const t2 = `<table><tr><td>T2</td></tr></table>`;
+    const output = fixHtmlTableCaption(`${t1}\n${t2}`, ["Grade distribution", "Attendance log"]);
+    expect(output).toContain("<caption>Grade distribution</caption>");
+    expect(output).toContain("<caption>Attendance log</caption>");
+  });
+
+  it("falls back to 'Table summary' for tables beyond the end of a short array", () => {
+    const t1 = `<table><tr><td>T1</td></tr></table>`;
+    const t2 = `<table><tr><td>T2</td></tr></table>`;
+    const t3 = `<table><tr><td>T3</td></tr></table>`;
+    const output = fixHtmlTableCaption(`${t1}\n${t2}\n${t3}`, ["Only one caption"]);
+    expect(output).toContain("<caption>Only one caption</caption>");
+    const fallbackCount = (output.match(/<caption>Table summary<\/caption>/gi) ?? []).length;
+    expect(fallbackCount).toBe(2);
+  });
+
+  it("ignores extra captions when the array is longer than the number of uncaptioned tables", () => {
+    const input = `<table><tr><td>T1</td></tr></table>`;
+    const output = fixHtmlTableCaption(input, ["Caption A", "Caption B", "Caption C"]);
+    expect(output).toContain("<caption>Caption A</caption>");
+    const captionCount = (output.match(/<caption/gi) ?? []).length;
+    expect(captionCount).toBe(1);
+  });
+
+  it("falls back to 'Table summary' for empty string entries in the array", () => {
+    const t1 = `<table><tr><td>T1</td></tr></table>`;
+    const t2 = `<table><tr><td>T2</td></tr></table>`;
+    const output = fixHtmlTableCaption(`${t1}\n${t2}`, ["", ""]);
+    const fallbackCount = (output.match(/<caption>Table summary<\/caption>/gi) ?? []).length;
+    expect(fallbackCount).toBe(2);
+  });
+
+  it("falls back to 'Table summary' for whitespace-only string entries in the array", () => {
+    const input = `<table><tr><td>T1</td></tr></table>`;
+    const output = fixHtmlTableCaption(input, ["   "]);
+    expect(output).toContain("<caption>Table summary</caption>");
+  });
+
+  it("skips already-captioned tables and applies array captions only to uncaptioned ones", () => {
+    const captioned = `<table><caption>Existing</caption><tr><td>C</td></tr></table>`;
+    const uncaptioned = `<table><tr><td>U</td></tr></table>`;
+    const output = fixHtmlTableCaption(`${captioned}\n${uncaptioned}`, ["New caption"]);
+    expect(output).toContain("<caption>Existing</caption>");
+    expect(output).toContain("<caption>New caption</caption>");
+    const captionCount = (output.match(/<caption/gi) ?? []).length;
+    expect(captionCount).toBe(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // fixHtmlTableThead — flat tables
 // ---------------------------------------------------------------------------
 describe("fixHtmlTableThead — flat tables", () => {

@@ -1640,41 +1640,53 @@ export default function ResultPage() {
               })}
             </div>
           ) : (
-            <div className="space-y-4 max-h-72 overflow-y-auto pr-1">
-              {captionEditMode === "edit" ? (
-                <div className="space-y-1">
-                  <Label htmlFor="caption-input-edit">Caption text</Label>
-                  <Input
-                    id="caption-input-edit"
-                    value={captionEditText}
-                    onChange={(e) => setCaptionEditText(e.target.value)}
-                    placeholder="e.g., Weekly assignment schedule"
-                    onKeyDown={(e) => { if (e.key === "Enter") handleApplyCaptionFix(); }}
-                    data-testid="input-caption-text"
-                    autoFocus
-                  />
+            <>
+              <div className="space-y-4 max-h-72 overflow-y-auto pr-1">
+                {captionEditMode === "edit" ? (
+                  <div className="space-y-1">
+                    <Label htmlFor="caption-input-edit">Caption text</Label>
+                    <Input
+                      id="caption-input-edit"
+                      value={captionEditText}
+                      onChange={(e) => setCaptionEditText(e.target.value)}
+                      placeholder="e.g., Weekly assignment schedule"
+                      onKeyDown={(e) => { if (e.key === "Enter") handleApplyCaptionFix(); }}
+                      data-testid="input-caption-text"
+                      autoFocus
+                    />
+                  </div>
+                ) : captionTexts.map((text, index) => (
+                  <div key={index} className="space-y-1">
+                    <Label htmlFor={`caption-input-${index}`}>
+                      {captionTexts.length > 1 ? `Table ${index + 1} caption` : "Caption text"}
+                    </Label>
+                    <Input
+                      id={`caption-input-${index}`}
+                      value={text}
+                      onChange={(e) => {
+                        const updated = [...captionTexts];
+                        updated[index] = e.target.value;
+                        setCaptionTexts(updated);
+                      }}
+                      placeholder="e.g., Weekly assignment schedule"
+                      onKeyDown={(e) => { if (e.key === "Enter" && index === captionTexts.length - 1 && captionTexts.every((t) => t.trim())) setCaptionStep("preview"); }}
+                      data-testid={`input-caption-text-${index}`}
+                      autoFocus={index === 0}
+                    />
+                  </div>
+                ))}
+              </div>
+              {captionEditMode === "add" && captionTexts.some((t) => t.trim().toLowerCase() === "table summary") && (
+                <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300" role="alert" data-testid="warning-generic-caption">
+                  <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
+                  <span>
+                    {captionTexts.filter((t) => t.trim().toLowerCase() === "table summary").length > 1
+                      ? `${captionTexts.filter((t) => t.trim().toLowerCase() === "table summary").length} captions still use the default "Table summary" text. Consider replacing them with descriptions of what each table actually contains.`
+                      : `One caption still uses the default "Table summary" text. Consider replacing it with a description of what the table actually contains.`}
+                  </span>
                 </div>
-              ) : captionTexts.map((text, index) => (
-                <div key={index} className="space-y-1">
-                  <Label htmlFor={`caption-input-${index}`}>
-                    {captionTexts.length > 1 ? `Table ${index + 1} caption` : "Caption text"}
-                  </Label>
-                  <Input
-                    id={`caption-input-${index}`}
-                    value={text}
-                    onChange={(e) => {
-                      const updated = [...captionTexts];
-                      updated[index] = e.target.value;
-                      setCaptionTexts(updated);
-                    }}
-                    placeholder="e.g., Weekly assignment schedule"
-                    onKeyDown={(e) => { if (e.key === "Enter" && index === captionTexts.length - 1 && captionTexts.every((t) => t.trim())) setCaptionStep("preview"); }}
-                    data-testid={`input-caption-text-${index}`}
-                    autoFocus={index === 0}
-                  />
-                </div>
-              ))}
-            </div>
+              )}
+            </>
           )}
 
           <DialogFooter>
