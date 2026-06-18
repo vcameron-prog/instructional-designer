@@ -346,6 +346,8 @@ export default function ResultPage() {
         toolType: content?.toolType,
         content: content?.content,
         description: libraryDescription,
+        formData: content?.formData ?? null,
+        courseId: courseId ?? null,
       });
       return response.json();
     },

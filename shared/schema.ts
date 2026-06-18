@@ -113,6 +113,8 @@ export const savedContent = pgTable("saved_content", {
   toolType: text("tool_type").notNull(),
   content: text("content").notNull(),
   description: text("description"),
+  formData: jsonb("form_data"),
+  courseId: integer("course_id"),
   createdAt: timestamp("created_at")
     .default(sql`CURRENT_TIMESTAMP`)
     .notNull(),

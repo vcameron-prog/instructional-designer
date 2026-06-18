@@ -73,6 +73,12 @@ async function runStartupMigrations() {
       ALTER TABLE saved_content ADD COLUMN IF NOT EXISTS user_id varchar NOT NULL DEFAULT '';
     `);
     await db.execute(sql`
+      ALTER TABLE saved_content ADD COLUMN IF NOT EXISTS form_data jsonb;
+    `);
+    await db.execute(sql`
+      ALTER TABLE saved_content ADD COLUMN IF NOT EXISTS course_id integer;
+    `);
+    await db.execute(sql`
       CREATE TABLE IF NOT EXISTS app_metrics (
         key TEXT PRIMARY KEY,
         count INTEGER NOT NULL DEFAULT 0,

@@ -2922,12 +2922,14 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     async (req: Request, res: Response) => {
       try {
         const userId = getUserId(req) as string;
-        const { title, toolType, content, description } = req.body;
+        const { title, toolType, content, description, formData, courseId } = req.body;
         const saved = await storage.createSavedContent({
           title,
           toolType,
           content,
           description,
+          formData: formData ?? null,
+          courseId: courseId ? parseInt(courseId) : null,
         }, userId);
         res.status(201).json(saved);
       } catch (error) {

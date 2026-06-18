@@ -22,7 +22,8 @@ import {
   Copy,
   Download,
   FolderOpen,
-  ArrowRight
+  ArrowRight,
+  ListChecks
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { SavedContent, Course, Conversion } from "@shared/schema";
@@ -392,6 +393,32 @@ export default function LibraryPage() {
                         </p>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
+                        {item.toolType === "assignment" && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1.5 text-xs"
+                            onClick={() => {
+                              if (item.formData && typeof item.formData === "object") {
+                                sessionStorage.setItem("bsu-chain-prefill", JSON.stringify({
+                                  targetToolId: "assignment",
+                                  fields: item.formData,
+                                  sourceName: item.title,
+                                }));
+                              }
+                              sessionStorage.setItem("bsu-generate-rubric", "true");
+                              const dest = item.courseId
+                                ? `/course/${item.courseId}/tool/assignment`
+                                : "/quick-tools/assignment";
+                              navigate(dest);
+                            }}
+                            aria-label="Generate matching rubric for this assignment"
+                            data-testid={`button-generate-rubric-${item.id}`}
+                          >
+                            <ListChecks className="w-3.5 h-3.5" />
+                            Generate matching rubric
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="icon"

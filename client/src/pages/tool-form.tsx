@@ -345,7 +345,14 @@ export default function ToolForm() {
   const [language, setLanguage] = useState(
     () => localStorage.getItem(DEFAULT_LANGUAGE_KEY) || "English"
   );
-  const [generateRubric, setGenerateRubric] = useState(false);
+  const [generateRubric, setGenerateRubric] = useState(() => {
+    const flag = sessionStorage.getItem("bsu-generate-rubric");
+    if (flag === "true") {
+      sessionStorage.removeItem("bsu-generate-rubric");
+      return true;
+    }
+    return false;
+  });
   const [rubricTotalPoints, setRubricTotalPoints] = useState("100");
   const [rubricLevels, setRubricLevels] = useState("4 levels");
 
