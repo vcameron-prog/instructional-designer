@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { ArrowLeft, ArrowRight, Upload, FileText, Loader2, BookOpen } from "lucide-react";
+import { ArrowLeft, ArrowRight, Upload, FileText, Loader2, BookOpen, Library } from "lucide-react";
 import { COURSE_LEVELS, CREDIT_OPTIONS, SEMESTER_TYPES, getSemesterYears, buildSemesterString, parseSemesterString } from "@/lib/constants";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { parseSyllabusUploadError, isSessionExpiredMessage } from "@/lib/upload-error-utils";
@@ -20,6 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ToastAction } from "@/components/ui/toast";
 import { PoweredByFooter } from "@/components/powered-by-footer";
 import { HeaderControls } from "@/components/header-controls";
+import { OutcomeLibraryModal } from "@/components/outcome-library-modal";
 import type { Course } from "@shared/schema";
 
 const COURSE_TEMPLATES = [
@@ -131,6 +132,7 @@ export default function CourseForm({ courseId }: { courseId?: number }) {
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [semesterType, setSemesterType] = useState("");
   const [semesterYear, setSemesterYear] = useState("");
+  const [outcomeLibraryOpen, setOutcomeLibraryOpen] = useState(false);
   useEffect(() => { window.scrollTo(0, 0); }, []);
 
   const { data: existingCourse, isLoading: isLoadingCourse } = useQuery<Course>({
@@ -585,7 +587,20 @@ export default function CourseForm({ courseId }: { courseId?: number }) {
                   name="learningOutcomes"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Primary Learning Outcomes *</FormLabel>
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <FormLabel>Primary Learning Outcomes *</FormLabel>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="gap-1.5 text-xs h-7 shrink-0"
+                          onClick={() => setOutcomeLibraryOpen(true)}
+                          data-testid="button-browse-outcome-library"
+                        >
+                          <Library className="w-3.5 h-3.5" aria-hidden="true" />
+                          Browse outcome library
+                        </Button>
+                      </div>
                       <FormControl>
                         <Textarea
                           placeholder="List the main learning outcomes students should achieve..."
@@ -707,6 +722,18 @@ export default function CourseForm({ courseId }: { courseId?: number }) {
         </Form>
       </div>
       <PoweredByFooter />
+
+      <OutcomeLibraryModal
+        open={outcomeLibraryOpen}
+        onClose={() => setOutcomeLibraryOpen(false)}
+        onAddOutcomes={(texts) => {
+          const current = form.getValues("learningOutcomes") ?? "";
+          const appended = texts.map((t) => `- ${t}`).join("\n");
+          const next = current.trim() ? `${current.trim()}\n${appended}` : appended;
+          form.setValue("learningOutcomes", next, { shouldValidate: true, shouldDirty: true });
+          toast({ title: `${texts.length} outcome${texts.length !== 1 ? "s" : ""} added to Learning Outcomes` });
+        }}
+      />
     </main>
   );
 }
