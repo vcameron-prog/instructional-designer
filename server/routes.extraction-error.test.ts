@@ -26,6 +26,9 @@ const {
   mockExtractOdfContent,
   mockExtractHtmlContent,
   mockExtractRtfContent,
+  mockExtractDocxContent,
+  mockExtractXlsxContent,
+  mockExtractPptxContent,
   mockCheckSharedRateLimit,
   mockCheckHeavyOpRateLimit,
 } = vi.hoisted(() => ({
@@ -38,6 +41,9 @@ const {
   mockExtractOdfContent: vi.fn(),
   mockExtractHtmlContent: vi.fn(),
   mockExtractRtfContent: vi.fn(),
+  mockExtractDocxContent: vi.fn(),
+  mockExtractXlsxContent: vi.fn(),
+  mockExtractPptxContent: vi.fn(),
   mockCheckSharedRateLimit: vi.fn().mockResolvedValue(true),
   mockCheckHeavyOpRateLimit: vi.fn().mockReturnValue(true),
 }));
@@ -83,11 +89,9 @@ vi.mock("./lib/epub-extractor", () => ({ extractEpubContent: mockExtractEpubCont
 vi.mock("./lib/odf-extractor", () => ({ extractOdfContent: mockExtractOdfContent }));
 vi.mock("./lib/html-extractor", () => ({ extractHtmlContent: mockExtractHtmlContent }));
 vi.mock("./lib/rtf-extractor", () => ({ extractRtfContent: mockExtractRtfContent }));
-
-// Other extractors — never called in these tests but mocked to avoid real I/O.
-vi.mock("./lib/docx-extractor", () => ({ extractDocxContent: vi.fn() }));
-vi.mock("./lib/xlsx-extractor", () => ({ extractXlsxContent: vi.fn() }));
-vi.mock("./lib/pptx-extractor", () => ({ extractPptxContent: vi.fn() }));
+vi.mock("./lib/docx-extractor", () => ({ extractDocxContent: mockExtractDocxContent }));
+vi.mock("./lib/xlsx-extractor", () => ({ extractXlsxContent: mockExtractXlsxContent }));
+vi.mock("./lib/pptx-extractor", () => ({ extractPptxContent: mockExtractPptxContent }));
 vi.mock("./lib/pdf-processor", () => ({
   extractPdfContent: vi.fn(),
   needsOcr: vi.fn().mockReturnValue(false),
@@ -297,6 +301,7 @@ const FORMAT_CASES: Array<{
   srcType: string;
   setupExtractorThrow: () => void;
   expectedMessage: string;
+  rawError: string;
 }> = [
   {
     srcType: "doc",
@@ -304,6 +309,7 @@ const FORMAT_CASES: Array<{
       mockExtractDocContent.mockRejectedValueOnce(new Error("antiword failed")),
     expectedMessage:
       "This file could not be read. It may be corrupted or in an unsupported variant of the .doc format.",
+    rawError: "antiword failed",
   },
   {
     srcType: "csv",
@@ -311,6 +317,7 @@ const FORMAT_CASES: Array<{
       mockExtractCsvContent.mockRejectedValueOnce(new Error("parse error at row 3")),
     expectedMessage:
       "This CSV file could not be parsed. Check that it is a valid, well-formed CSV file.",
+    rawError: "parse error at row 3",
   },
   {
     srcType: "epub",
@@ -318,6 +325,7 @@ const FORMAT_CASES: Array<{
       mockExtractEpubContent.mockRejectedValueOnce(new Error("invalid epub structure")),
     expectedMessage:
       "This EPUB file could not be opened. It may be corrupted or not a valid EPUB.",
+    rawError: "invalid epub structure",
   },
   {
     srcType: "odt",
@@ -325,6 +333,7 @@ const FORMAT_CASES: Array<{
       mockExtractOdfContent.mockRejectedValueOnce(new Error("zip error")),
     expectedMessage:
       "This OpenDocument Text file could not be read. It may be corrupted or in an unsupported format.",
+    rawError: "zip error",
   },
   {
     srcType: "ods",
@@ -332,6 +341,7 @@ const FORMAT_CASES: Array<{
       mockExtractOdfContent.mockRejectedValueOnce(new Error("zip error")),
     expectedMessage:
       "This OpenDocument Spreadsheet could not be read. It may be corrupted or in an unsupported format.",
+    rawError: "zip error",
   },
   {
     srcType: "odp",
@@ -339,6 +349,7 @@ const FORMAT_CASES: Array<{
       mockExtractOdfContent.mockRejectedValueOnce(new Error("zip error")),
     expectedMessage:
       "This OpenDocument Presentation could not be read. It may be corrupted or in an unsupported format.",
+    rawError: "zip error",
   },
   {
     srcType: "html",
@@ -346,6 +357,7 @@ const FORMAT_CASES: Array<{
       mockExtractHtmlContent.mockRejectedValueOnce(new Error("parse error")),
     expectedMessage:
       "This HTML file could not be parsed. Check that it is a valid HTML document.",
+    rawError: "parse error",
   },
   {
     srcType: "rtf",
@@ -353,6 +365,48 @@ const FORMAT_CASES: Array<{
       mockExtractRtfContent.mockRejectedValueOnce(new Error("unexpected token")),
     expectedMessage:
       "This RTF file could not be read. It may be corrupted or in an unsupported format.",
+    rawError: "unexpected token",
+  },
+  // --- New cases: xlsx, docx, pptx, google-sheet, google-slide ---
+  {
+    srcType: "xlsx",
+    setupExtractorThrow: () =>
+      mockExtractXlsxContent.mockRejectedValueOnce(new Error("corrupted workbook")),
+    expectedMessage:
+      "This Excel spreadsheet could not be read. It may be corrupted, password-protected, or in an unsupported format.",
+    rawError: "corrupted workbook",
+  },
+  {
+    srcType: "docx",
+    setupExtractorThrow: () =>
+      mockExtractDocxContent.mockRejectedValueOnce(new Error("mammoth failed")),
+    expectedMessage:
+      "This Word document could not be read. It may be corrupted, password-protected, or in an unsupported format.",
+    rawError: "mammoth failed",
+  },
+  {
+    srcType: "pptx",
+    setupExtractorThrow: () =>
+      mockExtractPptxContent.mockRejectedValueOnce(new Error("slide parse error")),
+    expectedMessage:
+      "This PowerPoint file could not be read. It may be corrupted, password-protected, or in an unsupported format.",
+    rawError: "slide parse error",
+  },
+  {
+    srcType: "google-sheet",
+    setupExtractorThrow: () =>
+      mockExtractXlsxContent.mockRejectedValueOnce(new Error("network timeout")),
+    expectedMessage:
+      "This Google Sheet could not be read. It may be in an unsupported format or corrupted.",
+    rawError: "network timeout",
+  },
+  {
+    srcType: "google-slide",
+    setupExtractorThrow: () =>
+      mockExtractPptxContent.mockRejectedValueOnce(new Error("presentation corrupt")),
+    expectedMessage:
+      "This Google Slides file could not be read. It may be in an unsupported format or corrupted.",
+    rawError: "presentation corrupt",
   },
 ];
 
@@ -366,7 +420,7 @@ describe("POST /api/conversions/:id/process — extraction error mapping", () =>
     app = await buildApp();
   });
 
-  for (const { srcType, setupExtractorThrow, expectedMessage } of FORMAT_CASES) {
+  for (const { srcType, setupExtractorThrow, expectedMessage, rawError } of FORMAT_CASES) {
     it(`stores the correct user-friendly errorMessage for a broken ${srcType} file`, async () => {
       const conversion = makeConversion(srcType);
 
@@ -390,7 +444,7 @@ describe("POST /api/conversions/:id/process — extraction error mapping", () =>
       // The stored errorMessage must be the friendly string, not the raw error.
       expect(failedPayload.status).toBe("failed");
       expect(failedPayload.errorMessage).toBe(expectedMessage);
-      expect(failedPayload.errorMessage).not.toMatch(/antiword|parse error|zip error|unexpected token/i);
+      expect(failedPayload.errorMessage).not.toMatch(new RegExp(rawError.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"));
     });
   }
 
