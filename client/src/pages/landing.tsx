@@ -116,9 +116,6 @@ export default function LandingPage() {
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground mb-4 tracking-tight">
             Accessibility Tool
           </h1>
-          <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed" style={{ textWrap: "balance" }}>
-            AI-powered tools to create accessible, UDL-aligned course materials for Blackboard Ultra
-          </p>
         </div>
 
         {/* Non-BSU user warning */}
