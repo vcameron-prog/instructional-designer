@@ -820,13 +820,22 @@ export default function PdfConversion() {
         toast({ title: "No ARIA issues found to fix" });
       }
 
-      const issues: Array<{ title?: string; status?: string; fixNotes?: string }> = data?.complianceReport?.issues ?? [];
+      const issues: Array<{ title?: string; status?: string; fixNotes?: string; noFixReason?: string }> = data?.complianceReport?.issues ?? [];
       const ariaFixNotes = issues
         .map((issue) => issue.fixNotes)
         .filter((note): note is string => Boolean(note));
       const uniqueNotes = [...new Set(ariaFixNotes)];
       if (uniqueNotes.length > 0) {
         setBatchFixNotesSummary(uniqueNotes);
+      }
+      const newNoFixReasons: Record<number, string> = {};
+      issues.forEach((issue, idx) => {
+        if (issue.noFixReason) {
+          newNoFixReasons[idx] = issue.noFixReason;
+        }
+      });
+      if (Object.keys(newNoFixReasons).length > 0) {
+        setNoFixReasons(prev => ({ ...prev, ...newNoFixReasons }));
       }
       const count: number = data?.elementsFixed ?? 0;
       const elementLabel = count === 1 ? "element" : "elements";
