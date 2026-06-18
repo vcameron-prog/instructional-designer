@@ -40,6 +40,56 @@ function pageFilesWithFooterImport(): string[] {
 }
 
 /**
+ * Returns the paths of every .tsx file in client/src/pages/ that imports the
+ * LoadingScreen component.  These files are expected to have at least one
+ * loading-guard early-return branch detectable by `loadingBranchReturnBlocks`.
+ */
+function pageFilesWithLoadingImport(): string[] {
+  const files = readdirSync(PAGES_DIR).filter((f) => f.endsWith(".tsx"));
+  return files
+    .map((f) => path.join(PAGES_DIR, f))
+    .filter((filePath) => readFileSync(filePath, "utf-8").includes("loading-screen"));
+}
+
+/**
+ * Returns the paths of every .tsx file in client/src/pages/ that are
+ * candidates for having a non-loading guarded <main> early-return block.
+ *
+ * A page is a candidate when ALL of the following raw heuristics match:
+ *   1. It imports PoweredByFooter (cares about the footer in page layouts).
+ *   2. It contains `<main` somewhere (renders a full-page layout).
+ *   3. Its source matches the structural pattern:
+ *        `if (condition) {\n    return (`
+ *      i.e. a single-line if-condition followed by an opening brace, a
+ *      newline, and a parenthesised return statement.
+ *
+ * Condition (3) is checked with a regex independently of
+ * `nonLoadingGuardedMainReturnBlocks`, making the candidate detection
+ * non-circular.  The regex deliberately excludes brace-less and
+ * non-parenthesised return forms (e.g. `if (x) return;`) so pages whose
+ * only guards are loading guards (which return `<LoadingScreen />`, not
+ * `return (…)`) are not flagged as candidates.
+ */
+function pageFilesWithNonLoadingMainGuards(): string[] {
+  const files = readdirSync(PAGES_DIR).filter((f) => f.endsWith(".tsx"));
+  // Matches: if (single-line-condition) {\n   return (
+  // The braced + newline requirement avoids matching `if (x) return val;\n return (…`
+  // across separate statements, which a plain { 0,N } window cannot prevent.
+  const BRACED_RETURN_PAREN = /\bif\s*\([^)]*\)\s*\{\s*\n\s*return\s*\(/;
+
+  return files
+    .map((f) => path.join(PAGES_DIR, f))
+    .filter((filePath) => {
+      const source = readFileSync(filePath, "utf-8");
+      return (
+        source.includes("powered-by-footer") &&
+        source.includes("<main") &&
+        BRACED_RETURN_PAREN.test(source)
+      );
+    });
+}
+
+/**
  * Recursively collects every .tsx file under a directory.
  */
 function collectTsxFiles(dir: string): string[] {
@@ -303,36 +353,28 @@ describe("PoweredByFooter — loading-branch regression", () => {
   });
 
   /**
-   * Coverage check: files with loading guards must actually have those guards
-   * covered by the test above (i.e. `loadingBranchReturnBlocks` must find at
-   * least one block in files known to have loading early-returns).
+   * Coverage check: every page that imports LoadingScreen must have at least
+   * one loading-guard early-return block detected by `loadingBranchReturnBlocks`.
    *
-   * Listed files are those the task identified as having loading-guard branches.
-   * If a file is refactored to remove all loading guards, remove it from this list.
+   * This list is built dynamically by scanning the pages directory for files
+   * that import the loading-screen component, so new pages are automatically
+   * included without any manual list maintenance.
    */
-  it("loading-branch detection finds at least one block in each known page with loading states", () => {
-    const knownLoadingPages = [
-      "landing.tsx",
-      "result.tsx",
-      "pdf-conversion.tsx",
-      "pdf-upload.tsx",
-      "course-form.tsx",
-      "tool-form.tsx",
-      "tool-selection.tsx",
-      "admin-dashboard.tsx",
-      "pdf-history.tsx",
-    ];
+  it("loading-branch detection finds at least one block in each page that imports LoadingScreen", () => {
+    const filePaths = pageFilesWithLoadingImport();
+
+    expect(filePaths.length).toBeGreaterThan(0);
 
     const violations: string[] = [];
 
-    for (const fileName of knownLoadingPages) {
-      const filePath = path.join(PAGES_DIR, fileName);
+    for (const filePath of filePaths) {
       const source = readFileSync(filePath, "utf-8");
+      const fileName = path.basename(filePath);
       const blocks = loadingBranchReturnBlocks(source);
 
       if (blocks.length === 0) {
         violations.push(
-          `${fileName}: expected loading-guard return blocks but none were found — ` +
+          `${fileName}: imports LoadingScreen but no loading-guard return blocks were detected — ` +
             "either the file was refactored or LOADING_VAR_PATTERN needs updating",
         );
       }
@@ -375,30 +417,34 @@ describe("PoweredByFooter — loading-branch regression", () => {
   });
 
   /**
-   * Coverage check: pages known to have non-loading early returns that render
-   * a <main> element must be detected by `nonLoadingGuardedMainReturnBlocks`.
+   * Coverage check: every page identified (by raw heuristic) as having a
+   * non-loading conditional that renders a <main> element must yield at least
+   * one block from `nonLoadingGuardedMainReturnBlocks`.
    *
-   * If a file is refactored to remove all such guards, remove it from this list.
+   * Candidates are discovered dynamically via `pageFilesWithNonLoadingMainGuards`:
+   * pages that import PoweredByFooter, contain `if (!`, and contain `<main`.
+   * The candidate heuristic is independent of the block extractor, so a
+   * failure means either (a) the detector needs updating or (b) the file was
+   * refactored to remove all such guards and no longer matches the heuristic.
+   *
+   * New pages that satisfy the heuristic are automatically included without any
+   * manual list maintenance.
    */
-  it("non-loading-guard detection finds at least one <main> block in each known page with non-loading early returns", () => {
-    const knownNonLoadingPages = [
-      "result.tsx",           // "content not found" — if (!content)
-      "pdf-conversion.tsx",   // "error / not found" — if (isError || !conversion)
-      "tool-form.tsx",        // "tool not found"    — if (!tool)
-      "tool-selection.tsx",   // "course not found"  — if (!course)
-      "admin-dashboard.tsx",  // "access denied"     — if (!isAuthenticated || !adminCheck?.isAdmin)
-    ];
+  it("non-loading-guard detection finds at least one <main> block in each candidate page", () => {
+    const filePaths = pageFilesWithNonLoadingMainGuards();
+
+    expect(filePaths.length).toBeGreaterThan(0);
 
     const violations: string[] = [];
 
-    for (const fileName of knownNonLoadingPages) {
-      const filePath = path.join(PAGES_DIR, fileName);
+    for (const filePath of filePaths) {
       const source = readFileSync(filePath, "utf-8");
+      const fileName = path.basename(filePath);
       const blocks = nonLoadingGuardedMainReturnBlocks(source);
 
       if (blocks.length === 0) {
         violations.push(
-          `${fileName}: expected non-loading-guard <main> return blocks but none were found — ` +
+          `${fileName}: matched non-loading-guard heuristic but no <main> blocks were detected — ` +
             "either the file was refactored or the detection logic needs updating",
         );
       }
