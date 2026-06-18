@@ -16,6 +16,8 @@ import { join } from "path";
 import { extractDocContent } from "./doc-extractor.js";
 import { extractOdfContent } from "./odf-extractor.js";
 import { extractEpubContent } from "./epub-extractor.js";
+import { extractRtfContent } from "./rtf-extractor.js";
+import { extractCsvContent } from "./csv-extractor.js";
 
 const fixturesDir = join(import.meta.dirname, "fixtures");
 
@@ -169,5 +171,58 @@ describe("EPUB extractor — real fixture", () => {
   it("returns at least one page (chapter)", async () => {
     const result = await extractEpubContent(fixture("sample.epub"));
     expect(result.pageCount).toBeGreaterThanOrEqual(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// RTF
+// ---------------------------------------------------------------------------
+describe("RTF extractor — real fixture", () => {
+  it("returns non-empty text from sample.rtf", async () => {
+    const result = await extractRtfContent(fixture("sample.rtf"));
+    expect(result.text.length).toBeGreaterThan(0);
+  });
+
+  it("returns a valid PdfExtraction shape", async () => {
+    const result = await extractRtfContent(fixture("sample.rtf"));
+    expect(result).toHaveProperty("text");
+    expect(result).toHaveProperty("pageCount");
+    expect(result).toHaveProperty("metadata");
+    expect(Array.isArray(result.images)).toBe(true);
+    expect(Array.isArray(result.tables)).toBe(true);
+  });
+
+  it("returns at least one page", async () => {
+    const result = await extractRtfContent(fixture("sample.rtf"));
+    expect(result.pageCount).toBeGreaterThanOrEqual(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// CSV
+// ---------------------------------------------------------------------------
+describe("CSV extractor — real fixture", () => {
+  it("returns non-empty text from sample.csv", async () => {
+    const result = await extractCsvContent(fixture("sample.csv"));
+    expect(result.text.length).toBeGreaterThan(0);
+  });
+
+  it("returns a valid PdfExtraction shape", async () => {
+    const result = await extractCsvContent(fixture("sample.csv"));
+    expect(result).toHaveProperty("text");
+    expect(result).toHaveProperty("pageCount");
+    expect(result).toHaveProperty("metadata");
+    expect(Array.isArray(result.images)).toBe(true);
+    expect(Array.isArray(result.tables)).toBe(true);
+  });
+
+  it("surfaces spreadsheet data in the tables array", async () => {
+    const result = await extractCsvContent(fixture("sample.csv"));
+    expect(result.tables.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("includes column names in the text output", async () => {
+    const result = await extractCsvContent(fixture("sample.csv"));
+    expect(result.text).toContain("Columns:");
   });
 });
