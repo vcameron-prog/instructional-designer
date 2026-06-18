@@ -56,10 +56,18 @@ let _cleanupLastRunAt: string | null = null;
 let _cleanupLastErrorAt: string | null = null;
 let _cleanupRowsDeletedTotal = 0;
 
-// DB row keys used in the app_metrics table
-const CLEANUP_LAST_RUN_KEY = "rateLimitCleanup.lastRunAt";
-const CLEANUP_LAST_ERROR_KEY = "rateLimitCleanup.lastErrorAt";
-const CLEANUP_ROWS_DELETED_KEY = "rateLimitCleanup.rowsDeleted";
+// DB row keys used in the app_metrics table.
+// Exported so tests can reference the canonical values instead of repeating
+// the string literals — a rename in source will cause a compile-time mismatch.
+export const CLEANUP_METRIC_KEYS = {
+  lastRunAt: "rateLimitCleanup.lastRunAt",
+  lastErrorAt: "rateLimitCleanup.lastErrorAt",
+  rowsDeleted: "rateLimitCleanup.rowsDeleted",
+} as const;
+
+const CLEANUP_LAST_RUN_KEY = CLEANUP_METRIC_KEYS.lastRunAt;
+const CLEANUP_LAST_ERROR_KEY = CLEANUP_METRIC_KEYS.lastErrorAt;
+const CLEANUP_ROWS_DELETED_KEY = CLEANUP_METRIC_KEYS.rowsDeleted;
 
 export function getRateLimitCleanupMetrics(): {
   lastRunAt: string | null;

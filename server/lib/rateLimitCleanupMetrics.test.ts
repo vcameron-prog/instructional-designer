@@ -52,6 +52,7 @@ import {
   initRateLimitCleanupMetrics,
   getRateLimitCleanupMetrics,
   _resetCleanupMetricsForTest,
+  CLEANUP_METRIC_KEYS,
 } from "./rateLimiters.js";
 
 // ---------------------------------------------------------------------------
@@ -229,10 +230,10 @@ describe("cleanup metrics persist across simulated server restarts", () => {
     await sharedRateLimitCleanupCallback();
 
     // Both the run timestamp and the cumulative row count must be persisted.
-    expect(store.has("rateLimitCleanup.lastRunAt")).toBe(true);
-    expect(store.has("rateLimitCleanup.rowsDeleted")).toBe(true);
+    expect(store.has(CLEANUP_METRIC_KEYS.lastRunAt)).toBe(true);
+    expect(store.has(CLEANUP_METRIC_KEYS.rowsDeleted)).toBe(true);
     // On the success path there must be no error entry.
-    expect(store.has("rateLimitCleanup.lastErrorAt")).toBe(false);
+    expect(store.has(CLEANUP_METRIC_KEYS.lastErrorAt)).toBe(false);
 
     // Restart and restore — keys must map to the correct in-memory fields.
     _resetCleanupMetricsForTest();
@@ -250,9 +251,9 @@ describe("cleanup metrics persist across simulated server restarts", () => {
 
     await sharedRateLimitCleanupCallback();
 
-    expect(store.has("rateLimitCleanup.lastErrorAt")).toBe(true);
-    expect(store.has("rateLimitCleanup.lastRunAt")).toBe(false);
-    expect(store.has("rateLimitCleanup.rowsDeleted")).toBe(false);
+    expect(store.has(CLEANUP_METRIC_KEYS.lastErrorAt)).toBe(true);
+    expect(store.has(CLEANUP_METRIC_KEYS.lastRunAt)).toBe(false);
+    expect(store.has(CLEANUP_METRIC_KEYS.rowsDeleted)).toBe(false);
   });
 
   // -------------------------------------------------------------------------
