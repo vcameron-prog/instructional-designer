@@ -1554,6 +1554,25 @@ export default function ResultPage() {
               <span className="text-green-600 dark:text-green-400 font-medium">green</span> will be added.
             </DialogDescription>
           </DialogHeader>
+          {(previewFixType === "1.3.1::ARIA Combobox Role on Non-Combobox Element" ||
+            previewFixType === "1.3.1::ARIA Grid Role on Non-Table Element" ||
+            previewFixType === "1.3.1::ARIA Tab Role on Non-Interactive Element") && (
+            <div
+              className="rounded-lg border bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800 px-3 py-2.5 space-y-1"
+              data-testid="dialog-fix-preview-explanation"
+            >
+              <p className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wide">
+                What this fix does
+              </p>
+              <p className="text-sm text-amber-900 dark:text-amber-200">
+                {previewFixType === "1.3.1::ARIA Combobox Role on Non-Combobox Element"
+                  ? "Swaps each element using role=\"combobox\" for a native <select> element, keeping all existing attributes. A native <select> provides the built-in keyboard and screen-reader support that assistive technology expects."
+                  : previewFixType === "1.3.1::ARIA Grid Role on Non-Table Element"
+                  ? "Swaps each element using role=\"grid\" for a native <table> element, keeping all existing attributes. A native <table> lets screen readers announce rows and columns without relying on ARIA."
+                  : "Swaps each element using role=\"tab\" for a native <button> element, keeping all existing attributes. A native <button> is keyboard-focusable and announced correctly by screen readers without extra ARIA."}
+              </p>
+            </div>
+          )}
           <ScrollArea className="h-80 rounded border bg-muted/30 p-3 font-mono text-xs leading-relaxed" data-testid="diff-preview-scroll">
             {(() => {
               const diff = computeLineDiff(previewBefore, previewAfter);

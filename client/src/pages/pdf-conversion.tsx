@@ -1801,21 +1801,21 @@ export default function PdfConversion() {
                                 >
                                   <p className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wide flex items-center gap-1.5">
                                     <Code2 className="w-3.5 h-3.5" aria-hidden="true" />
-                                    ARIA Role Misuse
+                                    What this fix does
                                   </p>
                                   <p
                                     className="text-sm text-amber-900 dark:text-amber-200 font-medium"
                                     data-testid={`aria-misuse-recommendation-${i}`}
                                   >
                                     {issue.title === "ARIA Button Role on Non-Button Element"
-                                      ? "Replace non-button elements using role=\"button\" with a native <button> element for full keyboard and screen reader support."
+                                      ? "Swaps non-button elements that have role=\"button\" for a native <button> element. This gives keyboard users and screen readers full interactive support without relying on ARIA."
                                       : issue.title === "ARIA Heading Role on Non-Heading Element"
-                                      ? "Replace non-heading elements using role=\"heading\" with the appropriate native <h1>–<h6> element for correct document structure."
+                                      ? "Swaps non-heading elements that have role=\"heading\" for the appropriate native <h1>–<h6> element. This restores the correct document outline that screen readers use to navigate."
                                       : issue.title === "ARIA Combobox Role on Non-Combobox Element"
-                                      ? "Replace non-input elements using role=\"combobox\" with a native <select> or <input> element paired with an associated listbox for correct keyboard and screen reader behavior."
+                                      ? "Swaps non-input elements that have role=\"combobox\" for a native <select> element. The element's tag changes from something like <div> or <span> to <select>, keeping all existing attributes. A native element provides built-in keyboard support that assistive technology expects."
                                       : issue.title === "ARIA Grid Role on Non-Table Element"
-                                      ? "Replace non-table elements using role=\"grid\" with a native <table> element so screen readers can correctly interpret row and cell relationships."
-                                      : "Replace non-interactive elements using role=\"tab\" with a native <button> or <a> element so keyboard users can activate tabs without custom key-handling."}
+                                      ? "Swaps non-table elements that have role=\"grid\" for a native <table> element. The element's tag changes from something like <div> to <table>, keeping all existing attributes. A native table element lets screen readers announce rows and columns correctly."
+                                      : "Swaps non-interactive elements that have role=\"tab\" for a native <button> element. The element's tag changes from something like <div> or <span> to <button>, keeping all existing attributes. A native <button> is focusable by keyboard and announced correctly by screen readers without extra ARIA."}
                                   </p>
                                 </div>
                               )}
