@@ -34,9 +34,10 @@ function escapeRegex(s: string): string {
  * mistaken for the end of the tag.
  *
  * Pattern breakdown:
- *   [^>"']   — any character that is not >, ", or ' (unquoted attr chars)
- *   "[^"]*"  — a double-quoted value (including any > or ' inside)
- *   '[^']*'  — a single-quoted value (including any > or " inside)
+ *   [^>"'`]  — any character that is not >, ", ', or ` (unquoted attr chars)
+ *   "[^"]*"  — a double-quoted value (including any >, ', or ` inside)
+ *   '[^']*'  — a single-quoted value (including any >, ", or ` inside)
+ *   `[^`]*`  — a backtick-quoted value (including any >, ", or ' inside)
  *
  * Use as a string so it can be interpolated into `new RegExp(...)` calls.
  */
