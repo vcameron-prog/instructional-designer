@@ -3,6 +3,9 @@ import { z } from "zod";
 import { parse as parseHtml } from "node-html-parser";
 import type { ExtractedImage, ExtractedTable } from "./pdf-processor";
 import { fixDuplicateTableCaptions } from "./table-fixers.js";
+import { db } from "../db";
+import { appMetrics } from "@shared/schema";
+import { sql } from "drizzle-orm";
 
 /** Inline concurrency limiter — equivalent to p-limit but works in any bundle format. */
 function pLimit(concurrency: number) {
@@ -53,8 +56,38 @@ const anthropic = new Anthropic({
 let aiFixRetryCount = 0;
 let aiFixRetryLastAt: string | null = null;
 
-export function getAiFixRetryMetrics(): { retryCount: number; lastRetryAt: string | null } {
+const AI_FIX_RETRY_KEY = "ai_fix_retry";
+
+export async function getAiFixRetryMetrics(): Promise<{ retryCount: number; lastRetryAt: string | null }> {
+  try {
+    const [row] = await db.select().from(appMetrics).where(sql`${appMetrics.key} = ${AI_FIX_RETRY_KEY}`);
+    if (row) {
+      return {
+        retryCount: row.count,
+        lastRetryAt: row.lastAt ? row.lastAt.toISOString() : null,
+      };
+    }
+  } catch (err) {
+    console.warn("[accessibility-engine] Failed to read ai_fix_retry metric from DB, falling back to in-memory:", err);
+  }
   return { retryCount: aiFixRetryCount, lastRetryAt: aiFixRetryLastAt };
+}
+
+async function persistAiFixRetry(timestamp: string): Promise<void> {
+  try {
+    await db
+      .insert(appMetrics)
+      .values({ key: AI_FIX_RETRY_KEY, count: 1, lastAt: new Date(timestamp) })
+      .onConflictDoUpdate({
+        target: appMetrics.key,
+        set: {
+          count: sql`${appMetrics.count} + 1`,
+          lastAt: new Date(timestamp),
+        },
+      });
+  } catch (err) {
+    console.warn("[accessibility-engine] Failed to persist ai_fix_retry metric to DB:", err);
+  }
 }
 
 const imageItemSchema = z.object({
@@ -1905,6 +1938,7 @@ ${stripped}`,
   if (!validateOutput(rawOutput)) {
     aiFixRetryCount++;
     aiFixRetryLastAt = new Date().toISOString();
+    void persistAiFixRetry(aiFixRetryLastAt);
     console.warn(
       `[accessibility-engine] AI returned incomplete HTML on first attempt — retrying with strict prompt. criterion="${issue.criterion}" title="${issue.title}" retryCount=${aiFixRetryCount}`
     );

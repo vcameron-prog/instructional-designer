@@ -62,6 +62,13 @@ async function runStartupMigrations() {
     await db.execute(sql`
       ALTER TABLE saved_content ADD COLUMN IF NOT EXISTS user_id varchar NOT NULL DEFAULT '';
     `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS app_metrics (
+        key TEXT PRIMARY KEY,
+        count INTEGER NOT NULL DEFAULT 0,
+        last_at TIMESTAMPTZ
+      );
+    `);
     log("Startup migrations applied successfully", "startup");
   } catch (err) {
     console.error("Startup migration failed:", err);

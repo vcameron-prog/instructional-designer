@@ -1413,8 +1413,8 @@ export async function registerRoutes(
     res.json({ keys: getDeterministicFixerKeys().sort() });
   });
 
-  app.get("/api/metrics", (_req: Request, res: Response) => {
-    const { retryCount, lastRetryAt } = getAiFixRetryMetrics();
+  app.get("/api/metrics", async (_req: Request, res: Response) => {
+    const { retryCount, lastRetryAt } = await getAiFixRetryMetrics();
     res.json({
       aiFixRetry: {
         count: retryCount,

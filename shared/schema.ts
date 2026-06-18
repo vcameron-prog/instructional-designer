@@ -229,6 +229,15 @@ export const rateLimitLog = pgTable("rate_limit_log", {
     .notNull(),
 });
 
+// Persistent application metrics (key-value counters that survive server restarts)
+export const appMetrics = pgTable("app_metrics", {
+  key: text("key").primaryKey(),
+  count: integer("count").notNull().default(0),
+  lastAt: timestamp("last_at", { withTimezone: true }),
+});
+
+export type AppMetric = typeof appMetrics.$inferSelect;
+
 // Chat integration tables
 export const conversations = pgTable("conversations", {
   id: serial("id").primaryKey(),
