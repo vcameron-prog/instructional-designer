@@ -9,7 +9,7 @@ import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
 import Image from "@tiptap/extension-image";
 import { Table, TableRow, TableCell, TableHeader } from "@tiptap/extension-table";
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useState, useRef } from "react";
 import {
   Bold,
   Italic,
@@ -23,8 +23,17 @@ import {
   Unlink,
   Undo,
   Redo,
+  Check,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 export function extractBodyInner(html: string): string {
   const match = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
@@ -232,6 +241,10 @@ export function RichTextEditor({
   onChange,
   className,
 }: RichTextEditorProps) {
+  const [linkPopoverOpen, setLinkPopoverOpen] = useState(false);
+  const [linkUrl, setLinkUrl] = useState("");
+  const linkInputRef = useRef<HTMLInputElement>(null);
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -283,17 +296,27 @@ export function RichTextEditor({
     }
   }, [initialHtml]);
 
-  const setLink = useCallback(() => {
+  const openLinkPopover = useCallback(() => {
     if (!editor) return;
     const prev = editor.getAttributes("link").href as string | undefined;
-    const url = window.prompt("Enter URL", prev ?? "https://");
-    if (url === null) return;
-    if (url === "") {
-      editor.chain().focus().extendMarkRange("link").unsetLink().run();
-      return;
-    }
-    editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
+    setLinkUrl(prev ?? "https://");
+    setLinkPopoverOpen(true);
+    setTimeout(() => linkInputRef.current?.focus(), 0);
   }, [editor]);
+
+  const confirmLink = useCallback(() => {
+    if (!editor) return;
+    if (linkUrl === "") {
+      editor.chain().focus().extendMarkRange("link").unsetLink().run();
+    } else {
+      editor.chain().focus().extendMarkRange("link").setLink({ href: linkUrl }).run();
+    }
+    setLinkPopoverOpen(false);
+  }, [editor, linkUrl]);
+
+  const cancelLink = useCallback(() => {
+    setLinkPopoverOpen(false);
+  }, []);
 
   if (!editor) return null;
 
@@ -388,13 +411,81 @@ export function RichTextEditor({
 
         <span className="w-px h-5 bg-border mx-1" aria-hidden="true" />
 
-        <ToolbarButton
-          label="Add link"
-          onClick={setLink}
-          active={editor.isActive("link")}
+        <Popover
+          open={linkPopoverOpen}
+          onOpenChange={(open) => {
+            if (!open) cancelLink();
+          }}
         >
-          <LinkIcon className="w-3.5 h-3.5" />
-        </ToolbarButton>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              onClick={openLinkPopover}
+              aria-label="Add link"
+              aria-pressed={editor.isActive("link")}
+              data-testid="rte-toolbar-add-link"
+              className={cn(
+                "inline-flex items-center justify-center w-8 h-8 rounded text-sm transition-colors",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                editor.isActive("link")
+                  ? "bg-primary text-primary-foreground"
+                  : "text-foreground hover:bg-secondary",
+              )}
+            >
+              <LinkIcon className="w-3.5 h-3.5" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent
+            className="w-72 p-3"
+            side="bottom"
+            align="start"
+            onOpenAutoFocus={(e) => e.preventDefault()}
+          >
+            <p className="text-xs font-medium text-muted-foreground mb-2">
+              Link URL
+            </p>
+            <Input
+              ref={linkInputRef}
+              value={linkUrl}
+              onChange={(e) => setLinkUrl(e.target.value)}
+              placeholder="https://"
+              data-testid="rte-link-url-input"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  confirmLink();
+                } else if (e.key === "Escape") {
+                  e.preventDefault();
+                  cancelLink();
+                }
+              }}
+              className="mb-2 h-8 text-sm"
+            />
+            <div className="flex justify-end gap-1.5">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={cancelLink}
+                data-testid="rte-link-cancel"
+                className="h-7 px-2 text-xs"
+              >
+                <X className="w-3 h-3 mr-1" />
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={confirmLink}
+                data-testid="rte-link-confirm"
+                className="h-7 px-2 text-xs"
+              >
+                <Check className="w-3 h-3 mr-1" />
+                Confirm
+              </Button>
+            </div>
+          </PopoverContent>
+        </Popover>
 
         <ToolbarButton
           label="Remove link"
