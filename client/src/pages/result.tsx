@@ -975,7 +975,18 @@ export default function ResultPage() {
                   <FileText className="w-5 h-5 text-primary" />
                 </div>
                 <div>
-                  <h1 className="text-xl font-bold">{content.toolName}</h1>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h1 className="text-xl font-bold">{content.toolName}</h1>
+                    {!!(content.formData && typeof content.formData === "object" && (content.formData as Record<string, unknown>).outputDetail) && (
+                      <Badge
+                        variant="secondary"
+                        className="text-xs font-normal"
+                        data-testid="badge-output-detail"
+                      >
+                        {String((content.formData as Record<string, unknown>).outputDetail) === "standard" ? "Standard" : "Concise"}
+                      </Badge>
+                    )}
+                  </div>
                   {course && (
                     <p className="text-sm text-muted-foreground">{course.courseName} ({course.courseNumber})</p>
                   )}

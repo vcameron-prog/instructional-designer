@@ -245,6 +245,11 @@ export default function QuickTools() {
                                 {(item.formData as any).subject}
                               </Badge>
                             )}
+                            {item.formData && typeof item.formData === "object" && (item.formData as any).outputDetail && (
+                              <Badge variant="outline" className="text-xs font-normal" data-testid={`badge-detail-${item.id}`}>
+                                {String((item.formData as any).outputDetail) === "standard" ? "Standard" : "Concise"}
+                              </Badge>
+                            )}
                           </div>
                           <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2 leading-relaxed">
                             {item.contentPreview}{item.contentPreview.length >= 120 ? "..." : ""}
