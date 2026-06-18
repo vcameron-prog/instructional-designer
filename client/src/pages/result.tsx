@@ -848,6 +848,22 @@ export default function ResultPage() {
     return diffLines(selectedVersion.content, content.content);
   }, [selectedVersion, content]);
 
+  const versionLineSummaries = useMemo(() => {
+    if (!versions || !content) return new Map<number, { added: number; removed: number }>();
+    const map = new Map<number, { added: number; removed: number }>();
+    for (const version of versions) {
+      const parts = diffLines(version.content, content.content);
+      let added = 0;
+      let removed = 0;
+      for (const part of parts) {
+        if (part.added) added += part.count ?? 0;
+        else if (part.removed) removed += part.count ?? 0;
+      }
+      map.set(version.id, { added, removed });
+    }
+    return map;
+  }, [versions, content]);
+
   const tool = content ? TOOLS.find(t => t.id === content.toolType) : null;
   const accessibilityIssues = content ? checkAccessibility(content.content) : [];
 
@@ -1277,7 +1293,11 @@ export default function ResultPage() {
                       ) : (
                         <ScrollArea className="flex-1">
                           <div className="space-y-1 pr-2">
-                            {versions.map((version) => (
+                            {versions.map((version) => {
+                              const summary = versionLineSummaries.get(version.id);
+                              const hasAdded = (summary?.added ?? 0) > 0;
+                              const hasRemoved = (summary?.removed ?? 0) > 0;
+                              return (
                               <button
                                 key={version.id}
                                 className={`w-full text-left rounded-md px-3 py-2.5 transition-colors border ${
@@ -1294,8 +1314,23 @@ export default function ResultPage() {
                                   {" · "}
                                   {new Date(version.createdAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
                                 </p>
+                                {(hasAdded || hasRemoved) && (
+                                  <div className="flex items-center gap-1.5 mt-1.5" aria-label={`${summary?.added ?? 0} lines added, ${summary?.removed ?? 0} lines removed`}>
+                                    {hasAdded && (
+                                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400" data-testid={`version-lines-added-${version.id}`}>
+                                        +{summary!.added}
+                                      </span>
+                                    )}
+                                    {hasRemoved && (
+                                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400" data-testid={`version-lines-removed-${version.id}`}>
+                                        −{summary!.removed}
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
                               </button>
-                            ))}
+                              );
+                            })}
                           </div>
                         </ScrollArea>
                       )}
