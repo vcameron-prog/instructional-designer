@@ -406,7 +406,7 @@ export default function PdfConversion() {
       if (typeof data?.elementsFixed === "number" && data.elementsFixed > 0) {
         toast({
           title: "Instant fix applied",
-          description: `${data.elementsFixed} element${data.elementsFixed === 1 ? "" : "s"} replaced.`,
+          description: `${issueSummary}: ${data.elementsFixed} element${data.elementsFixed === 1 ? "" : "s"} replaced.`,
         });
       }
     },
