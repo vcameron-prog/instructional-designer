@@ -1454,7 +1454,7 @@ export async function registerRoutes(
     // callers only need to provide what they care about (e.g. just manualFixItems).
     // Disabled in production (NODE_ENV !== "production" guard above).
     app.post("/api/test/seed-conversion", async (req: Request, res: Response) => {
-      const { userId, accessibleHtml, complianceReport, originalFilename, manualFixItems, status, errorMessage } = req.body as {
+      const { userId, accessibleHtml, complianceReport, originalFilename, manualFixItems, status, errorMessage, sourceType } = req.body as {
         userId: string;
         accessibleHtml?: string;
         complianceReport?: unknown;
@@ -1462,7 +1462,9 @@ export async function registerRoutes(
         manualFixItems?: { title: string; reason: string }[];
         status?: string;
         errorMessage?: string;
+        sourceType?: string;
       };
+      const resolvedSourceType = sourceType ?? "pdf";
       const resolvedStatus = status ?? "completed";
       if (!userId) {
         res.status(400).json({ error: "userId is required" });
@@ -1495,7 +1497,7 @@ export async function registerRoutes(
                accessible_html, compliance_report, original_compliance_report,
                manual_fix_items, user_id, error_message)
             VALUES
-              (${originalFilename ?? "test-document.pdf"}, ${1024}, ${"pdf"}, ${"failed"},
+              (${originalFilename ?? "test-document.pdf"}, ${1024}, ${resolvedSourceType}, ${"failed"},
                ${null}, ${null}, ${null},
                ${null}, ${userId}, ${errorMessage ?? null})
             RETURNING id
@@ -1509,7 +1511,7 @@ export async function registerRoutes(
                accessible_html, compliance_report, original_compliance_report,
                manual_fix_items, user_id)
             VALUES
-              (${originalFilename ?? "test-document.pdf"}, ${1024}, ${"pdf"}, ${"completed"},
+              (${originalFilename ?? "test-document.pdf"}, ${1024}, ${resolvedSourceType}, ${"completed"},
                ${effectiveHtml},
                ${JSON.stringify(effectiveReport)}::jsonb,
                ${JSON.stringify(effectiveReport)}::jsonb,
