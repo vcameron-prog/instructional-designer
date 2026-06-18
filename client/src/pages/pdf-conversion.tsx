@@ -682,6 +682,15 @@ export default function PdfConversion() {
   }, [conversion, numericId, toast]);
 
   const handleFixAllAria = useCallback(async () => {
+    const report = (conversion as any)?.complianceReport;
+    const ariaIssueCount = report?.issues
+      ? (report.issues as any[]).filter(
+          (issue: any) =>
+            issue.title?.includes("ARIA") &&
+            (issue.status === "fail" || issue.status === "warning"),
+        ).length
+      : 0;
+
     setIsFixingAllAria(true);
     setFixError(null);
     setBatchFixNotesSummary([]);
@@ -689,6 +698,15 @@ export default function PdfConversion() {
       const res = await apiRequest("POST", `/api/conversions/${numericId}/fix-all-aria`);
       const data = await res.json();
       await queryClient.invalidateQueries({ queryKey: ["/api/conversions", numericId] });
+
+      if (ariaIssueCount > 0) {
+        toast({
+          title: `Fixed ${ariaIssueCount} ARIA role ${ariaIssueCount === 1 ? "issue" : "issues"}`,
+        });
+      } else {
+        toast({ title: "No ARIA issues found to fix" });
+      }
+
       const issues: Array<{ fixNotes?: string }> = data?.complianceReport?.issues ?? [];
       const ariaFixNotes = issues
         .map((issue) => issue.fixNotes)
@@ -697,10 +715,11 @@ export default function PdfConversion() {
       if (uniqueNotes.length > 0) {
         setBatchFixNotesSummary(uniqueNotes);
       }
+
       if (data?.wasRetried) {
         toast({
-          title: "ARIA fixes applied",
-          description: "One or more ARIA fixes required a retry — the final result is still correct.",
+          title: "One or more ARIA fixes required a retry",
+          description: "The initial AI response was incomplete for some issues. A second attempt succeeded — the final result is still correct.",
         });
       }
     } catch {
@@ -708,7 +727,7 @@ export default function PdfConversion() {
     } finally {
       setIsFixingAllAria(false);
     }
-  }, [numericId, toast]);
+  }, [conversion, numericId, toast]);
 
   const handleAcceptIssue = useCallback(
     (issueIndex: number) => {
