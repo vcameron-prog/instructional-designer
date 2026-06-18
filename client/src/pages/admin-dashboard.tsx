@@ -22,6 +22,7 @@ import {
   FileDown,
   RotateCcw,
   Info,
+  Settings,
 } from "lucide-react";
 import {
   Tooltip as UITooltip,
@@ -103,6 +104,9 @@ interface AdminStats {
     totalIssuesFound: number;
     totalIssuesFixed: number;
     totalIssuesRemaining: number;
+  };
+  config: {
+    versionHistoryLimit: number;
   };
 }
 
@@ -808,6 +812,32 @@ export default function AdminDashboard() {
             </Card>
           );
         })()}
+
+        <Card className="mb-8" data-testid="card-system-config">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Settings className="w-5 h-5" />
+              System Configuration
+            </CardTitle>
+            <CardDescription>
+              Active server configuration values — change these via environment variables
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-start gap-3" data-testid="stat-version-history-limit">
+              <div className="w-9 h-9 rounded-lg bg-sky-100 dark:bg-sky-950 flex items-center justify-center flex-shrink-0">
+                <RotateCcw className="w-4 h-4 text-sky-600 dark:text-sky-400" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-foreground">{stats.config.versionHistoryLimit}</p>
+                <p className="text-sm text-muted-foreground">Version History Limit</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Maximum versions kept per content item (set via <code className="font-mono bg-muted px-1 rounded">VERSION_HISTORY_LIMIT</code> env var)
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         <Card className="mb-8" data-testid="card-user-activity">
           <CardHeader>

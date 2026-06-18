@@ -1821,6 +1821,9 @@ export async function registerRoutes(
               totalIssuesRemaining: Math.max(0, found - fixed),
             };
           })(),
+          config: {
+            versionHistoryLimit: VERSION_HISTORY_LIMIT,
+          },
         });
       } catch (error) {
         console.error("Error fetching admin stats:", error);
