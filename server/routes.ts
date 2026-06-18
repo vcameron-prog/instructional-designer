@@ -3016,6 +3016,12 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         if (error?.code === "DUPLICATE_OUTCOME") {
           return res.status(409).json({ error: "An outcome with that text already exists in your collection." });
         }
+        if (
+          error instanceof Error &&
+          error.message === "Outcome not found or not owned by user"
+        ) {
+          return res.status(404).json({ error: "Outcome not found" });
+        }
         console.error("Error updating saved outcome:", error);
         res.status(500).json({ error: "Failed to update outcome" });
       }
