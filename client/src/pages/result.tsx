@@ -282,11 +282,6 @@ export default function ResultPage() {
     });
   }, [contentId, isAnon]);
 
-  const { data: course } = useQuery<Course>({
-    queryKey: ["/api/courses", courseId],
-    enabled: !!courseId && !isStandalone,
-  });
-
   const { data: versions } = useQuery<ContentVersion[]>({
     queryKey: ["/api/content", contentId, "versions"],
     enabled: !!contentId && versionHistoryOpen,
@@ -311,6 +306,13 @@ export default function ResultPage() {
   });
 
   const content = isAnon ? (anonData as GeneratedContent | undefined) : fetchedContent;
+
+  const linkedCourseId = courseId ?? content?.courseId ?? undefined;
+
+  const { data: course } = useQuery<Course>({
+    queryKey: ["/api/courses", linkedCourseId],
+    enabled: !!linkedCourseId,
+  });
 
   usePageTitle(content ? content.toolName + " Result" : "Result");
 
@@ -826,7 +828,7 @@ export default function ResultPage() {
         </div>
       </div>
 
-      {!isStandalone && course?.syllabusUploadedAt && content.createdAt && new Date(content.createdAt) < new Date(course.syllabusUploadedAt) && (
+      {!!content.courseId && course?.syllabusUploadedAt && content.createdAt && new Date(content.createdAt) < new Date(course.syllabusUploadedAt) && (
         <div
           className="bg-yellow-50 border-b border-yellow-200"
           role="alert"
