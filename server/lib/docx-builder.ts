@@ -228,24 +228,26 @@ export function processTable(el: HTMLElement): Table | null {
         }
       }
 
-      let inlineChildren: InlineChild[];
+      let cellChildren: Paragraph[];
       try {
-        inlineChildren = extractInlineChildren(cell);
+        cellChildren = extractCellChildren(cell);
       } catch {
         const fallback = safePlainText(cell);
-        inlineChildren = fallback ? [new TextRun({ text: fallback })] : [];
+        cellChildren = [
+          new Paragraph({
+            children: fallback
+              ? [new TextRun({ text: fallback })]
+              : [new TextRun({ text: "" })],
+          }),
+        ];
       }
 
       tableCells.push(
         new TableCell({
-          children: [
-            new Paragraph({
-              children:
-                inlineChildren.length > 0
-                  ? inlineChildren
-                  : [new TextRun({ text: "" })],
-            }),
-          ],
+          children:
+            cellChildren.length > 0
+              ? cellChildren
+              : [new Paragraph({ children: [new TextRun({ text: "" })] })],
           shading: isHeader
             ? { type: ShadingType.SOLID, fill: "E8E8E8", color: "E8E8E8" }
             : undefined,
@@ -271,6 +273,40 @@ export function processTable(el: HTMLElement): Table | null {
     rows,
     width: { size: 100, type: WidthType.PERCENTAGE },
   });
+}
+
+function extractCellChildren(cell: HTMLElement): Paragraph[] {
+  const result: Paragraph[] = [];
+  let pendingInline: InlineChild[] = [];
+
+  const flushInline = () => {
+    if (pendingInline.length > 0) {
+      result.push(new Paragraph({ children: pendingInline }));
+      pendingInline = [];
+    }
+  };
+
+  for (const child of cell.childNodes) {
+    const childEl = child as HTMLElement;
+    const tag = childEl.tagName?.toLowerCase();
+    if (tag === "ul" || tag === "ol") {
+      flushInline();
+      result.push(...processListItems(childEl, tag === "ol", 0));
+    } else if (tag === "p") {
+      flushInline();
+      const inlineChildren = extractInlineChildren(childEl);
+      if (inlineChildren.length > 0) {
+        result.push(new Paragraph({ children: inlineChildren }));
+      }
+    } else {
+      pendingInline.push(
+        ...extractInlineChildren(child as HTMLElement | TextNode),
+      );
+    }
+  }
+  flushInline();
+
+  return result;
 }
 
 function processListItems(

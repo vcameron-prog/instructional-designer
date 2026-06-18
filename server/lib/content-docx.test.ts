@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
+import { parse } from "node-html-parser";
 import { parseMarkdownInline, buildContentDocx } from "./content-docx.js";
+import { processTable } from "./docx-builder.js";
 
 describe("parseMarkdownInline", () => {
   it("returns a plain run for plain text", () => {
@@ -119,5 +121,67 @@ describe("buildContentDocx", () => {
     );
     expect(withDate.length).toBeGreaterThan(0);
     expect(withString.length).toBeGreaterThan(0);
+  });
+
+  it("does not drop a <ul> inside a table cell", async () => {
+    const html = `<table><tr><th>Feature</th><th>Options</th></tr><tr><td>Formats</td><td><ul><li>PDF</li><li>DOCX</li></ul></td></tr></table>`;
+    const buf = await buildContentDocx({ ...baseItem, content: html }, null);
+    expect(buf).toBeInstanceOf(Buffer);
+    expect(buf.length).toBeGreaterThan(0);
+  });
+
+  it("does not drop an <ol> inside a table cell", async () => {
+    const html = `<table><tr><th>Step</th><th>Actions</th></tr><tr><td>Setup</td><td><ol><li>Install</li><li>Configure</li></ol></td></tr></table>`;
+    const buf = await buildContentDocx({ ...baseItem, content: html }, null);
+    expect(buf).toBeInstanceOf(Buffer);
+    expect(buf.length).toBeGreaterThan(0);
+  });
+});
+
+describe("processTable — nested lists in cells", () => {
+  function parseTable(html: string) {
+    const root = parse(html);
+    const el = root.querySelector("table");
+    if (!el) throw new Error("no table found");
+    return el;
+  }
+
+  function getParagraphsInFirstCell(table: ReturnType<typeof processTable>) {
+    const tableAny = table as any;
+    const row = tableAny.root.find((n: any) => n.rootKey === "w:tr");
+    const cell = row.root.find((n: any) => n.rootKey === "w:tc");
+    return (cell.root as any[]).filter((n: any) => n.rootKey === "w:p");
+  }
+
+  it("renders unordered list items as separate paragraphs in the cell", () => {
+    const html = `<table><tr><td><ul><li>Alpha</li><li>Beta</li></ul></td></tr></table>`;
+    const table = processTable(parseTable(html));
+    expect(table).not.toBeNull();
+    const paragraphs = getParagraphsInFirstCell(table);
+    expect(paragraphs.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("renders ordered list items as separate paragraphs in the cell", () => {
+    const html = `<table><tr><td><ol><li>First</li><li>Second</li><li>Third</li></ol></td></tr></table>`;
+    const table = processTable(parseTable(html));
+    expect(table).not.toBeNull();
+    const paragraphs = getParagraphsInFirstCell(table);
+    expect(paragraphs.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("renders inline text before a list as a separate paragraph", () => {
+    const html = `<table><tr><td>Intro text<ul><li>Item A</li><li>Item B</li></ul></td></tr></table>`;
+    const table = processTable(parseTable(html));
+    expect(table).not.toBeNull();
+    const paragraphs = getParagraphsInFirstCell(table);
+    expect(paragraphs.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("keeps plain text cells unaffected (single paragraph)", () => {
+    const html = `<table><tr><td>Plain text only</td></tr></table>`;
+    const table = processTable(parseTable(html));
+    expect(table).not.toBeNull();
+    const paragraphs = getParagraphsInFirstCell(table);
+    expect(paragraphs).toHaveLength(1);
   });
 });
