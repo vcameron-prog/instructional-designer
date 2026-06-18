@@ -14,6 +14,7 @@ import {
   Trash2,
   Copy,
   CalendarPlus,
+  GitBranch,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -79,6 +80,11 @@ export function CourseCard({
 }) {
   const { data: contents = [] } = useQuery<GeneratedContent[]>({
     queryKey: ["/api/courses", course.id, "content"],
+  });
+
+  const { data: parentCourse } = useQuery<Course>({
+    queryKey: ["/api/courses", course.rolledOverFromId],
+    enabled: course.rolledOverFromId != null,
   });
 
   const [rolloverOpen, setRolloverOpen] = useState(false);
@@ -148,6 +154,14 @@ export function CourseCard({
           <p className="text-sm text-muted-foreground">
             {course.courseNumber}{course.sectionNumber ? ` §${course.sectionNumber}` : ""} • {course.semester}
           </p>
+          {course.rolledOverFromId != null && (
+            <p className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5" data-testid={`text-rolled-over-from-${course.id}`}>
+              <GitBranch className="w-3 h-3 shrink-0" aria-hidden="true" />
+              {parentCourse
+                ? <>Rolled over from <span className="font-medium">{parentCourse.courseName}</span> — {parentCourse.semester}</>
+                : "Rolled over from a previous course"}
+            </p>
+          )}
           {toolsGenerated.size > 0 && (
             <div className="flex items-center gap-1 mt-2">
               <span className="text-xs text-muted-foreground mr-1">Created:</span>

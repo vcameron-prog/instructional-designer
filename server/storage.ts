@@ -344,6 +344,7 @@ export class DatabaseStorage implements IStorage {
       prerequisites: original.prerequisites,
       existingSyllabus: null,
       additionalContext: original.additionalContext,
+      rolledOverFromId: original.id,
     }, userId);
 
     return rolledOver;

@@ -33,6 +33,7 @@ export const courses = pgTable("courses", {
   existingSyllabus: text("existing_syllabus"),
   additionalContext: text("additional_context"),
   syllabusUploadedAt: timestamp("syllabus_uploaded_at"),
+  rolledOverFromId: integer("rolled_over_from_id"),
   createdAt: timestamp("created_at")
     .default(sql`CURRENT_TIMESTAMP`)
     .notNull(),
