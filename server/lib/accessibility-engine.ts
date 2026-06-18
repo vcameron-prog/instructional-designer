@@ -246,12 +246,12 @@ export function ensureAltText(html: string, images: ExtractedImage[]): string {
       const src = srcMatch?.[1] ?? srcMatch?.[2] ?? "";
 
       if (src && !src.startsWith("data:")) {
-        const cleanName = src.replace(/[_-]/g, " ").replace(/\.[^.]+$/, "");
+        const cleanName = safeDecodeURIComponent(src).replace(/[_-]/g, " ").replace(/\.[^.]+$/, "");
         altText = `Image: ${escapeHtmlAttr(cleanName)}`;
       } else if (src.startsWith("data:")) {
         const meta = imageMetaMap.get(src);
         if (meta) {
-          const cleanName = meta.name.replace(/[_-]/g, " ").replace(/\.[^.]+$/, "");
+          const cleanName = safeDecodeURIComponent(meta.name).replace(/[_-]/g, " ").replace(/\.[^.]+$/, "");
           altText = `Image: ${escapeHtmlAttr(cleanName)} (page ${meta.pageNumber})`;
         }
       }

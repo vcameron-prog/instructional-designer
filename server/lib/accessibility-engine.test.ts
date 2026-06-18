@@ -1856,6 +1856,50 @@ describe("ensureAltText", () => {
     expect(altValue).toContain("o'clock");
     expect(result).not.toMatch(/alt="[^"]*"[^"]*"/);
   });
+
+  it("decodes a percent-encoded emoji filename in a non-data src into readable alt text", () => {
+    const html = `<img src="%F0%9F%98%80.png">`;
+    const result = ensureAltText(html, []);
+    const altMatch = result.match(/alt="([^"]*)"/);
+    expect(altMatch).not.toBeNull();
+    expect(altMatch![1]).toContain("😀");
+    expect(altMatch![1]).not.toContain("%F0%9F%98%80");
+  });
+
+  it("decodes a percent-encoded CJK filename in a non-data src into readable alt text", () => {
+    const html = `<img src="%E5%9B%BE%E8%A1%A8.png">`;
+    const result = ensureAltText(html, []);
+    const altMatch = result.match(/alt="([^"]*)"/);
+    expect(altMatch).not.toBeNull();
+    expect(altMatch![1]).toContain("图表");
+    expect(altMatch![1]).not.toContain("%E5%9B%BE%E8%A1%A8");
+  });
+
+  it("decodes a percent-encoded emoji in a data URI image name into readable alt text", () => {
+    const img = makeImage("%F0%9F%8E%89.png", "data:image/png;base64,emojidata");
+    const html = `<img src="${img.dataUrl}">`;
+    const result = ensureAltText(html, [img]);
+    const altMatch = result.match(/alt="([^"]*)"/);
+    expect(altMatch).not.toBeNull();
+    expect(altMatch![1]).toContain("🎉");
+    expect(altMatch![1]).not.toContain("%F0%9F%8E%89");
+  });
+
+  it("decodes a percent-encoded CJK name in a data URI image into readable alt text", () => {
+    const img = makeImage("%E5%9B%BE%E8%A1%A8.png", "data:image/png;base64,cjkdata");
+    const html = `<img src="${img.dataUrl}">`;
+    const result = ensureAltText(html, [img]);
+    const altMatch = result.match(/alt="([^"]*)"/);
+    expect(altMatch).not.toBeNull();
+    expect(altMatch![1]).toContain("图表");
+    expect(altMatch![1]).not.toContain("%E5%9B%BE%E8%A1%A8");
+  });
+
+  it("leaves an invalid percent-encoded src unchanged rather than throwing", () => {
+    const html = `<img src="broken%GGimage.png">`;
+    const result = ensureAltText(html, []);
+    expect(result).toContain('alt="');
+  });
 });
 
 // ---------------------------------------------------------------------------
