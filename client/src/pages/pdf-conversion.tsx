@@ -617,7 +617,10 @@ export default function PdfConversion() {
         const stored = localStorage.getItem(`manualFixSummary_${numericId}`);
         if (stored) {
           const parsed = JSON.parse(stored) as { title: string; reason: string }[];
-          if (!cancelled && parsed.length > 0) setManualFixSummary(parsed);
+          if (!cancelled && parsed.length > 0) {
+            setManualFixSummary(parsed);
+            apiRequest("PUT", `/api/conversions/${numericId}/manual-fixes`, { items: parsed }).catch(() => {});
+          }
         }
       } catch {}
     };
