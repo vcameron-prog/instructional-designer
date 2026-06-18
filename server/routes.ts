@@ -2,7 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { randomUUID } from "crypto";
 import { storage } from "./storage";
-import { insertCourseSchema, type Course, courses, conversions, generatedContent, contentVersions } from "@shared/schema";
+import { insertCourseSchema, type Course, type InsertCourse, courses, conversions, generatedContent, contentVersions } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import {
   setupAuth,
@@ -2012,7 +2012,11 @@ export async function registerRoutes(
         if (!parsed.success) {
           return res.status(400).json({ error: parsed.error.message });
         }
-        const course = await storage.createCourse(parsed.data, userId);
+        const courseData: InsertCourse & { syllabusUploadedAt?: Date } = { ...parsed.data };
+        if (parsed.data.existingSyllabus && parsed.data.existingSyllabus !== "") {
+          courseData.syllabusUploadedAt = new Date();
+        }
+        const course = await storage.createCourse(courseData, userId);
         res.status(201).json(course);
       } catch (error) {
         console.error("Error creating course:", error);

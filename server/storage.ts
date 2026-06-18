@@ -27,7 +27,7 @@ export interface IStorage {
   // Courses (user-scoped)
   getAllCourses(userId: string): Promise<Course[]>;
   getCourse(id: number, userId: string): Promise<Course | undefined>;
-  createCourse(course: InsertCourse, userId: string): Promise<Course>;
+  createCourse(course: InsertCourse & { syllabusUploadedAt?: Date | null }, userId: string): Promise<Course>;
   updateCourse(id: number, course: Partial<InsertCourse> & { syllabusUploadedAt?: Date | null }, userId: string): Promise<Course | undefined>;
   deleteCourse(id: number, userId: string): Promise<void>;
   
@@ -101,7 +101,7 @@ export class DatabaseStorage implements IStorage {
     return course;
   }
 
-  async createCourse(course: InsertCourse, userId: string): Promise<Course> {
+  async createCourse(course: InsertCourse & { syllabusUploadedAt?: Date | null }, userId: string): Promise<Course> {
     const [created] = await db.insert(courses).values({ ...course, userId }).returning();
     return created;
   }
