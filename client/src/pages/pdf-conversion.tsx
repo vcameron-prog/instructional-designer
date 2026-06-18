@@ -370,11 +370,12 @@ export default function PdfConversion() {
       });
       return res.json();
     },
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({
         queryKey: ["/api/conversions", numericId],
       });
       if (data?.noFixReason) {
+        setNoFixReasons(prev => ({ ...prev, [variables.issueIndex]: data.noFixReason }));
         toast({
           title: "Manual fix needed",
           description: data.noFixReason,
@@ -463,6 +464,7 @@ export default function PdfConversion() {
   const [expandedIssues, setExpandedIssues] = useState<Set<string>>(new Set());
   const [fixingIndex, setFixingIndex] = useState<number | null>(null);
   const [fixError, setFixError] = useState<string | null>(null);
+  const [noFixReasons, setNoFixReasons] = useState<Record<number, string>>({});
   const [fixAllProgress, setFixAllProgress] = useState<{ current: number; total: number } | null>(null);
   const [isFixingAll, setIsFixingAll] = useState(false);
   const [isFixingAllAria, setIsFixingAllAria] = useState(false);
@@ -2384,6 +2386,20 @@ export default function PdfConversion() {
                                     Mark as Accepted
                                   </button>
                                 )}
+                              </div>
+                            )}
+                            {noFixReasons[i] && (
+                              <div
+                                className="flex items-start gap-2 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 px-3 py-2.5"
+                                data-testid={`callout-no-fix-${i}`}
+                                role="alert"
+                              >
+                                <span className="mt-0.5 flex-shrink-0 inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-800/60 border border-amber-300 dark:border-amber-600 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+                                  Manual fix needed
+                                </span>
+                                <p className="text-xs text-amber-800 dark:text-amber-200 leading-relaxed">
+                                  {noFixReasons[i]}
+                                </p>
                               </div>
                             )}
                             {showAcceptForm === i && isFixable && (
