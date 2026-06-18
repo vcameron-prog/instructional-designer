@@ -5007,6 +5007,22 @@ describe("applyBypassBlocksFix", () => {
     expect(bypass.details).toContain("no main content area");
     expect(bypass.details).toContain("landmark elements");
   });
+
+  it("all-landmarks-no-content: fixComplianceIssue returns noFixReason and leaves HTML unchanged", async () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><header><p>Site header</p></header><nav><a href="#">Home</a></nav><footer><p>Footer</p></footer></body></html>`;
+
+    const issues = runDeterministicChecks(html);
+    const report = buildComplianceReport(issues);
+    const bypassIssue = issues.find((i) => i.criterion === "2.4.1")!;
+    const bypassIndex = issues.indexOf(bypassIssue);
+
+    const result = await fixComplianceIssue(html, bypassIssue, bypassIndex, report);
+
+    expect(result.noFixReason).toBeTruthy();
+    expect(result.noFixReason).toContain("landmark");
+    expect(result.accessibleHtml).not.toContain("<main>");
+    expect(result.accessibleHtml).toBe(html);
+  });
 });
 
 // ---------------------------------------------------------------------------
