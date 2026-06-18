@@ -12,7 +12,6 @@ import {
   Library,
   FlaskConical,
   Shield,
-  Loader2,
   Zap,
   LayoutDashboard,
   Lock,
