@@ -2,7 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { randomUUID } from "crypto";
 import { storage } from "./storage";
-import { insertCourseSchema, type Course, courses, conversions, generatedContent, contentVersions, rateLimitLog } from "@shared/schema";
+import { insertCourseSchema, type Course, courses, conversions, generatedContent, contentVersions } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import {
   setupAuth,
@@ -20,7 +20,22 @@ import { convertMarkdownTablesToHtml } from "./markdownTableConverter.js";
 import { fixHtmlTableCaption, fixHtmlTableThead, editHtmlTableCaption } from "./lib/table-fixers.js";
 import { getDeterministicFixerKeys, getAiFixRetryMetrics } from "./lib/accessibility-engine";
 import { parseVersionHistoryLimit } from "./lib/parseVersionHistoryLimit.js";
-import { checkSharedRateLimit } from "./lib/shared-rate-limit.js";
+import {
+  SHARED_ANON_UPLOAD_RATE_LIMIT,
+  SHARED_HEAVY_OP_RATE_LIMIT,
+  checkSharedRateLimit,
+  checkAnonRateLimit,
+  checkHeavyOpRateLimit,
+  checkAiGenRateLimit,
+  checkUploadRateLimit,
+  AI_GEN_RATE_LIMIT,
+  AI_GEN_RATE_WINDOW_MS,
+  UPLOAD_RATE_LIMIT,
+  UPLOAD_RATE_WINDOW_MS,
+  ANON_RATE_LIMIT,
+  ANON_RATE_WINDOW_MS,
+  HEAVY_OP_RATE_WINDOW_MS,
+} from "./lib/rateLimiters.js";
 
 function getUserId(req: Request): string | null {
   return (req.user as any)?.claims?.sub ?? null;
@@ -47,13 +62,6 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024, files: 1 },
 });
 
-// Process-local fallback store used only when the DB is unavailable.
-// All anonymous rate-limit paths use checkSharedRateLimit (DB-backed,
-// cross-instance) as the primary check and pass checkAnonRateLimit as the
-// fallbackFn so the limiter degrades gracefully under DB failures.
-const anonRateLimits = new Map<string, { count: number; resetAt: number }>();
-const ANON_RATE_LIMIT = 10;
-const ANON_RATE_WINDOW_MS = 60 * 60 * 1000;
 const VERSION_HISTORY_LIMIT: number = parseVersionHistoryLimit(process.env.VERSION_HISTORY_LIMIT);
 
 /**
@@ -66,151 +74,6 @@ function sanitizeHeaderFilename(filename: string): string {
     .replace(/[\x00\r\n"]/g, "_")
     .slice(0, 200);
 }
-
-function checkAnonRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const entry = anonRateLimits.get(ip);
-  if (!entry || now > entry.resetAt) {
-    anonRateLimits.set(ip, { count: 1, resetAt: now + ANON_RATE_WINDOW_MS });
-    return true;
-  }
-  if (entry.count >= ANON_RATE_LIMIT) return false;
-  entry.count++;
-  return true;
-}
-
-setInterval(
-  () => {
-    const now = Date.now();
-    for (const [ip, entry] of anonRateLimits) {
-      if (now > entry.resetAt) anonRateLimits.delete(ip);
-    }
-  },
-  10 * 60 * 1000,
-);
-
-// Shared (cross-instance, cross-process) rate limiter backed by the
-// rate_limit_log PostgreSQL table.
-//
-// ATOMICITY: Uses a PostgreSQL transaction with pg_advisory_xact_lock to
-// serialize concurrent requests that share the same (key, action) pair.
-// The advisory lock is held for the duration of the transaction, so no
-// two concurrent calls can race to read the same count and both insert past
-// the limit (the classic TOCTOU issue with naive INSERT...SELECT WHERE count).
-//
-// ERROR HANDLING: On DB errors the caller-supplied `fallbackFn` is invoked.
-// If no fallback is provided the check fails CLOSED (denies the request)
-// rather than failing open — preventing silent disabling of throttles under
-// DB degradation.
-//
-// Rows are periodically cleaned up by the setInterval below.
-//
-// IMPORTANT: callers MUST use ensureVisitorToken() (not getVisitorToken())
-// so that a sticky token is always assigned before the check — preventing
-// bypass via cookie rotation.
-const SHARED_ANON_UPLOAD_RATE_LIMIT = parseInt(process.env.ANON_DB_RATE_LIMIT ?? "10", 10) || 10;
-const SHARED_HEAVY_OP_RATE_LIMIT = parseInt(process.env.HEAVY_OP_RATE_LIMIT ?? "5", 10) || 5;
-
-
-// Periodic cleanup: remove rate_limit_log rows older than 2 hours so the
-// table does not grow without bound.  Runs every 15 minutes.
-setInterval(async () => {
-  try {
-    const cutoff = new Date(Date.now() - 2 * 60 * 60 * 1000);
-    await db.delete(rateLimitLog).where(sql`${rateLimitLog.createdAt} < ${cutoff}`);
-  } catch {
-    // Non-critical; next interval will retry.
-  }
-}, 15 * 60 * 1000);
-
-// Heavy-operation rate limiting — process-local fallback used only for
-// anonymous users when the shared DB rate limit is unavailable.
-// Authenticated users are rate-limited via checkSharedRateLimit directly.
-const heavyOpRateLimits = new Map<string, { count: number; resetAt: number }>();
-const HEAVY_OP_RATE_LIMIT = parseInt(process.env.HEAVY_OP_RATE_LIMIT ?? "5", 10) || 5;
-const HEAVY_OP_RATE_WINDOW_MS = 60 * 60 * 1000;
-
-function checkHeavyOpRateLimit(key: string): boolean {
-  const now = Date.now();
-  const entry = heavyOpRateLimits.get(key);
-  if (!entry || now > entry.resetAt) {
-    heavyOpRateLimits.set(key, { count: 1, resetAt: now + HEAVY_OP_RATE_WINDOW_MS });
-    return true;
-  }
-  if (entry.count >= HEAVY_OP_RATE_LIMIT) return false;
-  entry.count++;
-  return true;
-}
-
-setInterval(
-  () => {
-    const now = Date.now();
-    for (const [key, entry] of heavyOpRateLimits) {
-      if (now > entry.resetAt) heavyOpRateLimits.delete(key);
-    }
-  },
-  10 * 60 * 1000,
-);
-
-// Per-user AI generation rate limiting.
-// Authenticated users are checked via checkSharedRateLimit (DB-backed, cross-instance).
-// This process-local Map is used only as the fallback for anonymous users or when
-// the DB is unavailable.
-const aiGenRateLimits = new Map<string, { count: number; resetAt: number }>();
-const AI_GEN_RATE_LIMIT = parseInt(process.env.AI_GEN_RATE_LIMIT ?? "20", 10) || 20;
-const AI_GEN_RATE_WINDOW_MS = 60 * 60 * 1000;
-
-function checkAiGenRateLimit(key: string): boolean {
-  const now = Date.now();
-  const entry = aiGenRateLimits.get(key);
-  if (!entry || now > entry.resetAt) {
-    aiGenRateLimits.set(key, { count: 1, resetAt: now + AI_GEN_RATE_WINDOW_MS });
-    return true;
-  }
-  if (entry.count >= AI_GEN_RATE_LIMIT) return false;
-  entry.count++;
-  return true;
-}
-
-setInterval(
-  () => {
-    const now = Date.now();
-    for (const [key, entry] of aiGenRateLimits) {
-      if (now > entry.resetAt) aiGenRateLimits.delete(key);
-    }
-  },
-  10 * 60 * 1000,
-);
-
-// Per-user conversion upload rate limiting.
-// Authenticated users are checked via checkSharedRateLimit (DB-backed, cross-instance).
-// This process-local Map is used only as the fallback for anonymous users or when
-// the DB is unavailable.
-const uploadRateLimits = new Map<string, { count: number; resetAt: number }>();
-const UPLOAD_RATE_LIMIT = parseInt(process.env.UPLOAD_RATE_LIMIT ?? "30", 10) || 30;
-const UPLOAD_RATE_WINDOW_MS = 60 * 60 * 1000;
-
-function checkUploadRateLimit(key: string): boolean {
-  const now = Date.now();
-  const entry = uploadRateLimits.get(key);
-  if (!entry || now > entry.resetAt) {
-    uploadRateLimits.set(key, { count: 1, resetAt: now + UPLOAD_RATE_WINDOW_MS });
-    return true;
-  }
-  if (entry.count >= UPLOAD_RATE_LIMIT) return false;
-  entry.count++;
-  return true;
-}
-
-setInterval(
-  () => {
-    const now = Date.now();
-    for (const [key, entry] of uploadRateLimits) {
-      if (now > entry.resetAt) uploadRateLimits.delete(key);
-    }
-  },
-  10 * 60 * 1000,
-);
 
 // Concurrency guards for expensive background operations
 //
