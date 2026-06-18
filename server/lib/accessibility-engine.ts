@@ -800,10 +800,12 @@ export function runDeterministicChecks(html: string): ComplianceIssue[] {
     return true;
   });
   if (nonCheckboxesWithCheckboxRole.length > 0) {
-    const tagList = nonCheckboxesWithCheckboxRole
-      .slice(0, 5)
-      .map((el) => `<${el.tagName?.toLowerCase()}>`)
-      .join(", ");
+    const checkboxTagCounts: Record<string, number> = {};
+    nonCheckboxesWithCheckboxRole.forEach((el) => {
+      const tag = `<${el.tagName?.toLowerCase()}>`;
+      checkboxTagCounts[tag] = (checkboxTagCounts[tag] ?? 0) + 1;
+    });
+    const tagList = Object.keys(checkboxTagCounts).slice(0, 5).join(", ");
     issues.push({
       criterion: "4.1.2",
       title: "ARIA Checkbox Role on Non-Input Element",
@@ -811,6 +813,7 @@ export function runDeterministicChecks(html: string): ComplianceIssue[] {
       status: "warning",
       description: "Using role=\"checkbox\" on a non-input element (e.g. <div> or <span>) is a misuse of ARIA. Use a native <input type=\"checkbox\"> instead.",
       details: `Found ${nonCheckboxesWithCheckboxRole.length} element(s) with role="checkbox" that are not native checkbox inputs (e.g. ${tagList}). Replace them with <input type="checkbox"> for built-in keyboard and accessibility support.`,
+      tagCounts: checkboxTagCounts,
     });
   }
 
@@ -825,10 +828,12 @@ export function runDeterministicChecks(html: string): ComplianceIssue[] {
     return true;
   });
   if (nonRadiosWithRadioRole.length > 0) {
-    const tagList = nonRadiosWithRadioRole
-      .slice(0, 5)
-      .map((el) => `<${el.tagName?.toLowerCase()}>`)
-      .join(", ");
+    const radioTagCounts: Record<string, number> = {};
+    nonRadiosWithRadioRole.forEach((el) => {
+      const tag = `<${el.tagName?.toLowerCase()}>`;
+      radioTagCounts[tag] = (radioTagCounts[tag] ?? 0) + 1;
+    });
+    const tagList = Object.keys(radioTagCounts).slice(0, 5).join(", ");
     issues.push({
       criterion: "4.1.2",
       title: "ARIA Radio Role on Non-Input Element",
@@ -836,6 +841,7 @@ export function runDeterministicChecks(html: string): ComplianceIssue[] {
       status: "warning",
       description: "Using role=\"radio\" on a non-input element (e.g. <div> or <span>) is a misuse of ARIA. Use a native <input type=\"radio\"> instead.",
       details: `Found ${nonRadiosWithRadioRole.length} element(s) with role="radio" that are not native radio inputs (e.g. ${tagList}). Replace them with <input type="radio"> for built-in keyboard and accessibility support.`,
+      tagCounts: radioTagCounts,
     });
   }
 
@@ -867,10 +873,12 @@ export function runDeterministicChecks(html: string): ComplianceIssue[] {
     return tag !== "li";
   });
   if (nonListitemsWithListitemRole.length > 0) {
-    const tagList = nonListitemsWithListitemRole
-      .slice(0, 5)
-      .map((el) => `<${el.tagName?.toLowerCase()}>`)
-      .join(", ");
+    const listitemTagCounts: Record<string, number> = {};
+    nonListitemsWithListitemRole.forEach((el) => {
+      const tag = `<${el.tagName?.toLowerCase()}>`;
+      listitemTagCounts[tag] = (listitemTagCounts[tag] ?? 0) + 1;
+    });
+    const tagList = Object.keys(listitemTagCounts).slice(0, 5).join(", ");
     issues.push({
       criterion: "1.3.1",
       title: "ARIA Listitem Role on Non-Listitem Element",
@@ -878,6 +886,139 @@ export function runDeterministicChecks(html: string): ComplianceIssue[] {
       status: "warning",
       description: "Using role=\"listitem\" on a non-listitem element (e.g. <div> or <span>) is a misuse of ARIA. Use a native <li> element inside a <ul> or <ol> instead.",
       details: `Found ${nonListitemsWithListitemRole.length} element(s) with role="listitem" that are not native list item elements (e.g. ${tagList}). Replace them with <li> for proper semantics.`,
+      tagCounts: listitemTagCounts,
+    });
+  }
+
+  // 1.3.1 – ARIA role="listbox" on non-select elements
+  const listboxRoleNodes = parsedDoc.querySelectorAll("[role='listbox']");
+  const nonSelectsWithListboxRole = listboxRoleNodes.filter((el) => {
+    const tag = el.tagName?.toLowerCase();
+    return tag !== "select";
+  });
+  if (nonSelectsWithListboxRole.length > 0) {
+    const listboxTagCounts: Record<string, number> = {};
+    nonSelectsWithListboxRole.forEach((el) => {
+      const tag = `<${el.tagName?.toLowerCase()}>`;
+      listboxTagCounts[tag] = (listboxTagCounts[tag] ?? 0) + 1;
+    });
+    const tagList = Object.keys(listboxTagCounts).slice(0, 5).join(", ");
+    issues.push({
+      criterion: "1.3.1",
+      title: "ARIA Listbox Role on Non-Select Element",
+      level: "A",
+      status: "warning",
+      description: "Using role=\"listbox\" on a non-select element (e.g. <div>) is a misuse of ARIA. Use a native <select> element instead.",
+      details: `Found ${nonSelectsWithListboxRole.length} element(s) with role="listbox" that are not native select elements (e.g. ${tagList}). Replace them with <select> for proper semantics.`,
+      tagCounts: listboxTagCounts,
+    });
+  }
+
+  // 4.1.2 – ARIA role="slider" on non-input elements
+  const sliderRoleNodes = parsedDoc.querySelectorAll("[role='slider']");
+  const nonSlidersWithSliderRole = sliderRoleNodes.filter((el) => {
+    const tag = el.tagName?.toLowerCase();
+    if (tag === "input") {
+      const type = (el.getAttribute("type") ?? "").toLowerCase();
+      return type !== "range";
+    }
+    return true;
+  });
+  if (nonSlidersWithSliderRole.length > 0) {
+    const sliderTagCounts: Record<string, number> = {};
+    nonSlidersWithSliderRole.forEach((el) => {
+      const tag = `<${el.tagName?.toLowerCase()}>`;
+      sliderTagCounts[tag] = (sliderTagCounts[tag] ?? 0) + 1;
+    });
+    const tagList = Object.keys(sliderTagCounts).slice(0, 5).join(", ");
+    issues.push({
+      criterion: "4.1.2",
+      title: "ARIA Slider Role on Non-Input Element",
+      level: "A",
+      status: "warning",
+      description: "Using role=\"slider\" on a non-input element (e.g. <div>) is a misuse of ARIA. Use a native <input type=\"range\"> instead.",
+      details: `Found ${nonSlidersWithSliderRole.length} element(s) with role="slider" that are not native range inputs (e.g. ${tagList}). Replace them with <input type="range"> for built-in keyboard and accessibility support.`,
+      tagCounts: sliderTagCounts,
+    });
+  }
+
+  // 4.1.2 – ARIA role="spinbutton" on non-input elements
+  const spinbuttonRoleNodes = parsedDoc.querySelectorAll("[role='spinbutton']");
+  const nonSpinbuttonsWithSpinbuttonRole = spinbuttonRoleNodes.filter((el) => {
+    const tag = el.tagName?.toLowerCase();
+    if (tag === "input") {
+      const type = (el.getAttribute("type") ?? "").toLowerCase();
+      return type !== "number";
+    }
+    return true;
+  });
+  if (nonSpinbuttonsWithSpinbuttonRole.length > 0) {
+    const spinbuttonTagCounts: Record<string, number> = {};
+    nonSpinbuttonsWithSpinbuttonRole.forEach((el) => {
+      const tag = `<${el.tagName?.toLowerCase()}>`;
+      spinbuttonTagCounts[tag] = (spinbuttonTagCounts[tag] ?? 0) + 1;
+    });
+    const tagList = Object.keys(spinbuttonTagCounts).slice(0, 5).join(", ");
+    issues.push({
+      criterion: "4.1.2",
+      title: "ARIA Spinbutton Role on Non-Input Element",
+      level: "A",
+      status: "warning",
+      description: "Using role=\"spinbutton\" on a non-input element (e.g. <div>) is a misuse of ARIA. Use a native <input type=\"number\"> instead.",
+      details: `Found ${nonSpinbuttonsWithSpinbuttonRole.length} element(s) with role="spinbutton" that are not native number inputs (e.g. ${tagList}). Replace them with <input type="number"> for built-in keyboard and accessibility support.`,
+      tagCounts: spinbuttonTagCounts,
+    });
+  }
+
+  // 4.1.2 – ARIA role="switch" on non-input elements
+  const switchRoleNodes = parsedDoc.querySelectorAll("[role='switch']");
+  const nonSwitchesWithSwitchRole = switchRoleNodes.filter((el) => {
+    const tag = el.tagName?.toLowerCase();
+    if (tag === "input") {
+      const type = (el.getAttribute("type") ?? "").toLowerCase();
+      return type !== "checkbox";
+    }
+    return true;
+  });
+  if (nonSwitchesWithSwitchRole.length > 0) {
+    const switchTagCounts: Record<string, number> = {};
+    nonSwitchesWithSwitchRole.forEach((el) => {
+      const tag = `<${el.tagName?.toLowerCase()}>`;
+      switchTagCounts[tag] = (switchTagCounts[tag] ?? 0) + 1;
+    });
+    const tagList = Object.keys(switchTagCounts).slice(0, 5).join(", ");
+    issues.push({
+      criterion: "4.1.2",
+      title: "ARIA Switch Role on Non-Input Element",
+      level: "A",
+      status: "warning",
+      description: "Using role=\"switch\" on a non-input element (e.g. <div>) is a misuse of ARIA. Use a native <input type=\"checkbox\"> styled as a toggle switch instead.",
+      details: `Found ${nonSwitchesWithSwitchRole.length} element(s) with role="switch" that are not native checkbox inputs (e.g. ${tagList}). Replace them with <input type="checkbox"> for built-in keyboard and accessibility support.`,
+      tagCounts: switchTagCounts,
+    });
+  }
+
+  // 1.3.1 – ARIA role="treeitem" on non-li/non-anchor elements
+  const treeitemRoleNodes = parsedDoc.querySelectorAll("[role='treeitem']");
+  const nonTreeitemsWithTreeitemRole = treeitemRoleNodes.filter((el) => {
+    const tag = el.tagName?.toLowerCase();
+    return tag !== "li" && tag !== "a";
+  });
+  if (nonTreeitemsWithTreeitemRole.length > 0) {
+    const treeitemTagCounts: Record<string, number> = {};
+    nonTreeitemsWithTreeitemRole.forEach((el) => {
+      const tag = `<${el.tagName?.toLowerCase()}>`;
+      treeitemTagCounts[tag] = (treeitemTagCounts[tag] ?? 0) + 1;
+    });
+    const tagList = Object.keys(treeitemTagCounts).slice(0, 5).join(", ");
+    issues.push({
+      criterion: "1.3.1",
+      title: "ARIA Treeitem Role on Non-List/Anchor Element",
+      level: "A",
+      status: "warning",
+      description: "Using role=\"treeitem\" on a non-list or non-anchor element (e.g. <div>) is a misuse of ARIA. Use a native <li> or <a> element within a tree structure instead.",
+      details: `Found ${nonTreeitemsWithTreeitemRole.length} element(s) with role="treeitem" that are not native list item or anchor elements (e.g. ${tagList}). Replace them with <li> or <a> for proper semantics.`,
+      tagCounts: treeitemTagCounts,
     });
   }
 
