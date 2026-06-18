@@ -141,9 +141,25 @@ export default function PdfHistory() {
   const [, navigate] = useLocation();
   const { downloading, isDownloadingRow, downloadHtml, downloadDocx, downloadPdf } = useConversionDownload();
 
-  const [search, setSearch] = useState("");
-  const [dateRange, setDateRange] = useState<DateRange>("all");
+  const [search, setSearch] = useState(() => {
+    const p = new URLSearchParams(window.location.search);
+    return p.get("q") ?? "";
+  });
+  const [dateRange, setDateRange] = useState<DateRange>(() => {
+    const p = new URLSearchParams(window.location.search);
+    const r = p.get("range");
+    return r === "7" || r === "30" ? r : "all";
+  });
   const [sortBy, setSortBy] = useState<SortOption>("newest");
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (search.trim()) params.set("q", search.trim());
+    if (dateRange !== "all") params.set("range", dateRange);
+    const qs = params.toString();
+    const newPath = qs ? `/pdf-history?${qs}` : "/pdf-history";
+    window.history.replaceState(null, "", newPath);
+  }, [search, dateRange]);
 
   const { data: conversions, isLoading } = useQuery<any[]>({
     queryKey: ["/api/conversions"],
