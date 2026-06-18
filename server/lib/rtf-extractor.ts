@@ -223,6 +223,11 @@ function decodeCjkByteSequences(
         } catch {
           result += text.substring(runStart, i);
         }
+      } else {
+        // Malformed or truncated \' token — emit literally and advance past it
+        // to prevent an infinite loop (i would otherwise remain at runStart).
+        result += "\\'";
+        i = runStart + 2;
       }
       continue;
     }
@@ -335,11 +340,142 @@ function parseRtfToText(rtfString: string): Promise<string> {
 }
 
 /**
+ * Scan `text` (after unicode-escape decoding) and decode every \'XX run using
+ * the per-font encoding that is active at that point in the stream.  \fN
+ * control words encountered during the scan switch the active encoding, so
+ * mixed-script documents (e.g. Japanese + Korean in the same file) are decoded
+ * correctly even in the fallback path.
+ */
+function decodeHexRunsWithFontTracking(
+  text: string,
+  defaultEncoding: string,
+  fontEncodings: Map<number, string>
+): string {
+  let result = "";
+  let i = 0;
+  let currentEncoding = defaultEncoding;
+
+  while (i < text.length) {
+    const ch = text[i];
+
+    if (ch !== "\\") {
+      result += ch;
+      i++;
+      continue;
+    }
+
+    if (i + 1 >= text.length) {
+      result += ch;
+      i++;
+      continue;
+    }
+
+    const next = text[i + 1];
+
+    // Hex escape: \'XX — collect a consecutive run, decode as a unit.
+    if (next === "'") {
+      const bytes: number[] = [];
+      const runStart = i;
+      while (
+        i < text.length &&
+        text[i] === "\\" &&
+        i + 1 < text.length &&
+        text[i + 1] === "'" &&
+        i + 3 < text.length
+      ) {
+        const hex = text.substring(i + 2, i + 4);
+        if (/^[0-9a-fA-F]{2}$/.test(hex)) {
+          bytes.push(parseInt(hex, 16));
+          i += 4;
+        } else {
+          break;
+        }
+      }
+      if (bytes.length > 0) {
+        try {
+          result += iconv.decode(Buffer.from(bytes), currentEncoding);
+        } catch {
+          // Windows-1252 fallback for single-byte sequences.
+          result += bytes
+            .map((code) => {
+              const W1252: Record<number, number> = {
+                0x80: 0x20ac, 0x82: 0x201a, 0x83: 0x0192, 0x84: 0x201e,
+                0x85: 0x2026, 0x86: 0x2020, 0x87: 0x2021, 0x88: 0x02c6,
+                0x89: 0x2030, 0x8a: 0x0160, 0x8b: 0x2039, 0x8c: 0x0152,
+                0x8e: 0x017d, 0x91: 0x2018, 0x92: 0x2019, 0x93: 0x201c,
+                0x94: 0x201d, 0x95: 0x2022, 0x96: 0x2013, 0x97: 0x2014,
+                0x98: 0x02dc, 0x99: 0x2122, 0x9a: 0x0161, 0x9b: 0x203a,
+                0x9c: 0x0153, 0x9e: 0x017e, 0x9f: 0x0178,
+              };
+              try {
+                return String.fromCodePoint(W1252[code] ?? code);
+              } catch {
+                return "";
+              }
+            })
+            .join("");
+        }
+      } else {
+        // Malformed or truncated \' token — emit literally and advance past it
+        // to prevent an infinite loop (i would otherwise remain at runStart).
+        result += "\\'";
+        i = runStart + 2;
+      }
+      continue;
+    }
+
+    // Alpha control word — watch for \fN to switch active encoding.
+    if (/[a-zA-Z]/.test(next)) {
+      let j = i + 1;
+      while (j < text.length && /[a-zA-Z]/.test(text[j])) j++;
+      const word = text.substring(i + 1, j);
+
+      let numStr = "";
+      const numStart = j;
+      if (j < text.length && (text[j] === "-" || /\d/.test(text[j]))) {
+        let k = numStart;
+        if (text[k] === "-") k++;
+        while (k < text.length && /\d/.test(text[k])) k++;
+        numStr = text.substring(numStart, k);
+        j = k;
+      }
+
+      if (j < text.length && text[j] === " ") j++;
+
+      if (word === "f" && numStr !== "") {
+        const fontNum = parseInt(numStr, 10);
+        const enc = fontEncodings.get(fontNum);
+        currentEncoding = enc !== undefined ? enc : defaultEncoding;
+      }
+
+      result += text.substring(i, j);
+      i = j;
+      continue;
+    }
+
+    // Other backslash sequences.
+    result += ch;
+    result += next;
+    i += 2;
+  }
+
+  return result;
+}
+
+/**
  * Fallback: strip RTF markup with a simple regex approach.
  * Used only when the library parser fails (e.g. severely malformed files).
  * Exported for unit testing.
+ *
+ * Accepts `fontEncodings` — the same per-font encoding map built from the RTF
+ * font table — so that mixed-script \'XX runs are decoded with the correct
+ * encoding for the active font rather than a single document-level encoding.
  */
-export function stripRtfFallback(rtf: string, encoding = "windows-1252"): string {
+export function stripRtfFallback(
+  rtf: string,
+  encoding: string,
+  fontEncodings: Map<number, string> = new Map()
+): string {
   let text = rtf;
 
   text = text.replace(
@@ -358,38 +494,8 @@ export function stripRtfFallback(rtf: string, encoding = "windows-1252"): string
     }
   });
 
-  // Decode \'XX byte sequences using the detected encoding (handles CJK DBCS).
-  text = text.replace(/((?:\\'[0-9a-fA-F]{2})+)/g, (run) => {
-    const bytes: number[] = [];
-    const hexRe = /\\'([0-9a-fA-F]{2})/g;
-    let m: RegExpExecArray | null;
-    while ((m = hexRe.exec(run)) !== null) {
-      bytes.push(parseInt(m[1], 16));
-    }
-    try {
-      return iconv.decode(Buffer.from(bytes), encoding);
-    } catch {
-      // Windows-1252 fallback for single-byte sequences.
-      return bytes
-        .map((code) => {
-          const W1252: Record<number, number> = {
-            0x80: 0x20ac, 0x82: 0x201a, 0x83: 0x0192, 0x84: 0x201e,
-            0x85: 0x2026, 0x86: 0x2020, 0x87: 0x2021, 0x88: 0x02c6,
-            0x89: 0x2030, 0x8a: 0x0160, 0x8b: 0x2039, 0x8c: 0x0152,
-            0x8e: 0x017d, 0x91: 0x2018, 0x92: 0x2019, 0x93: 0x201c,
-            0x94: 0x201d, 0x95: 0x2022, 0x96: 0x2013, 0x97: 0x2014,
-            0x98: 0x02dc, 0x99: 0x2122, 0x9a: 0x0161, 0x9b: 0x203a,
-            0x9c: 0x0153, 0x9e: 0x017e, 0x9f: 0x0178,
-          };
-          try {
-            return String.fromCodePoint(W1252[code] ?? code);
-          } catch {
-            return "";
-          }
-        })
-        .join("");
-    }
-  });
+  // Decode \'XX byte sequences, tracking \fN switches for per-font encoding.
+  text = decodeHexRunsWithFontTracking(text, encoding, fontEncodings);
 
   text = text.replace(/\\(par|pard|line|page|sect|column)\b/g, "\n");
   text = text.replace(/\\tab\b/g, "\t");
@@ -449,7 +555,7 @@ export async function extractRtfContent(buffer: Buffer): Promise<PdfExtraction> 
   try {
     text = await parseRtfToText(rtfSource);
   } catch {
-    text = stripRtfFallback(raw, defaultEncoding);
+    text = stripRtfFallback(raw, defaultEncoding, fontEncodings);
   }
 
   const lines = text.split("\n").filter((l) => l.trim().length > 0);
