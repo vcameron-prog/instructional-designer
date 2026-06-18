@@ -3,6 +3,31 @@ import { eq, and, sql } from "drizzle-orm";
 import { rateLimitLog } from "@shared/schema";
 
 /**
+ * Delete rate_limit_log rows whose created_at is older than `maxAgeMs`
+ * milliseconds from now.
+ *
+ * Extracted from the routes.ts setInterval so the deletion predicate can be
+ * exercised in automated tests without importing the whole route module.
+ *
+ * @param maxAgeMs    Age threshold in milliseconds (default: 2 hours).
+ * @param dbInstance  Drizzle db instance to use (default: module-level db).
+ *                    Injectable for unit testing with a mock.
+ * @param nowFn       Clock function returning current Unix ms (default: Date.now).
+ *                    Injectable so tests can fix "now" and assert boundary behaviour
+ *                    without relying on wall-clock timing.
+ */
+export async function cleanupRateLimitLog(
+  maxAgeMs: number = 2 * 60 * 60 * 1000,
+  dbInstance: typeof db = db,
+  nowFn: () => number = Date.now,
+): Promise<void> {
+  const cutoff = new Date(nowFn() - maxAgeMs);
+  await dbInstance
+    .delete(rateLimitLog)
+    .where(sql`${rateLimitLog.createdAt} < ${cutoff}`);
+}
+
+/**
  * DB-backed, cross-instance rate limiter using PostgreSQL advisory locks.
  *
  * Each call opens a transaction, acquires an exclusive advisory lock keyed on

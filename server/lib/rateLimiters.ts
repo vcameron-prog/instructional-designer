@@ -17,12 +17,11 @@
  * or reset internal state without going through HTTP routes.
  */
 
-import { db } from "../db";
-import { rateLimitLog } from "@shared/schema";
-import { and, eq, sql } from "drizzle-orm";
+export { checkSharedRateLimit } from "./shared-rate-limit.js";
+import { cleanupRateLimitLog } from "./shared-rate-limit.js";
 
 // ---------------------------------------------------------------------------
-// Shared (DB-backed) rate limiter
+// Shared (DB-backed) rate limiter constants
 // ---------------------------------------------------------------------------
 
 export const SHARED_ANON_UPLOAD_RATE_LIMIT =
@@ -30,61 +29,13 @@ export const SHARED_ANON_UPLOAD_RATE_LIMIT =
 export const SHARED_HEAVY_OP_RATE_LIMIT =
   parseInt(process.env.HEAVY_OP_RATE_LIMIT ?? "5", 10) || 5;
 
-/**
- * Check (and record) a rate-limit event in the shared PostgreSQL table.
- *
- * ATOMICITY: A pg_advisory_xact_lock is acquired at the start of each
- * transaction so that count-read + insert is atomic for the same (key, action)
- * pair — preventing the classic TOCTOU race under concurrent requests.
- *
- * ERROR HANDLING: On DB failure the caller-supplied `fallbackFn` is invoked.
- * If no fallback is provided the check fails CLOSED (denies the request).
- *
- * IMPORTANT: callers MUST use ensureVisitorToken() (not getVisitorToken()) so
- * that a sticky token is always assigned before the check — preventing bypass
- * via cookie rotation.
- */
-export async function checkSharedRateLimit(
-  key: string,
-  action: string,
-  limit: number,
-  windowMs: number,
-  fallbackFn?: () => boolean,
-): Promise<boolean> {
-  const windowStart = new Date(Date.now() - windowMs);
-  const lockKeyStr = `${key}:${action}`;
-  try {
-    return await db.transaction(async (tx) => {
-      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${lockKeyStr}))`);
-
-      const [{ n }] = await tx
-        .select({ n: sql<number>`count(*)::int` })
-        .from(rateLimitLog)
-        .where(
-          and(
-            eq(rateLimitLog.key, key),
-            eq(rateLimitLog.action, action),
-            sql`${rateLimitLog.createdAt} >= ${windowStart}`,
-          ),
-        );
-
-      if (n >= limit) return false;
-
-      await tx.insert(rateLimitLog).values({ key, action });
-      return true;
-    });
-  } catch {
-    if (fallbackFn) return fallbackFn();
-    return false;
-  }
-}
-
 // Periodic cleanup — remove rows older than 2 hours so the table does not
 // grow without bound.  Runs every 15 minutes.
+// Delegates to cleanupRateLimitLog (shared-rate-limit.ts) so the deletion
+// predicate is exercised in automated tests independently of this module.
 export const sharedRateLimitCleanupInterval = setInterval(async () => {
   try {
-    const cutoff = new Date(Date.now() - 2 * 60 * 60 * 1000);
-    await db.delete(rateLimitLog).where(sql`${rateLimitLog.createdAt} < ${cutoff}`);
+    await cleanupRateLimitLog();
   } catch {
     // Non-critical; next interval will retry.
   }

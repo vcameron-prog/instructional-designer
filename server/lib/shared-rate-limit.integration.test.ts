@@ -13,11 +13,11 @@
  *   then reads count=1 (== limit), and is denied.
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from "vitest";
 import { db } from "../db";
 import { rateLimitLog } from "@shared/schema";
 import { and, eq, sql } from "drizzle-orm";
-import { checkSharedRateLimit } from "./shared-rate-limit";
+import { checkSharedRateLimit, cleanupRateLimitLog } from "./shared-rate-limit";
 
 const DB_AVAILABLE = !!process.env.DATABASE_URL;
 
@@ -203,6 +203,204 @@ describe.skipIf(!DB_AVAILABLE)(
       // With a working DB the primary path succeeds; fallback not needed.
       expect(result).toBe(true);
       expect(fallbackCalled).toBe(false);
+    });
+  },
+);
+
+// ---------------------------------------------------------------------------
+// cleanupRateLimitLog – unit tests (no real DB required)
+//
+// These tests inject a mock db so they run in any environment.  They prove
+// that the function calls db.delete(rateLimitLog).where(...) with the right
+// table reference and that the cutoff is computed as nowFn() – maxAgeMs.
+// ---------------------------------------------------------------------------
+
+describe("cleanupRateLimitLog – unit (mocked db)", () => {
+  it("calls db.delete with the rateLimitLog table and then .where()", async () => {
+    const whereMock = vi.fn().mockResolvedValue({ rowCount: 0 });
+    const deleteMock = vi.fn(() => ({ where: whereMock }));
+    const mockDb = { delete: deleteMock } as unknown as typeof db;
+
+    await cleanupRateLimitLog(2 * 60 * 60 * 1000, mockDb);
+
+    expect(deleteMock).toHaveBeenCalledOnce();
+    expect(deleteMock).toHaveBeenCalledWith(rateLimitLog);
+    expect(whereMock).toHaveBeenCalledOnce();
+  });
+
+  it("uses nowFn() – maxAgeMs as the cutoff (verifiable via a fixed clock)", async () => {
+    // Fix "now" at a known epoch so the cutoff is deterministic.
+    const fixedNow = 1_700_000_000_000; // arbitrary fixed timestamp
+    const maxAgeMs = 60 * 60 * 1000; // 1 hour
+    const expectedCutoff = new Date(fixedNow - maxAgeMs);
+
+    // Capture the SQL fragment passed to .where() so we can inspect it.
+    let capturedWhereArg: unknown;
+    const whereMock = vi.fn((arg: unknown) => {
+      capturedWhereArg = arg;
+      return Promise.resolve({ rowCount: 0 });
+    });
+    const deleteMock = vi.fn(() => ({ where: whereMock }));
+    const mockDb = { delete: deleteMock } as unknown as typeof db;
+
+    await cleanupRateLimitLog(maxAgeMs, mockDb, () => fixedNow);
+
+    // The sql template tag serialises to an object with a queryChunks array.
+    // We verify the Date value embedded in the chunks matches expectedCutoff.
+    const chunks = (capturedWhereArg as { queryChunks?: unknown[] })?.queryChunks ?? [];
+    const embeddedDate = chunks.find((c) => c instanceof Date) as Date | undefined;
+    expect(embeddedDate).toBeInstanceOf(Date);
+    expect(embeddedDate?.getTime()).toBe(expectedCutoff.getTime());
+  });
+
+  it("uses the default 2-hour window when no maxAgeMs is supplied", async () => {
+    const fixedNow = 1_700_000_000_000;
+    const expectedCutoff = new Date(fixedNow - 2 * 60 * 60 * 1000);
+
+    let capturedWhereArg: unknown;
+    const whereMock = vi.fn((arg: unknown) => {
+      capturedWhereArg = arg;
+      return Promise.resolve({ rowCount: 0 });
+    });
+    const deleteMock = vi.fn(() => ({ where: whereMock }));
+    const mockDb = { delete: deleteMock } as unknown as typeof db;
+
+    // Call with only the injected clock; rely on the default maxAgeMs = 2h.
+    await cleanupRateLimitLog(undefined, mockDb, () => fixedNow);
+
+    const chunks = (capturedWhereArg as { queryChunks?: unknown[] })?.queryChunks ?? [];
+    const embeddedDate = chunks.find((c) => c instanceof Date) as Date | undefined;
+    expect(embeddedDate).toBeInstanceOf(Date);
+    expect(embeddedDate?.getTime()).toBe(expectedCutoff.getTime());
+  });
+});
+
+// ---------------------------------------------------------------------------
+// cleanupRateLimitLog – integration tests (real DB)
+//
+// These prove that the SQL predicate `created_at < cutoff` actually deletes
+// old rows and leaves recent rows untouched, including boundary behaviour.
+// ---------------------------------------------------------------------------
+
+describe.skipIf(!DB_AVAILABLE)(
+  "cleanupRateLimitLog – cleanup interval (real DB)",
+  () => {
+    const CLEANUP_KEY_PREFIX = `rl-cleanup-test-${Date.now()}`;
+    const ACTION = "cleanup-test";
+
+    beforeAll(async () => {
+      await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS rate_limit_log (
+          id          SERIAL PRIMARY KEY,
+          key         TEXT        NOT NULL,
+          action      TEXT        NOT NULL,
+          created_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+    });
+
+    beforeEach(async () => {
+      await db
+        .delete(rateLimitLog)
+        .where(sql`${rateLimitLog.key} LIKE ${CLEANUP_KEY_PREFIX + "%"}`);
+    });
+
+    afterAll(async () => {
+      await db
+        .delete(rateLimitLog)
+        .where(sql`${rateLimitLog.key} LIKE ${CLEANUP_KEY_PREFIX + "%"}`);
+    });
+
+    async function insertWithAge(key: string, ageMs: number): Promise<void> {
+      const createdAt = new Date(Date.now() - ageMs);
+      await db.execute(
+        sql`INSERT INTO rate_limit_log (key, action, created_at) VALUES (${key}, ${ACTION}, ${createdAt})`,
+      );
+    }
+
+    async function rowCount(key: string): Promise<number> {
+      const [{ n }] = await db
+        .select({ n: sql<number>`count(*)::int` })
+        .from(rateLimitLog)
+        .where(and(eq(rateLimitLog.key, key), eq(rateLimitLog.action, ACTION)));
+      return n;
+    }
+
+    it("deletes rows older than the window", async () => {
+      const key = `${CLEANUP_KEY_PREFIX}-old`;
+      // Insert a row 3 hours old — well outside the 2-hour default window.
+      await insertWithAge(key, 3 * 60 * 60 * 1000);
+      expect(await rowCount(key)).toBe(1);
+
+      await cleanupRateLimitLog();
+
+      expect(await rowCount(key)).toBe(0);
+    });
+
+    it("leaves recent rows untouched", async () => {
+      const key = `${CLEANUP_KEY_PREFIX}-recent`;
+      // Insert a row 30 minutes old — well within the 2-hour window.
+      await insertWithAge(key, 30 * 60 * 1000);
+      expect(await rowCount(key)).toBe(1);
+
+      await cleanupRateLimitLog();
+
+      expect(await rowCount(key)).toBe(1);
+    });
+
+    it("deletes old rows and preserves recent rows in the same run", async () => {
+      const oldKey = `${CLEANUP_KEY_PREFIX}-mixed-old`;
+      const recentKey = `${CLEANUP_KEY_PREFIX}-mixed-recent`;
+
+      await insertWithAge(oldKey, 3 * 60 * 60 * 1000);    // 3 h ago → deleted
+      await insertWithAge(recentKey, 30 * 60 * 1000);       // 30 min ago → kept
+
+      await cleanupRateLimitLog();
+
+      expect(await rowCount(oldKey)).toBe(0);
+      expect(await rowCount(recentKey)).toBe(1);
+    });
+
+    it("boundary: a row 1 ms before the cutoff is deleted", async () => {
+      // Use a fixed clock so the cutoff inside the function matches our insert.
+      const fixedNow = Date.now();
+      const maxAgeMs = 60 * 60 * 1000; // 1 hour window for this test
+      // Row is 1 ms older than the cutoff → created_at < cutoff → deleted.
+      const key = `${CLEANUP_KEY_PREFIX}-boundary-before`;
+      await insertWithAge(key, maxAgeMs + 1);
+
+      await cleanupRateLimitLog(maxAgeMs, db, () => fixedNow);
+
+      expect(await rowCount(key)).toBe(0);
+    });
+
+    it("boundary: a row 1 ms after the cutoff (inside window) is kept", async () => {
+      // Use a fixed clock so the cutoff inside the function matches our insert.
+      const fixedNow = Date.now();
+      const maxAgeMs = 60 * 60 * 1000; // 1 hour window for this test
+      // Row is 1 ms younger than the cutoff → created_at >= cutoff → kept.
+      const key = `${CLEANUP_KEY_PREFIX}-boundary-after`;
+      await insertWithAge(key, maxAgeMs - 1);
+
+      await cleanupRateLimitLog(maxAgeMs, db, () => fixedNow);
+
+      expect(await rowCount(key)).toBe(1);
+    });
+
+    it("respects a custom maxAgeMs (1-hour window)", async () => {
+      const oneHourMs = 60 * 60 * 1000;
+      const oldKey = `${CLEANUP_KEY_PREFIX}-custom-old`;
+      const recentKey = `${CLEANUP_KEY_PREFIX}-custom-recent`;
+
+      // 90 min ago → older than 1-hour window → deleted
+      await insertWithAge(oldKey, 90 * 60 * 1000);
+      // 30 min ago → within 1-hour window → kept
+      await insertWithAge(recentKey, 30 * 60 * 1000);
+
+      await cleanupRateLimitLog(oneHourMs);
+
+      expect(await rowCount(oldKey)).toBe(0);
+      expect(await rowCount(recentKey)).toBe(1);
     });
   },
 );
