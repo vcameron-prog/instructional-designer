@@ -30,6 +30,7 @@ import {
   Globe,
   ExternalLink,
 } from "lucide-react";
+import { SiGoogledrive, SiGooglesheets } from "react-icons/si";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -925,6 +926,18 @@ export default function PdfConversion() {
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <StatusBadge status={displayStatus} />
+                  {conversion.sourceType === "google-doc" && (
+                    <span className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 px-2 py-0.5 rounded-full font-semibold border border-blue-200 dark:border-blue-800">
+                      <SiGoogledrive className="w-3 h-3 text-[#4285F4]" aria-hidden="true" />
+                      Google Doc
+                    </span>
+                  )}
+                  {conversion.sourceType === "google-sheet" && (
+                    <span className="inline-flex items-center gap-1 text-xs bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-2 py-0.5 rounded-full font-semibold border border-green-200 dark:border-green-800">
+                      <SiGooglesheets className="w-3 h-3 text-[#34A853]" aria-hidden="true" />
+                      Google Sheet
+                    </span>
+                  )}
                   {conversion.ocrApplied && (
                     <span className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 px-2 py-0.5 rounded-full font-semibold">
                       OCR Applied
