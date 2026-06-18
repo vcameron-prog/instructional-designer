@@ -80,8 +80,8 @@ export default function LandingPage() {
   });
 
   const rolloverMutation = useMutation({
-    mutationFn: async ({ id, semester }: { id: number; semester: string }) => {
-      const res = await apiRequest("POST", `/api/courses/${id}/rollover`, { semester });
+    mutationFn: async ({ id, semester, contentIds }: { id: number; semester: string; contentIds: number[] }) => {
+      const res = await apiRequest("POST", `/api/courses/${id}/rollover`, { semester, contentIds });
       return res.json();
     },
     onSuccess: (data) => {
@@ -279,7 +279,7 @@ export default function LandingPage() {
                             onNavigate={() => navigate(`/course/${course.id}/tools`)}
                             onDuplicate={() => duplicateMutation.mutate(course.id)}
                             onDelete={() => deleteMutation.mutate(course.id)}
-                            onRollover={(semester) => rolloverMutation.mutate({ id: course.id, semester })}
+                            onRollover={(semester, contentIds) => rolloverMutation.mutate({ id: course.id, semester, contentIds })}
                             isDuplicating={duplicateMutation.isPending}
                             isRollingOver={rolloverMutation.isPending}
                           />

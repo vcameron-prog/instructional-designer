@@ -2753,7 +2753,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     },
   );
 
-  // Semester rollover — creates a new course from an existing one with a new semester, no content
+  // Semester rollover — creates a new course from an existing one with a new semester, optionally carrying forward selected content
   app.post(
     "/api/courses/:id/rollover",
     isBsuAuthenticated,
@@ -2761,15 +2761,26 @@ Please generate an IMPROVED version that incorporates the requested changes whil
       try {
         const userId = getUserId(req) as string;
         const id = parseInt(req.params.id as string);
-        const { semester } = z.object({ semester: z.string().min(1) }).parse(req.body);
+        const { semester, contentIds } = z.object({
+          semester: z.string().min(1),
+          contentIds: z.array(z.number().int().positive()).optional().default([]),
+        }).parse(req.body);
         const rolledOver = await storage.rolloverCourse(id, userId, semester);
         if (!rolledOver) {
           return res.status(404).json({ error: "Course not found" });
         }
+        if (contentIds.length > 0) {
+          try {
+            await storage.copyContentItemsToNewCourse(contentIds, id, rolledOver.id, userId);
+          } catch (copyError) {
+            await storage.deleteCourse(rolledOver.id, userId).catch(() => {});
+            throw copyError;
+          }
+        }
         res.status(201).json(rolledOver);
       } catch (error) {
         if (error instanceof z.ZodError) {
-          return res.status(400).json({ error: "semester is required" });
+          return res.status(400).json({ error: "Invalid request: semester is required and contentIds must be an array of positive integers" });
         }
         console.error("Error rolling over course:", error);
         res.status(500).json({ error: "Failed to create new semester course" });

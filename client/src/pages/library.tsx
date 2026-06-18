@@ -144,8 +144,8 @@ export default function LibraryPage() {
   });
 
   const rolloverCourseMutation = useMutation({
-    mutationFn: async ({ id, semester }: { id: number; semester: string }) => {
-      const res = await apiRequest("POST", `/api/courses/${id}/rollover`, { semester });
+    mutationFn: async ({ id, semester, contentIds }: { id: number; semester: string; contentIds: number[] }) => {
+      const res = await apiRequest("POST", `/api/courses/${id}/rollover`, { semester, contentIds });
       return res.json();
     },
     onSuccess: (data) => {
@@ -234,7 +234,7 @@ export default function LibraryPage() {
                     onNavigate={() => navigate(`/course/${course.id}/tools`)}
                     onDuplicate={() => duplicateCourseMutation.mutate(course.id)}
                     onDelete={() => deleteCourseMutation.mutate(course.id)}
-                    onRollover={(semester) => rolloverCourseMutation.mutate({ id: course.id, semester })}
+                    onRollover={(semester, contentIds) => rolloverCourseMutation.mutate({ id: course.id, semester, contentIds })}
                     isDuplicating={duplicateCourseMutation.isPending}
                     isRollingOver={rolloverCourseMutation.isPending}
                   />

@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { eq, desc, and, isNull, notInArray, count, gte } from "drizzle-orm";
+import { eq, desc, and, isNull, notInArray, inArray, count, gte } from "drizzle-orm";
 import { 
   courses, 
   generatedContent, 
@@ -66,6 +66,9 @@ export interface IStorage {
   // AI Fix Retry Events
   logAiFixRetryEvent(criterion?: string, title?: string): Promise<void>;
   getAiFixRetryStats(): Promise<{ lifetimeCount: number; thisMonthCount: number }>;
+
+  // Copy selected content items from one course to another (user-scoped)
+  copyContentItemsToNewCourse(contentIds: number[], sourceCourseId: number, targetCourseId: number, userId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -299,6 +302,27 @@ export class DatabaseStorage implements IStorage {
     }, userId);
 
     return duplicated;
+  }
+
+  // Copy selected content items from one course to another (user-scoped)
+  async copyContentItemsToNewCourse(contentIds: number[], sourceCourseId: number, targetCourseId: number, userId: string): Promise<void> {
+    if (contentIds.length === 0) return;
+    const sourceCourse = await this.getCourse(sourceCourseId, userId);
+    if (!sourceCourse) return;
+    const items = await db
+      .select()
+      .from(generatedContent)
+      .where(and(eq(generatedContent.courseId, sourceCourseId), inArray(generatedContent.id, contentIds)));
+    for (const item of items) {
+      await this.createContent({
+        courseId: targetCourseId,
+        toolType: item.toolType,
+        toolName: item.toolName,
+        formData: item.formData as Record<string, unknown>,
+        content: item.content,
+        isApproved: item.isApproved,
+      });
+    }
   }
 
   // Semester Rollover (user-scoped) — copies course setup only, no generated content or syllabus
