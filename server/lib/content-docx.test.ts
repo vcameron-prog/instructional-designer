@@ -1,7 +1,15 @@
 import { describe, it, expect } from "vitest";
 import { parse } from "node-html-parser";
+import JSZip from "jszip";
 import { parseMarkdownInline, buildContentDocx } from "./content-docx.js";
 import { processTable } from "./docx-builder.js";
+
+async function extractDocumentXml(buf: Buffer): Promise<string> {
+  const zip = await JSZip.loadAsync(buf);
+  const file = zip.file("word/document.xml");
+  if (!file) throw new Error("word/document.xml not found in docx buffer");
+  return file.async("string");
+}
 
 describe("parseMarkdownInline", () => {
   it("returns a plain run for plain text", () => {
@@ -135,6 +143,108 @@ describe("buildContentDocx", () => {
     const buf = await buildContentDocx({ ...baseItem, content: html }, null);
     expect(buf).toBeInstanceOf(Buffer);
     expect(buf.length).toBeGreaterThan(0);
+  });
+
+  it("does not leak raw <table HTML into the docx XML when content contains an HTML table", async () => {
+    const tableHtml = [
+      "<table>",
+      "  <thead><tr><th>Name</th><th>Score</th></tr></thead>",
+      "  <tbody>",
+      "    <tr><td>Alice</td><td>95</td></tr>",
+      "    <tr><td>Bob</td><td>87</td></tr>",
+      "  </tbody>",
+      "</table>",
+    ].join("\n");
+
+    const item = { ...baseItem, content: tableHtml };
+    const buf = await buildContentDocx(item, null);
+    const xml = await extractDocumentXml(buf);
+
+    expect(xml).not.toMatch(/<table/i);
+    expect(xml).not.toMatch(/<\/table>/i);
+    expect(xml).not.toMatch(/<th[^>]*>/i);
+    expect(xml).not.toMatch(/<td[^>]*>/i);
+  });
+
+  it("produces a valid DOCX buffer when content contains an HTML table", async () => {
+    const tableHtml =
+      "<table><tr><th>Col A</th><th>Col B</th></tr><tr><td>1</td><td>2</td></tr></table>";
+    const item = { ...baseItem, content: tableHtml };
+    const buf = await buildContentDocx(item, null);
+
+    expect(buf).toBeInstanceOf(Buffer);
+    expect(buf[0]).toBe(0x50);
+    expect(buf[1]).toBe(0x4b);
+    expect(buf[2]).toBe(0x03);
+    expect(buf[3]).toBe(0x04);
+  });
+
+  it("includes cell text content in the document XML when table is present", async () => {
+    const tableHtml =
+      "<table><tr><th>Header</th></tr><tr><td>CellValue</td></tr></table>";
+    const item = { ...baseItem, content: tableHtml };
+    const buf = await buildContentDocx(item, null);
+    const xml = await extractDocumentXml(buf);
+
+    expect(xml).toContain("Header");
+    expect(xml).toContain("CellValue");
+  });
+
+  it("handles mixed markdown and HTML table content without leaking raw HTML", async () => {
+    const content = [
+      "## Section Title",
+      "",
+      "Some introductory text.",
+      "",
+      "<table>",
+      "  <tr><th>Item</th><th>Value</th></tr>",
+      "  <tr><td>Alpha</td><td>10</td></tr>",
+      "</table>",
+      "",
+      "Text after the table.",
+    ].join("\n");
+
+    const item = { ...baseItem, content };
+    const buf = await buildContentDocx(item, null);
+    const xml = await extractDocumentXml(buf);
+
+    expect(xml).not.toMatch(/<table/i);
+    expect(xml).toContain("Section Title");
+    expect(xml).toContain("Alpha");
+    expect(xml).toContain("Text after the table.");
+  });
+
+  it("pure markdown content produces a valid docx with no HTML table tags", async () => {
+    const item = {
+      ...baseItem,
+      content:
+        "## Overview\n\nThis course covers **key topics**.\n\n- Topic A\n- Topic B\n\n1. Step one\n2. Step two",
+    };
+    const buf = await buildContentDocx(item, null);
+    const xml = await extractDocumentXml(buf);
+
+    expect(buf).toBeInstanceOf(Buffer);
+    expect(xml).not.toMatch(/<table/i);
+    expect(xml).toContain("Overview");
+    expect(xml).toContain("key topics");
+  });
+
+  it("handles a table with colspan and rowspan without leaking raw HTML", async () => {
+    const tableHtml = [
+      "<table>",
+      "  <tr><th colspan='2'>Wide Header</th></tr>",
+      "  <tr><td rowspan='2'>Tall Cell</td><td>Row 1</td></tr>",
+      "  <tr><td>Row 2</td></tr>",
+      "</table>",
+    ].join("\n");
+
+    const item = { ...baseItem, content: tableHtml };
+    const buf = await buildContentDocx(item, null);
+    const xml = await extractDocumentXml(buf);
+
+    expect(xml).not.toMatch(/<table/i);
+    expect(xml).toContain("Wide Header");
+    expect(xml).toContain("Tall Cell");
   });
 });
 
