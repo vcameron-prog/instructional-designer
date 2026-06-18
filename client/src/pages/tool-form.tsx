@@ -519,6 +519,17 @@ export default function ToolForm() {
         fd.criteria ? `Criteria: ${fd.criteria}` : "",
       ].filter(Boolean).join("\n");
       fields = { assignments: rubricDesc };
+    } else if (toolId === "alignment" && item.toolType === "syllabus") {
+      const syllabusContent = item.content || "";
+      const outcomesSectionMatch = syllabusContent.match(
+        /##?\s*(?:Course\s+)?Learning\s+Outcomes[\s\S]*?\n([\s\S]*?)(?:\n##|\n---|\n\*\*\*|$)/i
+      );
+      const extractedOutcomes = outcomesSectionMatch
+        ? outcomesSectionMatch[1].trim()
+        : (fd.learningOutcomes || syllabusContent.slice(0, 600).trim());
+      fields = {
+        learningOutcomes: extractedOutcomes,
+      };
     } else if (toolId === "airesistant" && item.toolType === "assignment") {
       fields = {
         existingAssignment: item.content,

@@ -271,7 +271,7 @@ export function getChainPrefillFields(
 // Mirrors the source→target chains in getChainedPrefillValues above.
 export const CONTENT_PREFILL_MAP: Record<string, string[]> = {
   rubric: ["assignment"],
-  alignment: ["assignment", "rubric"],
+  alignment: ["assignment", "rubric", "syllabus"],
   airesistant: ["assignment"],
   accessibility: ["assignment"],
   module: ["assignment", "syllabus"],
