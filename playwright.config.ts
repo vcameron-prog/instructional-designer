@@ -14,7 +14,7 @@ export default defineConfig({
   workers: 1,
   reporter: "list",
   use: {
-    baseURL: process.env.PLAYWRIGHT_BASE_URL || process.env.E2E_BASE_URL || "http://localhost:5000",
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || process.env.E2E_BASE_URL || "http://127.0.0.1:5000",
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     launchOptions: {
@@ -33,7 +33,7 @@ export default defineConfig({
   // answers on port 5000 (typical for development).
   webServer: {
     command: "PLAYWRIGHT_TEST=1 npm run dev",
-    url: "http://localhost:5000",
+    url: "http://127.0.0.1:5000",
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,
   },

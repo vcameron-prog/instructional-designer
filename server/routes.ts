@@ -1435,14 +1435,17 @@ export async function registerRoutes(
     // POST /api/test/seed-conversion
     // Inserts a conversions row directly, bypassing the full upload/process
     // pipeline.  Used by Playwright specs that need a "completed" conversion
-    // with a known compliance report without hitting the AI APIs.
+    // without hitting the AI APIs.
+    // All fields except userId are optional and receive sensible defaults so
+    // callers only need to provide what they care about (e.g. just manualFixItems).
     // Disabled in production (NODE_ENV !== "production" guard above).
     app.post("/api/test/seed-conversion", async (req: Request, res: Response) => {
-      const { userId, accessibleHtml, complianceReport, originalFilename, status, errorMessage } = req.body as {
+      const { userId, accessibleHtml, complianceReport, originalFilename, manualFixItems, status, errorMessage } = req.body as {
         userId: string;
         accessibleHtml?: string;
         complianceReport?: unknown;
         originalFilename?: string;
+        manualFixItems?: { title: string; reason: string }[];
         status?: string;
         errorMessage?: string;
       };
@@ -1451,38 +1454,57 @@ export async function registerRoutes(
         res.status(400).json({ error: "userId is required" });
         return;
       }
-      if (resolvedStatus === "completed" && (!accessibleHtml || !complianceReport)) {
-        res.status(400).json({ error: "accessibleHtml and complianceReport are required for completed conversions" });
-        return;
-      }
+      // Default compliance report — needed so the page renders the compliance
+      // section where the manual-fix summary is displayed.
+      const effectiveReport = complianceReport ?? {
+        overallScore: 85,
+        issues: [{ title: "Missing image alt text", status: "fail", description: "Images must have alternative text." }],
+      };
+      const effectiveHtml = accessibleHtml ?? "<h1>Test Document</h1><p>This is a test accessible document.</p>";
+      const manualFixJson = Array.isArray(manualFixItems) && manualFixItems.length > 0
+        ? JSON.stringify(manualFixItems)
+        : null;
       try {
+        // Ensure the user row exists so FK constraints on conversions.user_id pass.
+        await db.execute(sql`
+          INSERT INTO users (id, email) VALUES (${userId}, ${userId + "@playwright-test.local"})
+          ON CONFLICT (id) DO NOTHING
+        `);
+        // Use a targeted raw SQL insert that only touches columns that are
+        // guaranteed to exist in the actual DB (avoids schema/migration drift
+        // with columns like selected_sheet / processing_started_at that may
+        // not have been applied yet in the dev environment).
         if (resolvedStatus === "failed") {
-          // Use raw SQL for the failed case so error_message is written and
-          // the jsonb report columns are safely set to null.
           const result = await db.execute(sql`
             INSERT INTO conversions
               (original_filename, file_size, source_type, status,
-               accessible_html, compliance_report, original_compliance_report, user_id, error_message)
+               accessible_html, compliance_report, original_compliance_report,
+               manual_fix_items, user_id, error_message)
             VALUES
               (${originalFilename ?? "test-document.pdf"}, ${1024}, ${"pdf"}, ${"failed"},
                ${null}, ${null}, ${null},
-               ${userId}, ${errorMessage ?? null})
+               ${null}, ${userId}, ${errorMessage ?? null})
             RETURNING id
           `);
           const id = (result.rows[0] as { id: number }).id;
           res.status(201).json({ id });
         } else {
-          const [row] = await db.insert(conversions).values({
-            originalFilename: originalFilename ?? "test-document.pdf",
-            fileSize: 1024,
-            sourceType: "pdf",
-            status: "completed",
-            accessibleHtml,
-            complianceReport: complianceReport as any,
-            originalComplianceReport: complianceReport as any,
-            userId,
-          }).returning({ id: conversions.id });
-          res.status(201).json({ id: row.id });
+          const result = await db.execute(sql`
+            INSERT INTO conversions
+              (original_filename, file_size, source_type, status,
+               accessible_html, compliance_report, original_compliance_report,
+               manual_fix_items, user_id)
+            VALUES
+              (${originalFilename ?? "test-document.pdf"}, ${1024}, ${"pdf"}, ${"completed"},
+               ${effectiveHtml},
+               ${JSON.stringify(effectiveReport)}::jsonb,
+               ${JSON.stringify(effectiveReport)}::jsonb,
+               ${manualFixJson}::jsonb,
+               ${userId})
+            RETURNING id
+          `);
+          const id = (result.rows[0] as { id: number }).id;
+          res.status(201).json({ id });
         }
       } catch (err) {
         res.status(500).json({ error: String(err) });
@@ -1517,6 +1539,73 @@ export async function registerRoutes(
         }
         res.json({ ok: true, adminId });
       });
+    });
+
+    // POST /api/test/login
+    // Creates a server-side session for a synthetic BSU user without going
+    // through the real Replit OIDC flow.  Disabled in production.
+    app.post("/api/test/login", async (req: Request, res: Response) => {
+      const { sub, email, firstName, lastName } = req.body as {
+        sub: string;
+        email: string;
+        firstName?: string;
+        lastName?: string;
+      };
+      if (!sub || !email) {
+        res.status(400).json({ error: "sub and email are required" });
+        return;
+      }
+      await db
+        .insert(users)
+        .values({ id: sub, email, firstName: firstName ?? null, lastName: lastName ?? null })
+        .onConflictDoUpdate({
+          target: users.id,
+          set: { email, firstName: firstName ?? null, lastName: lastName ?? null },
+        });
+
+      const sessionUser = {
+        claims: {
+          sub,
+          email,
+          first_name: firstName ?? "",
+          last_name: lastName ?? "",
+        },
+        access_token: "playwright-test-token",
+        refresh_token: "playwright-test-refresh",
+        expires_at: Math.floor(Date.now() / 1000) + 7200,
+      };
+
+      (req.session as any).passport = { user: sessionUser };
+      req.session.save((err) => {
+        if (err) {
+          res.status(500).json({ error: String(err) });
+          return;
+        }
+        res.json({ ok: true, sub, email, sessionId: req.sessionID });
+      });
+    });
+
+    // PATCH /api/test/set-syllabus-date/:courseId
+    // Sets syllabusUploadedAt on a course to the current timestamp (or a
+    // provided ISO string).  Disabled in production.
+    app.patch("/api/test/set-syllabus-date/:courseId", async (req: Request, res: Response) => {
+      const id = parseInt(req.params.courseId as string, 10);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "courseId must be a number" });
+        return;
+      }
+      const { syllabusUploadedAt } = req.body as { syllabusUploadedAt?: string };
+      const uploadedAt = syllabusUploadedAt ? new Date(syllabusUploadedAt) : new Date();
+      const [row] = await db
+        .update(courses)
+        .set({ syllabusUploadedAt: uploadedAt })
+        .where(eq(courses.id, id))
+        .returning();
+      if (!row) {
+        res.status(404).json({ error: "Course not found" });
+        return;
+      }
+      res.json({ id: row.id, syllabusUploadedAt: row.syllabusUploadedAt });
     });
   }
 
@@ -5817,117 +5906,6 @@ Please generate an IMPROVED version that incorporates the requested changes whil
       }
     },
   );
-
-  // -------------------------------------------------------------------------
-  // Test-only login endpoint — only active when PLAYWRIGHT_TEST=1.
-  // Allows Playwright e2e specs to establish an authenticated session without
-  // going through the real Replit OIDC flow.
-  // -------------------------------------------------------------------------
-  if (process.env.PLAYWRIGHT_TEST === "1") {
-    // POST /api/test/login
-    // Creates a server-side session for a synthetic BSU user without going
-    // through the real Replit OIDC flow.  Only active when PLAYWRIGHT_TEST=1.
-    app.post("/api/test/login", async (req: Request, res: Response) => {
-      const { sub, email, firstName, lastName } = req.body as {
-        sub: string;
-        email: string;
-        firstName?: string;
-        lastName?: string;
-      };
-      if (!sub || !email) {
-        res.status(400).json({ error: "sub and email are required" });
-        return;
-      }
-      // Ensure the user row exists in the DB so foreign-key checks pass.
-      await db
-        .insert(users)
-        .values({ id: sub, email, firstName: firstName ?? null, lastName: lastName ?? null })
-        .onConflictDoUpdate({
-          target: users.id,
-          set: { email, firstName: firstName ?? null, lastName: lastName ?? null },
-        });
-
-      const sessionUser = {
-        claims: {
-          sub,
-          email,
-          first_name: firstName ?? "",
-          last_name: lastName ?? "",
-        },
-        access_token: "playwright-test-token",
-        refresh_token: "playwright-test-refresh",
-        // Expires 2 hours from now so isBsuAuthenticated does not try to refresh.
-        expires_at: Math.floor(Date.now() / 1000) + 7200,
-      };
-
-      // Write directly to req.session (bypassing Passport serialization) and
-      // explicitly save so express-session commits the row and sends Set-Cookie.
-      (req.session as any).passport = { user: sessionUser };
-      req.session.save((err) => {
-        if (err) {
-          res.status(500).json({ error: String(err) });
-          return;
-        }
-        res.json({ ok: true, sub, email, sessionId: req.sessionID });
-      });
-    });
-
-    // POST /api/test/seed-content
-    // Inserts a generated_content row directly, bypassing AI generation.
-    // Used by Playwright specs to set up result pages without hitting the
-    // Anthropic API.  Only active when PLAYWRIGHT_TEST=1.
-    app.post("/api/test/seed-content", async (req: Request, res: Response) => {
-      const { toolType, toolName, formData, content, userId, courseId } = req.body as {
-        toolType: string;
-        toolName: string;
-        formData: Record<string, unknown>;
-        content: string;
-        userId: string;
-        courseId?: number | null;
-      };
-      if (!toolType || !toolName || !formData || !content || !userId) {
-        res.status(400).json({ error: "toolType, toolName, formData, content and userId are required" });
-        return;
-      }
-      const [row] = await db
-        .insert(generatedContent)
-        .values({
-          toolType,
-          toolName,
-          formData,
-          content,
-          userId,
-          courseId: courseId ?? null,
-          isApproved: false,
-        })
-        .returning();
-      res.status(201).json({ id: row.id });
-    });
-
-    // PATCH /api/test/set-syllabus-date/:courseId
-    // Sets syllabusUploadedAt on a course to the current timestamp (or a
-    // provided ISO string).  Used by Playwright specs that need the staleness
-    // banner to appear without performing a real file upload.
-    app.patch("/api/test/set-syllabus-date/:courseId", async (req: Request, res: Response) => {
-      const id = parseInt(req.params.courseId as string, 10);
-      if (isNaN(id)) {
-        res.status(400).json({ error: "courseId must be a number" });
-        return;
-      }
-      const { syllabusUploadedAt } = req.body as { syllabusUploadedAt?: string };
-      const uploadedAt = syllabusUploadedAt ? new Date(syllabusUploadedAt) : new Date();
-      const [row] = await db
-        .update(courses)
-        .set({ syllabusUploadedAt: uploadedAt })
-        .where(eq(courses.id, id))
-        .returning();
-      if (!row) {
-        res.status(404).json({ error: "Course not found" });
-        return;
-      }
-      res.json({ id: row.id, syllabusUploadedAt: row.syllabusUploadedAt });
-    });
-  }
 
   return httpServer;
 }
