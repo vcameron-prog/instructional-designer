@@ -84,6 +84,40 @@ async function runStartupMigrations() {
   }
 }
 
+function validateThresholdEnvVar(key: string, parser: (v: string) => number, defaultVal: number, label: string): number {
+  const raw = process.env[key];
+  if (raw === undefined) return defaultVal;
+  const parsed = parser(raw);
+  if (isNaN(parsed)) {
+    log(
+      `[config] WARNING: ${key}="${raw}" is not a valid number — using default ${defaultVal} for ${label}`,
+      "startup",
+    );
+    return defaultVal;
+  }
+  return parsed;
+}
+
+function validateThresholdEnvVars() {
+  const warnCount    = validateThresholdEnvVar("RETRY_WARN_COUNT",    (v) => parseInt(v, 10),  10,   "warn count");
+  const warnRate     = validateThresholdEnvVar("RETRY_WARN_RATE",     parseFloat,              0.05, "warn rate");
+  const criticalCount = validateThresholdEnvVar("RETRY_CRITICAL_COUNT", (v) => parseInt(v, 10), 25,  "critical count");
+  const criticalRate  = validateThresholdEnvVar("RETRY_CRITICAL_RATE",  parseFloat,             0.10, "critical rate");
+
+  if (warnCount >= criticalCount) {
+    log(
+      `[config] WARNING: RETRY_WARN_COUNT (${warnCount}) should be less than RETRY_CRITICAL_COUNT (${criticalCount})`,
+      "startup",
+    );
+  }
+  if (warnRate >= criticalRate) {
+    log(
+      `[config] WARNING: RETRY_WARN_RATE (${warnRate}) should be less than RETRY_CRITICAL_RATE (${criticalRate})`,
+      "startup",
+    );
+  }
+}
+
 async function resetStaleProcessingJobs() {
   try {
     const result = await db
@@ -105,6 +139,9 @@ async function resetStaleProcessingJobs() {
 }
 
 (async () => {
+  // Validate threshold env vars early so misconfigurations are surfaced immediately
+  validateThresholdEnvVars();
+
   // Apply any pending schema migrations before starting
   await runStartupMigrations();
 
