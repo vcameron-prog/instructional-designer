@@ -39,6 +39,7 @@ export interface IStorage {
   // Standalone Content (no course)
   getStandaloneContent(userId: string): Promise<GeneratedContent[]>;
   getStandaloneContentById(id: number, userId: string): Promise<GeneratedContent | undefined>;
+  getRecentStandaloneContent(userId: string, limit: number): Promise<GeneratedContent[]>;
 
   // Content Versions
   createVersion(version: InsertContentVersion): Promise<ContentVersion>;
@@ -161,6 +162,15 @@ export class DatabaseStorage implements IStorage {
       .from(generatedContent)
       .where(and(eq(generatedContent.id, id), eq(generatedContent.userId, userId)));
     return content;
+  }
+
+  async getRecentStandaloneContent(userId: string, limit: number): Promise<GeneratedContent[]> {
+    return db
+      .select()
+      .from(generatedContent)
+      .where(and(isNull(generatedContent.courseId), eq(generatedContent.userId, userId)))
+      .orderBy(desc(generatedContent.createdAt))
+      .limit(limit);
   }
 
   // Content Versions

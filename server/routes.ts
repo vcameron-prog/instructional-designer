@@ -2211,6 +2211,30 @@ export async function registerRoutes(
     },
   );
 
+  // Get recent quick-tool results for the current user (last 10, with truncated preview)
+  app.get(
+    "/api/content/recent-quick-tools",
+    isBsuAuthenticated,
+    async (req: Request, res: Response) => {
+      try {
+        const userId = getUserId(req) as string;
+        const items = await storage.getRecentStandaloneContent(userId, 10);
+        const results = items.map((item) => ({
+          id: item.id,
+          toolType: item.toolType,
+          toolName: item.toolName,
+          createdAt: item.createdAt,
+          formData: item.formData,
+          contentPreview: item.content.replace(/^#+\s.*$/gm, "").replace(/\*\*/g, "").replace(/\n+/g, " ").trim().slice(0, 120),
+        }));
+        res.json(results);
+      } catch (error) {
+        console.error("Error fetching recent quick tools:", error);
+        res.status(500).json({ error: "Failed to fetch recent results" });
+      }
+    },
+  );
+
   // Get single standalone content item (BSU faculty only)
   app.get(
     "/api/standalone-content/:id",

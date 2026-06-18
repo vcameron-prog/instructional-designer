@@ -5,14 +5,22 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, ArrowRight, FileText, CheckCircle, Target, ShieldCheck, Eye, Bot, Zap, Clock, Loader2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, FileText, CheckCircle, Target, ShieldCheck, Eye, Bot, Zap, Clock } from "lucide-react";
 import { TOOLS } from "@/lib/constants";
 import { PoweredByFooter } from "@/components/powered-by-footer";
 import { HeaderControls } from "@/components/header-controls";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useAuth } from "@/hooks/use-auth";
 import { format } from "date-fns";
-import type { GeneratedContent } from "@shared/schema";
+
+type RecentQuickToolResult = {
+  id: number;
+  toolType: string;
+  toolName: string;
+  createdAt: string | Date | null;
+  formData: unknown;
+  contentPreview: string;
+};
 
 const QUICK_TOOL_IDS = ["assignment", "rubric", "alignment", "airesistant", "accessibility", "aistudent"];
 
@@ -45,12 +53,10 @@ export default function QuickTools() {
 
   const quickTools = TOOLS.filter(t => QUICK_TOOL_IDS.includes(t.id));
 
-  const { data: history, isLoading: historyLoading, isError: historyError } = useQuery<GeneratedContent[]>({
-    queryKey: ["/api/standalone-content"],
+  const { data: recentResults, isLoading: historyLoading, isError: historyError } = useQuery<RecentQuickToolResult[]>({
+    queryKey: ["/api/content/recent-quick-tools"],
     enabled: isAuthenticated,
   });
-
-  const filteredHistory = isAuthenticated ? history?.filter(item => QUICK_TOOL_IDS.includes(item.toolType)) : undefined;
 
   return (
     <main id="main-content" tabIndex={-1} className="min-h-screen bg-background">
@@ -133,14 +139,14 @@ export default function QuickTools() {
           })}
         </div>
 
-        <div className="mt-12">
+        {isAuthenticated && <div className="mt-12">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
               <Clock className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold">Your Quick Tools History</h2>
-              <p className="text-sm text-muted-foreground">Previously generated standalone content</p>
+              <h2 className="text-2xl font-bold">Recent Results</h2>
+              <p className="text-sm text-muted-foreground">Your last Quick Tool generations</p>
             </div>
           </div>
 
@@ -169,7 +175,7 @@ export default function QuickTools() {
             </Card>
           )}
 
-          {!historyLoading && !historyError && (!filteredHistory || filteredHistory.length === 0) && (
+          {!historyLoading && !historyError && (!recentResults || recentResults.length === 0) && (
             <Card className="bg-muted/30 border-dashed">
               <CardContent className="p-8 text-center">
                 <Zap className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" aria-hidden="true" />
@@ -181,17 +187,10 @@ export default function QuickTools() {
             </Card>
           )}
 
-          {!historyLoading && !historyError && filteredHistory && filteredHistory.length > 0 && (
+          {!historyLoading && !historyError && recentResults && recentResults.length > 0 && (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {filteredHistory.map((item) => {
+              {recentResults.map((item) => {
                 const ToolIcon = toolIconByType[item.toolType] || FileText;
-                const preview = item.content
-                  .replace(/^#+\s.*$/gm, "")
-                  .replace(/\*\*/g, "")
-                  .replace(/\n+/g, " ")
-                  .trim()
-                  .slice(0, 120);
-
                 return (
                   <Card
                     key={item.id}
@@ -220,7 +219,7 @@ export default function QuickTools() {
                             )}
                           </div>
                           <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2 leading-relaxed">
-                            {preview}{preview.length >= 120 ? "..." : ""}
+                            {item.contentPreview}{item.contentPreview.length >= 120 ? "..." : ""}
                           </p>
                           {item.createdAt && (
                           <p className="text-xs text-muted-foreground/70 mt-2" data-testid={`text-date-${item.id}`}>
@@ -235,7 +234,7 @@ export default function QuickTools() {
               })}
             </div>
           )}
-        </div>
+        </div>}
       </div>
       <PoweredByFooter />
     </main>
