@@ -6,10 +6,11 @@ import { seedDatabase } from "./seed";
 import { trimAllOversizedVersions } from "./lib/trimVersions";
 import { scheduleDailySummary } from "./lib/daily-summary";
 import { clearRateLimiterIntervals, initRateLimitCleanupMetrics } from "./lib/rateLimiters.js";
-import { db } from "./db";
+import { db, pool } from "./db";
 import { eq } from "drizzle-orm";
 import { conversions } from "../shared/schema";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
+import { checkMigrationDrift } from "./lib/migrationCheck";
 import path from "path";
 
 const app = express();
@@ -67,8 +68,59 @@ app.use((req, res, next) => {
 });
 
 async function runMigrations() {
+  const migrationsFolder = path.resolve(process.cwd(), "migrations");
+  const isProduction = process.env.NODE_ENV === "production";
+
+  // ── Migration drift check ────────────────────────────────────────────────
+  // Before applying, compare the journal against the DB so we can surface
+  // unapplied migrations with a clear, actionable message rather than letting
+  // the first bad query blow up with a cryptic column-not-found error.
+  let driftResult;
   try {
-    const migrationsFolder = path.resolve(process.cwd(), "migrations");
+    driftResult = await checkMigrationDrift(pool);
+  } catch (err) {
+    log(
+      "[migration] WARNING: could not check migration drift — " +
+        "proceeding to apply (check DB connectivity if this repeats)",
+      "startup",
+    );
+    console.error(err);
+  }
+
+  if (driftResult && driftResult.pending.length > 0) {
+    const list = driftResult.pending.map((t) => `  • ${t}`).join("\n");
+    const summary =
+      `[migration] ${driftResult.pending.length} unapplied migration(s) detected ` +
+      `(${driftResult.applied} of ${driftResult.expected.length} applied):\n${list}`;
+
+    if (isProduction) {
+      console.error(
+        "\n" +
+          "╔══════════════════════════════════════════════════════════════╗\n" +
+          "║  FATAL: unapplied database migrations in production          ║\n" +
+          "╚══════════════════════════════════════════════════════════════╝\n" +
+          summary +
+          "\n\nRun `npm run db:push` (or apply the migration files manually)\n" +
+          "before starting the server in production.\n",
+      );
+      process.exit(1);
+    } else {
+      log(
+        "[migration] WARNING: " +
+          summary +
+          " — auto-applying now (dev mode)",
+        "startup",
+      );
+    }
+  } else if (driftResult) {
+    log(
+      `[migration] All ${driftResult.expected.length} migration(s) are up to date`,
+      "startup",
+    );
+  }
+  // ── End drift check ──────────────────────────────────────────────────────
+
+  try {
     await migrate(db, { migrationsFolder });
     log("Database migrations applied successfully", "startup");
   } catch (err) {

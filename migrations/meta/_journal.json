@@ -40,19 +40,12 @@
     {
       "idx": 5,
       "version": "7",
-      "when": 1781797723583,
-      "tag": "0005_investigate",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
       "when": 1750300000000,
       "tag": "0006_conversions_extraction_warnings",
       "breakpoints": true
     },
     {
-      "idx": 7,
+      "idx": 6,
       "version": "7",
       "when": 1781798166345,
       "tag": "0007_conversions_extraction_warnings",
