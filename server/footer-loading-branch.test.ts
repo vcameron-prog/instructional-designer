@@ -115,17 +115,6 @@ function findMatchingParen(source: string, startIdx: number): number {
 }
 
 /**
- * Returns the paths of every .tsx file in client/src/pages/ that imports the
- * PoweredByFooter component.
- */
-function pageFilesWithFooterImport(): string[] {
-  const files = readdirSync(PAGES_DIR).filter((f) => f.endsWith(".tsx"));
-  return files
-    .map((f) => path.join(PAGES_DIR, f))
-    .filter((filePath) => readFileSync(filePath, "utf-8").includes("powered-by-footer"));
-}
-
-/**
  * Extracts the content of `return ( ... )` blocks that immediately follow an
  * `if ( <loadingCondition> ) {` guard at component scope.
  *

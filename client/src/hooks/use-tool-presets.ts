@@ -118,7 +118,7 @@ export function useAllToolPresets(toolIds: string[]) {
   const buildEntries = useCallback((): ToolPresetEntry[] => {
     const entries: ToolPresetEntry[] = [];
     for (const toolId of toolIds) {
-      for (const preset of loadPresets(toolId)) {
+      for (const preset of loadLocalPresets(toolId)) {
         entries.push({ toolId, preset });
       }
     }
@@ -132,8 +132,8 @@ export function useAllToolPresets(toolIds: string[]) {
   }, [buildEntries]);
 
   const deleteEntry = useCallback((toolId: string, presetName: string) => {
-    const updated = loadPresets(toolId).filter((p) => p.name !== presetName);
-    persistPresets(toolId, updated);
+    const updated = loadLocalPresets(toolId).filter((p: ToolPreset) => p.name !== presetName);
+    persistLocalPresets(toolId, updated);
     setEntries((prev) =>
       prev.filter((e) => !(e.toolId === toolId && e.preset.name === presetName))
     );
