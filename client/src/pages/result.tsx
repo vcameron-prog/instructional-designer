@@ -292,6 +292,7 @@ export default function ResultPage() {
   const [captionTablePreviews, setCaptionTablePreviews] = useState<string[][][]>([]);
   const [captionEditIndex, setCaptionEditIndex] = useState<number>(0);
   const [captionEditOtherCaptions, setCaptionEditOtherCaptions] = useState<string[]>([]);
+  const [captionAllowDefault, setCaptionAllowDefault] = useState(false);
 
   const firstChangeRef = useRef<HTMLDivElement | null>(null);
 
@@ -546,6 +547,7 @@ export default function ResultPage() {
     setCaptionTablePreviews(content ? extractTablePreviews(content.content) : []);
     setCaptionEditMode("add");
     setCaptionStep("input");
+    setCaptionAllowDefault(false);
     setCaptionDialogOpen(true);
   };
 
@@ -1754,7 +1756,7 @@ export default function ResultPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={captionDialogOpen} onOpenChange={(open) => { if (!open) { setCaptionDialogOpen(false); setCaptionStep("input"); } }}>
+      <Dialog open={captionDialogOpen} onOpenChange={(open) => { if (!open) { setCaptionDialogOpen(false); setCaptionStep("input"); setCaptionAllowDefault(false); } }}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>
@@ -1879,7 +1881,7 @@ export default function ResultPage() {
                         setCaptionTexts(updated);
                       }}
                       placeholder="e.g., Weekly assignment schedule"
-                      onKeyDown={(e) => { if (e.key === "Enter" && index === captionTexts.length - 1 && captionTexts.every((t) => t.trim()) && !captionTexts.some((t) => t.trim().toLowerCase() === "table summary") && (() => { const g: Record<string, number> = {}; for (const t of captionTexts) { const k = t.trim().toLowerCase(); g[k] = (g[k] ?? 0) + 1; if (g[k] > 1) return false; } return true; })()) setCaptionStep("preview"); }}
+                      onKeyDown={(e) => { if (e.key === "Enter" && index === captionTexts.length - 1 && captionTexts.every((t) => t.trim()) && (captionAllowDefault || !captionTexts.some((t) => t.trim().toLowerCase() === "table summary")) && (() => { const g: Record<string, number> = {}; for (const t of captionTexts) { const k = t.trim().toLowerCase(); g[k] = (g[k] ?? 0) + 1; if (g[k] > 1) return false; } return true; })()) setCaptionStep("preview"); }}
                       data-testid={`input-caption-text-${index}`}
                       autoFocus={index === 0}
                     />
@@ -1899,13 +1901,24 @@ export default function ResultPage() {
                 </div>
               )}
               {captionEditMode === "add" && captionTexts.some((t) => t.trim().toLowerCase() === "table summary") && (
-                <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300" role="alert" data-testid="warning-generic-caption">
-                  <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
-                  <span>
-                    {captionTexts.filter((t) => t.trim().toLowerCase() === "table summary").length > 1
-                      ? `${captionTexts.filter((t) => t.trim().toLowerCase() === "table summary").length} captions still use the default "Table summary" text. Replace them with descriptions of what each table actually contains before previewing.`
-                      : `One caption still uses the default "Table summary" text. Replace it with a description of what the table actually contains before previewing.`}
-                  </span>
+                <div className="flex flex-col gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300" role="alert" data-testid="warning-generic-caption">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
+                    <span>
+                      {captionTexts.filter((t) => t.trim().toLowerCase() === "table summary").length > 1
+                        ? `${captionTexts.filter((t) => t.trim().toLowerCase() === "table summary").length} captions still use the default "Table summary" text. Replace them with descriptions of what each table actually contains before previewing.`
+                        : `One caption still uses the default "Table summary" text. Replace it with a description of what the table actually contains before previewing.`}
+                    </span>
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer select-none pl-6" data-testid="checkbox-allow-default-caption">
+                    <input
+                      type="checkbox"
+                      checked={captionAllowDefault}
+                      onChange={(e) => setCaptionAllowDefault(e.target.checked)}
+                      className="rounded border-amber-400 accent-amber-700"
+                    />
+                    <span>I understand — proceed with the default text anyway</span>
+                  </label>
                 </div>
               )}
               {captionEditMode === "add" && (() => {
@@ -1955,7 +1968,7 @@ export default function ResultPage() {
                 <Button
                   onClick={captionEditMode === "edit" ? handleApplyCaptionFix : () => setCaptionStep("preview")}
                   className="gap-2"
-                  disabled={captionEditMode === "edit" ? (!captionEditText.trim() || captionEditText.trim().toLowerCase() === "table summary") : (captionTexts.some((t) => !t.trim()) || captionTexts.some((t) => t.trim().toLowerCase() === "table summary") || (() => { const g: Record<string, number> = {}; for (const t of captionTexts) { const k = t.trim().toLowerCase(); if (!k) continue; g[k] = (g[k] ?? 0) + 1; if (g[k] > 1) return true; } return false; })())}
+                  disabled={captionEditMode === "edit" ? (!captionEditText.trim() || captionEditText.trim().toLowerCase() === "table summary") : (captionTexts.some((t) => !t.trim()) || (!captionAllowDefault && captionTexts.some((t) => t.trim().toLowerCase() === "table summary")) || (() => { const g: Record<string, number> = {}; for (const t of captionTexts) { const k = t.trim().toLowerCase(); if (!k) continue; g[k] = (g[k] ?? 0) + 1; if (g[k] > 1) return true; } return false; })())}
                   data-testid="button-apply-caption"
                 >
                   <CheckCircle className="w-4 h-4" />
