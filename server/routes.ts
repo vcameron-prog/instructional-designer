@@ -173,7 +173,9 @@ setInterval(async () => {
   }
 }, 15 * 60 * 1000);
 
-// Heavy-operation rate limiting (applies to both anonymous and authenticated users)
+// Heavy-operation rate limiting — process-local fallback used only for
+// anonymous users when the shared DB rate limit is unavailable.
+// Authenticated users are rate-limited via checkSharedRateLimit directly.
 const heavyOpRateLimits = new Map<string, { count: number; resetAt: number }>();
 const HEAVY_OP_RATE_LIMIT = parseInt(process.env.HEAVY_OP_RATE_LIMIT ?? "5", 10) || 5;
 const HEAVY_OP_RATE_WINDOW_MS = 60 * 60 * 1000;
@@ -257,15 +259,14 @@ setInterval(
 // Concurrency guards for expensive background operations
 //
 // ARCHITECTURAL NOTE — AUTOSCALED DEPLOYMENT:
-// All concurrency counters and rate-limit Maps below are process-local. On a
-// public autoscaled deployment each instance starts with its own independent
-// counters, so the per-instance limits are not globally enforced. The
-// per-conversion deduplication keys (activeProcessingKeys, activeFixKeys) and
-// the DB-backed anonymous rate limit (checkAnonRateLimitDb) below are the
-// primary cross-instance guards for the most expensive public paths.
-// Authenticated-user rate limits rely on the process-local Maps; for a
-// fully global limit those would need to be moved to a shared store (e.g.
-// Redis or a PostgreSQL advisory-lock table).
+// All concurrency counters below are process-local. On a public autoscaled
+// deployment each instance starts with its own independent counters, so the
+// per-instance limits are not globally enforced. The per-conversion
+// deduplication keys (activeProcessingKeys, activeFixKeys) and the DB-backed
+// shared rate limit (checkSharedRateLimit) are the primary cross-instance
+// guards for the most expensive paths. Authenticated-user heavy-op rate
+// limits now use checkSharedRateLimit (backed by the rate_limit_log table)
+// so they are enforced globally across all instances.
 let activeProcessingJobs = 0;
 const MAX_CONCURRENT_PROCESSING = parseInt(process.env.MAX_CONCURRENT_PROCESSING ?? "3", 10) || 3;
 // Per-conversion in-flight deduplication — prevents the same document from
@@ -3571,8 +3572,9 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           // Fail open on transient DB errors.
         }
       } else {
-        const rateLimitKey = `user:${userId}`;
-        if (!checkHeavyOpRateLimit(`process:${rateLimitKey}`)) {
+        if (!await checkSharedRateLimit(
+          `user:${userId}`, "process", SHARED_HEAVY_OP_RATE_LIMIT, HEAVY_OP_RATE_WINDOW_MS,
+        )) {
           activeProcessingKeys.delete(processingKey);
           res.status(429).json({ error: "Too many processing requests. Please wait before submitting another document." });
           return;
@@ -3927,9 +3929,11 @@ Please generate an IMPROVED version that incorporates the requested changes whil
       }
       activeProcessingKeys.add(reprocessKey);
 
-      // Basic rate limiting (re-use the same per-user heavy-op limit).
+      // Basic rate limiting (re-use the same shared per-user heavy-op limit).
       if (userId) {
-        if (!checkHeavyOpRateLimit(`process:user:${userId}`)) {
+        if (!await checkSharedRateLimit(
+          `user:${userId}`, "process", SHARED_HEAVY_OP_RATE_LIMIT, HEAVY_OP_RATE_WINDOW_MS,
+        )) {
           activeProcessingKeys.delete(reprocessKey);
           res.status(429).json({ error: "Too many processing requests. Please wait before retrying." });
           return;
@@ -4045,8 +4049,9 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         return;
       }
 
-      // Rate-limit AI fix calls. Anonymous users get a shared cross-instance
-      // limit; authenticated users use the process-local map.
+      // Rate-limit AI fix calls. Both anonymous and authenticated users use
+      // the shared cross-instance DB-backed limit so the quota is globally
+      // enforced across all autoscaled instances.
       if (!userId) {
         const vToken = ensureVisitorToken(req);
         const ip = req.ip || req.socket.remoteAddress || "unknown";
@@ -4059,8 +4064,9 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           return;
         }
       } else {
-        const fixRateLimitKey = `user:${userId}`;
-        if (!checkHeavyOpRateLimit(`fix:${fixRateLimitKey}`)) {
+        if (!await checkSharedRateLimit(
+          `user:${userId}`, "fix", SHARED_HEAVY_OP_RATE_LIMIT, HEAVY_OP_RATE_WINDOW_MS,
+        )) {
           res.status(429).json({ error: "Too many fix requests. Please wait before trying again." });
           return;
         }
@@ -4436,8 +4442,9 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         return;
       }
 
-      // Rate-limit DOCX export. Anonymous users get a shared cross-instance
-      // limit; authenticated users use the process-local map.
+      // Rate-limit DOCX export. Both anonymous and authenticated users use
+      // the shared cross-instance DB-backed limit so the quota is globally
+      // enforced across all autoscaled instances.
       if (!userId) {
         const vToken = ensureVisitorToken(req);
         const ip = req.ip || req.socket.remoteAddress || "unknown";
@@ -4450,8 +4457,9 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           return;
         }
       } else {
-        const docxRateLimitKey = `user:${userId}`;
-        if (!checkHeavyOpRateLimit(`docx:${docxRateLimitKey}`)) {
+        if (!await checkSharedRateLimit(
+          `user:${userId}`, "docx_export", SHARED_HEAVY_OP_RATE_LIMIT, HEAVY_OP_RATE_WINDOW_MS,
+        )) {
           res.status(429).json({ error: "Too many DOCX export requests. Please wait before trying again." });
           return;
         }
@@ -4569,8 +4577,9 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         return;
       }
 
-      // Rate-limit PDF export. Anonymous users get a shared cross-instance
-      // limit; authenticated users use the process-local map.
+      // Rate-limit PDF export. Both anonymous and authenticated users use
+      // the shared cross-instance DB-backed limit so the quota is globally
+      // enforced across all autoscaled instances.
       if (!userId) {
         const vToken = ensureVisitorToken(req);
         const ip = req.ip || req.socket.remoteAddress || "unknown";
@@ -4583,8 +4592,9 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           return;
         }
       } else {
-        const pdfRateLimitKey = `user:${userId}`;
-        if (!checkHeavyOpRateLimit(`pdf:${pdfRateLimitKey}`)) {
+        if (!await checkSharedRateLimit(
+          `user:${userId}`, "pdf_export", SHARED_HEAVY_OP_RATE_LIMIT, HEAVY_OP_RATE_WINDOW_MS,
+        )) {
           res.status(429).json({ error: "Too many PDF export requests. Please wait before trying again." });
           return;
         }
