@@ -82,6 +82,12 @@ async function runStartupMigrations() {
       ALTER TABLE saved_content ADD COLUMN IF NOT EXISTS course_id integer;
     `);
     await db.execute(sql`
+      ALTER TABLE courses ADD COLUMN IF NOT EXISTS syllabus_uploaded_at timestamptz;
+    `);
+    await db.execute(sql`
+      ALTER TABLE courses ADD COLUMN IF NOT EXISTS rolled_over_from_id integer;
+    `);
+    await db.execute(sql`
       CREATE TABLE IF NOT EXISTS app_metrics (
         key TEXT PRIMARY KEY,
         count INTEGER NOT NULL DEFAULT 0,

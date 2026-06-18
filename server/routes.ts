@@ -5688,12 +5688,13 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     // Used by Playwright specs to set up result pages without hitting the
     // Anthropic API.  Only active when PLAYWRIGHT_TEST=1.
     app.post("/api/test/seed-content", async (req: Request, res: Response) => {
-      const { toolType, toolName, formData, content, userId } = req.body as {
+      const { toolType, toolName, formData, content, userId, courseId } = req.body as {
         toolType: string;
         toolName: string;
         formData: Record<string, unknown>;
         content: string;
         userId: string;
+        courseId?: number | null;
       };
       if (!toolType || !toolName || !formData || !content || !userId) {
         res.status(400).json({ error: "toolType, toolName, formData, content and userId are required" });
@@ -5707,11 +5708,35 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           formData,
           content,
           userId,
-          courseId: null,
+          courseId: courseId ?? null,
           isApproved: false,
         })
         .returning();
       res.status(201).json({ id: row.id });
+    });
+
+    // PATCH /api/test/set-syllabus-date/:courseId
+    // Sets syllabusUploadedAt on a course to the current timestamp (or a
+    // provided ISO string).  Used by Playwright specs that need the staleness
+    // banner to appear without performing a real file upload.
+    app.patch("/api/test/set-syllabus-date/:courseId", async (req: Request, res: Response) => {
+      const id = parseInt(req.params.courseId as string, 10);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "courseId must be a number" });
+        return;
+      }
+      const { syllabusUploadedAt } = req.body as { syllabusUploadedAt?: string };
+      const uploadedAt = syllabusUploadedAt ? new Date(syllabusUploadedAt) : new Date();
+      const [row] = await db
+        .update(courses)
+        .set({ syllabusUploadedAt: uploadedAt })
+        .where(eq(courses.id, id))
+        .returning();
+      if (!row) {
+        res.status(404).json({ error: "Course not found" });
+        return;
+      }
+      res.json({ id: row.id, syllabusUploadedAt: row.syllabusUploadedAt });
     });
   }
 
