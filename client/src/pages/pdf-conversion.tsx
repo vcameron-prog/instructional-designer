@@ -480,7 +480,16 @@ export default function PdfConversion() {
   const [isFixingAll, setIsFixingAll] = useState(false);
   const [isFixingAllAria, setIsFixingAllAria] = useState(false);
   const [batchFixNotesSummary, setBatchFixNotesSummary] = useState<string[]>([]);
-  const [manualFixSummary, setManualFixSummary] = useState<{ title: string; reason: string }[]>([]);
+  const manualFixStorageKey = numericId > 0 ? `manualFixSummary_${numericId}` : null;
+  const [manualFixSummary, setManualFixSummary] = useState<{ title: string; reason: string }[]>(() => {
+    if (numericId <= 0) return [];
+    try {
+      const stored = localStorage.getItem(`manualFixSummary_${numericId}`);
+      if (stored) return JSON.parse(stored) as { title: string; reason: string }[];
+    } catch {
+    }
+    return [];
+  });
   const [copiedManualFix, setCopiedManualFix] = useState(false);
   const [copiedImageKeys, setCopiedImageKeys] = useState<Set<string>>(new Set());
   const [copiedAllKeys, setCopiedAllKeys] = useState<Set<number>>(new Set());
@@ -594,6 +603,18 @@ export default function PdfConversion() {
     }, 1000);
     return () => clearInterval(interval);
   }, [isProcessingOrUploaded]);
+
+  useEffect(() => {
+    if (!manualFixStorageKey) return;
+    if (manualFixSummary.length === 0) {
+      localStorage.removeItem(manualFixStorageKey);
+    } else {
+      try {
+        localStorage.setItem(manualFixStorageKey, JSON.stringify(manualFixSummary));
+      } catch {
+      }
+    }
+  }, [manualFixSummary, manualFixStorageKey]);
 
   useEffect(() => {
     if (
