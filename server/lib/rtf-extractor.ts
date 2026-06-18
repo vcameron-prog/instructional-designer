@@ -164,6 +164,22 @@ function decodeCjkByteSequences(
   let i = 0;
   let currentEncoding = defaultEncoding;
 
+  // Some RTF producers emit \dbch\fN, \loch\fN, or \hich\fN to switch between
+  // double-byte, low-half, and high-half character-set runs.  We track a
+  // "pending run type" so that when the following \fN is processed we know
+  // which run type it belongs to and can update the current encoding correctly.
+  type RunType = "dbch" | "loch" | "hich";
+  let pendingRunType: RunType | null = null;
+
+  // Per-run-type font numbers, kept so that a standalone \loch / \hich / \dbch
+  // (without an immediately following \fN) can restore the encoding that was
+  // previously associated with that run type.
+  const runTypeFont: Record<RunType, number | null> = {
+    dbch: null,
+    loch: null,
+    hich: null,
+  };
+
   while (i < text.length) {
     const ch = text[i];
 
@@ -231,11 +247,47 @@ function decodeCjkByteSequences(
       // Skip trailing space delimiter (part of the control word token).
       if (j < text.length && text[j] === " ") j++;
 
+      // Run-type markers: \dbch, \loch, \hich.
+      // When seen without a numeric parameter they either:
+      //   (a) precede \fN — in which case pendingRunType routes the font switch,
+      //   (b) appear standalone — in which case we restore the encoding that was
+      //       previously associated with that run type (if any).
+      if (
+        (word === "dbch" || word === "loch" || word === "hich") &&
+        numStr === ""
+      ) {
+        const rt = word as RunType;
+        if (pendingRunType === null) {
+          // Mark that the next \fN belongs to this run type.
+          pendingRunType = rt;
+          // Also restore the encoding for this run type if we already know its font.
+          const knownFont = runTypeFont[rt];
+          if (knownFont !== null) {
+            const enc = fontEncodings.get(knownFont);
+            currentEncoding = enc !== undefined ? enc : defaultEncoding;
+          }
+        } else {
+          // Another run-type marker arrived before we saw \fN; replace pending.
+          pendingRunType = rt;
+        }
+        result += text.substring(i, j);
+        i = j;
+        continue;
+      }
+
       // \fN (word === 'f', numStr is digits) — font switch.
       if (word === "f" && numStr !== "") {
         const fontNum = parseInt(numStr, 10);
         const enc = fontEncodings.get(fontNum);
-        currentEncoding = enc !== undefined ? enc : defaultEncoding;
+        const newEncoding = enc !== undefined ? enc : defaultEncoding;
+
+        if (pendingRunType !== null) {
+          // Record which font number is now associated with this run type and
+          // switch to its encoding (the \'XX bytes that follow belong to it).
+          runTypeFont[pendingRunType] = fontNum;
+          pendingRunType = null;
+        }
+        currentEncoding = newEncoding;
       }
 
       result += text.substring(i, j);

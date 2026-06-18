@@ -117,6 +117,35 @@ describe("extractRtfContent — primary parser path", () => {
       expect(result.text).toContain(japaneseText);
       expect(result.text).toContain(koreanText);
     });
+
+    it("decodes \\dbch\\fN and \\loch\\fN run-type font switches in the same paragraph", async () => {
+      // \dbch\f1 switches to the DBCS font (GBK Simplified Chinese, fcharset134)
+      // for the double-byte run.  \loch\f0 switches back to the Latin font
+      // (windows-1252, fcharset0) for the low-half run.
+      // Without run-type hint handling the GBK bytes would be decoded as
+      // windows-1252 and produce garbled output.
+      const chineseText = "\u4e2d\u6587"; // 中文
+
+      const toRtfHex = (buf: Buffer): string =>
+        [...buf].map((b) => `\\'${b.toString(16).padStart(2, "0")}`).join("");
+
+      const cnHex = toRtfHex(iconv.encode(chineseText, "GBK") as Buffer);
+
+      const rtfStr =
+        `{\\rtf1\\ansi\\ansicpg1252\\deff0\n` +
+        `{\\fonttbl\n` +
+        `{\\f0\\fswiss\\fcharset0 Arial;}\n` +
+        `{\\f1\\fnil\\fcharset134 SimSun;}\n` +
+        `}\n` +
+        `\\dbch\\f1 ${cnHex}` +
+        `\\loch\\f0 Hello\\par\n` +
+        `}`;
+
+      const result = await extractRtfContent(Buffer.from(rtfStr, "latin1"));
+
+      expect(result.text).toContain(chineseText);
+      expect(result.text).toContain("Hello");
+    });
   });
 
   describe("RTF with nested stylesheet / font groups", () => {
