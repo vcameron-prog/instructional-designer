@@ -7,10 +7,11 @@ import request from "supertest";
 // Hoisted mocks – vi.mock factories are hoisted to the top of the file, so
 // any variables they capture must be created with vi.hoisted().
 // ---------------------------------------------------------------------------
-const { mockFixComplianceIssue, mockDbSelectWhere, mockDbUpdateReturning } = vi.hoisted(() => ({
+const { mockFixComplianceIssue, mockDbSelectWhere, mockDbUpdateReturning, mockCheckSharedRateLimit } = vi.hoisted(() => ({
   mockFixComplianceIssue: vi.fn(),
   mockDbSelectWhere: vi.fn(),
   mockDbUpdateReturning: vi.fn(),
+  mockCheckSharedRateLimit: vi.fn(),
 }));
 
 // ---------------------------------------------------------------------------
@@ -107,6 +108,49 @@ vi.mock("./lib/table-fixers.js", () => ({
   fixHtmlTableThead: (html: string) => ({ html, tablesFixed: 0 }),
   editHtmlTableCaption: (html: string) => html,
 }));
+
+// ---------------------------------------------------------------------------
+// Mock: rateLimiters – routes.ts imports ALL rate-limit helpers from this
+// module (not from shared-rate-limit.js).  We stub checkSharedRateLimit with
+// a hoisted spy so individual tests can override its return value, while all
+// other exports are stubbed with safe pass-through defaults so that the route
+// handler can proceed past every rate-limit check.
+//
+// Constants mirror the defaults in rateLimiters.ts; they are used by routes.ts
+// to configure call-site limits and are not under test here.
+//
+// vi.clearAllMocks() resets call history but NOT the default return values
+// set inside this factory, so the allow-by-default behaviour persists across
+// beforeEach calls.
+// ---------------------------------------------------------------------------
+vi.mock("./lib/rateLimiters.js", () => {
+  mockCheckSharedRateLimit.mockResolvedValue(true);
+  return {
+    checkSharedRateLimit: mockCheckSharedRateLimit,
+    checkAnonRateLimit: vi.fn().mockReturnValue(true),
+    checkHeavyOpRateLimit: vi.fn().mockReturnValue(true),
+    checkAiGenRateLimit: vi.fn().mockReturnValue(true),
+    checkUploadRateLimit: vi.fn().mockReturnValue(true),
+    SHARED_ANON_UPLOAD_RATE_LIMIT: 10,
+    SHARED_HEAVY_OP_RATE_LIMIT: 5,
+    AI_GEN_RATE_LIMIT: 20,
+    AI_GEN_RATE_WINDOW_MS: 60 * 60 * 1000,
+    UPLOAD_RATE_LIMIT: 30,
+    UPLOAD_RATE_WINDOW_MS: 60 * 60 * 1000,
+    ANON_RATE_LIMIT: 10,
+    ANON_RATE_WINDOW_MS: 60 * 60 * 1000,
+    HEAVY_OP_RATE_WINDOW_MS: 60 * 60 * 1000,
+    sharedRateLimitCleanupInterval: undefined,
+    anonRateLimitCleanupInterval: undefined,
+    heavyOpRateLimitCleanupInterval: undefined,
+    aiGenRateLimitCleanupInterval: undefined,
+    uploadRateLimitCleanupInterval: undefined,
+    anonRateLimits: new Map(),
+    heavyOpRateLimits: new Map(),
+    aiGenRateLimits: new Map(),
+    uploadRateLimits: new Map(),
+  };
+});
 
 // ---------------------------------------------------------------------------
 // Module under test
@@ -263,4 +307,154 @@ describe("POST /api/conversions/:id/fix-issue — wasRetried forwarding", () => 
 
     expect(response.body.wasRetried).toBe(false);
   });
+});
+
+// ---------------------------------------------------------------------------
+// Guard-path tests: 429 rate-limit, 503 concurrency cap, 409 deduplication
+//
+// The 429 test exercises the shared rate-limit gate via the
+// mockCheckSharedRateLimit spy.
+//
+// The 503 and 409 tests manipulate in-flight state (activeFixJobs /
+// activeFixKeys) that lives at module level inside routes.ts.  Each test
+// uses a "blocker" promise that never resolves until the test explicitly
+// releases it, so the in-flight counters are incremented before the guard
+// assertion is made.  Every test resolves its blockers in a finally-style
+// cleanup step so that activeFixJobs is decremented back to zero before the
+// next test runs (via the try/finally in the route handler).
+// ---------------------------------------------------------------------------
+describe("POST /api/conversions/:id/fix-issue — guard paths", () => {
+  let app: express.Express;
+
+  const FIX_RESULT = {
+    accessibleHtml: ACCESSIBLE_HTML,
+    complianceReport: FIXED_REPORT,
+    elementsFixed: 0,
+    wasRetried: false,
+  };
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    app = await buildApp();
+
+    mockDbSelectWhere.mockResolvedValue([BASE_CONVERSION]);
+    mockDbUpdateReturning.mockResolvedValue([UPDATED_ROW]);
+    // Rate-limit passes by default; individual tests can override with Once.
+    mockCheckSharedRateLimit.mockResolvedValue(true);
+    // Fix engine resolves immediately by default.
+    mockFixComplianceIssue.mockResolvedValue(FIX_RESULT);
+  });
+
+  // -----------------------------------------------------------------------
+  // 429 — rate-limit gate
+  // -----------------------------------------------------------------------
+  it("returns 429 when the shared rate-limit check returns false", async () => {
+    // Override just for this request so the gate rejects the caller.
+    mockCheckSharedRateLimit.mockResolvedValueOnce(false);
+
+    const response = await request(app)
+      .post("/api/conversions/1/fix-issue")
+      .send({ issueIndex: 0 })
+      .expect(429);
+
+    expect(response.body.error).toMatch(/too many/i);
+  });
+
+  // -----------------------------------------------------------------------
+  // 409 — per-conversion/issue in-flight deduplication
+  //
+  // A blocker promise keeps the first request alive long enough for a second
+  // identical request to see the key in activeFixKeys and be rejected.
+  //
+  // IMPORTANT: supertest's Test object only sends the HTTP request when it is
+  // awaited or .end() is called.  Plain assignment ("const req1 = request…")
+  // does NOT dispatch the request.  We use .end() to fire req1 immediately
+  // so the route handler runs and populates activeFixJobs / activeFixKeys
+  // before req2 is sent.  The blocker is released after the assertion so
+  // activeFixJobs decrements back to 0 in the route's finally block.
+  // -----------------------------------------------------------------------
+  it("returns 409 when the same conversion+issueIndex pair is already in progress", async () => {
+    let resolveFix!: (v: typeof FIX_RESULT) => void;
+    const blocker = new Promise<typeof FIX_RESULT>(resolve => {
+      resolveFix = resolve;
+    });
+    mockFixComplianceIssue.mockImplementationOnce(() => blocker);
+
+    // Fire req1 immediately via .end() without waiting for the response.
+    const req1Done = new Promise<any>(resolve => {
+      request(app)
+        .post("/api/conversions/1/fix-issue")
+        .send({ issueIndex: 0 })
+        .end((_err, res) => resolve(res));
+    });
+
+    // Yield to the event loop so the route handler runs far enough to execute
+    // activeFixJobs++ and activeFixKeys.add() before the second request fires.
+    await new Promise(r => setTimeout(r, 50));
+
+    // Second request for the same (id=1, issueIndex=0) pair must be rejected.
+    const res2 = await request(app)
+      .post("/api/conversions/1/fix-issue")
+      .send({ issueIndex: 0 });
+
+    expect(res2.status).toBe(409);
+    expect(res2.body.error).toMatch(/already in progress/i);
+
+    // Release the blocker so req1 completes and activeFixJobs decrements to 0.
+    resolveFix(FIX_RESULT);
+    await req1Done;
+  }, 15_000);
+
+  // -----------------------------------------------------------------------
+  // 503 — global concurrency cap (MAX_CONCURRENT_FIXES = 3 by default)
+  //
+  // Three blocker promises fill all available fix slots; a fourth request
+  // then hits the activeFixJobs >= MAX_CONCURRENT_FIXES guard.  Each blocker
+  // is released at the end so the slot counter is correctly decremented.
+  // Different conversion IDs (10, 11, 12) are used for the three in-flight
+  // requests so they each get a unique dedup key and bypass the 409 path.
+  //
+  // Same .end() fire-and-forget pattern as the 409 test above.
+  // -----------------------------------------------------------------------
+  it("returns 503 when the concurrent fix job cap is reached", async () => {
+    const MAX_SLOTS = 3; // mirrors MAX_CONCURRENT_FIXES default in routes.ts
+    const resolvers: Array<(v: typeof FIX_RESULT) => void> = [];
+    const inflightDone: Promise<any>[] = [];
+
+    for (let i = 0; i < MAX_SLOTS; i++) {
+      const blocker = new Promise<typeof FIX_RESULT>(resolve => {
+        resolvers.push(resolve);
+      });
+      mockFixComplianceIssue.mockImplementationOnce(() => blocker);
+    }
+
+    // Fire one request per slot using distinct conversion IDs (10, 11, 12)
+    // so each gets a unique dedup key and none trigger the 409 guard.
+    for (let i = 0; i < MAX_SLOTS; i++) {
+      inflightDone.push(
+        new Promise<any>(resolve => {
+          request(app)
+            .post(`/api/conversions/${10 + i}/fix-issue`)
+            .send({ issueIndex: 0 })
+            .end((_err, res) => resolve(res));
+        }),
+      );
+      // Pause between launches so each handler executes activeFixJobs++
+      // before the next request is evaluated.
+      await new Promise(r => setTimeout(r, 30));
+    }
+
+    // One more request — all slots occupied, must get 503.
+    const res = await request(app)
+      .post("/api/conversions/20/fix-issue")
+      .send({ issueIndex: 0 });
+
+    expect(res.status).toBe(503);
+    expect(res.body.error).toMatch(/busy/i);
+
+    // Release all blockers so the in-flight jobs complete and activeFixJobs
+    // returns to 0, leaving no leaked state for subsequent test runs.
+    resolvers.forEach(r => r(FIX_RESULT));
+    await Promise.all(inflightDone);
+  }, 15_000);
 });
