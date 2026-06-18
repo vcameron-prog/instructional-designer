@@ -10,8 +10,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Switch } from "@/components/ui/switch";
 import { ArrowLeft, Loader2, Sparkles, BookOpen, Calendar, FileText, Layout, CheckCircle, Target, Scale, ShieldCheck, Eye, Bot, Globe, BookmarkPlus, ChevronDown, Trash2 } from "lucide-react";
-import { TOOLS, BSU_CALENDAR, LOADING_MESSAGES, COURSE_LEVELS, CONTENT_PREFILL_MAP } from "@/lib/constants";
+import { TOOLS, BSU_CALENDAR, LOADING_MESSAGES, COURSE_LEVELS } from "@/lib/constants";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isSessionExpiredMessage } from "@/lib/upload-error-utils";
 import { useToast } from "@/hooks/use-toast";
@@ -306,6 +307,9 @@ export default function ToolForm() {
   const [language, setLanguage] = useState(
     () => localStorage.getItem(DEFAULT_LANGUAGE_KEY) || "English"
   );
+  const [generateRubric, setGenerateRubric] = useState(false);
+  const [rubricTotalPoints, setRubricTotalPoints] = useState("100");
+  const [rubricLevels, setRubricLevels] = useState("4 levels");
 
   const { presets, savePreset, deletePreset } = useToolPresets(isStandalone ? toolId : undefined);
   const [presetOpen, setPresetOpen] = useState(false);
@@ -328,16 +332,21 @@ export default function ToolForm() {
     enabled: !!courseId && !isStandalone,
   });
 
-  const compatibleSourceTypes = toolId ? (CONTENT_PREFILL_MAP[toolId] ?? []) : [];
+  const compatibleSourceTypes: string[] = [];
   const { data: priorItems = [] } = useQuery<GeneratedContent[]>({
-    queryKey: ["/api/courses", courseId, "content", compatibleSourceTypes.join(",")],
+    queryKey: ["/api/courses", courseId, "content", toolId],
     queryFn: async () => {
-      const params = new URLSearchParams({ toolType: compatibleSourceTypes.join(",") });
-      const res = await fetch(`/api/courses/${courseId}/content?${params}`);
+      const res = await fetch(`/api/courses/${courseId}/content`);
       if (!res.ok) return [];
-      return res.json();
+      const all: GeneratedContent[] = await res.json();
+      
+      // Filter based on tool compatibility
+      if (toolId === "rubric") return all.filter(i => i.toolType === "assignment");
+      if (toolId === "alignment") return all.filter(i => i.toolType === "assignment" || i.toolType === "rubric");
+      if (toolId === "airesistant") return all.filter(i => i.toolType === "assignment");
+      return [];
     },
-    enabled: !!courseId && !isStandalone && compatibleSourceTypes.length > 0,
+    enabled: !!courseId && !isStandalone && ["rubric", "alignment", "airesistant"].includes(toolId || ""),
   });
 
   // Auto-fill schedule dates when semester is known
@@ -354,6 +363,14 @@ export default function ToolForm() {
 
   const generateMutation = useMutation({
     mutationFn: async () => {
+      if (isStandalone && toolId === "assignment" && generateRubric) {
+        const response = await apiRequest("POST", "/api/generate-batch-assignment-rubric", {
+          formData,
+          rubricConfig: { totalPoints: rubricTotalPoints, levels: rubricLevels },
+          language,
+        });
+        return response.json();
+      }
       if (isStandalone) {
         const response = await apiRequest("POST", "/api/generate-standalone", {
           toolId,
@@ -372,6 +389,10 @@ export default function ToolForm() {
       return response.json();
     },
     onSuccess: (data) => {
+      if (isStandalone && toolId === "assignment" && generateRubric && data.assignmentId && data.rubricId) {
+        navigate(`/quick-tools/result-batch/${data.assignmentId}/${data.rubricId}`);
+        return;
+      }
       if (isStandalone) {
         if (data.id) {
           navigate(`/quick-tools/result/${data.id}`);
@@ -960,6 +981,59 @@ export default function ToolForm() {
             </div>
           )}
 
+          {toolId === "assignment" && isStandalone && (
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-base">Also generate a matching rubric</CardTitle>
+                    <CardDescription className="text-sm mt-1">
+                      Generate a rubric whose criteria are directly derived from this assignment
+                    </CardDescription>
+                  </div>
+                  <Switch
+                    id="generate-rubric-toggle"
+                    checked={generateRubric}
+                    onCheckedChange={setGenerateRubric}
+                    aria-label="Also generate a matching rubric"
+                    data-testid="switch-generate-rubric"
+                  />
+                </div>
+              </CardHeader>
+              {generateRubric && (
+                <CardContent className="space-y-4 pt-0">
+                  <div className="space-y-2">
+                    <Label htmlFor="rubric-total-points">
+                      Total Points <span className="text-destructive ml-1">*</span>
+                    </Label>
+                    <Input
+                      id="rubric-total-points"
+                      type="number"
+                      placeholder="e.g., 100"
+                      value={rubricTotalPoints}
+                      onChange={(e) => setRubricTotalPoints(e.target.value)}
+                      aria-required="true"
+                      data-testid="input-rubric-total-points"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="rubric-levels">Performance Levels</Label>
+                    <Select value={rubricLevels} onValueChange={setRubricLevels}>
+                      <SelectTrigger id="rubric-levels" data-testid="select-rubric-levels">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="3 levels">3 levels</SelectItem>
+                        <SelectItem value="4 levels">4 levels</SelectItem>
+                        <SelectItem value="5 levels">5 levels</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </CardContent>
+              )}
+            </Card>
+          )}
+
           <div className="flex justify-end gap-4">
             <Button
               type="button"
@@ -971,7 +1045,9 @@ export default function ToolForm() {
             </Button>
             <Button type="submit" className="gap-2" data-testid="button-generate">
               <Sparkles className="w-4 h-4" />
-              Generate {tool.name}
+              {toolId === "assignment" && isStandalone && generateRubric
+                ? "Generate Assignment & Rubric"
+                : `Generate ${tool.name}`}
             </Button>
           </div>
         </form>

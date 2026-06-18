@@ -2251,6 +2251,86 @@ export async function registerRoutes(
     },
   );
 
+  // Batch generation: assignment + matching rubric in one request (standalone only)
+  app.post(
+    "/api/generate-batch-assignment-rubric",
+    isBsuAuthenticated,
+    async (req: Request, res: Response) => {
+      try {
+        const userId = getUserId(req) as string;
+        const { formData, rubricConfig } = req.body;
+
+        if (!checkAiGenRateLimit(userId)) {
+          return res.status(429).json({ error: "AI generation rate limit exceeded. Please try again later." });
+        }
+
+        const assignmentPrompt = generatePrompt("assignment", formData, null);
+
+        const assignmentMessage = await anthropic.messages.create({
+          model: "claude-sonnet-4-5",
+          max_tokens: 8192,
+          messages: [{ role: "user", content: assignmentPrompt }],
+        });
+
+        const rawAssignmentText = assignmentMessage.content
+          .filter((item): item is Anthropic.TextBlock => item.type === "text")
+          .map((item) => item.text)
+          .join("\n\n");
+
+        const assignmentText = convertMarkdownTablesToHtml(rawAssignmentText);
+
+        const assignmentContent = await storage.createContent({
+          courseId: null,
+          userId,
+          toolType: "assignment",
+          toolName: "Assignment Design",
+          formData,
+          content: assignmentText,
+        });
+
+        // Build rubric prompt derived from the assignment
+        const rubricFormData = {
+          assessmentType: formData.assignmentType || "Assignment",
+          totalPoints: rubricConfig?.totalPoints || "100",
+          levels: rubricConfig?.levels || "4 levels",
+          criteria: formData.learningObjectives || "",
+          additionalContext: `This rubric is for the following assignment:\n\n${assignmentText.slice(0, 2000)}`,
+        };
+        const rubricPrompt = generatePrompt("rubric", rubricFormData, null);
+
+        const rubricMessage = await anthropic.messages.create({
+          model: "claude-sonnet-4-5",
+          max_tokens: 8192,
+          messages: [{ role: "user", content: rubricPrompt }],
+        });
+
+        const rawRubricText = rubricMessage.content
+          .filter((item): item is Anthropic.TextBlock => item.type === "text")
+          .map((item) => item.text)
+          .join("\n\n");
+
+        const rubricText = convertMarkdownTablesToHtml(rawRubricText);
+
+        const rubricContent = await storage.createContent({
+          courseId: null,
+          userId,
+          toolType: "rubric",
+          toolName: "Rubric Builder",
+          formData: rubricFormData,
+          content: rubricText,
+        });
+
+        return res.status(201).json({
+          assignmentId: assignmentContent.id,
+          rubricId: rubricContent.id,
+        });
+      } catch (error) {
+        console.error("Error generating batch assignment+rubric:", error);
+        res.status(500).json({ error: "Failed to generate content" });
+      }
+    },
+  );
+
   // Get standalone content for user (BSU faculty only)
   app.get(
     "/api/standalone-content",

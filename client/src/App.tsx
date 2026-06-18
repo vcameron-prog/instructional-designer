@@ -10,6 +10,7 @@ import CourseForm from "@/pages/course-form";
 import ToolSelection from "@/pages/tool-selection";
 import ToolForm from "@/pages/tool-form";
 import ResultPage from "@/pages/result";
+import ResultBatchPage from "@/pages/result-batch";
 import HelpPage from "@/pages/help";
 import ResearchPage from "@/pages/research";
 import LibraryPage from "@/pages/library";
@@ -60,8 +61,9 @@ function Router() {
       <Route path="/course/:id/tool/:toolId" component={ToolForm} />
       <Route path="/course/:id/result/:contentId" component={ResultPage} />
       <Route path="/quick-tools" component={QuickToolsPage} />
-      <Route path="/quick-tools/:toolId" component={ToolForm} />
       <Route path="/quick-tools/result/:contentId" component={ResultPage} />
+      <Route path="/quick-tools/result-batch/:assignmentId/:rubricId" component={ResultBatchPage} />
+      <Route path="/quick-tools/:toolId" component={ToolForm} />
       <Route path="/accessibility" component={PdfUpload} />
       <Route path="/pdf-accessibility" component={PdfUpload} />
       <Route path="/pdf-accessibility/history" component={PdfHistory} />
