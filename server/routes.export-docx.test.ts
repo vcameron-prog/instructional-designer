@@ -290,6 +290,28 @@ describe("GET /api/content/:id/export-docx — ownership checks", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Invalid-ID guard test for GET /api/conversions/:id/download-docx
+// ---------------------------------------------------------------------------
+describe("GET /api/conversions/:id/download-docx — invalid ID guard", () => {
+  let app: express.Express;
+
+  beforeEach(async () => {
+    vi.resetModules();
+    vi.clearAllMocks();
+    currentUser.sub = "user-abc";
+    app = await buildApp();
+  });
+
+  it("returns 400 for a non-numeric conversion ID without touching the DB or builder", async () => {
+    const res = await request(app).get("/api/conversions/abc/download-docx");
+
+    expect(res.status).toBe(400);
+    expect(mockDbSelectWhere).not.toHaveBeenCalled();
+    expect(mockBuildDocx).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 503 concurrency-cap tests for GET /api/conversions/:id/download-docx
 //
 // MAX_CONCURRENT_DOCX_EXPORTS slots are filled with in-flight requests that

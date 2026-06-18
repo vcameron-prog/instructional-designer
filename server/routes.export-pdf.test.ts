@@ -193,6 +193,23 @@ async function buildApp() {
 // All blockers are released in a finally-style cleanup so the counter returns
 // to zero before any subsequent test runs.
 // ---------------------------------------------------------------------------
+describe("GET /api/conversions/:id/download-pdf — invalid ID guard", () => {
+  let app: express.Express;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    app = await buildApp();
+  });
+
+  it("returns 400 for a non-numeric conversion ID without touching the DB or builder", async () => {
+    const res = await request(app).get("/api/conversions/abc/download-pdf");
+
+    expect(res.status).toBe(400);
+    expect(mockDbSelectWhere).not.toHaveBeenCalled();
+    expect(mockBuildPdf).not.toHaveBeenCalled();
+  });
+});
+
 describe("GET /api/conversions/:id/download-pdf — guard paths", () => {
   let app: express.Express;
 
