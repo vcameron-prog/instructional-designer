@@ -590,3 +590,140 @@ describe("extractRtfContent — mixed-script fallback path (parser-rejected RTF)
     expect(result.pageCount).toBeGreaterThanOrEqual(1);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Mixed-script Big5 + GBK helpers and tests
+// ---------------------------------------------------------------------------
+
+/**
+ * Build the body of a malformed RTF containing two CJK runs: one in Big5
+ * (Traditional Chinese, fcharset136) and one in GBK (Simplified Chinese,
+ * fcharset134).  The structure is intentionally broken (missing outer closing
+ * brace) so rtf-parser rejects it and extractRtfContent falls back to
+ * stripRtfFallback.
+ */
+function makeMixedScriptMalformedRtfBig5Gbk(
+  big5Text: string,
+  gbkText: string
+): string {
+  const toHex = (buf: Buffer) =>
+    [...buf].map((b) => `\\'${b.toString(16).padStart(2, "0")}`).join("");
+
+  const big5Hex = toHex(iconv.encode(big5Text, "Big5") as Buffer);
+  const gbkHex = toHex(iconv.encode(gbkText, "GBK") as Buffer);
+
+  // Document-level codepage is 950 (Big5); f0 = Big5, f1 = GBK.
+  // Missing outer closing brace → rtf-parser will reject it.
+  return (
+    `\\rtf1\\ansi\\ansicpg950\\deff0\n` +
+    `{\\fonttbl\n` +
+    `{\\f0\\fnil\\fcharset136 MingLiU;}\n` +   // charset 136 → Big5
+    `{\\f1\\fnil\\fcharset134 SimSun;}\n` +     // charset 134 → GBK
+    `}\n` +
+    `\\f0 ${big5Hex}\\par\n` +
+    `\\f1 ${gbkHex}\\par\n` +
+    `{{{{`
+  );
+}
+
+// ---------------------------------------------------------------------------
+// stripRtfFallback — per-font encoding for Big5 + GBK mixed-script files
+// ---------------------------------------------------------------------------
+
+describe("stripRtfFallback — per-font encoding for Big5 + GBK mixed-script files", () => {
+  const TC = "\u7e41\u9ad4"; // 繁體 (Traditional Chinese, Big5)
+  const SC = "\u4e2d\u6587"; // 中文 (Simplified Chinese, GBK)
+
+  it("decodes Traditional Chinese Big5 run correctly when fontEncodings map has f0=Big5", () => {
+    const fontEncodings = new Map<number, string>([
+      [0, "Big5"],
+      [1, "GBK"],
+    ]);
+    const toHex = (buf: Buffer) =>
+      [...buf].map((b) => `\\'${b.toString(16).padStart(2, "0")}`).join("");
+    const tcHex = toHex(iconv.encode(TC, "Big5") as Buffer);
+    const rtf = `\\f0 ${tcHex}\\par`;
+
+    const result = stripRtfFallback(rtf, "Big5", fontEncodings);
+    expect(result).toContain(TC);
+  });
+
+  it("decodes Simplified Chinese GBK run correctly when fontEncodings map has f1=GBK", () => {
+    const fontEncodings = new Map<number, string>([
+      [0, "Big5"],
+      [1, "GBK"],
+    ]);
+    const toHex = (buf: Buffer) =>
+      [...buf].map((b) => `\\'${b.toString(16).padStart(2, "0")}`).join("");
+    const scHex = toHex(iconv.encode(SC, "GBK") as Buffer);
+    const rtf = `\\f1 ${scHex}\\par`;
+
+    const result = stripRtfFallback(rtf, "Big5", fontEncodings);
+    expect(result).toContain(SC);
+  });
+
+  it("decodes both scripts correctly when they appear in sequence with a font switch", () => {
+    const fontEncodings = new Map<number, string>([
+      [0, "Big5"],
+      [1, "GBK"],
+    ]);
+    const toHex = (buf: Buffer) =>
+      [...buf].map((b) => `\\'${b.toString(16).padStart(2, "0")}`).join("");
+    const tcHex = toHex(iconv.encode(TC, "Big5") as Buffer);
+    const scHex = toHex(iconv.encode(SC, "GBK") as Buffer);
+    const rtf = `\\f0 ${tcHex}\\par\n\\f1 ${scHex}\\par`;
+
+    const result = stripRtfFallback(rtf, "Big5", fontEncodings);
+    expect(result).toContain(TC);
+    expect(result).toContain(SC);
+  });
+
+  it("falls back to default encoding (Big5) for fonts not in the map", () => {
+    const fontEncodings = new Map<number, string>();
+    const toHex = (buf: Buffer) =>
+      [...buf].map((b) => `\\'${b.toString(16).padStart(2, "0")}`).join("");
+    const tcHex = toHex(iconv.encode(TC, "Big5") as Buffer);
+    const rtf = `\\f0 ${tcHex}`;
+
+    const result = stripRtfFallback(rtf, "Big5", fontEncodings);
+    expect(result).toContain(TC);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// extractRtfContent — Big5 + GBK mixed-script via the fallback path
+// ---------------------------------------------------------------------------
+
+describe("extractRtfContent — Big5 + GBK mixed-script fallback path (parser-rejected RTF)", () => {
+  const TC = "\u7e41\u9ad4"; // 繁體 (Traditional Chinese, Big5)
+  const SC = "\u4e2d\u6587"; // 中文 (Simplified Chinese, GBK)
+
+  it("decodes Traditional Chinese + Simplified Chinese when rtf-parser fails on a mixed-script document", async () => {
+    const rtfStr = makeMixedScriptMalformedRtfBig5Gbk(TC, SC);
+    const buf = Buffer.from(rtfStr, "latin1");
+    const result = await extractRtfContent(buf);
+    expect(result.text).toContain(TC);
+    expect(result.text).toContain(SC);
+  });
+
+  it("does not garble the GBK run by decoding it as Big5 in the fallback path", async () => {
+    const rtfStr = makeMixedScriptMalformedRtfBig5Gbk(TC, SC);
+    const buf = Buffer.from(rtfStr, "latin1");
+    const result = await extractRtfContent(buf);
+    // Without per-font encoding, the GBK bytes would be decoded as Big5
+    // (the document-level codepage) and would not match the expected SC text.
+    expect(result.text).toContain(SC);
+  });
+
+  it("returns the correct PdfExtraction shape for a Big5 + GBK malformed file", async () => {
+    const rtfStr = makeMixedScriptMalformedRtfBig5Gbk(TC, SC);
+    const buf = Buffer.from(rtfStr, "latin1");
+    const result = await extractRtfContent(buf);
+    expect(result).toHaveProperty("text");
+    expect(result).toHaveProperty("pageCount");
+    expect(result).toHaveProperty("metadata");
+    expect(result.images).toEqual([]);
+    expect(result.tables).toEqual([]);
+    expect(result.pageCount).toBeGreaterThanOrEqual(1);
+  });
+});
