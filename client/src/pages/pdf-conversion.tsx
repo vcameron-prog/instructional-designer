@@ -638,7 +638,6 @@ export default function PdfConversion() {
 
     setIsFixingAll(true);
     setFixError(null);
-    setBatchFixNotesSummary([]);
     setFixAllProgress({ current: 0, total: fixableIndices.length });
 
     let anyRetried = false;
@@ -665,7 +664,13 @@ export default function PdfConversion() {
       setFixAllProgress(null);
       queryClient.invalidateQueries({ queryKey: ["/api/conversions", numericId] });
       if (collectedFixNotes.length > 0) {
-        setBatchFixNotesSummary(collectedFixNotes);
+        setBatchFixNotesSummary(prev => {
+          const merged = [...prev];
+          for (const note of collectedFixNotes) {
+            if (!merged.includes(note)) merged.push(note);
+          }
+          return merged;
+        });
       }
     }
     if (anyRetried) {
