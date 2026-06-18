@@ -21,7 +21,14 @@ import {
   Mail,
   FileDown,
   RotateCcw,
+  Info,
 } from "lucide-react";
+import {
+  Tooltip as UITooltip,
+  TooltipContent as UITooltipContent,
+  TooltipProvider as UITooltipProvider,
+  TooltipTrigger as UITooltipTrigger,
+} from "@/components/ui/tooltip";
 import { HeaderControls } from "@/components/header-controls";
 import { PoweredByFooter } from "@/components/powered-by-footer";
 import { usePageTitle } from "@/hooks/use-page-title";
@@ -669,45 +676,138 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
 
-        <Card className="mb-8" data-testid="card-ai-retry-metrics">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <RotateCcw className="w-5 h-5" />
-              AI Fix Retries
-            </CardTitle>
-            <CardDescription>
-              Times the AI needed a second attempt to fix an accessibility issue (resets on server restart)
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-6 sm:grid-cols-2">
-              <div className="flex items-start gap-3" data-testid="stat-ai-retry-count">
-                <div className="w-9 h-9 rounded-lg bg-violet-100 dark:bg-violet-950 flex items-center justify-center flex-shrink-0">
-                  <RotateCcw className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+        {(() => {
+          const retryCount = metrics?.aiFixRetry.count ?? 0;
+          const aiChecksRun = stats.accessibilityStats?.aiChecksRun ?? 0;
+          const retryRate = aiChecksRun > 0 ? retryCount / aiChecksRun : 0;
+
+          const isCritical = retryCount > 25 || (aiChecksRun > 0 && retryRate > 0.10);
+          const isWarning = !isCritical && (retryCount > 10 || (aiChecksRun > 0 && retryRate > 0.05));
+
+          const cardBorderClass = isCritical
+            ? "border-red-400 dark:border-red-600"
+            : isWarning
+            ? "border-amber-400 dark:border-amber-600"
+            : "";
+
+          const retryRatePct = aiChecksRun > 0
+            ? `${(retryRate * 100).toFixed(1)}% of AI checks`
+            : null;
+
+          return (
+            <Card className={`mb-8 ${cardBorderClass}`} data-testid="card-ai-retry-metrics">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <RotateCcw className={`w-5 h-5 ${isCritical ? "text-red-500" : isWarning ? "text-amber-500" : ""}`} />
+                  AI Fix Retries
+                  {isCritical && (
+                    <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-red-100 dark:bg-red-950 px-2 py-0.5 text-xs font-medium text-red-700 dark:text-red-300" data-testid="badge-retry-critical">
+                      High
+                    </span>
+                  )}
+                  {isWarning && (
+                    <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-950 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300" data-testid="badge-retry-warning">
+                      Elevated
+                    </span>
+                  )}
+                  <UITooltipProvider>
+                    <UITooltip>
+                      <UITooltipTrigger asChild>
+                        <button
+                          className="ml-auto text-muted-foreground hover:text-foreground transition-colors"
+                          aria-label="About retry thresholds"
+                          data-testid="button-retry-threshold-info"
+                        >
+                          <Info className="w-4 h-4" />
+                        </button>
+                      </UITooltipTrigger>
+                      <UITooltipContent side="left" className="max-w-xs text-sm">
+                        <p className="font-medium mb-1">Retry rate thresholds</p>
+                        <p className="text-muted-foreground">
+                          <span className="text-amber-600 dark:text-amber-400 font-medium">Elevated</span> — more than 10 retries or more than 5% of AI checks needed a second attempt.
+                        </p>
+                        <p className="text-muted-foreground mt-1">
+                          <span className="text-red-600 dark:text-red-400 font-medium">High</span> — more than 25 retries or more than 10% of AI checks needed a second attempt.
+                        </p>
+                        <p className="text-muted-foreground mt-1">Counter resets when the server restarts.</p>
+                      </UITooltipContent>
+                    </UITooltip>
+                  </UITooltipProvider>
+                </CardTitle>
+                <CardDescription>
+                  Times the AI needed a second attempt to fix an accessibility issue (resets on server restart)
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {(isCritical || isWarning) && (
+                  <div
+                    className={`flex items-start gap-2 rounded-lg border px-4 py-3 mb-4 text-sm ${
+                      isCritical
+                        ? "border-red-300 bg-red-50 text-red-800 dark:border-red-700 dark:bg-red-950/40 dark:text-red-300"
+                        : "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
+                    }`}
+                    role="alert"
+                    data-testid="alert-retry-threshold"
+                  >
+                    <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <span>
+                      {isCritical
+                        ? `The retry count is unusually high (${retryCount}${retryRatePct ? ` — ${retryRatePct}` : ""}). This may indicate a recurring issue with AI-generated fixes that warrants investigation.`
+                        : `The retry count is above the normal threshold (${retryCount}${retryRatePct ? ` — ${retryRatePct}` : ""}). Keep an eye on this if it continues to climb.`}
+                    </span>
+                  </div>
+                )}
+                <div className="grid gap-6 sm:grid-cols-2">
+                  <div className="flex items-start gap-3" data-testid="stat-ai-retry-count">
+                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                      isCritical
+                        ? "bg-red-100 dark:bg-red-950"
+                        : isWarning
+                        ? "bg-amber-100 dark:bg-amber-950"
+                        : "bg-violet-100 dark:bg-violet-950"
+                    }`}>
+                      <RotateCcw className={`w-4 h-4 ${
+                        isCritical
+                          ? "text-red-600 dark:text-red-400"
+                          : isWarning
+                          ? "text-amber-600 dark:text-amber-400"
+                          : "text-violet-600 dark:text-violet-400"
+                      }`} />
+                    </div>
+                    <div>
+                      <p className={`text-2xl font-bold ${
+                        isCritical
+                          ? "text-red-600 dark:text-red-400"
+                          : isWarning
+                          ? "text-amber-600 dark:text-amber-400"
+                          : "text-foreground"
+                      }`}>
+                        {retryCount}
+                      </p>
+                      <p className="text-sm text-muted-foreground">Times AI needed a second attempt to fix an issue</p>
+                      {retryRatePct && (
+                        <p className="text-xs text-muted-foreground mt-0.5">{retryRatePct}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3" data-testid="stat-ai-retry-last">
+                    <div className="w-9 h-9 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center flex-shrink-0">
+                      <Activity className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-foreground">
+                        {metrics?.aiFixRetry.lastAt
+                          ? format(new Date(metrics.aiFixRetry.lastAt), "MMM d, h:mm a")
+                          : "—"}
+                      </p>
+                      <p className="text-sm text-muted-foreground">Most recent retry</p>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-2xl font-bold text-foreground">
-                    {metrics?.aiFixRetry.count ?? 0}
-                  </p>
-                  <p className="text-sm text-muted-foreground">Times AI needed a second attempt to fix an issue</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3" data-testid="stat-ai-retry-last">
-                <div className="w-9 h-9 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center flex-shrink-0">
-                  <Activity className="w-4 h-4 text-slate-600 dark:text-slate-400" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-foreground">
-                    {metrics?.aiFixRetry.lastAt
-                      ? format(new Date(metrics.aiFixRetry.lastAt), "MMM d, h:mm a")
-                      : "—"}
-                  </p>
-                  <p className="text-sm text-muted-foreground">Most recent retry</p>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
+          );
+        })()}
 
         <Card className="mb-8" data-testid="card-user-activity">
           <CardHeader>
