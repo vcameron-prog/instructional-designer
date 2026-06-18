@@ -1,17 +1,19 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, ArrowRight, FileText, CheckCircle, Target, ShieldCheck, Eye, Bot, Zap, Clock } from "lucide-react";
+import { ArrowLeft, ArrowRight, FileText, CheckCircle, Target, ShieldCheck, Eye, Bot, Zap, Clock, Trash2 } from "lucide-react";
 import { TOOLS } from "@/lib/constants";
 import { PoweredByFooter } from "@/components/powered-by-footer";
 import { HeaderControls } from "@/components/header-controls";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useAuth } from "@/hooks/use-auth";
 import { format } from "date-fns";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 type RecentQuickToolResult = {
   id: number;
@@ -45,6 +47,7 @@ const toolIconByType: Record<string, any> = {
 export default function QuickTools() {
   const [, navigate] = useLocation();
   const { isAuthenticated } = useAuth();
+  const { toast } = useToast();
 
   usePageTitle("Quick Tools");
   useEffect(() => { window.scrollTo(0, 0); }, []);
@@ -56,6 +59,17 @@ export default function QuickTools() {
   const { data: recentResults, isLoading: historyLoading, isError: historyError } = useQuery<RecentQuickToolResult[]>({
     queryKey: ["/api/content/recent-quick-tools"],
     enabled: isAuthenticated,
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => apiRequest("DELETE", `/api/content/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/content/recent-quick-tools"] });
+      toast({ title: "Result deleted", description: "The result has been removed from your history." });
+    },
+    onError: () => {
+      toast({ title: "Delete failed", description: "Could not delete the result. Please try again.", variant: "destructive" });
+    },
   });
 
   return (
@@ -194,7 +208,7 @@ export default function QuickTools() {
                 return (
                   <Card
                     key={item.id}
-                    className="group cursor-pointer transition-all duration-200 hover:shadow-md hover:-translate-y-0.5"
+                    className="group relative cursor-pointer transition-all duration-200 hover:shadow-md hover:-translate-y-0.5"
                     onClick={() => navigate(`/quick-tools/result/${item.id}`)}
                     onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate(`/quick-tools/result/${item.id}`); } }}
                     tabIndex={0}
@@ -202,6 +216,20 @@ export default function QuickTools() {
                     aria-label={`View ${item.toolName}${item.createdAt ? ` generated on ${format(new Date(item.createdAt), "MMM d, yyyy")}` : ""}`}
                     data-testid={`card-history-${item.id}`}
                   >
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute top-2 right-2 h-7 w-7 opacity-0 group-hover:opacity-100 focus:opacity-100 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all z-10"
+                      aria-label={`Delete ${item.toolName} result`}
+                      data-testid={`button-delete-result-${item.id}`}
+                      disabled={deleteMutation.isPending}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteMutation.mutate(item.id);
+                      }}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
                     <CardContent className="p-5">
                       <div className="flex items-start gap-3">
                         <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">

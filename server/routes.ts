@@ -2176,6 +2176,30 @@ export async function registerRoutes(
     },
   );
 
+  // Delete a specific content item (owner-scoped)
+  app.delete(
+    "/api/content/:id",
+    isBsuAuthenticated,
+    async (req: Request, res: Response) => {
+      try {
+        const userId = getUserId(req) as string;
+        const id = parseInt(req.params.id as string);
+        if (isNaN(id)) {
+          return res.status(400).json({ error: "Invalid content id" });
+        }
+        const content = await storage.getContent(id);
+        if (!content || content.userId !== userId) {
+          return res.status(404).json({ error: "Content not found" });
+        }
+        await storage.deleteContent(id, userId);
+        res.status(204).send();
+      } catch (error) {
+        console.error("Error deleting content:", error);
+        res.status(500).json({ error: "Failed to delete content" });
+      }
+    },
+  );
+
   // Toggle content approval for connected materials
   app.patch(
     "/api/content/:id/approval",

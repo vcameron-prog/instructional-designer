@@ -41,6 +41,7 @@ export interface IStorage {
   getStandaloneContent(userId: string): Promise<GeneratedContent[]>;
   getStandaloneContentById(id: number, userId: string): Promise<GeneratedContent | undefined>;
   getRecentStandaloneContent(userId: string, limit: number): Promise<GeneratedContent[]>;
+  deleteContent(id: number, userId: string): Promise<void>;
 
   // Content Versions
   createVersion(version: InsertContentVersion): Promise<ContentVersion>;
@@ -182,6 +183,12 @@ export class DatabaseStorage implements IStorage {
       .where(and(isNull(generatedContent.courseId), eq(generatedContent.userId, userId)))
       .orderBy(desc(generatedContent.createdAt))
       .limit(limit);
+  }
+
+  async deleteContent(id: number, userId: string): Promise<void> {
+    await db
+      .delete(generatedContent)
+      .where(and(eq(generatedContent.id, id), eq(generatedContent.userId, userId)));
   }
 
   // Content Versions
