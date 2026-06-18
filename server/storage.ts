@@ -44,7 +44,7 @@ export interface IStorage {
   getStandaloneContent(userId: string): Promise<GeneratedContent[]>;
   getStandaloneContentById(id: number, userId: string): Promise<GeneratedContent | undefined>;
   getRecentStandaloneContent(userId: string, limit: number): Promise<GeneratedContent[]>;
-  deleteContent(id: number, userId: string): Promise<void>;
+  deleteContent(id: number, userId: string | null, visitorToken?: string | null): Promise<void>;
 
   // Content Versions
   createVersion(version: InsertContentVersion): Promise<ContentVersion>;
@@ -198,10 +198,16 @@ export class DatabaseStorage implements IStorage {
       .limit(limit);
   }
 
-  async deleteContent(id: number, userId: string): Promise<void> {
-    await db
-      .delete(generatedContent)
-      .where(and(eq(generatedContent.id, id), eq(generatedContent.userId, userId)));
+  async deleteContent(id: number, userId: string | null, visitorToken?: string | null): Promise<void> {
+    if (userId) {
+      await db
+        .delete(generatedContent)
+        .where(and(eq(generatedContent.id, id), eq(generatedContent.userId, userId)));
+    } else if (visitorToken) {
+      await db
+        .delete(generatedContent)
+        .where(and(eq(generatedContent.id, id), isNull(generatedContent.userId), eq(generatedContent.visitorToken, visitorToken)));
+    }
   }
 
   // Content Versions
