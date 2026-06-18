@@ -284,11 +284,21 @@ export default function ToolForm() {
 
   const { subject: savedSubject, courseLevel: savedCourseLevel, setSubject: persistSubject, setCourseLevel: persistCourseLevel, clearContext } = useQuickToolContext();
 
-  const [formData, setFormData] = useState<Record<string, any>>(() =>
-    isStandalone
-      ? { subject: savedSubject, courseLevel: savedCourseLevel }
-      : {}
-  );
+  const [formData, setFormData] = useState<Record<string, any>>(() => {
+    const raw = sessionStorage.getItem("bsu-chain-prefill");
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw) as { targetToolId: string; fields: Record<string, any> };
+        sessionStorage.removeItem("bsu-chain-prefill");
+        if (parsed.targetToolId === toolId && parsed.fields && typeof parsed.fields === "object") {
+          return parsed.fields;
+        }
+      } catch {
+        sessionStorage.removeItem("bsu-chain-prefill");
+      }
+    }
+    return isStandalone ? { subject: savedSubject, courseLevel: savedCourseLevel } : {};
+  });
   const [isGenerating, setIsGenerating] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("");
   const [selectedPrefillId, setSelectedPrefillId] = useState<string>("");

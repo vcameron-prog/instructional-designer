@@ -43,10 +43,10 @@ import {
 } from "@/components/ui/collapsible";
 import { PoweredByFooter } from "@/components/powered-by-footer";
 import { HeaderControls } from "@/components/header-controls";
-import { ArrowLeft, Copy, Download, FileText, RefreshCw, CheckCircle, AlertTriangle, Lightbulb, ChevronDown, ChevronRight, Loader2, Library, Link2, Link2Off, History, RotateCcw, Pencil } from "lucide-react";
+import { ArrowLeft, ArrowRight, Copy, Download, FileText, RefreshCw, CheckCircle, AlertTriangle, Lightbulb, ChevronDown, ChevronRight, Loader2, Library, Link2, Link2Off, History, RotateCcw, Pencil, Zap } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { TOOLS, LOADING_MESSAGES } from "@/lib/constants";
+import { TOOLS, LOADING_MESSAGES, getChainPrefillFields } from "@/lib/constants";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { ToastAction } from "@/components/ui/toast";
@@ -1639,6 +1639,55 @@ export default function ResultPage() {
             </ScrollArea>
           </CardContent>
         </Card>
+
+        {isStandalone && (() => {
+          const chains = tool?.chains ?? [];
+          if (chains.length === 0) return null;
+          return (
+            <Card className="mt-8 border-primary/20 bg-primary/5" data-testid="card-next-steps">
+              <CardHeader className="pb-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <Zap className="w-5 h-5 text-primary" aria-hidden="true" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg">Next Steps</CardTitle>
+                    <CardDescription>Launch a related tool pre-filled with context from this result</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-3">
+                  {chains.map((chain) => {
+                    const targetTool = TOOLS.find(t => t.id === chain.targetId);
+                    if (!targetTool) return null;
+                    return (
+                      <Button
+                        key={chain.targetId}
+                        variant="outline"
+                        className="gap-2 border-primary/30 hover:border-primary hover:bg-primary/10"
+                        onClick={() => {
+                          const prefill = getChainPrefillFields(
+                            content.toolType,
+                            chain.targetId,
+                            (content.formData as Record<string, any>) ?? {},
+                            content.content,
+                          );
+                          sessionStorage.setItem("bsu-chain-prefill", JSON.stringify({ targetToolId: chain.targetId, fields: prefill }));
+                          navigate(`/quick-tools/${chain.targetId}`);
+                        }}
+                        data-testid={`button-chain-${chain.targetId}`}
+                      >
+                        {chain.label}
+                        <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                      </Button>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })()}
 
         <div className="mt-8 flex justify-center">
           <Button

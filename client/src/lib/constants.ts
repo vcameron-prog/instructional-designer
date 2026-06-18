@@ -125,7 +125,19 @@ export const BSU_CALENDAR: Record<string, { startDate: string; endDate: string; 
   },
 };
 
-export const TOOLS = [
+export interface ToolChain {
+  targetId: string;
+  label: string;
+}
+
+export const TOOLS: {
+  id: string;
+  name: string;
+  icon: string;
+  description: string;
+  color: string;
+  chains?: ToolChain[];
+}[] = [
   {
     id: "syllabus",
     name: "Syllabus Editor",
@@ -146,6 +158,11 @@ export const TOOLS = [
     icon: "FileText",
     description: "Create comprehensive, UDL-aligned assignments ready for Blackboard Ultra",
     color: "primary",
+    chains: [
+      { targetId: "rubric", label: "Build a rubric for this" },
+      { targetId: "alignment", label: "Check alignment for this" },
+      { targetId: "airesistant", label: "Make this AI-resistant" },
+    ],
   },
   {
     id: "module",
@@ -160,6 +177,9 @@ export const TOOLS = [
     icon: "CheckCircle",
     description: "Build detailed, criteria-based rubrics with clear performance levels",
     color: "primary",
+    chains: [
+      { targetId: "alignment", label: "Check alignment for this rubric" },
+    ],
   },
   {
     id: "grading",
@@ -188,6 +208,9 @@ export const TOOLS = [
     icon: "ShieldCheck",
     description: "Analyze assignments for AI vulnerability and get strategies to make them more authentic",
     color: "primary",
+    chains: [
+      { targetId: "aistudent", label: "Design an AI-powered activity for this" },
+    ],
   },
   {
     id: "accessibility",
@@ -205,11 +228,43 @@ export const TOOLS = [
   },
 ];
 
-export const CONTENT_PREFILL_MAP: Record<string, string[]> = {
-  rubric: ["assignment"],
-  alignment: ["assignment", "rubric"],
-  airesistant: ["assignment"],
-};
+export function getChainPrefillFields(
+  sourceToolId: string,
+  targetToolId: string,
+  formData: Record<string, any>,
+  generatedContent: string,
+): Record<string, any> {
+  const truncated = (s: string, limit: number) => s.slice(0, limit);
+
+  const map: Record<string, Record<string, () => Record<string, any>>> = {
+    assignment: {
+      rubric: () => ({
+        assessmentType: formData.assignmentType || "",
+        criteria: formData.learningObjectives || "",
+      }),
+      alignment: () => ({
+        learningOutcomes: formData.learningObjectives || "",
+        assignments: truncated(generatedContent, 1500),
+      }),
+      airesistant: () => ({
+        existingAssignment: truncated(generatedContent, 2000),
+        assignmentType: formData.assignmentType || "",
+      }),
+    },
+    rubric: {
+      alignment: () => ({
+        assignments: truncated(generatedContent, 1500),
+      }),
+    },
+    airesistant: {
+      aistudent: () => ({
+        learningObjectives: formData.additionalContext || "",
+      }),
+    },
+  };
+
+  return map[sourceToolId]?.[targetToolId]?.() ?? {};
+}
 
 export const LOADING_MESSAGES = [
   "Analyzing your course requirements...",
