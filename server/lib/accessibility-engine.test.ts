@@ -4486,6 +4486,45 @@ describe("applyBypassBlocksFix", () => {
     const after = runDeterministicChecks(fixed);
     expect(after.find((i) => i.criterion === "2.4.1")!.status).toBe("pass");
   });
+
+  it('leaves a top-level <div role="banner"> outside <main> as a sibling', () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><div role="banner"><p>Site header</p></div><h1>Content</h1><p>Body</p></body></html>`;
+    const result = applyBypassBlocksFix(html);
+    expect(result).toContain('role="banner"');
+    expect(result).toContain("<main>");
+    expect(extractMainContent(result)).not.toContain('role="banner"');
+  });
+
+  it('leaves a top-level <div role="navigation"> outside <main> as a sibling', () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><div role="navigation"><a href="#skip">Skip</a></div><h1>Content</h1></body></html>`;
+    const result = applyBypassBlocksFix(html);
+    expect(result).toContain('role="navigation"');
+    expect(result).toContain("<main>");
+    expect(extractMainContent(result)).not.toContain('role="navigation"');
+  });
+
+  it('leaves a top-level <div role="contentinfo"> outside <main> as a sibling', () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><h1>Content</h1><div role="contentinfo"><p>Site footer</p></div></body></html>`;
+    const result = applyBypassBlocksFix(html);
+    expect(result).toContain('role="contentinfo"');
+    expect(result).toContain("<main>");
+    expect(extractMainContent(result)).not.toContain('role="contentinfo"');
+  });
+
+  it("keeps all three ARIA role landmarks as siblings when mixed with native landmark tags", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><div role="banner"><p>Banner</p></div><div role="navigation"><a href="#">Nav</a></div><h1>Main content</h1><p>Paragraph</p><div role="contentinfo"><p>Footer</p></div></body></html>`;
+    const result = applyBypassBlocksFix(html);
+    expect(result).toContain('role="banner"');
+    expect(result).toContain('role="navigation"');
+    expect(result).toContain('role="contentinfo"');
+    const mainCount = (result.match(/<main/gi) ?? []).length;
+    expect(mainCount).toBe(1);
+    const mainInner = extractMainContent(result);
+    expect(mainInner).not.toContain('role="banner"');
+    expect(mainInner).not.toContain('role="navigation"');
+    expect(mainInner).not.toContain('role="contentinfo"');
+    expect(mainInner).toContain("<h1>");
+  });
 });
 
 // ---------------------------------------------------------------------------

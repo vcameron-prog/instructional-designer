@@ -1265,27 +1265,32 @@ export function applyBypassBlocksFix(html: string): string {
   if (/<main[\s>]/i.test(html) || /role\s*=\s*["']main["']/i.test(html)) return html;
 
   const landmarkTags = new Set(["header", "nav", "footer"]);
+  const landmarkRoles = new Set(["banner", "navigation", "contentinfo"]);
+
+  function isLandmarkNode(node: any): boolean {
+    if (landmarkTags.has(node.tagName?.toLowerCase() ?? "")) return true;
+    const role = (node.getAttribute?.("role") ?? "").toLowerCase().trim();
+    return landmarkRoles.has(role);
+  }
 
   return html.replace(/(<body[^>]*>)([\s\S]*?)(<\/body>)/i, (_match, open, inner, close) => {
     const root = parseHtml(inner);
     const children = root.childNodes;
 
-    const hasTopLevelLandmarks = children.some((node) =>
-      landmarkTags.has((node as any).tagName?.toLowerCase() ?? "")
-    );
+    const hasTopLevelLandmarks = children.some((node) => isLandmarkNode(node));
 
     if (!hasTopLevelLandmarks) {
       return `${open}<main>${inner}</main>${close}`;
     }
 
-    // Separate into landmark elements (header/nav/footer) and non-landmark content.
-    // All non-landmark content is grouped into a single <main> placed at the
-    // position of the first non-landmark child; landmark elements remain as siblings.
+    // Separate into landmark elements (header/nav/footer or ARIA role equivalents)
+    // and non-landmark content. All non-landmark content is grouped into a single
+    // <main> placed at the position of the first non-landmark child; landmark
+    // elements remain as siblings.
     const parts: Array<{ isLandmark: boolean; html: string }> = [];
     for (const node of children) {
-      const tag = (node as any).tagName?.toLowerCase() ?? "";
       const nodeStr: string = (node as any).outerHTML ?? (node as any).rawText ?? "";
-      parts.push({ isLandmark: landmarkTags.has(tag), html: nodeStr });
+      parts.push({ isLandmark: isLandmarkNode(node), html: nodeStr });
     }
 
     const nonLandmarkHtml = parts
