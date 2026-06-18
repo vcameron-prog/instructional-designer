@@ -16,6 +16,7 @@ const {
   mockAnthropicCreate,
   mockConvertMarkdownTablesToHtml,
   mockFixHtmlTableCaption,
+  mockFixHtmlTableThead,
 } = vi.hoisted(() => ({
   mockPruneOldVersions: vi.fn(),
   mockGetContent: vi.fn(),
@@ -25,6 +26,7 @@ const {
   mockAnthropicCreate: vi.fn(),
   mockConvertMarkdownTablesToHtml: vi.fn(),
   mockFixHtmlTableCaption: vi.fn(),
+  mockFixHtmlTableThead: vi.fn(),
 }));
 
 // ---------------------------------------------------------------------------
@@ -100,15 +102,14 @@ vi.mock("./markdownTableConverter.js", () => ({
 }));
 
 // ---------------------------------------------------------------------------
-// Mock: table-fixers – uses a spy for fixHtmlTableCaption so individual tests
-// can control whether the fix changes content. The spy must return the
-// { html, tablesFixed } object shape that routes.ts destructures.
-// fixHtmlTableThead and editHtmlTableCaption are plain passthroughs because
-// they are not exercised by the prune-coverage tests here.
+// Mock: table-fixers – uses spies for fixHtmlTableCaption and fixHtmlTableThead
+// so individual tests can control whether the fix changes content. Both spies
+// must return the { html, tablesFixed } object shape that routes.ts
+// destructures. editHtmlTableCaption is a plain passthrough.
 // ---------------------------------------------------------------------------
 vi.mock("./lib/table-fixers.js", () => ({
   fixHtmlTableCaption: mockFixHtmlTableCaption,
-  fixHtmlTableThead: (html: string) => ({ html, tablesFixed: 0 }),
+  fixHtmlTableThead: mockFixHtmlTableThead,
   editHtmlTableCaption: (html: string) => html,
 }));
 
@@ -145,6 +146,8 @@ async function buildApp() {
 //   • fix-heading-skip          – simple string transformation
 //   • convert-markdown-tables   – delegates to convertMarkdownTablesToHtml spy
 //   • fix-html-table-caption    – delegates to fixHtmlTableCaption spy
+//   • fix-all-caps              – simple string transformation (≥10 uppercase chars)
+//   • fix-html-table-thead      – delegates to fixHtmlTableThead spy
 //
 // Not tested here (require real AI calls):
 //   • fix-vague-link-text – calls fixVagueLinkTextAI (Anthropic); covered by
@@ -152,11 +155,8 @@ async function buildApp() {
 //     prune path is intentionally kept out of this file to keep these tests
 //     honest about which paths are deterministic.
 //
-// Other deterministic fix types (fix-all-caps, fix-html-table-thead,
-// edit-html-table-caption) follow the same code path as fix-heading-skip once
-// their fixer returns a changed string. The three types above are sufficient
-// to prove that pruneOldVersions is wired correctly regardless of which branch
-// executes.
+// edit-html-table-caption follows the same prune code path but is omitted
+// here as the five types above are sufficient to prove the wiring is correct.
 // ---------------------------------------------------------------------------
 
 describe("pruneOldVersions is called correctly from route handlers", () => {
@@ -186,10 +186,14 @@ describe("pruneOldVersions is called correctly from route handlers", () => {
     });
     mockPruneOldVersions.mockResolvedValue(undefined);
 
-    // Default: both transformer mocks are passthroughs so tests that rely on
+    // Default: all transformer mocks are passthroughs so tests that rely on
     // "no change" behaviour work without extra setup.
     mockConvertMarkdownTablesToHtml.mockImplementation((html: string) => html);
     mockFixHtmlTableCaption.mockImplementation((html: string) => ({
+      html,
+      tablesFixed: 0,
+    }));
+    mockFixHtmlTableThead.mockImplementation((html: string) => ({
       html,
       tablesFixed: 0,
     }));
@@ -479,6 +483,133 @@ describe("pruneOldVersions is called correctly from route handlers", () => {
       await request(app)
         .post(`/api/content/${contentId}/fix-accessibility`)
         .send({ fixType: "fix-html-table-caption" })
+        .expect(200);
+
+      expect(mockCreateVersion).not.toHaveBeenCalled();
+      expect(mockPruneOldVersions).not.toHaveBeenCalled();
+    });
+
+    // -----------------------------------------------------------------------
+    // fix-all-caps
+    // -----------------------------------------------------------------------
+    it("calls pruneOldVersions when fix-all-caps transforms an all-caps word", async () => {
+      const contentId = 400;
+      // fixAllCaps matches runs of ≥10 uppercase letters.
+      const originalContent = "This contains ABCDEFGHIJK which is all caps.";
+      const fixedContent = "This contains Abcdefghijk which is all caps.";
+
+      mockGetContent.mockResolvedValue({
+        id: contentId,
+        content: originalContent,
+        toolName: "assignment",
+        courseId: null,
+        userId: null,
+      });
+      mockCreateVersion.mockResolvedValue({
+        id: 401,
+        generatedContentId: contentId,
+        content: originalContent,
+        refinementRequest: "accessibility-fix-snapshot",
+        createdAt: new Date(),
+      });
+      mockUpdateContent.mockResolvedValue({
+        id: contentId,
+        content: fixedContent,
+        toolName: "assignment",
+        courseId: null,
+        userId: null,
+      });
+
+      const response = await request(app)
+        .post(`/api/content/${contentId}/fix-accessibility`)
+        .send({ fixType: "fix-all-caps" })
+        .expect(200);
+
+      expect(mockPruneOldVersions).toHaveBeenCalledTimes(1);
+      expect(mockPruneOldVersions).toHaveBeenCalledWith(contentId, EXPECTED_KEEP_COUNT);
+      expect(response.body.preFixVersionId).toBe(401);
+    });
+
+    it("does NOT call pruneOldVersions when fix-all-caps leaves content unchanged", async () => {
+      const contentId = 402;
+      // No word has ≥10 consecutive uppercase letters, so fixAllCaps is a no-op.
+      const noAllCapsContent = "Normal sentence with Some Mixed Case words.";
+
+      mockGetContent.mockResolvedValue({
+        id: contentId,
+        content: noAllCapsContent,
+        toolName: "rubric",
+        courseId: null,
+        userId: null,
+      });
+
+      await request(app)
+        .post(`/api/content/${contentId}/fix-accessibility`)
+        .send({ fixType: "fix-all-caps" })
+        .expect(200);
+
+      expect(mockCreateVersion).not.toHaveBeenCalled();
+      expect(mockPruneOldVersions).not.toHaveBeenCalled();
+    });
+
+    // -----------------------------------------------------------------------
+    // fix-html-table-thead
+    // -----------------------------------------------------------------------
+    it("calls pruneOldVersions when fix-html-table-thead promotes a row to a header", async () => {
+      const contentId = 500;
+      const originalContent = "<table><tbody><tr><td>Name</td><td>Score</td></tr></tbody></table>";
+      const fixedContent = "<table><thead><tr><th>Name</th><th>Score</th></tr></thead></table>";
+
+      mockGetContent.mockResolvedValue({
+        id: contentId,
+        content: originalContent,
+        toolName: "assignment",
+        courseId: null,
+        userId: null,
+      });
+      mockCreateVersion.mockResolvedValue({
+        id: 501,
+        generatedContentId: contentId,
+        content: originalContent,
+        refinementRequest: "accessibility-fix-snapshot",
+        createdAt: new Date(),
+      });
+      mockUpdateContent.mockResolvedValue({
+        id: contentId,
+        content: fixedContent,
+        toolName: "assignment",
+        courseId: null,
+        userId: null,
+      });
+      // Override the passthrough so the fixer reports a real change
+      mockFixHtmlTableThead.mockReturnValue({ html: fixedContent, tablesFixed: 1 });
+
+      const response = await request(app)
+        .post(`/api/content/${contentId}/fix-accessibility`)
+        .send({ fixType: "fix-html-table-thead" })
+        .expect(200);
+
+      expect(mockPruneOldVersions).toHaveBeenCalledTimes(1);
+      expect(mockPruneOldVersions).toHaveBeenCalledWith(contentId, EXPECTED_KEEP_COUNT);
+      expect(response.body.preFixVersionId).toBe(501);
+    });
+
+    it("does NOT call pruneOldVersions when fix-html-table-thead leaves content unchanged", async () => {
+      const contentId = 502;
+      const alreadyThead = "<table><thead><tr><th>Name</th><th>Score</th></tr></thead></table>";
+
+      mockGetContent.mockResolvedValue({
+        id: contentId,
+        content: alreadyThead,
+        toolName: "rubric",
+        courseId: null,
+        userId: null,
+      });
+      // Default mock returns { html: same content, tablesFixed: 0 } — no change
+
+      await request(app)
+        .post(`/api/content/${contentId}/fix-accessibility`)
+        .send({ fixType: "fix-html-table-thead" })
         .expect(200);
 
       expect(mockCreateVersion).not.toHaveBeenCalled();
