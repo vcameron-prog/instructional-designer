@@ -3089,6 +3089,183 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     },
   );
 
+  // Bulk ZIP Export — all generated content for a course
+  app.get(
+    "/api/courses/:courseId/export",
+    isBsuAuthenticated,
+    async (req: Request, res: Response) => {
+      try {
+        const userId = getUserId(req) as string;
+        const courseId = parseInt(req.params.courseId as string);
+        if (isNaN(courseId)) {
+          return res.status(400).json({ error: "Invalid course ID" });
+        }
+
+        const course = await storage.getCourse(courseId, userId);
+        if (!course) {
+          return res.status(404).json({ error: "Course not found" });
+        }
+
+        const contentItems = await storage.getContentByCourse(courseId);
+        if (contentItems.length === 0) {
+          return res.status(404).json({ error: "No generated content found for this course" });
+        }
+
+        const JSZip = (await import("jszip")).default;
+        const zip = new JSZip();
+
+        const filenameCounts: Record<string, number> = {};
+
+        for (const item of contentItems) {
+          const dateStr = new Date(item.createdAt).toISOString().slice(0, 10);
+          const baseName = `${item.toolType.charAt(0).toUpperCase()}${item.toolType.slice(1)}-${dateStr}`;
+          const count = filenameCounts[baseName] ?? 0;
+          filenameCounts[baseName] = count + 1;
+          const filename = count === 0 ? `${baseName}.docx` : `${baseName}-${count + 1}.docx`;
+
+          const children: Paragraph[] = [];
+
+          children.push(
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: item.toolName,
+                  bold: true,
+                  size: 36,
+                  color: "7C1D32",
+                }),
+              ],
+              heading: HeadingLevel.TITLE,
+              spacing: { after: 200 },
+            }),
+          );
+
+          children.push(
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: `${course.courseName} (${course.courseNumber}${course.sectionNumber ? `, Section ${course.sectionNumber}` : ""})`,
+                  size: 24,
+                  color: "666666",
+                }),
+              ],
+              spacing: { after: 100 },
+            }),
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: `Instructor: ${course.instructor} | Semester: ${course.semester}`,
+                  size: 20,
+                  color: "666666",
+                }),
+              ],
+              spacing: { after: 400 },
+            }),
+          );
+
+          children.push(
+            new Paragraph({
+              children: [],
+              border: {
+                bottom: { color: "CCCCCC", style: BorderStyle.SINGLE, size: 6 },
+              },
+              spacing: { after: 400 },
+            }),
+          );
+
+          const lines = item.content.split("\n");
+          for (const line of lines) {
+            if (!line.trim()) {
+              children.push(new Paragraph({ children: [] }));
+              continue;
+            }
+            if (line.startsWith("# ")) {
+              children.push(new Paragraph({
+                children: [new TextRun({ text: line.replace(/^# /, ""), bold: true, size: 32, color: "7C1D32" })],
+                heading: HeadingLevel.HEADING_1,
+                spacing: { before: 400, after: 200 },
+              }));
+            } else if (line.startsWith("## ")) {
+              children.push(new Paragraph({
+                children: [new TextRun({ text: line.replace(/^## /, ""), bold: true, size: 28, color: "333333" })],
+                heading: HeadingLevel.HEADING_2,
+                spacing: { before: 300, after: 150 },
+              }));
+            } else if (line.startsWith("### ")) {
+              children.push(new Paragraph({
+                children: [new TextRun({ text: line.replace(/^### /, ""), bold: true, size: 24 })],
+                heading: HeadingLevel.HEADING_3,
+                spacing: { before: 200, after: 100 },
+              }));
+            } else if (line.startsWith("**") && line.endsWith("**")) {
+              children.push(new Paragraph({
+                children: [new TextRun({ text: line.replace(/\*\*/g, ""), bold: true, size: 24 })],
+                spacing: { before: 200, after: 80 },
+              }));
+            } else if (line.match(/^[-*] /)) {
+              const textRuns = parseInlineFormatting(line.replace(/^[-*] /, ""));
+              children.push(new Paragraph({ children: textRuns, bullet: { level: 0 }, spacing: { after: 80 } }));
+            } else if (line.match(/^\d+\. /)) {
+              const textRuns = parseInlineFormatting(line.replace(/^\d+\. /, ""));
+              children.push(new Paragraph({ children: textRuns, numbering: { reference: "bulk-numbering", level: 0 }, spacing: { after: 80 } }));
+            } else if (line.startsWith("   - ") || line.startsWith("   * ")) {
+              const textRuns = parseInlineFormatting(line.replace(/^   [-*] /, ""));
+              children.push(new Paragraph({ children: textRuns, bullet: { level: 1 }, spacing: { after: 60 } }));
+            } else {
+              const textRuns = parseInlineFormatting(line);
+              children.push(new Paragraph({ children: textRuns, spacing: { after: 120 } }));
+            }
+          }
+
+          children.push(
+            new Paragraph({ children: [], spacing: { before: 600 } }),
+            new Paragraph({
+              children: [new TextRun({ text: "Generated by BSU Accessibility Tool", size: 18, color: "999999", italics: true })],
+              alignment: AlignmentType.CENTER,
+            }),
+            new Paragraph({
+              children: [new TextRun({ text: `Created on ${new Date(item.createdAt).toLocaleDateString()}`, size: 18, color: "999999", italics: true })],
+              alignment: AlignmentType.CENTER,
+            }),
+          );
+
+          const doc = new Document({
+            numbering: {
+              config: [
+                {
+                  reference: "bulk-numbering",
+                  levels: [{ level: 0, format: "decimal", text: "%1.", alignment: AlignmentType.START }],
+                },
+              ],
+            },
+            sections: [
+              {
+                properties: { page: { margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 } } },
+                children,
+              },
+            ],
+          });
+
+          const docxBuffer = await Packer.toBuffer(doc);
+          zip.file(filename, docxBuffer);
+        }
+
+        const zipBuffer = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
+
+        const zipFilename = sanitizeHeaderFilename(
+          `${course.courseName.replace(/\s+/g, "_")}-Materials.zip`,
+        );
+
+        res.setHeader("Content-Type", "application/zip");
+        res.setHeader("Content-Disposition", `attachment; filename="${zipFilename}"`);
+        res.send(zipBuffer);
+      } catch (error) {
+        console.error("Error exporting course materials as ZIP:", error);
+        res.status(500).json({ error: "Failed to export course materials" });
+      }
+    },
+  );
+
   // =============================================
   // DOCUMENT ACCESSIBILITY CONVERSION ROUTES
   // =============================================

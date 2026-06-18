@@ -1,9 +1,10 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useParams } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, BookOpen, Calendar, FileText, Layout, CheckCircle, Sparkles, Target, ArrowRight, FolderOpen, Loader2, Scale, ShieldCheck, Link2, HelpCircle, GraduationCap, Library, Eye, Wrench, Pencil, Bot, AlertTriangle } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { ArrowLeft, BookOpen, Calendar, FileText, Layout, CheckCircle, Sparkles, Target, ArrowRight, FolderOpen, Loader2, Scale, ShieldCheck, Link2, HelpCircle, GraduationCap, Library, Eye, Wrench, Pencil, Bot, AlertTriangle, Download } from "lucide-react";
 import { TOOLS } from "@/lib/constants";
 import { PoweredByFooter } from "@/components/powered-by-footer";
 import { HeaderControls } from "@/components/header-controls";
@@ -35,7 +36,20 @@ export default function ToolSelection() {
   const params = useParams();
   const courseId = params.id ? parseInt(params.id) : undefined;
   const [, navigate] = useLocation();
+  const [isExporting, setIsExporting] = useState(false);
   useEffect(() => { window.scrollTo(0, 0); }, []);
+
+  const handleExportAll = () => {
+    if (!courseId || isExporting) return;
+    setIsExporting(true);
+    const a = document.createElement("a");
+    a.href = `/api/courses/${courseId}/export`;
+    a.style.display = "none";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => setIsExporting(false), 3000);
+  };
 
   const { data: course, isLoading: isLoadingCourse } = useQuery<Course>({
     queryKey: ["/api/courses", courseId],
@@ -132,6 +146,37 @@ export default function ToolSelection() {
                 <Pencil className="w-4 h-4 mr-1.5" />
                 Edit Course Info
               </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span
+                    tabIndex={generatedContents.length === 0 ? 0 : undefined}
+                    aria-label={generatedContents.length === 0 ? "Export all — no materials yet" : undefined}
+                    style={{ display: "inline-flex" }}
+                  >
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleExportAll}
+                      disabled={generatedContents.length === 0 || isExporting}
+                      aria-label="Export all course materials as a ZIP file"
+                      data-testid="button-export-all"
+                      style={generatedContents.length === 0 ? { pointerEvents: "none" } : undefined}
+                    >
+                      {isExporting ? (
+                        <Loader2 className="w-4 h-4 mr-1.5 animate-spin" aria-hidden="true" />
+                      ) : (
+                        <Download className="w-4 h-4 mr-1.5" aria-hidden="true" />
+                      )}
+                      {isExporting ? "Preparing…" : "Export all"}
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {generatedContents.length === 0
+                    ? "Generate some course materials first to enable bulk export."
+                    : "Download all materials as a ZIP of .docx files"}
+                </TooltipContent>
+              </Tooltip>
               <HeaderControls variant="light" showHome={true} />
             </div>
           </div>
