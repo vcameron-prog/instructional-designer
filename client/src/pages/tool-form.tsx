@@ -17,6 +17,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isSessionExpiredMessage } from "@/lib/upload-error-utils";
 import { useToast } from "@/hooks/use-toast";
 import { PoweredByFooter } from "@/components/powered-by-footer";
+import { LoadingScreen } from "@/components/loading-screen";
 import { HeaderControls } from "@/components/header-controls";
 import type { Course, GeneratedContent } from "@shared/schema";
 import { UdlTips } from "@/components/udl-tips";

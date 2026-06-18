@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowLeft, BookOpen, Calendar, FileText, Layout, CheckCircle, Sparkles, Target, ArrowRight, FolderOpen, Loader2, Scale, ShieldCheck, Link2, HelpCircle, GraduationCap, Library, Eye, Wrench, Pencil, Bot, AlertTriangle, Download } from "lucide-react";
 import { TOOLS } from "@/lib/constants";
 import { PoweredByFooter } from "@/components/powered-by-footer";
+import { LoadingScreen } from "@/components/loading-screen";
 import { HeaderControls } from "@/components/header-controls";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useToast } from "@/hooks/use-toast";
@@ -98,17 +99,7 @@ export default function ToolSelection() {
   usePageTitle(course ? "Design Tools - " + course.courseName : "Design Tools");
 
   if (isLoadingCourse) {
-    return (
-      <main id="main-content" tabIndex={-1} className="min-h-screen flex flex-col bg-background">
-        <div className="flex-1 flex items-center justify-center">
-          <div role="status">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" aria-hidden="true" />
-            <span className="sr-only">Loading course tools</span>
-          </div>
-        </div>
-        <PoweredByFooter />
-      </main>
-    );
+    return <LoadingScreen />;
   }
 
   if (!course) {

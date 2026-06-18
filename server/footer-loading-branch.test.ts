@@ -115,6 +115,17 @@ function findMatchingParen(source: string, startIdx: number): number {
 }
 
 /**
+ * Returns the paths of every .tsx file in client/src/pages/ that imports the
+ * PoweredByFooter component.
+ */
+function pageFilesWithFooterImport(): string[] {
+  const files = readdirSync(PAGES_DIR).filter((f) => f.endsWith(".tsx"));
+  return files
+    .map((f) => path.join(PAGES_DIR, f))
+    .filter((filePath) => readFileSync(filePath, "utf-8").includes("powered-by-footer"));
+}
+
+/**
  * Extracts the content of `return ( ... )` blocks that immediately follow an
  * `if ( <loadingCondition> ) {` guard at component scope.
  *
@@ -147,10 +158,23 @@ function loadingBranchReturnBlocks(source: string): string[] {
     //    Both braced `if (x) { return (` and brace-less `if (x) return (` forms
     //    are supported.
     const afterCond = source.slice(condCloseIdx + 1);
-    const immediateReturn = /^[\s]*(?:\{[\s]*)?return\s*\(/.exec(afterCond);
+    const immediateReturn = /^[\s]*(?:\{[\s]*)?return\s*(?:\(|<)/.exec(afterCond);
     if (!immediateReturn) continue;
 
-    // 4. Locate the opening `(` of the return statement and extract its block.
+    // 4. Check if this is a self-closing JSX return: `return <LoadingScreen ... />;`
+    //    These don't have parentheses to match — capture the whole statement.
+    const isSelfClosingJSX = /^[\s]*(?:\{[\s]*)?return\s*</.test(afterCond);
+    if (isSelfClosingJSX) {
+      const returnStart = afterCond.search(/return\s*</);
+      const stmtStart = condCloseIdx + 1 + returnStart;
+      const semicolonIdx = source.indexOf(";", stmtStart);
+      if (semicolonIdx !== -1) {
+        blocks.push(source.slice(stmtStart, semicolonIdx + 1));
+      }
+      continue;
+    }
+
+    // 5. Locate the opening `(` of the return statement and extract its block.
     const returnOpenOffset = immediateReturn[0].lastIndexOf("(");
     const returnOpenIdx = condCloseIdx + 1 + returnOpenOffset;
     const returnCloseIdx = findMatchingParen(source, returnOpenIdx);
@@ -216,31 +240,48 @@ function nonLoadingGuardedMainReturnBlocks(source: string): string[] {
 
 describe("PoweredByFooter — loading-branch regression", () => {
   /**
-   * Core regression guard:
-   *
-   * For every page file that imports PoweredByFooter, any early-return block
-   * that is directly guarded by a loading-state `if` condition must also render
-   * `<PoweredByFooter />`.
+   * Core guarantee: the shared LoadingScreen component must render
+   * <PoweredByFooter />.  All pages that use <LoadingScreen /> in their
+   * loading branches automatically satisfy the footer requirement via this
+   * single component-level check, eliminating per-call-site repetition.
+   */
+  it("LoadingScreen component renders <PoweredByFooter />", () => {
+    const source = readFileSync(
+      path.join(COMPONENTS_DIR, "loading-screen.tsx"),
+      "utf-8",
+    );
+    expect(source).toContain("PoweredByFooter");
+  });
+
+  /**
+   * Regression guard: every loading-guard return block must render either
+   * <LoadingScreen /> (which includes the footer) or <PoweredByFooter />
+   * directly (for custom loading UIs that don't use the shared component).
    *
    * This prevents a future developer from adding a new loading-state branch
-   * and forgetting the disclaimer footer.
+   * and forgetting the disclaimer footer in both the shared and custom paths.
    */
-  it("every loading-guard return block renders <PoweredByFooter />", () => {
+  it("every loading-guard return block renders <LoadingScreen /> or <PoweredByFooter />", () => {
     const violations: string[] = [];
-    const filePaths = pageFilesWithFooterImport();
+    const files = readdirSync(PAGES_DIR).filter((f) => f.endsWith(".tsx"));
 
-    // Sanity-check: the helper must find at least one page file.
-    expect(filePaths.length).toBeGreaterThan(0);
-
-    for (const filePath of filePaths) {
+    for (const fileName of files) {
+      const filePath = path.join(PAGES_DIR, fileName);
       const source = readFileSync(filePath, "utf-8");
-      const fileName = path.basename(filePath);
+
+      // Only examine files that import either LoadingScreen or PoweredByFooter.
+      const usesLoadingScreen = source.includes("loading-screen");
+      const usesFooter = source.includes("powered-by-footer");
+      if (!usesLoadingScreen && !usesFooter) continue;
+
       const blocks = loadingBranchReturnBlocks(source);
 
       for (const block of blocks) {
-        if (!block.includes("PoweredByFooter")) {
+        const hasLoadingScreen = block.includes("LoadingScreen");
+        const hasFooter = block.includes("PoweredByFooter");
+        if (!hasLoadingScreen && !hasFooter) {
           violations.push(
-            `${fileName}: a loading-guard return block is missing <PoweredByFooter />`,
+            `${fileName}: a loading-guard return block is missing <LoadingScreen /> or <PoweredByFooter />`,
           );
         }
       }
@@ -251,18 +292,20 @@ describe("PoweredByFooter — loading-branch regression", () => {
 
   /**
    * Companion check: a page file that imports PoweredByFooter must also render
-   * it at least once.  An import with no usage means the footer was removed
-   * from every branch — either a regression or a dead import.
+   * it at least once (directly or via LoadingScreen).  An import with no usage
+   * means the footer was removed — either a regression or a dead import.
    */
   it("every page that imports PoweredByFooter renders it at least once", () => {
     const violations: string[] = [];
-    const filePaths = pageFilesWithFooterImport();
+    const files = readdirSync(PAGES_DIR).filter((f) => f.endsWith(".tsx"));
 
-    for (const filePath of filePaths) {
+    for (const fileName of files) {
+      const filePath = path.join(PAGES_DIR, fileName);
       const source = readFileSync(filePath, "utf-8");
+      if (!source.includes("powered-by-footer")) continue;
       if (!source.includes("<PoweredByFooter")) {
         violations.push(
-          `${path.basename(filePath)}: imports PoweredByFooter but never renders it`,
+          `${fileName}: imports PoweredByFooter but never renders it`,
         );
       }
     }

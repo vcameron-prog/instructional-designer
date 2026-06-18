@@ -18,6 +18,7 @@ import { HeaderControls } from "@/components/header-controls";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { cn } from "@/lib/utils";
 import { PoweredByFooter } from "@/components/powered-by-footer";
+import { LoadingScreen } from "@/components/loading-screen";
 import { format } from "date-fns";
 import { SiGoogledrive, SiGooglesheets, SiGoogleslides } from "react-icons/si";
 import { apiRequest } from "@/lib/queryClient";
@@ -283,18 +284,7 @@ export default function PdfUpload() {
   };
 
   if (authLoading) {
-    return (
-      <main
-        id="main-content"
-        tabIndex={-1}
-        className="min-h-screen flex flex-col bg-background"
-      >
-        <div className="flex-1 flex items-center justify-center">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        </div>
-        <PoweredByFooter />
-      </main>
-    );
+    return <LoadingScreen />;
   }
 
   const recent = isAuthenticated ? recentConversions?.slice(0, 5) || [] : [];

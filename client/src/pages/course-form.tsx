@@ -19,6 +19,7 @@ import { parseSyllabusUploadError, isSessionExpiredMessage } from "@/lib/upload-
 import { useToast } from "@/hooks/use-toast";
 import { ToastAction } from "@/components/ui/toast";
 import { PoweredByFooter } from "@/components/powered-by-footer";
+import { LoadingScreen } from "@/components/loading-screen";
 import { HeaderControls } from "@/components/header-controls";
 import { OutcomeLibraryModal } from "@/components/outcome-library-modal";
 import type { Course } from "@shared/schema";
@@ -285,17 +286,7 @@ export default function CourseForm({ courseId }: { courseId?: number }) {
   usePageTitle(courseId ? "Edit Course" : "New Course");
 
   if (courseId && isLoadingCourse) {
-    return (
-      <main id="main-content" tabIndex={-1} className="min-h-screen flex flex-col bg-background">
-        <div className="flex-1 flex items-center justify-center">
-          <div role="status" aria-live="polite" className="flex items-center gap-2">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" aria-hidden="true" />
-            <span className="sr-only">Loading course information</span>
-          </div>
-        </div>
-        <PoweredByFooter />
-      </main>
-    );
+    return <LoadingScreen />;
   }
 
   return (

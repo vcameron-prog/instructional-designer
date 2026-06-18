@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/tooltip";
 import { HeaderControls } from "@/components/header-controls";
 import { PoweredByFooter } from "@/components/powered-by-footer";
+import { LoadingScreen } from "@/components/loading-screen";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useAuth } from "@/hooks/use-auth";
 import { format } from "date-fns";
@@ -230,17 +231,7 @@ export default function AdminDashboard() {
   };
 
   if (isAuthLoading || isCheckingAdmin) {
-    return (
-      <main id="main-content" tabIndex={-1} className="min-h-screen bg-background flex flex-col">
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <Loader2 className="w-12 h-12 text-primary animate-spin mx-auto mb-4" />
-            <p className="text-muted-foreground">Loading...</p>
-          </div>
-        </div>
-        <PoweredByFooter />
-      </main>
-    );
+    return <LoadingScreen message="Loading..." />;
   }
 
   if (!isAuthenticated || !adminCheck?.isAdmin) {
@@ -292,17 +283,7 @@ export default function AdminDashboard() {
   }
 
   if (isLoadingStats || !stats) {
-    return (
-      <main id="main-content" tabIndex={-1} className="min-h-screen bg-background flex flex-col">
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <Loader2 className="w-12 h-12 text-primary animate-spin mx-auto mb-4" />
-            <p className="text-muted-foreground">Loading dashboard data...</p>
-          </div>
-        </div>
-        <PoweredByFooter />
-      </main>
-    );
+    return <LoadingScreen message="Loading dashboard data..." />;
   }
 
   const conversionStatusData = Object.entries(stats.conversionStats.byStatus).map(([status, count]) => ({

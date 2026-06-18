@@ -42,6 +42,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { PoweredByFooter } from "@/components/powered-by-footer";
+import { LoadingScreen } from "@/components/loading-screen";
 import { HeaderControls } from "@/components/header-controls";
 import { ArrowLeft, ArrowRight, Copy, Download, FileText, RefreshCw, CheckCircle, AlertTriangle, Lightbulb, ChevronDown, ChevronRight, Loader2, Library, Link2, Link2Off, History, RotateCcw, Pencil, Zap } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -891,17 +892,7 @@ export default function ResultPage() {
   const accessibilityIssues = content ? checkAccessibility(content.content) : [];
 
   if (isLoading) {
-    return (
-      <main id="main-content" tabIndex={-1} className="min-h-screen flex flex-col bg-background">
-        <div className="flex-1 flex items-center justify-center">
-          <div role="status" aria-live="polite" className="flex items-center gap-2">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" aria-hidden="true" />
-            <span className="sr-only">Loading generated content</span>
-          </div>
-        </div>
-        <PoweredByFooter />
-      </main>
-    );
+    return <LoadingScreen />;
   }
 
   if (!content) {

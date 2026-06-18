@@ -58,6 +58,7 @@ import { usePageTitle } from "@/hooks/use-page-title";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
 import { PoweredByFooter } from "@/components/powered-by-footer";
+import { LoadingScreen } from "@/components/loading-screen";
 import { isSessionExpiredMessage } from "@/lib/upload-error-utils";
 import { format } from "date-fns";
 import {
@@ -939,23 +940,7 @@ export default function PdfConversion() {
   };
 
   if (authLoading || isLoading) {
-    return (
-      <main
-        id="main-content"
-        tabIndex={-1}
-        className="min-h-screen flex flex-col bg-background"
-      >
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto mb-4" />
-            <p className="text-muted-foreground font-medium">
-              Loading document details...
-            </p>
-          </div>
-        </div>
-        <PoweredByFooter />
-      </main>
-    );
+    return <LoadingScreen message="Loading document details..." />;
   }
 
   if (isError || !conversion) {

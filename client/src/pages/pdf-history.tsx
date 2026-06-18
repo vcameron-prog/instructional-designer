@@ -29,6 +29,7 @@ import { usePageTitle } from "@/hooks/use-page-title";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
 import { PoweredByFooter } from "@/components/powered-by-footer";
+import { LoadingScreen } from "@/components/loading-screen";
 import { format, subDays, startOfDay } from "date-fns";
 import { SiGoogledrive, SiGooglesheets, SiGoogleslides } from "react-icons/si";
 
@@ -198,18 +199,7 @@ export default function PdfHistory() {
   const isFiltering = search.trim() !== "" || dateRange !== "all";
 
   if (authLoading || isLoading) {
-    return (
-      <main
-        id="main-content"
-        tabIndex={-1}
-        className="min-h-screen flex flex-col bg-background"
-      >
-        <div className="flex-1 flex items-center justify-center">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        </div>
-        <PoweredByFooter />
-      </main>
-    );
+    return <LoadingScreen />;
   }
 
   return (
