@@ -1348,6 +1348,59 @@ export async function registerRoutes(
     res.json({ versionHistoryLimit: VERSION_HISTORY_LIMIT });
   });
 
+  if (process.env.NODE_ENV !== "production") {
+    app.post("/api/test/login", (req: Request, res: Response, next: Function) => {
+      const { sub, email, firstName, lastName } = req.body as {
+        sub: string;
+        email: string;
+        firstName: string;
+        lastName: string;
+      };
+      const user = {
+        claims: {
+          sub,
+          email,
+          first_name: firstName,
+          last_name: lastName,
+          exp: Math.floor(Date.now() / 1000) + 3600,
+        },
+        access_token: "playwright-test-token",
+        refresh_token: "playwright-test-refresh-token",
+        expires_at: Math.floor(Date.now() / 1000) + 3600,
+      };
+      req.login(user, (err: Error | null) => {
+        if (err) return next(err);
+        res.json({ ok: true, sub, email });
+      });
+    });
+
+    app.post("/api/test/seed-content", async (req: Request, res: Response) => {
+      const { courseId, userId, toolType, toolName, formData, content } =
+        req.body as {
+          courseId: number;
+          userId: string;
+          toolType: string;
+          toolName: string;
+          formData: Record<string, string>;
+          content: string;
+        };
+      try {
+        const item = await storage.createContent({
+          courseId,
+          userId,
+          toolType,
+          toolName,
+          formData,
+          content,
+          isApproved: false,
+        });
+        res.status(201).json(item);
+      } catch (err) {
+        res.status(500).json({ error: String(err) });
+      }
+    });
+  }
+
   // User preferences — authenticated users only
   app.get("/api/preferences", isAuthenticated, async (req: Request, res: Response) => {
     const userId = getUserId(req);
