@@ -335,7 +335,7 @@ export default function PdfUpload() {
             Convert Documents to Accessible Formats
           </h2>
           <p className="text-muted-foreground max-w-xl mx-auto">
-            Instantly remediate PDF, Word, PowerPoint, and Excel documents to meet ADA Title II and WCAG 2.1 AA requirements using advanced AI structural analysis and description generation.
+            Instantly remediate PDF, Word, PowerPoint, and Excel documents — or import directly from Google Docs, Google Sheets, or Google Slides — to meet ADA Title II and WCAG 2.1 AA requirements using advanced AI structural analysis and description generation.
           </p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10 max-w-3xl mx-auto">
