@@ -551,7 +551,8 @@ export default function PdfConversion() {
   const processingStartRef = useRef<number | null>(null);
   const lastStatusMessageRef = useRef<string | null | undefined>(undefined);
   const lastStatusChangeRef = useRef<number | null>(null);
-  const syncFailWarnedRef = useRef(false);
+  const syncFailStreakStartRef = useRef<number | null>(null);
+  const SYNC_FAIL_QUIET_MS = 5 * 60 * 1000; // re-alert after 5 minutes of continued failure
 
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [secondsSinceStatusChange, setSecondsSinceStatusChange] = useState(0);
@@ -655,9 +656,9 @@ export default function PdfConversion() {
     return () => { cancelled = true; };
   }, [numericId]);
 
-  // Reset sync-failure warning when switching to a different conversion
+  // Reset sync-failure streak when switching to a different conversion
   useEffect(() => {
-    syncFailWarnedRef.current = false;
+    syncFailStreakStartRef.current = null;
   }, [numericId]);
 
   // Sync to localStorage and server whenever state changes (only after load for this ID)
@@ -671,13 +672,22 @@ export default function PdfConversion() {
       } catch {}
     }
     apiRequest("PUT", `/api/conversions/${numericId}/manual-fixes`, { items: manualFixSummary }).then(() => {
-      syncFailWarnedRef.current = false;
+      syncFailStreakStartRef.current = null;
     }).catch(() => {
-      if (!syncFailWarnedRef.current) {
-        syncFailWarnedRef.current = true;
+      const now = Date.now();
+      const streakStart = syncFailStreakStartRef.current;
+      if (streakStart === null) {
+        syncFailStreakStartRef.current = now;
         toast({
           title: "Notes not saved to server",
           description: "Your accessibility notes are stored locally but could not be synced to the server. They may not be available on other devices.",
+          variant: "destructive",
+        });
+      } else if (now - streakStart >= SYNC_FAIL_QUIET_MS) {
+        syncFailStreakStartRef.current = now;
+        toast({
+          title: "Notes still not saved to server",
+          description: "Syncing has been failing for several minutes. Your notes are stored locally but may not be available on other devices.",
           variant: "destructive",
         });
       }
