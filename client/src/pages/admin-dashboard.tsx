@@ -899,7 +899,18 @@ export default function AdminDashboard() {
                   <RotateCcw className="w-4 h-4 text-sky-600 dark:text-sky-400" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-foreground">{stats.config.versionHistoryLimit}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-2xl font-bold text-foreground">{stats.config.versionHistoryLimit}</p>
+                    {stats.config.versionHistoryLimit > 0 ? (
+                      <span className="inline-flex items-center rounded-full bg-green-100 dark:bg-green-950 px-2 py-0.5 text-xs font-medium text-green-700 dark:text-green-300" data-testid="badge-version-pruning">
+                        Pruning On
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center rounded-full bg-amber-100 dark:bg-amber-950 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300" data-testid="badge-version-pruning">
+                        No Pruning
+                      </span>
+                    )}
+                  </div>
                   <p className="text-sm text-muted-foreground">Version History Limit</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
                     Max versions per content item (<code className="font-mono bg-muted px-1 rounded">VERSION_HISTORY_LIMIT</code>)
@@ -911,7 +922,18 @@ export default function AdminDashboard() {
                   <Gauge className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-foreground">{stats.config.anonRateLimit}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-2xl font-bold text-foreground">{stats.config.anonRateLimit}</p>
+                    {stats.config.anonRateLimit > 0 ? (
+                      <span className="inline-flex items-center rounded-full bg-green-100 dark:bg-green-950 px-2 py-0.5 text-xs font-medium text-green-700 dark:text-green-300" data-testid="badge-anon-rate-limit">
+                        Active
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center rounded-full bg-amber-100 dark:bg-amber-950 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300" data-testid="badge-anon-rate-limit">
+                        Inactive
+                      </span>
+                    )}
+                  </div>
                   <p className="text-sm text-muted-foreground">Anonymous Rate Limit</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
                     Max AI requests per anonymous session (<code className="font-mono bg-muted px-1 rounded">ANON_RATE_LIMIT</code>)
@@ -923,7 +945,18 @@ export default function AdminDashboard() {
                   <Shield className={`w-4 h-4 ${stats.config.statsApiKeySet ? "text-green-600 dark:text-green-400" : "text-muted-foreground"}`} />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-foreground">{stats.config.statsApiKeySet ? "Set" : "Not set"}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-2xl font-bold text-foreground">{stats.config.statsApiKeySet ? "Set" : "Not set"}</p>
+                    {stats.config.statsApiKeySet ? (
+                      <span className="inline-flex items-center rounded-full bg-green-100 dark:bg-green-950 px-2 py-0.5 text-xs font-medium text-green-700 dark:text-green-300" data-testid="badge-stats-api-key">
+                        Protected
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center rounded-full bg-amber-100 dark:bg-amber-950 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300" data-testid="badge-stats-api-key">
+                        Open
+                      </span>
+                    )}
+                  </div>
                   <p className="text-sm text-muted-foreground">Stats API Key</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
                     Whether the public stats endpoint requires an API key (<code className="font-mono bg-muted px-1 rounded">STATS_API_KEY</code>)
@@ -935,7 +968,18 @@ export default function AdminDashboard() {
                   <UserCog className="w-4 h-4 text-violet-600 dark:text-violet-400" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-foreground">{stats.config.adminUserCount}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-2xl font-bold text-foreground">{stats.config.adminUserCount}</p>
+                    {stats.config.adminUserCount > 0 ? (
+                      <span className="inline-flex items-center rounded-full bg-green-100 dark:bg-green-950 px-2 py-0.5 text-xs font-medium text-green-700 dark:text-green-300" data-testid="badge-admin-user-count">
+                        Configured
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center rounded-full bg-amber-100 dark:bg-amber-950 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300" data-testid="badge-admin-user-count">
+                        No Admins
+                      </span>
+                    )}
+                  </div>
                   <p className="text-sm text-muted-foreground">Configured Admins</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
                     Number of user IDs with admin access (<code className="font-mono bg-muted px-1 rounded">ADMIN_USER_IDS</code>)
