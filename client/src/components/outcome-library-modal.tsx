@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -61,6 +61,15 @@ export function OutcomeLibraryModal({ open, onClose, onAddOutcomes }: OutcomeLib
     () => new Set(savedOutcomes.map((o) => o.text)),
     [savedOutcomes],
   );
+
+  useEffect(() => {
+    if (editingId === null) return;
+    const stillExists = savedOutcomes.some((o) => o.id === editingId);
+    if (!stillExists) {
+      setEditingId(null);
+      setEditingText("");
+    }
+  }, [savedOutcomes, editingId]);
 
   const saveOutcomeMutation = useMutation({
     mutationFn: (text: string) => apiRequest("POST", "/api/outcomes", { text }),
