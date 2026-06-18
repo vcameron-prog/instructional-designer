@@ -218,6 +218,25 @@ export const COURSE_TEMPLATES = {
 
 export type CourseTemplateId = keyof typeof COURSE_TEMPLATES;
 
+// Saved custom learning outcomes (personal faculty collection)
+export const savedOutcomes = pgTable("saved_outcomes", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull(),
+  text: text("text").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .default(sql`CURRENT_TIMESTAMP`)
+    .notNull(),
+});
+
+export const insertSavedOutcomeSchema = createInsertSchema(savedOutcomes).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+});
+
+export type InsertSavedOutcome = z.infer<typeof insertSavedOutcomeSchema>;
+export type SavedOutcome = typeof savedOutcomes.$inferSelect;
+
 // AI fix retry events — persisted so counts survive server restarts.
 // Each row records one retry event (when AI needed a second attempt).
 export const aiFixRetryEvents = pgTable("ai_fix_retry_events", {

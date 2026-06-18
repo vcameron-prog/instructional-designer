@@ -69,6 +69,14 @@ async function runStartupMigrations() {
         last_at TIMESTAMPTZ
       );
     `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS saved_outcomes (
+        id SERIAL PRIMARY KEY,
+        user_id VARCHAR NOT NULL,
+        text TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
     log("Startup migrations applied successfully", "startup");
   } catch (err) {
     console.error("Startup migration failed:", err);

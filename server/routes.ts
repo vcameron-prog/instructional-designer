@@ -2886,6 +2886,58 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     },
   );
 
+  // Saved Outcomes API (personal faculty collection)
+  app.get(
+    "/api/outcomes",
+    isBsuAuthenticated,
+    async (req: Request, res: Response) => {
+      try {
+        const userId = getUserId(req) as string;
+        const outcomes = await storage.getSavedOutcomes(userId);
+        res.json(outcomes);
+      } catch (error) {
+        console.error("Error fetching saved outcomes:", error);
+        res.status(500).json({ error: "Failed to fetch saved outcomes" });
+      }
+    },
+  );
+
+  app.post(
+    "/api/outcomes",
+    isBsuAuthenticated,
+    async (req: Request, res: Response) => {
+      try {
+        const userId = getUserId(req) as string;
+        const { text } = req.body;
+        if (!text || typeof text !== "string" || !text.trim()) {
+          return res.status(400).json({ error: "text is required" });
+        }
+        const outcome = await storage.createSavedOutcome(text.trim(), userId);
+        res.status(201).json(outcome);
+      } catch (error) {
+        console.error("Error saving outcome:", error);
+        res.status(500).json({ error: "Failed to save outcome" });
+      }
+    },
+  );
+
+  app.delete(
+    "/api/outcomes/:id",
+    isBsuAuthenticated,
+    async (req: Request, res: Response) => {
+      try {
+        const userId = getUserId(req) as string;
+        const id = parseInt(req.params.id as string);
+        if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+        await storage.deleteSavedOutcome(id, userId);
+        res.status(204).send();
+      } catch (error) {
+        console.error("Error deleting saved outcome:", error);
+        res.status(500).json({ error: "Failed to delete outcome" });
+      }
+    },
+  );
+
   // Word Document Export (BSU faculty only)
   app.get(
     "/api/content/:id/export-docx",

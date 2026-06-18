@@ -5,6 +5,7 @@ import {
   generatedContent, 
   contentVersions,
   savedContent,
+  savedOutcomes,
   aiFixRetryEvents,
   type Course, 
   type InsertCourse,
@@ -14,6 +15,7 @@ import {
   type InsertContentVersion,
   type SavedContent,
   type InsertSavedContent,
+  type SavedOutcome,
 } from "@shared/schema";
 import { users } from "../shared/models/auth";
 
@@ -63,6 +65,11 @@ export interface IStorage {
 
   // Semester Rollover (user-scoped) — copies course setup only, no generated content
   rolloverCourse(id: number, userId: string, semester: string): Promise<Course | undefined>;
+
+  // Saved Outcomes (personal faculty collection)
+  getSavedOutcomes(userId: string): Promise<SavedOutcome[]>;
+  createSavedOutcome(text: string, userId: string): Promise<SavedOutcome>;
+  deleteSavedOutcome(id: number, userId: string): Promise<void>;
 
   // AI Fix Retry Events
   logAiFixRetryEvent(criterion?: string, title?: string): Promise<void>;
@@ -251,6 +258,20 @@ export class DatabaseStorage implements IStorage {
 
   async deleteSavedContent(id: number, userId: string): Promise<void> {
     await db.delete(savedContent).where(and(eq(savedContent.id, id), eq(savedContent.userId, userId)));
+  }
+
+  // Saved Outcomes (personal faculty collection)
+  async getSavedOutcomes(userId: string): Promise<SavedOutcome[]> {
+    return db.select().from(savedOutcomes).where(eq(savedOutcomes.userId, userId)).orderBy(desc(savedOutcomes.createdAt));
+  }
+
+  async createSavedOutcome(text: string, userId: string): Promise<SavedOutcome> {
+    const [created] = await db.insert(savedOutcomes).values({ text, userId }).returning();
+    return created;
+  }
+
+  async deleteSavedOutcome(id: number, userId: string): Promise<void> {
+    await db.delete(savedOutcomes).where(and(eq(savedOutcomes.id, id), eq(savedOutcomes.userId, userId)));
   }
 
   // Tool Usage (user-scoped via course ownership)
