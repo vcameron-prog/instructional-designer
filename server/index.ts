@@ -5,7 +5,7 @@ import { createServer } from "http";
 import { seedDatabase } from "./seed";
 import { trimAllOversizedVersions } from "./lib/trimVersions";
 import { scheduleDailySummary } from "./lib/daily-summary";
-import { clearRateLimiterIntervals } from "./lib/rateLimiters.js";
+import { clearRateLimiterIntervals, initRateLimitCleanupMetrics } from "./lib/rateLimiters.js";
 import { db } from "./db";
 import { sql, eq } from "drizzle-orm";
 import { conversions } from "../shared/schema";
@@ -157,6 +157,9 @@ async function resetStaleProcessingJobs() {
 
   // Mark any conversions left in "processing" state (e.g. from a previous crash/deploy) as failed
   await resetStaleProcessingJobs();
+
+  // Seed in-memory rate-limit cleanup metrics from the DB so counters survive restarts
+  await initRateLimitCleanupMetrics();
 
   // Seed database with sample data
   await seedDatabase();

@@ -21,6 +21,7 @@ export { checkSharedRateLimit } from "./shared-rate-limit.js";
 import { cleanupRateLimitLog } from "./shared-rate-limit.js";
 import { db } from "../db";
 import { sql } from "drizzle-orm";
+import { appMetrics } from "@shared/schema";
 
 // ---------------------------------------------------------------------------
 // Shared (DB-backed) rate limiter constants
@@ -49,10 +50,16 @@ const RATE_LIMIT_CLEANUP_LOCK_KEY = 0x7a3f1c2d;
 // ---------------------------------------------------------------------------
 // Observable metrics for the cleanup interval
 // Exposed via GET /api/metrics as rateLimitCleanup.*
+// In-memory state is seeded from DB on startup via initRateLimitCleanupMetrics().
 // ---------------------------------------------------------------------------
 let _cleanupLastRunAt: string | null = null;
 let _cleanupLastErrorAt: string | null = null;
 let _cleanupRowsDeletedTotal = 0;
+
+// DB row keys used in the app_metrics table
+const CLEANUP_LAST_RUN_KEY = "rateLimitCleanup.lastRunAt";
+const CLEANUP_LAST_ERROR_KEY = "rateLimitCleanup.lastErrorAt";
+const CLEANUP_ROWS_DELETED_KEY = "rateLimitCleanup.rowsDeleted";
 
 export function getRateLimitCleanupMetrics(): {
   lastRunAt: string | null;
@@ -64,6 +71,69 @@ export function getRateLimitCleanupMetrics(): {
     lastErrorAt: _cleanupLastErrorAt,
     rowsDeletedTotal: _cleanupRowsDeletedTotal,
   };
+}
+
+/**
+ * Seed in-memory cleanup counters from the DB on server startup so metrics
+ * survive process restarts and deployments.
+ */
+export async function initRateLimitCleanupMetrics(): Promise<void> {
+  try {
+    const rows = await db
+      .select()
+      .from(appMetrics)
+      .where(
+        sql`${appMetrics.key} IN (${CLEANUP_LAST_RUN_KEY}, ${CLEANUP_LAST_ERROR_KEY}, ${CLEANUP_ROWS_DELETED_KEY})`,
+      );
+    for (const row of rows) {
+      if (row.key === CLEANUP_LAST_RUN_KEY) {
+        _cleanupLastRunAt = row.lastAt ? row.lastAt.toISOString() : null;
+      } else if (row.key === CLEANUP_LAST_ERROR_KEY) {
+        _cleanupLastErrorAt = row.lastAt ? row.lastAt.toISOString() : null;
+      } else if (row.key === CLEANUP_ROWS_DELETED_KEY) {
+        _cleanupRowsDeletedTotal = row.count;
+      }
+    }
+  } catch (err) {
+    console.warn("[rateLimiters] Failed to seed cleanup metrics from DB, starting from zero:", err);
+  }
+}
+
+async function persistCleanupRun(nowIso: string, newTotal: number): Promise<void> {
+  try {
+    const now = new Date(nowIso);
+    await db
+      .insert(appMetrics)
+      .values({ key: CLEANUP_LAST_RUN_KEY, count: 0, lastAt: now })
+      .onConflictDoUpdate({
+        target: appMetrics.key,
+        set: { lastAt: now },
+      });
+    await db
+      .insert(appMetrics)
+      .values({ key: CLEANUP_ROWS_DELETED_KEY, count: newTotal, lastAt: null })
+      .onConflictDoUpdate({
+        target: appMetrics.key,
+        set: { count: newTotal },
+      });
+  } catch (err) {
+    console.warn("[rateLimiters] Failed to persist cleanup run metrics to DB:", err);
+  }
+}
+
+async function persistCleanupError(nowIso: string): Promise<void> {
+  try {
+    const now = new Date(nowIso);
+    await db
+      .insert(appMetrics)
+      .values({ key: CLEANUP_LAST_ERROR_KEY, count: 0, lastAt: now })
+      .onConflictDoUpdate({
+        target: appMetrics.key,
+        set: { lastAt: now },
+      });
+  } catch (err) {
+    console.warn("[rateLimiters] Failed to persist cleanup error metric to DB:", err);
+  }
 }
 
 export async function sharedRateLimitCleanupCallback(): Promise<void> {
@@ -81,6 +151,7 @@ export async function sharedRateLimitCleanupCallback(): Promise<void> {
       const deleted = await cleanupRateLimitLog(ttlMs);
       _cleanupLastRunAt = new Date().toISOString();
       _cleanupRowsDeletedTotal += deleted;
+      await persistCleanupRun(_cleanupLastRunAt, _cleanupRowsDeletedTotal);
     } finally {
       // Always release so the next cycle is contested fairly.
       await db.execute(
@@ -89,6 +160,7 @@ export async function sharedRateLimitCleanupCallback(): Promise<void> {
     }
   } catch (err) {
     _cleanupLastErrorAt = new Date().toISOString();
+    await persistCleanupError(_cleanupLastErrorAt);
     // Non-critical; next interval will retry.
   }
 }
