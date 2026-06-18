@@ -11,6 +11,7 @@ import { TOOLS } from "@/lib/constants";
 import { PoweredByFooter } from "@/components/powered-by-footer";
 import { HeaderControls } from "@/components/header-controls";
 import { usePageTitle } from "@/hooks/use-page-title";
+import { useToast } from "@/hooks/use-toast";
 import type { Course, GeneratedContent } from "@shared/schema";
 import { Badge } from "@/components/ui/badge";
 
@@ -41,6 +42,7 @@ export default function ToolSelection() {
   const [isExporting, setIsExporting] = useState(false);
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const { toast } = useToast();
   useEffect(() => { window.scrollTo(0, 0); }, []);
 
   const openExportModal = (contents: GeneratedContent[]) => {
@@ -68,6 +70,11 @@ export default function ToolSelection() {
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+    const count = selectedIds.size;
+    toast({
+      title: `Downloading ${count} ${count === 1 ? "material" : "materials"} as a ZIP…`,
+      duration: 4000,
+    });
     setTimeout(() => setIsExporting(false), 3000);
   };
 
