@@ -1,1 +1,2 @@
 - [Playwright session cookie over HTTP](playwright-session-http.md) — req.login() doesn't emit Set-Cookie over HTTP; write req.session.passport directly + session.save() instead.
+- [Drizzle schema drift in dev DB](drizzle-schema-drift.md) — dev DB is missing several columns added to schema but not migrated; use raw SQL for inserts/selects in test endpoints to avoid 500s.

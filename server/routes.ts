@@ -1356,28 +1356,50 @@ export async function registerRoutes(
   });
 
   if (process.env.NODE_ENV !== "production") {
-    app.post("/api/test/login", (req: Request, res: Response, next: Function) => {
+    app.post("/api/test/login", async (req: Request, res: Response) => {
       const { sub, email, firstName, lastName } = req.body as {
         sub: string;
         email: string;
-        firstName: string;
-        lastName: string;
+        firstName?: string;
+        lastName?: string;
       };
-      const user = {
+      if (!sub || !email) {
+        res.status(400).json({ error: "sub and email are required" });
+        return;
+      }
+      // Ensure the user row exists so foreign-key checks pass.
+      // Use raw SQL to avoid Drizzle inserting schema columns that haven't
+      // been migrated yet in the dev DB (e.g. preferences).
+      await db.execute(sql`
+        INSERT INTO users (id, email, first_name, last_name)
+        VALUES (${sub}, ${email}, ${firstName ?? null}, ${lastName ?? null})
+        ON CONFLICT (id) DO UPDATE
+          SET email = EXCLUDED.email,
+              first_name = EXCLUDED.first_name,
+              last_name = EXCLUDED.last_name
+      `);
+      // Write directly to req.session (bypassing Passport serialization) and
+      // call session.save() so express-session commits the row and emits
+      // Set-Cookie.  req.login() does not emit Set-Cookie over plain HTTP,
+      // so we use the same pattern as the PLAYWRIGHT_TEST login endpoint.
+      const sessionUser = {
         claims: {
           sub,
           email,
-          first_name: firstName,
-          last_name: lastName,
-          exp: Math.floor(Date.now() / 1000) + 3600,
+          first_name: firstName ?? "",
+          last_name: lastName ?? "",
         },
         access_token: "playwright-test-token",
-        refresh_token: "playwright-test-refresh-token",
-        expires_at: Math.floor(Date.now() / 1000) + 3600,
+        refresh_token: "playwright-test-refresh",
+        expires_at: Math.floor(Date.now() / 1000) + 7200,
       };
-      req.login(user, (err: Error | null) => {
-        if (err) return next(err);
-        res.json({ ok: true, sub, email });
+      (req.session as any).passport = { user: sessionUser };
+      req.session.save((err) => {
+        if (err) {
+          res.status(500).json({ error: String(err) });
+          return;
+        }
+        res.json({ ok: true, sub, email, sessionId: req.sessionID });
       });
     });
 
@@ -1402,6 +1424,43 @@ export async function registerRoutes(
           isApproved: false,
         });
         res.status(201).json(item);
+      } catch (err) {
+        res.status(500).json({ error: String(err) });
+      }
+    });
+
+    // POST /api/test/seed-conversion
+    // Inserts a conversions row directly, bypassing the full upload/process
+    // pipeline.  Used by Playwright specs that need a "completed" conversion
+    // with a known compliance report without hitting the AI APIs.
+    // Disabled in production (NODE_ENV !== "production" guard above).
+    app.post("/api/test/seed-conversion", async (req: Request, res: Response) => {
+      const { userId, accessibleHtml, complianceReport, originalFilename } = req.body as {
+        userId: string;
+        accessibleHtml: string;
+        complianceReport: unknown;
+        originalFilename?: string;
+      };
+      if (!userId || !accessibleHtml || !complianceReport) {
+        res.status(400).json({ error: "userId, accessibleHtml, and complianceReport are required" });
+        return;
+      }
+      try {
+        // Use a targeted raw SQL insert that only touches columns that are
+        // guaranteed to exist in the actual DB (avoids schema/migration drift
+        // with columns like selected_sheet / processing_started_at that may
+        // not have been applied yet in the dev environment).
+        const result = await db.execute(sql`
+          INSERT INTO conversions
+            (original_filename, file_size, source_type, status,
+             accessible_html, compliance_report, original_compliance_report, user_id)
+          VALUES
+            (${originalFilename ?? "test-document.pdf"}, ${1024}, ${"pdf"}, ${"completed"},
+             ${accessibleHtml}, ${JSON.stringify(complianceReport)}::jsonb, ${JSON.stringify(complianceReport)}::jsonb, ${userId})
+          RETURNING id
+        `);
+        const id = (result.rows[0] as { id: number }).id;
+        res.status(201).json({ id });
       } catch (err) {
         res.status(500).json({ error: String(err) });
       }
