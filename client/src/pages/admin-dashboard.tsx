@@ -206,6 +206,8 @@ export default function AdminDashboard() {
   const { data: metrics } = useQuery<Metrics>({
     queryKey: ["/api/metrics"],
     enabled: isAuthenticated && adminCheck?.isAdmin === true,
+    refetchInterval: 3 * 60 * 1000,
+    refetchIntervalInBackground: false,
   });
 
   const [isSendingTestEmail, setIsSendingTestEmail] = useState(false);
