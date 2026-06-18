@@ -1185,12 +1185,12 @@ export default function ResultPage() {
                                   {fixingIssue === issue.fixType ? (
                                     <>
                                       <Loader2 className="w-3 h-3 animate-spin" />
-                                      Fixing…
+                                      {issue.fixType === "fix-vague-link-text" ? "Rewriting links…" : "Fixing…"}
                                     </>
                                   ) : previewFixMutation.isPending && previewFixType === issue.fixType ? (
                                     <>
                                       <Loader2 className="w-3 h-3 animate-spin" />
-                                      Loading…
+                                      {issue.fixType === "fix-vague-link-text" ? "Rewriting links…" : "Loading…"}
                                     </>
                                   ) : (
                                     <>
