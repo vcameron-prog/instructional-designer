@@ -11,8 +11,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
-import { ArrowLeft, Loader2, Sparkles, BookOpen, Calendar, FileText, Layout, CheckCircle, Target, Scale, ShieldCheck, Eye, Bot, Globe, BookmarkPlus, ChevronDown, Trash2, SlidersHorizontal, Library, Info, X } from "lucide-react";
-import { TOOLS, BSU_CALENDAR, LOADING_MESSAGES, COURSE_LEVELS, CONTENT_PREFILL_MAP } from "@/lib/constants";
+import { ArrowLeft, Loader2, Sparkles, BookOpen, Calendar, FileText, Layout, CheckCircle, Target, Scale, ShieldCheck, Eye, Bot, Globe, BookmarkPlus, ChevronDown, Trash2, SlidersHorizontal, Library, Info, X, Check } from "lucide-react";
+import { TOOLS, BSU_CALENDAR, GENERATION_STEPS, BATCH_GENERATION_STEPS, COURSE_LEVELS, CONTENT_PREFILL_MAP, type GenerationStep } from "@/lib/constants";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isSessionExpiredMessage } from "@/lib/upload-error-utils";
 import { pushFilterState } from "@/lib/nav-utils";
@@ -286,6 +286,37 @@ function loadOutputDetail(): string {
   return "concise";
 }
 
+function GenerationStepList({ steps, activeIndex }: { steps: GenerationStep[]; activeIndex: number }) {
+  return (
+    <ol className="text-left space-y-3 mb-6" role="status" aria-live="polite" aria-label="Generation progress">
+      {steps.map((step, i) => {
+        const isDone = i < activeIndex;
+        const isActive = i === activeIndex;
+        return (
+          <li
+            key={step.label}
+            aria-label={step.ariaLabel}
+            className={`flex items-center gap-3 text-sm transition-opacity duration-300 ${isDone || isActive ? "opacity-100" : "opacity-40"}`}
+          >
+            <span className="flex-shrink-0 w-5 h-5 flex items-center justify-center">
+              {isDone ? (
+                <Check className="w-4 h-4 text-green-600" aria-hidden="true" />
+              ) : isActive ? (
+                <Loader2 className="w-4 h-4 text-primary animate-spin" aria-hidden="true" />
+              ) : (
+                <span className="w-2 h-2 rounded-full bg-muted-foreground/40 inline-block" aria-hidden="true" />
+              )}
+            </span>
+            <span className={isDone ? "line-through text-muted-foreground" : isActive ? "font-medium text-foreground" : "text-muted-foreground"}>
+              {step.label}
+            </span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
 export default function ToolForm() {
   const params = useParams();
   const courseId = params.id ? parseInt(params.id) : undefined;
@@ -340,7 +371,7 @@ export default function ToolForm() {
     };
   });
   const [isGenerating, setIsGenerating] = useState(false);
-  const [loadingMessage, setLoadingMessage] = useState("");
+  const [activeStepIndex, setActiveStepIndex] = useState(0);
   const [selectedPrefillId, setSelectedPrefillId] = useState<string>("");
   const [preFilledFields, setPreFilledFields] = useState<Set<string>>(new Set());
   const [language, setLanguage] = useState(
@@ -483,17 +514,26 @@ export default function ToolForm() {
     },
   });
 
+  const isBatchTool = toolId === "assignment" && generateRubric;
+  const generationSteps = isBatchTool ? BATCH_GENERATION_STEPS : GENERATION_STEPS;
+
   useEffect(() => {
-    if (isGenerating) {
-      let index = 0;
-      setLoadingMessage(LOADING_MESSAGES[0]);
-      const interval = setInterval(() => {
-        index = (index + 1) % LOADING_MESSAGES.length;
-        setLoadingMessage(LOADING_MESSAGES[index]);
-      }, 2500);
-      return () => clearInterval(interval);
-    }
-  }, [isGenerating]);
+    if (!isGenerating) return;
+    setActiveStepIndex(0);
+    let current = 0;
+    const steps = isBatchTool ? BATCH_GENERATION_STEPS : GENERATION_STEPS;
+
+    const advance = () => {
+      current += 1;
+      if (current < steps.length) {
+        setActiveStepIndex(current);
+        timer = setTimeout(advance, steps[current].durationMs);
+      }
+    };
+
+    let timer = setTimeout(advance, steps[0].durationMs);
+    return () => clearTimeout(timer);
+  }, [isGenerating, isBatchTool]);
 
   const handleInputChange = (name: string, value: any) => {
     setFormData(prev => {
@@ -694,7 +734,7 @@ export default function ToolForm() {
       <main id="main-content" tabIndex={-1} className="min-h-screen flex flex-col bg-gradient-to-br from-primary/5 to-accent/5">
         <div className="flex-1 flex items-center justify-center">
           <Card className="max-w-lg w-full mx-4">
-            <CardContent className="p-12 text-center" role="status" aria-live="polite">
+            <CardContent className="p-12 text-center">
               <div className="w-20 h-20 mx-auto mb-8 relative">
                 <div className="absolute inset-0 bg-primary/20 rounded-full animate-ping" />
                 <div className="relative w-full h-full bg-primary rounded-full flex items-center justify-center">
@@ -702,9 +742,10 @@ export default function ToolForm() {
                 </div>
               </div>
               <h2 className="text-2xl font-bold mb-4">Generating Your {tool.name}</h2>
-              <p className="text-muted-foreground mb-6 animate-pulse-subtle">
-                {loadingMessage}
+              <p className="text-sm text-primary font-medium mb-6 animate-pulse-subtle">
+                {generationSteps[activeStepIndex]?.label}
               </p>
+              <GenerationStepList steps={generationSteps} activeIndex={activeStepIndex} />
               <div className="flex justify-center gap-1" aria-hidden="true">
                 {[0, 1, 2].map(i => (
                   <div

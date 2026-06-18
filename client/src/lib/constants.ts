@@ -290,6 +290,28 @@ export const LOADING_MESSAGES = [
   "Designing AI-powered student activities...",
 ];
 
+export interface GenerationStep {
+  label: string;
+  ariaLabel: string;
+  durationMs: number;
+}
+
+export const GENERATION_STEPS: GenerationStep[] = [
+  { label: "Assembling course context", ariaLabel: "Step 1: Assembling course context", durationMs: 1200 },
+  { label: "Applying pedagogical frameworks", ariaLabel: "Step 2: Applying pedagogical frameworks", durationMs: 2000 },
+  { label: "Generating content with AI", ariaLabel: "Step 3: Generating content with AI", durationMs: 12000 },
+  { label: "Formatting and post-processing", ariaLabel: "Step 4: Formatting and post-processing", durationMs: 1800 },
+  { label: "Saving your materials", ariaLabel: "Step 5: Saving your materials", durationMs: 1000 },
+];
+
+export const BATCH_GENERATION_STEPS: GenerationStep[] = [
+  { label: "Assembling course context", ariaLabel: "Step 1: Assembling course context", durationMs: 1200 },
+  { label: "Applying pedagogical frameworks", ariaLabel: "Step 2: Applying pedagogical frameworks", durationMs: 2000 },
+  { label: "Generating assignment with AI", ariaLabel: "Step 3: Generating assignment with AI", durationMs: 10000 },
+  { label: "Generating matching rubric with AI", ariaLabel: "Step 4: Generating matching rubric with AI", durationMs: 8000 },
+  { label: "Saving your materials", ariaLabel: "Step 5: Saving your materials", durationMs: 1000 },
+];
+
 export const FIX_TYPE_DESCRIPTIONS: Record<string, string> = {
   "fix-aria-combobox":
     'Swaps each element using role="combobox" for a native <select> element, keeping all existing attributes. A native <select> provides the built-in keyboard and screen-reader support that assistive technology expects.',
