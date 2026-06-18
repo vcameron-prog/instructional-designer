@@ -379,6 +379,7 @@ export default function PdfConversion() {
   const [fixError, setFixError] = useState<string | null>(null);
   const [fixAllProgress, setFixAllProgress] = useState<{ current: number; total: number } | null>(null);
   const [isFixingAll, setIsFixingAll] = useState(false);
+  const [isFixingAllAria, setIsFixingAllAria] = useState(false);
   const [copiedImageKeys, setCopiedImageKeys] = useState<Set<string>>(new Set());
   const [copiedAllKeys, setCopiedAllKeys] = useState<Set<number>>(new Set());
   const [acceptingIndex, setAcceptingIndex] = useState<number | null>(null);
@@ -623,6 +624,19 @@ export default function PdfConversion() {
       queryClient.invalidateQueries({ queryKey: ["/api/conversions", numericId] });
     }
   }, [conversion, numericId]);
+
+  const handleFixAllAria = useCallback(async () => {
+    setIsFixingAllAria(true);
+    setFixError(null);
+    try {
+      await apiRequest("POST", `/api/conversions/${numericId}/fix-all-aria`);
+      await queryClient.invalidateQueries({ queryKey: ["/api/conversions", numericId] });
+    } catch {
+      setFixError("Failed to fix ARIA role issues. Please try again.");
+    } finally {
+      setIsFixingAllAria(false);
+    }
+  }, [numericId]);
 
   const handleAcceptIssue = useCallback(
     (issueIndex: number) => {
@@ -1624,9 +1638,38 @@ export default function PdfConversion() {
               )}
 
               <section className="bg-card border rounded-2xl p-6">
-                <div className="flex items-center gap-2 mb-4 pb-3 border-b">
+                <div className="flex items-center gap-2 mb-4 pb-3 border-b flex-wrap">
                   <FileCheck2 className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                   <h2 className="text-lg font-bold flex-1">Audit Details</h2>
+                  {(() => {
+                    const ariaIssueCount = report.issues.filter(
+                      (issue: any) =>
+                        issue.title.includes("ARIA") &&
+                        (issue.status === "fail" || issue.status === "warning")
+                    ).length;
+                    if (ariaIssueCount < 2) return null;
+                    return (
+                      <button
+                        onClick={handleFixAllAria}
+                        disabled={isFixingAllAria || isFixingAll || fixingIndex !== null}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-bold shadow-sm disabled:opacity-50 transition-colors"
+                        data-testid="button-fix-all-aria"
+                        aria-label={`Fix all ${ariaIssueCount} ARIA role issues`}
+                      >
+                        {isFixingAllAria ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            Fixing ARIA…
+                          </>
+                        ) : (
+                          <>
+                            <Zap className="w-3.5 h-3.5" />
+                            Fix all ARIA ({ariaIssueCount})
+                          </>
+                        )}
+                      </button>
+                    );
+                  })()}
                   {(() => {
                     const fixableCount = report.issues.filter(
                       (issue: any) => issue.status === "fail" || issue.status === "warning"
@@ -1635,7 +1678,7 @@ export default function PdfConversion() {
                     return (
                       <button
                         onClick={handleFixAll}
-                        disabled={isFixingAll || fixingIndex !== null}
+                        disabled={isFixingAll || isFixingAllAria || fixingIndex !== null}
                         className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-sm font-bold shadow-sm disabled:opacity-50"
                         data-testid="button-fix-all"
                         aria-label={`Fix all ${fixableCount} issues with AI`}

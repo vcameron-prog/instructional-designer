@@ -4386,6 +4386,80 @@ Please generate an IMPROVED version that incorporates the requested changes whil
   );
 
   app.post(
+    "/api/conversions/:id/fix-all-aria",
+    optionalAuth,
+    async (req: Request, res: Response) => {
+      const userId = getUserId(req);
+      const id = parseInt(req.params.id as string);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid ID" });
+        return;
+      }
+
+      const [conversion] = await db
+        .select()
+        .from(conversions)
+        .where(conversionOwnerFilter(id, userId, getVisitorToken(req)));
+
+      if (!conversion) {
+        res.status(404).json({ error: "Conversion not found" });
+        return;
+      }
+      if (conversion.status !== "completed" || !conversion.accessibleHtml) {
+        res.status(400).json({ error: "Conversion must be completed" });
+        return;
+      }
+
+      const dedupeKey = `aria-all:${id}`;
+      if (activeFixKeys.has(dedupeKey)) {
+        res.status(409).json({ error: "A fix is already in progress for this conversion." });
+        return;
+      }
+
+      activeFixKeys.add(dedupeKey);
+      try {
+        const { fixAllAriaRoleMisuse } = await import("./lib/accessibility-engine");
+        const report = conversion.complianceReport as any;
+        if (!report) {
+          res.status(400).json({ error: "No compliance report found" });
+          return;
+        }
+        const result = fixAllAriaRoleMisuse(conversion.accessibleHtml, report);
+
+        const [updated] = await db
+          .update(conversions)
+          .set({
+            accessibleHtml: result.accessibleHtml,
+            complianceReport: result.complianceReport,
+            updatedAt: new Date(),
+          })
+          .where(eq(conversions.id, id))
+          .returning({
+            id: conversions.id,
+            originalFilename: conversions.originalFilename,
+            fileSize: conversions.fileSize,
+            status: conversions.status,
+            pageCount: conversions.pageCount,
+            extractedText: conversions.extractedText,
+            accessibleHtml: conversions.accessibleHtml,
+            complianceReport: conversions.complianceReport,
+            originalComplianceReport: conversions.originalComplianceReport,
+            errorMessage: conversions.errorMessage,
+            ocrApplied: conversions.ocrApplied,
+            createdAt: conversions.createdAt,
+            updatedAt: conversions.updatedAt,
+          });
+
+        res.json(updated);
+      } catch (err: any) {
+        res.status(500).json({ error: err.message || "Fix failed" });
+      } finally {
+        activeFixKeys.delete(dedupeKey);
+      }
+    },
+  );
+
+  app.post(
     "/api/conversions/:id/accept-issue",
     optionalAuth,
     async (req: Request, res: Response) => {
