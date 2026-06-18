@@ -489,15 +489,8 @@ export default function PdfConversion() {
   const [isFixingAllAria, setIsFixingAllAria] = useState(false);
   const [batchFixNotesSummary, setBatchFixNotesSummary] = useState<string[]>([]);
   const manualFixStorageKey = numericId > 0 ? `manualFixSummary_${numericId}` : null;
-  const [manualFixSummary, setManualFixSummary] = useState<{ title: string; reason: string }[]>(() => {
-    if (numericId <= 0) return [];
-    try {
-      const stored = localStorage.getItem(`manualFixSummary_${numericId}`);
-      if (stored) return JSON.parse(stored) as { title: string; reason: string }[];
-    } catch {
-    }
-    return [];
-  });
+  const loadedManualFixIdRef = useRef<number | null>(null);
+  const [manualFixSummary, setManualFixSummary] = useState<{ title: string; reason: string }[]>([]);
   const [copiedManualFix, setCopiedManualFix] = useState(false);
   const [copiedImageKeys, setCopiedImageKeys] = useState<Set<string>>(new Set());
   const [copiedAllKeys, setCopiedAllKeys] = useState<Set<number>>(new Set());
@@ -612,17 +605,53 @@ export default function PdfConversion() {
     return () => clearInterval(interval);
   }, [isProcessingOrUploaded]);
 
+  // On numericId change: reset state and load from server, fall back to localStorage
   useEffect(() => {
-    if (!manualFixStorageKey) return;
+    // Reset so the sync effect won't write stale data from the previous conversion
+    loadedManualFixIdRef.current = null;
+    setManualFixSummary([]);
+    if (numericId <= 0) return;
+    let cancelled = false;
+    const fallbackToLocalStorage = () => {
+      try {
+        const stored = localStorage.getItem(`manualFixSummary_${numericId}`);
+        if (stored) {
+          const parsed = JSON.parse(stored) as { title: string; reason: string }[];
+          if (!cancelled && parsed.length > 0) setManualFixSummary(parsed);
+        }
+      } catch {}
+    };
+    fetch(`/api/conversions/${numericId}/manual-fixes`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { items: { title: string; reason: string }[] } | null) => {
+        if (cancelled) return;
+        loadedManualFixIdRef.current = numericId;
+        if (data?.items && data.items.length > 0) {
+          setManualFixSummary(data.items);
+        } else {
+          fallbackToLocalStorage();
+        }
+      })
+      .catch(() => {
+        if (cancelled) return;
+        loadedManualFixIdRef.current = numericId;
+        fallbackToLocalStorage();
+      });
+    return () => { cancelled = true; };
+  }, [numericId]);
+
+  // Sync to localStorage and server whenever state changes (only after load for this ID)
+  useEffect(() => {
+    if (!manualFixStorageKey || loadedManualFixIdRef.current !== numericId) return;
     if (manualFixSummary.length === 0) {
       localStorage.removeItem(manualFixStorageKey);
     } else {
       try {
         localStorage.setItem(manualFixStorageKey, JSON.stringify(manualFixSummary));
-      } catch {
-      }
+      } catch {}
     }
-  }, [manualFixSummary, manualFixStorageKey]);
+    apiRequest("PUT", `/api/conversions/${numericId}/manual-fixes`, { items: manualFixSummary }).catch(() => {});
+  }, [manualFixSummary, manualFixStorageKey, numericId]);
 
   useEffect(() => {
     if (

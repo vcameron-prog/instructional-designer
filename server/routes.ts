@@ -3278,6 +3278,61 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     },
   );
 
+  app.get(
+    "/api/conversions/:id/manual-fixes",
+    optionalAuth,
+    async (req: Request, res: Response) => {
+      const userId = getUserId(req);
+      const id = parseInt(req.params.id as string);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid ID" });
+        return;
+      }
+      const [owned] = await db
+        .select({ id: conversions.id })
+        .from(conversions)
+        .where(conversionOwnerFilter(id, userId, getVisitorToken(req)));
+      if (!owned) {
+        res.status(404).json({ error: "Conversion not found" });
+        return;
+      }
+      const items = await storage.getManualFixItems(id);
+      res.json({ items: items ?? [] });
+    },
+  );
+
+  app.put(
+    "/api/conversions/:id/manual-fixes",
+    optionalAuth,
+    async (req: Request, res: Response) => {
+      const userId = getUserId(req);
+      const id = parseInt(req.params.id as string);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid ID" });
+        return;
+      }
+      const [owned] = await db
+        .select({ id: conversions.id })
+        .from(conversions)
+        .where(conversionOwnerFilter(id, userId, getVisitorToken(req)));
+      if (!owned) {
+        res.status(404).json({ error: "Conversion not found" });
+        return;
+      }
+      const { items } = req.body as { items?: unknown };
+      if (!Array.isArray(items)) {
+        res.status(400).json({ error: "items must be an array" });
+        return;
+      }
+      const parsed = (items as unknown[]).map((item) => {
+        const i = item as { title?: unknown; reason?: unknown };
+        return { title: String(i.title ?? ""), reason: String(i.reason ?? "") };
+      });
+      await storage.setManualFixItems(id, parsed);
+      res.json({ ok: true });
+    },
+  );
+
   const uploadRateLimitGuard = async (req: Request, res: Response, next: NextFunction) => {
     const userId = getUserId(req);
     if (userId) {
