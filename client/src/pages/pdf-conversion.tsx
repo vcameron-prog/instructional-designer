@@ -638,14 +638,21 @@ export default function PdfConversion() {
     setIsFixingAllAria(true);
     setFixError(null);
     try {
-      await apiRequest("POST", `/api/conversions/${numericId}/fix-all-aria`);
+      const res = await apiRequest("POST", `/api/conversions/${numericId}/fix-all-aria`);
+      const data = await res.json();
       await queryClient.invalidateQueries({ queryKey: ["/api/conversions", numericId] });
+      if (data?.wasRetried) {
+        toast({
+          title: "ARIA fixes applied",
+          description: "One or more ARIA fixes required a retry — the final result is still correct.",
+        });
+      }
     } catch {
       setFixError("Failed to fix ARIA role issues. Please try again.");
     } finally {
       setIsFixingAllAria(false);
     }
-  }, [numericId]);
+  }, [numericId, toast]);
 
   const handleAcceptIssue = useCallback(
     (issueIndex: number) => {
