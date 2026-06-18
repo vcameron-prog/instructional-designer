@@ -375,4 +375,41 @@ describe("GET /api/conversions/:id/download-docx — 503 concurrency cap", () =>
     resolvers.forEach(r => r(Buffer.from("fake-docx")));
     await Promise.all(inflightDone);
   }, 15_000);
+
+  // -----------------------------------------------------------------------
+  // 409 — per-conversion in-flight deduplication
+  //
+  // A blocker keeps the first request alive long enough for a second request
+  // for the same conversion ID to see the key in activeDocxExportKeys.
+  // The blocker is released after the assertion so activeDocxExports and
+  // activeDocxExportKeys return to 0, leaving no leaked state.
+  // -----------------------------------------------------------------------
+  it("returns 409 when a DOCX export for the same conversion is already in progress", async () => {
+    let resolveDocx!: (buf: Buffer) => void;
+    const blocker = new Promise<Buffer>(resolve => {
+      resolveDocx = resolve;
+    });
+    mockBuildDocx.mockImplementationOnce(() => blocker);
+
+    // Fire req1 immediately via .end() without waiting for the response.
+    const req1Done = new Promise<any>(resolve => {
+      request(app)
+        .get("/api/conversions/1/download-docx")
+        .end((_err, res) => resolve(res));
+    });
+
+    // Yield to the event loop so the handler runs far enough to add the dedup
+    // key to activeDocxExportKeys before req2 is sent.
+    await new Promise(r => setTimeout(r, 50));
+
+    // Second request for the same conversion ID must be rejected with 409.
+    const res2 = await request(app).get("/api/conversions/1/download-docx");
+
+    expect(res2.status).toBe(409);
+    expect(res2.body.error).toMatch(/already in progress/i);
+
+    // Release the blocker so req1 completes and activeDocxExports decrements.
+    resolveDocx(Buffer.from("fake-docx"));
+    await req1Done;
+  }, 15_000);
 });
