@@ -1383,6 +1383,43 @@ export async function registerRoutes(
     }
   });
 
+  // Tool presets — authenticated users only, stored in the preferences JSONB column
+  app.get("/api/presets/:toolId", isAuthenticated, async (req: Request, res: Response) => {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+    const toolId = req.params.toolId as string;
+    if (!toolId) return res.status(400).json({ message: "toolId is required" });
+    try {
+      const prefs = (await storage.getUserPreferences(userId)) ?? {};
+      const presetsMap = (prefs.presets as Record<string, unknown>) ?? {};
+      const toolPresets = presetsMap[toolId] ?? [];
+      res.json(toolPresets);
+    } catch (err) {
+      console.error("[presets] GET error:", err);
+      res.status(500).json({ message: "Failed to fetch presets" });
+    }
+  });
+
+  app.put("/api/presets/:toolId", isAuthenticated, async (req: Request, res: Response) => {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+    const toolId = req.params.toolId as string;
+    if (!toolId) return res.status(400).json({ message: "toolId is required" });
+    if (!Array.isArray(req.body)) return res.status(400).json({ message: "Body must be an array" });
+    const MAX_PRESETS = 50;
+    const presets = (req.body as unknown[]).slice(0, MAX_PRESETS);
+    try {
+      const existing = (await storage.getUserPreferences(userId)) ?? {};
+      const existingPresetsMap = (existing.presets as Record<string, unknown>) ?? {};
+      const merged = { ...existing, presets: { ...existingPresetsMap, [toolId]: presets } };
+      await storage.setUserPreferences(userId, merged);
+      res.json(presets);
+    } catch (err) {
+      console.error("[presets] PUT error:", err);
+      res.status(500).json({ message: "Failed to save presets" });
+    }
+  });
+
   app.get("/api/deterministic-fixers", (_req: Request, res: Response) => {
     res.json({ keys: getDeterministicFixerKeys().sort() });
   });
