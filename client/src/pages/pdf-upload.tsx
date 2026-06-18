@@ -1,12 +1,9 @@
-import { useCallback, useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useLocation } from "wouter";
-import { useDropzone } from "react-dropzone";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
-  UploadCloud,
   Loader2,
   AlertCircle,
-  File,
   FileText,
   History,
   ArrowRight,
@@ -25,6 +22,7 @@ import { format } from "date-fns";
 import { SiGoogledrive, SiGooglesheets } from "react-icons/si";
 import { apiRequest } from "@/lib/queryClient";
 import { parseConversionsUploadError } from "@/lib/upload-error-utils";
+import { UploadDropzone } from "@/components/UploadDropzone";
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 B";
@@ -192,46 +190,24 @@ export default function PdfUpload() {
     setUploadError(null);
   };
 
-  const onDrop = useCallback(
-    (acceptedFiles: File[], rejectedFiles: any[]) => {
-      setUploadError(null);
-      if (rejectedFiles.length > 0) {
-        setUploadError(
-          "Please upload valid PDF, Word (.docx), Excel (.xlsx), or PowerPoint (.pptx) documents under 20MB.",
-        );
-        return;
-      }
-      if (acceptedFiles.length === 0) return;
+  const handleFileDrop = (files: File[]) => {
+    setUploadError(null);
+    if (files.length === 0) return;
 
-      if (acceptedFiles.length === 1 && fileQueue.length === 0) {
-        // Single file, no existing queue: use the direct-navigate flow.
-        uploadMutation.mutate(acceptedFiles[0]);
-        return;
-      }
+    if (files.length === 1 && fileQueue.length === 0) {
+      // Single file, no existing queue: use the direct-navigate flow.
+      uploadMutation.mutate(files[0]);
+      return;
+    }
 
-      // Multiple files: add them all to the queue for sequential processing.
-      const newItems = acceptedFiles.map((file) => ({
-        id: `${file.name}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-        file,
-        status: "pending" as const,
-      }));
-      setFileQueue((prev) => [...prev, ...newItems]);
-    },
-    [uploadMutation, fileQueue.length],
-  );
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: {
-      "application/pdf": [".pdf"],
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"],
-      "application/vnd.openxmlformats-officedocument.presentationml.presentation": [".pptx"],
-    },
-    maxFiles: 10,
-    maxSize: 20 * 1024 * 1024,
-    disabled: uploadMutation.isPending,
-  });
+    // Multiple files: add them all to the queue for sequential processing.
+    const newItems = files.map((file) => ({
+      id: `${file.name}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      file,
+      status: "pending" as const,
+    }));
+    setFileQueue((prev) => [...prev, ...newItems]);
+  };
 
   if (authLoading) {
     return (
@@ -340,82 +316,25 @@ export default function PdfUpload() {
         <div className="w-full max-w-2xl mx-auto mb-8 bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
           <div className="px-6 py-4 bg-secondary/50 border-b border-border flex items-center gap-3">
             <div className="p-2 rounded-lg bg-primary text-primary-foreground">
-              <UploadCloud className="w-5 h-5" aria-hidden="true" />
+              <FileText className="w-5 h-5" aria-hidden="true" />
             </div>
             <div>
               <h3
                 className="font-bold text-foreground text-lg"
                 data-testid="heading-upload-section"
               >
-                Upload a PDF or Word Document
+                Upload a Document
               </h3>
               <p className="text-sm text-muted-foreground">
-                Drag and drop or click to browse your files
+                Drag and drop or click to browse — multiple files supported
               </p>
             </div>
           </div>
           <div className="p-6">
-            <div
-              {...getRootProps()}
-              className={cn(
-                "relative overflow-hidden group border-3 border-dashed rounded-2xl p-10 text-center transition-all duration-300 ease-out outline-none focus-visible:ring-4 focus-visible:ring-primary/20",
-                isDragActive
-                  ? "border-primary bg-primary/5 scale-[1.01]"
-                  : "border-border hover:border-primary/50 hover:bg-secondary/50 bg-background",
-                uploadMutation.isPending &&
-                  "opacity-50 cursor-not-allowed pointer-events-none",
-              )}
-              data-testid="dropzone-upload"
-            >
-              <input
-                {...getInputProps()}
-                aria-label="Document File Upload"
-                data-testid="input-file-upload"
-              />
-              <div className="flex flex-col items-center justify-center space-y-4">
-                <div
-                  className={cn(
-                    "p-4 rounded-2xl transition-colors duration-300",
-                    uploadMutation.isPending
-                      ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25"
-                      : isDragActive
-                        ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25"
-                        : "bg-secondary text-primary group-hover:bg-primary group-hover:text-primary-foreground",
-                  )}
-                >
-                  {uploadMutation.isPending ? (
-                    <Loader2
-                      className="w-8 h-8 animate-spin"
-                      aria-hidden="true"
-                    />
-                  ) : (
-                    <UploadCloud className="w-8 h-8" aria-hidden="true" />
-                  )}
-                </div>
-                <div className="space-y-1">
-                  <p className="text-lg font-bold text-foreground">
-                    {uploadMutation.isPending
-                      ? "Uploading & processing..."
-                      : isDragActive
-                        ? "Drop document here"
-                        : "Select a document to remediate"}
-                  </p>
-                  <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-                    {uploadMutation.isPending
-                      ? "Your document is being prepared for accessibility remediation."
-                      : "We will automatically generate a WCAG 2.1 AA compliant accessible version."}
-                  </p>
-                </div>
-                {!uploadMutation.isPending && (
-                  <div className="flex items-center gap-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    <span className="flex items-center gap-2 bg-background px-3 py-1.5 rounded-full border shadow-sm">
-                      <File className="w-3.5 h-3.5" aria-hidden="true" />
-                      PDF, DOCX, XLSX, or PPTX up to 20MB
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
+            <UploadDropzone
+              onUpload={handleFileDrop}
+              isUploading={uploadMutation.isPending}
+            />
           </div>
         </div>
 
