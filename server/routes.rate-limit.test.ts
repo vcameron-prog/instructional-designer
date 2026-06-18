@@ -56,6 +56,12 @@ import {
   uploadRateLimitCleanupCallback,
   heavyOpRateLimitCleanupCallback,
   sharedRateLimitCleanupCallback,
+  clearRateLimiterIntervals,
+  sharedRateLimitCleanupInterval,
+  anonRateLimitCleanupInterval,
+  heavyOpRateLimitCleanupInterval,
+  aiGenRateLimitCleanupInterval,
+  uploadRateLimitCleanupInterval,
 } from "./lib/rateLimiters.js";
 
 // ---------------------------------------------------------------------------
@@ -960,5 +966,66 @@ describe("sharedRateLimitCleanupCallback – DB delete uses a two-hour cutoff", 
     });
 
     await expect(sharedRateLimitCleanupCallback()).resolves.toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: clearRateLimiterIntervals – graceful-shutdown helper
+// ---------------------------------------------------------------------------
+
+describe("clearRateLimiterIntervals – stops all five cleanup intervals", () => {
+  it("calls clearInterval exactly once for each of the five interval handles", () => {
+    const spy = vi.spyOn(globalThis, "clearInterval");
+
+    clearRateLimiterIntervals();
+
+    expect(spy).toHaveBeenCalledTimes(5);
+    expect(spy).toHaveBeenCalledWith(sharedRateLimitCleanupInterval);
+    expect(spy).toHaveBeenCalledWith(anonRateLimitCleanupInterval);
+    expect(spy).toHaveBeenCalledWith(heavyOpRateLimitCleanupInterval);
+    expect(spy).toHaveBeenCalledWith(aiGenRateLimitCleanupInterval);
+    expect(spy).toHaveBeenCalledWith(uploadRateLimitCleanupInterval);
+
+    spy.mockRestore();
+  });
+
+  it("after calling clearRateLimiterIntervals, fake-timer advancement no longer triggers cleanup callbacks", () => {
+    vi.useFakeTimers();
+    try {
+      // Seed stale entries that each cleanup callback would remove if it ran.
+      const staleAnonKey = "teardown-stale-anon";
+      const staleAiGenKey = "teardown-stale-aigen";
+      const staleUploadKey = "teardown-stale-upload";
+      const staleHeavyKey = "teardown-stale-heavy";
+      anonRateLimits.set(staleAnonKey, { count: 1, resetAt: Date.now() - 1 });
+      aiGenRateLimits.set(staleAiGenKey, { count: 1, resetAt: Date.now() - 1 });
+      uploadRateLimits.set(staleUploadKey, { count: 1, resetAt: Date.now() - 1 });
+      heavyOpRateLimits.set(staleHeavyKey, { count: 1, resetAt: Date.now() - 1 });
+
+      // Clear all five intervals — after this call no scheduled callback should fire.
+      clearRateLimiterIntervals();
+
+      // Advance well past every cleanup period (10 min in-memory, 15 min shared).
+      vi.advanceTimersByTime(60 * 60 * 1000);
+
+      // The stale entries must still be present because the cleanup intervals are gone.
+      expect(anonRateLimits.has(staleAnonKey)).toBe(true);
+      expect(aiGenRateLimits.has(staleAiGenKey)).toBe(true);
+      expect(uploadRateLimits.has(staleUploadKey)).toBe(true);
+      expect(heavyOpRateLimits.has(staleHeavyKey)).toBe(true);
+    } finally {
+      anonRateLimits.clear();
+      aiGenRateLimits.clear();
+      uploadRateLimits.clear();
+      heavyOpRateLimits.clear();
+      vi.useRealTimers();
+    }
+  });
+
+  it("is idempotent – calling it twice does not throw", () => {
+    expect(() => {
+      clearRateLimiterIntervals();
+      clearRateLimiterIntervals();
+    }).not.toThrow();
   });
 });

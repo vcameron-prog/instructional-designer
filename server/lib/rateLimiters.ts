@@ -194,3 +194,22 @@ export const uploadRateLimitCleanupInterval = setInterval(
   uploadRateLimitCleanupCallback,
   10 * 60 * 1000,
 );
+
+// ---------------------------------------------------------------------------
+// Graceful-shutdown helper
+// ---------------------------------------------------------------------------
+
+/**
+ * Clear all five rate-limiter `setInterval` handles.
+ *
+ * Call this from the process SIGTERM / SIGINT handler so the callbacks do not
+ * fire one final time against a partially-torn-down database connection, and
+ * so integration-test runs can clean up their timer state cleanly.
+ */
+export function clearRateLimiterIntervals(): void {
+  clearInterval(sharedRateLimitCleanupInterval);
+  clearInterval(anonRateLimitCleanupInterval);
+  clearInterval(heavyOpRateLimitCleanupInterval);
+  clearInterval(aiGenRateLimitCleanupInterval);
+  clearInterval(uploadRateLimitCleanupInterval);
+}

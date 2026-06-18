@@ -5,12 +5,22 @@ import { createServer } from "http";
 import { seedDatabase } from "./seed";
 import { trimAllOversizedVersions } from "./lib/trimVersions";
 import { scheduleDailySummary } from "./lib/daily-summary";
+import { clearRateLimiterIntervals } from "./lib/rateLimiters.js";
 import { db } from "./db";
 import { sql, eq } from "drizzle-orm";
 import { conversions } from "../shared/schema";
 
 const app = express();
 const httpServer = createServer(app);
+
+function handleShutdown(signal: string): void {
+  log(`Received ${signal}, shutting down gracefully`, "shutdown");
+  clearRateLimiterIntervals();
+  process.exit(0);
+}
+
+process.on("SIGTERM", () => handleShutdown("SIGTERM"));
+process.on("SIGINT", () => handleShutdown("SIGINT"));
 
 declare module "http" {
   interface IncomingMessage {
