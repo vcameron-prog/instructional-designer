@@ -1739,6 +1739,24 @@ export default function PdfConversion() {
                                   </p>
                                 </div>
                               )}
+                            {issue.fixNotes && (
+                              <div
+                                className="rounded-lg border bg-blue-50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800 p-3 space-y-1.5"
+                                data-testid={`heading-fix-notes-${i}`}
+                                role="note"
+                              >
+                                <p className="text-xs font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wide flex items-center gap-1.5">
+                                  <Info className="w-3.5 h-3.5" aria-hidden="true" />
+                                  Heading Level Note
+                                </p>
+                                <p
+                                  className="text-sm text-blue-900 dark:text-blue-200"
+                                  data-testid={`heading-fix-notes-text-${i}`}
+                                >
+                                  {issue.fixNotes}
+                                </p>
+                              </div>
+                            )}
                             {issue.criterion === "1.1.1" &&
                               issue.imageItems &&
                               issue.imageItems.length > 0 && (

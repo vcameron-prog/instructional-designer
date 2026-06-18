@@ -57,6 +57,7 @@ const complianceIssueSchema = z.object({
   justification: z.string().optional(),
   previousStatus: z.enum(["fail", "warning"]).optional(),
   imageItems: z.array(imageItemSchema).optional(),
+  fixNotes: z.string().optional(),
 });
 
 export interface ImageItem {
@@ -75,6 +76,7 @@ export interface ComplianceIssue {
   justification?: string;
   previousStatus?: "fail" | "warning";
   imageItems?: ImageItem[];
+  fixNotes?: string;
 }
 
 export const complianceReportSchema = z.object({
@@ -1406,6 +1408,72 @@ export function applyAriaHeadingRoleFix(html: string): string {
   return result;
 }
 
+export interface AriaHeadingFallbackAnalysis {
+  fallbackCount: number;
+  inferredCount: number;
+}
+
+export function analyzeAriaHeadingFallbacks(html: string): AriaHeadingFallbackAnalysis {
+  const root = parseHtml(html);
+
+  const headingRoleNodes = root.querySelectorAll("[role='heading']");
+  const targets = headingRoleNodes.filter((el) => {
+    const tag = el.tagName?.toLowerCase();
+    return !/^h[1-6]$/.test(tag ?? "");
+  });
+
+  if (targets.length === 0) return { fallbackCount: 0, inferredCount: 0 };
+
+  const nodeOrder = new Map<object, number>();
+  let ordinal = 0;
+  function walkDocumentOrder(node: { childNodes?: object[] }): void {
+    nodeOrder.set(node, ordinal++);
+    for (const child of node.childNodes ?? []) {
+      walkDocumentOrder(child as { childNodes?: object[] });
+    }
+  }
+  walkDocumentOrder(root);
+
+  const contextPool: Array<{ level: number; ordinal: number }> = [];
+  for (let lvl = 1; lvl <= 6; lvl++) {
+    for (const hEl of root.querySelectorAll(`h${lvl}`)) {
+      const ord = nodeOrder.get(hEl);
+      if (ord !== undefined) {
+        contextPool.push({ level: lvl, ordinal: ord });
+      }
+    }
+  }
+
+  const sortedTargets = [...targets].sort(
+    (a, b) => (nodeOrder.get(a) ?? 0) - (nodeOrder.get(b) ?? 0)
+  );
+
+  let fallbackCount = 0;
+  let inferredCount = 0;
+
+  for (const el of sortedTargets) {
+    const ariaLevel = el.getAttribute("aria-level");
+    const targetOrdinal = nodeOrder.get(el) ?? -1;
+    if (!ariaLevel) {
+      const preceding = contextPool
+        .filter((h) => h.ordinal < targetOrdinal)
+        .sort((a, b) => b.ordinal - a.ordinal);
+      if (preceding.length > 0) {
+        inferredCount++;
+        contextPool.push({ level: preceding[0].level, ordinal: targetOrdinal });
+      } else {
+        fallbackCount++;
+        contextPool.push({ level: 2, ordinal: targetOrdinal });
+      }
+    } else {
+      const level = Math.min(Math.max(parseInt(ariaLevel, 10) || 2, 1), 6);
+      contextPool.push({ level, ordinal: targetOrdinal });
+    }
+  }
+
+  return { fallbackCount, inferredCount };
+}
+
 export function applyAriaComboboxRoleFix(html: string): string {
   return replaceAriaRoleElements(
     html,
@@ -1577,9 +1645,36 @@ export async function fixComplianceIssue(
   const registryKey = `${issue.criterion}::${issue.title}`;
   const deterministicFixer = deterministicFixerRegistry[registryKey];
   if (deterministicFixer) {
+    const isHeadingFix = registryKey === "1.3.1::ARIA Heading Role on Non-Heading Element";
+    const headingFallbackAnalysis = isHeadingFix
+      ? analyzeAriaHeadingFallbacks(currentHtml)
+      : null;
+
     const fixedHtml = deterministicFixer(currentHtml);
     const updatedIssues = [...existingReport.issues];
     applyDeterministicReport(fixedHtml, issue, issueIndex, updatedIssues);
+
+    if (isHeadingFix && headingFallbackAnalysis && issueIndex >= 0 && issueIndex < updatedIssues.length) {
+      const { fallbackCount, inferredCount } = headingFallbackAnalysis;
+      const parts: string[] = [];
+      if (fallbackCount > 0) {
+        parts.push(
+          `${fallbackCount} heading${fallbackCount === 1 ? "" : "s"} had no aria-level and no surrounding heading context — defaulted to <h2>. Review these headings and adjust the level if needed.`
+        );
+      }
+      if (inferredCount > 0) {
+        parts.push(
+          `${inferredCount} heading${inferredCount === 1 ? "" : "s"} had no aria-level and used the level of the nearest preceding heading. Verify the inferred level is correct.`
+        );
+      }
+      if (parts.length > 0) {
+        updatedIssues[issueIndex] = {
+          ...updatedIssues[issueIndex],
+          fixNotes: parts.join(" "),
+        };
+      }
+    }
+
     return { accessibleHtml: fixedHtml, complianceReport: buildComplianceReport(updatedIssues) };
   }
 
