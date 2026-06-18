@@ -13,6 +13,7 @@ import { LoadingScreen } from "@/components/loading-screen";
 import { HeaderControls } from "@/components/header-controls";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useToast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
 import type { Course, GeneratedContent } from "@shared/schema";
 import { Badge } from "@/components/ui/badge";
 
@@ -80,6 +81,11 @@ export default function ToolSelection() {
           title: "Download failed",
           description: detail || `The server returned an error (${res.status}). Please try again.`,
           variant: "destructive",
+          action: (
+            <ToastAction altText="Retry download" onClick={handleDownloadSelected}>
+              Retry
+            </ToastAction>
+          ),
         });
         return;
       }
@@ -102,6 +108,11 @@ export default function ToolSelection() {
         title: "Download failed",
         description: "Could not reach the server. Please check your connection and try again.",
         variant: "destructive",
+        action: (
+          <ToastAction altText="Retry download" onClick={handleDownloadSelected}>
+            Retry
+          </ToastAction>
+        ),
       });
     } finally {
       setIsExporting(false);
