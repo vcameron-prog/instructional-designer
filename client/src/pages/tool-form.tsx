@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
-import { ArrowLeft, Loader2, Sparkles, BookOpen, Calendar, FileText, Layout, CheckCircle, Target, Scale, ShieldCheck, Eye, Bot, Globe, BookmarkPlus, ChevronDown, Trash2, SlidersHorizontal } from "lucide-react";
+import { ArrowLeft, Loader2, Sparkles, BookOpen, Calendar, FileText, Layout, CheckCircle, Target, Scale, ShieldCheck, Eye, Bot, Globe, BookmarkPlus, ChevronDown, Trash2, SlidersHorizontal, Library } from "lucide-react";
 import { TOOLS, BSU_CALENDAR, LOADING_MESSAGES, COURSE_LEVELS, CONTENT_PREFILL_MAP } from "@/lib/constants";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isSessionExpiredMessage } from "@/lib/upload-error-utils";
@@ -21,6 +21,7 @@ import { HeaderControls } from "@/components/header-controls";
 import type { Course, GeneratedContent } from "@shared/schema";
 import { UdlTips } from "@/components/udl-tips";
 import { AccessibilityTips } from "@/components/accessibility-tips";
+import { OutcomeLibraryModal } from "@/components/outcome-library-modal";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useQuickToolContext } from "@/hooks/use-quick-tool-context";
 import { useToolPresets } from "@/hooks/use-tool-presets";
@@ -329,6 +330,9 @@ export default function ToolForm() {
   const [generateRubric, setGenerateRubric] = useState(false);
   const [rubricTotalPoints, setRubricTotalPoints] = useState("100");
   const [rubricLevels, setRubricLevels] = useState("4 levels");
+
+  const [outcomeLibraryOpen, setOutcomeLibraryOpen] = useState(false);
+  const [outcomeLibraryField, setOutcomeLibraryField] = useState<string>("learningObjectives");
 
   const { presets, savePreset, deletePreset } = useToolPresets(isStandalone ? toolId : undefined);
   const [presetOpen, setPresetOpen] = useState(false);
@@ -896,19 +900,34 @@ export default function ToolForm() {
                   className={`space-y-2 rounded-md transition-all duration-200 ${isPrefilled ? "pl-3 border-l-2 border-primary/60" : ""}`}
                   data-testid={isPrefilled ? `prefilled-field-${field.name}` : undefined}
                 >
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor={field.name}>
-                      {field.label}
-                      {field.required && <span className="text-destructive ml-1">*</span>}
-                    </Label>
-                    {isPrefilled && (
-                      <span
-                        className="inline-flex items-center gap-1 text-xs font-medium px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20"
-                        aria-label="This field was pre-filled automatically"
-                        data-testid={`badge-prefilled-${field.name}`}
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor={field.name}>
+                        {field.label}
+                        {field.required && <span className="text-destructive ml-1">*</span>}
+                      </Label>
+                      {isPrefilled && (
+                        <span
+                          className="inline-flex items-center gap-1 text-xs font-medium px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20"
+                          aria-label="This field was pre-filled automatically"
+                          data-testid={`badge-prefilled-${field.name}`}
+                        >
+                          Pre-filled
+                        </span>
+                      )}
+                    </div>
+                    {field.type === "textarea" && (field.name === "learningObjectives" || field.name === "learningOutcomes") && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5 text-xs h-7 shrink-0"
+                        onClick={() => { setOutcomeLibraryField(field.name); setOutcomeLibraryOpen(true); }}
+                        data-testid={`button-browse-outcome-library-${field.name}`}
                       >
-                        Pre-filled
-                      </span>
+                        <Library className="w-3.5 h-3.5" aria-hidden="true" />
+                        Browse outcome library
+                      </Button>
                     )}
                   </div>
                   
@@ -1201,6 +1220,18 @@ export default function ToolForm() {
         </form>
       </div>
       <PoweredByFooter />
+
+      <OutcomeLibraryModal
+        open={outcomeLibraryOpen}
+        onClose={() => setOutcomeLibraryOpen(false)}
+        onAddOutcomes={(texts) => {
+          const current = (formData[outcomeLibraryField] as string) ?? "";
+          const appended = texts.map((t) => `- ${t}`).join("\n");
+          const next = current.trim() ? `${current.trim()}\n${appended}` : appended;
+          handleInputChange(outcomeLibraryField, next);
+          toast({ title: `${texts.length} outcome${texts.length !== 1 ? "s" : ""} added to ${outcomeLibraryField === "learningOutcomes" ? "Learning Outcomes" : "Learning Objectives"}` });
+        }}
+      />
     </main>
   );
 }
