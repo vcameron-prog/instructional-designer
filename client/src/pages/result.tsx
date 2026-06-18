@@ -771,7 +771,10 @@ export default function ResultPage() {
     if (version.refinementRequest === "Previous version") {
       return "Before refinement";
     }
-    return version.refinementRequest || "Saved version";
+    if (version.refinementRequest) {
+      return `Before: ${version.refinementRequest}`;
+    }
+    return "Saved version";
   }
 
   const selectedVersion = versions?.find(v => v.id === selectedVersionId) ?? null;

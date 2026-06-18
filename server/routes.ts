@@ -2201,7 +2201,7 @@ export async function registerRoutes(
         await storage.createVersion({
           generatedContentId: id,
           content: content.content,
-          refinementRequest: "Previous version",
+          refinementRequest: refinementRequest,
         });
         await storage.pruneOldVersions(id, VERSION_HISTORY_LIMIT);
 
