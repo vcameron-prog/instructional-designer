@@ -514,6 +514,7 @@ export default function PdfConversion() {
   const [copiedFixError, setCopiedFixError] = useState(false);
   const [copiedImageKeys, setCopiedImageKeys] = useState<Set<string>>(new Set());
   const [copiedAllKeys, setCopiedAllKeys] = useState<Set<number>>(new Set());
+  const [copiedNoFixKeys, setCopiedNoFixKeys] = useState<Set<number>>(new Set());
   const [acceptingIndex, setAcceptingIndex] = useState<number | null>(null);
   const [revertingIndex, setRevertingIndex] = useState<number | null>(null);
   const [justificationText, setJustificationText] = useState("");
@@ -2914,6 +2915,34 @@ export default function PdfConversion() {
                                     {noFixReasons[i]}
                                   </p>
                                 </div>
+                                <button
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(noFixReasons[i]).then(() => {
+                                      setCopiedNoFixKeys((prev) => {
+                                        const next = new Set(prev);
+                                        next.add(i);
+                                        return next;
+                                      });
+                                      setTimeout(() => {
+                                        setCopiedNoFixKeys((prev) => {
+                                          const next = new Set(prev);
+                                          next.delete(i);
+                                          return next;
+                                        });
+                                      }, 2000);
+                                    });
+                                  }}
+                                  className="flex-shrink-0 p-0.5 rounded text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-800/60 transition-colors"
+                                  aria-label="Copy manual fix guidance"
+                                  data-testid={`button-copy-no-fix-${i}`}
+                                  title="Copy guidance"
+                                >
+                                  {copiedNoFixKeys.has(i) ? (
+                                    <Check className="w-3.5 h-3.5" />
+                                  ) : (
+                                    <ClipboardCopy className="w-3.5 h-3.5" />
+                                  )}
+                                </button>
                                 <button
                                   onClick={() =>
                                     setNoFixReasons((prev) => {
