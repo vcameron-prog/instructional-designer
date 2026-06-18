@@ -1,10 +1,11 @@
 import { db } from "./db";
-import { eq, desc, and, isNull, notInArray } from "drizzle-orm";
+import { eq, desc, and, isNull, notInArray, count, gte } from "drizzle-orm";
 import { 
   courses, 
   generatedContent, 
   contentVersions,
   savedContent,
+  aiFixRetryEvents,
   type Course, 
   type InsertCourse,
   type GeneratedContent,
@@ -58,6 +59,10 @@ export interface IStorage {
 
   // Semester Rollover (user-scoped) — copies course setup only, no generated content
   rolloverCourse(id: number, userId: string, semester: string): Promise<Course | undefined>;
+
+  // AI Fix Retry Events
+  logAiFixRetryEvent(criterion?: string, title?: string): Promise<void>;
+  getAiFixRetryStats(): Promise<{ lifetimeCount: number; thisMonthCount: number }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -233,6 +238,26 @@ export class DatabaseStorage implements IStorage {
 
   async deleteSavedContent(id: number, userId: string): Promise<void> {
     await db.delete(savedContent).where(and(eq(savedContent.id, id), eq(savedContent.userId, userId)));
+  }
+
+  // AI Fix Retry Events
+  async logAiFixRetryEvent(criterion?: string, title?: string): Promise<void> {
+    await db.insert(aiFixRetryEvents).values({ criterion: criterion ?? null, title: title ?? null });
+  }
+
+  async getAiFixRetryStats(): Promise<{ lifetimeCount: number; thisMonthCount: number }> {
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const [lifetimeRow] = await db.select({ value: count() }).from(aiFixRetryEvents);
+    const [monthRow] = await db.select({ value: count() }).from(aiFixRetryEvents)
+      .where(gte(aiFixRetryEvents.createdAt, startOfMonth));
+
+    return {
+      lifetimeCount: Number(lifetimeRow?.value ?? 0),
+      thisMonthCount: Number(monthRow?.value ?? 0),
+    };
   }
 
   // Course Duplication (user-scoped)

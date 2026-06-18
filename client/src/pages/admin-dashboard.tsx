@@ -115,6 +115,8 @@ interface Metrics {
   aiFixRetry: {
     count: number;
     lastAt: string | null;
+    lifetimeCount: number;
+    thisMonthCount: number;
   };
 }
 
@@ -761,13 +763,13 @@ export default function AdminDashboard() {
                         <p className="text-muted-foreground mt-1">
                           <span className="text-red-600 dark:text-red-400 font-medium">High</span> — more than 25 retries or more than 10% of AI checks needed a second attempt.
                         </p>
-                        <p className="text-muted-foreground mt-1">Counter resets when the server restarts.</p>
+                        <p className="text-muted-foreground mt-1">Thresholds apply to the since-restart count. Lifetime and monthly counts persist across restarts.</p>
                       </UITooltipContent>
                     </UITooltip>
                   </UITooltipProvider>
                 </CardTitle>
                 <CardDescription>
-                  Times the AI needed a second attempt to fix an accessibility issue (resets on server restart)
+                  Times the AI needed a second attempt to fix an accessibility issue. Lifetime and monthly counts are stored in the database.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -789,21 +791,43 @@ export default function AdminDashboard() {
                     </span>
                   </div>
                 )}
-                <div className="grid gap-6 sm:grid-cols-2">
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="flex items-start gap-3" data-testid="stat-ai-retry-lifetime">
+                    <div className="w-9 h-9 rounded-lg bg-violet-100 dark:bg-violet-950 flex items-center justify-center flex-shrink-0">
+                      <RotateCcw className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-foreground">
+                        {metrics?.aiFixRetry.lifetimeCount ?? "—"}
+                      </p>
+                      <p className="text-sm text-muted-foreground">Lifetime retries</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3" data-testid="stat-ai-retry-month">
+                    <div className="w-9 h-9 rounded-lg bg-blue-100 dark:bg-blue-950 flex items-center justify-center flex-shrink-0">
+                      <TrendingUp className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-foreground">
+                        {metrics?.aiFixRetry.thisMonthCount ?? "—"}
+                      </p>
+                      <p className="text-sm text-muted-foreground">This month</p>
+                    </div>
+                  </div>
                   <div className="flex items-start gap-3" data-testid="stat-ai-retry-count">
                     <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${
                       isCritical
                         ? "bg-red-100 dark:bg-red-950"
                         : isWarning
                         ? "bg-amber-100 dark:bg-amber-950"
-                        : "bg-violet-100 dark:bg-violet-950"
+                        : "bg-amber-100 dark:bg-amber-950"
                     }`}>
                       <RotateCcw className={`w-4 h-4 ${
                         isCritical
                           ? "text-red-600 dark:text-red-400"
                           : isWarning
                           ? "text-amber-600 dark:text-amber-400"
-                          : "text-violet-600 dark:text-violet-400"
+                          : "text-amber-600 dark:text-amber-400"
                       }`} />
                     </div>
                     <div>
@@ -816,7 +840,7 @@ export default function AdminDashboard() {
                       }`}>
                         {retryCount}
                       </p>
-                      <p className="text-sm text-muted-foreground">Times AI needed a second attempt to fix an issue</p>
+                      <p className="text-sm text-muted-foreground">Since last restart</p>
                       {retryRatePct && (
                         <p className="text-xs text-muted-foreground mt-0.5">{retryRatePct}</p>
                       )}

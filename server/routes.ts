@@ -1456,10 +1456,13 @@ export async function registerRoutes(
 
   app.get("/api/metrics", async (_req: Request, res: Response) => {
     const { retryCount, lastRetryAt } = await getAiFixRetryMetrics();
+    const dbStats = await storage.getAiFixRetryStats().catch(() => ({ lifetimeCount: 0, thisMonthCount: 0 }));
     res.json({
       aiFixRetry: {
         count: retryCount,
         lastAt: lastRetryAt,
+        lifetimeCount: dbStats.lifetimeCount,
+        thisMonthCount: dbStats.thisMonthCount,
       },
     });
   });

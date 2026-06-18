@@ -215,6 +215,19 @@ export const COURSE_TEMPLATES = {
 
 export type CourseTemplateId = keyof typeof COURSE_TEMPLATES;
 
+// AI fix retry events — persisted so counts survive server restarts.
+// Each row records one retry event (when AI needed a second attempt).
+export const aiFixRetryEvents = pgTable("ai_fix_retry_events", {
+  id: serial("id").primaryKey(),
+  criterion: text("criterion"),
+  title: text("title"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .default(sql`CURRENT_TIMESTAMP`)
+    .notNull(),
+});
+
+export type AiFixRetryEvent = typeof aiFixRetryEvents.$inferSelect;
+
 // Cross-instance rate-limit log.
 // Lightweight event log used to enforce shared (cross-process, cross-instance)
 // rate limits without requiring an external store such as Redis.  Each row

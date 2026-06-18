@@ -6,6 +6,7 @@ import { fixDuplicateTableCaptions } from "./table-fixers.js";
 import { db } from "../db";
 import { appMetrics } from "@shared/schema";
 import { sql } from "drizzle-orm";
+import { storage } from "../storage";
 
 /** Inline concurrency limiter — equivalent to p-limit but works in any bundle format. */
 function pLimit(concurrency: number) {
@@ -1941,6 +1942,9 @@ ${stripped}`,
     void persistAiFixRetry(aiFixRetryLastAt);
     console.warn(
       `[accessibility-engine] AI returned incomplete HTML on first attempt — retrying with strict prompt. criterion="${issue.criterion}" title="${issue.title}" retryCount=${aiFixRetryCount}`
+    );
+    storage.logAiFixRetryEvent(issue.criterion, issue.title).catch((err) =>
+      console.error("[accessibility-engine] Failed to persist retry event:", err)
     );
     rawOutput = await callAi(true);
     if (!validateOutput(rawOutput)) {
