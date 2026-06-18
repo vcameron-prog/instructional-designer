@@ -620,7 +620,13 @@ export default function PdfConversion() {
           const parsed = JSON.parse(stored) as { title: string; reason: string }[];
           if (!cancelled && parsed.length > 0) {
             setManualFixSummary(parsed);
-            apiRequest("PUT", `/api/conversions/${numericId}/manual-fixes`, { items: parsed }).catch(() => {});
+            apiRequest("PUT", `/api/conversions/${numericId}/manual-fixes`, { items: parsed }).catch(() => {
+              toast({
+                title: "Notes not saved to server",
+                description: "Your accessibility notes are stored locally but could not be synced to the server. They may not be available on other devices.",
+                variant: "destructive",
+              });
+            });
           }
         }
       } catch {}
@@ -654,7 +660,13 @@ export default function PdfConversion() {
         localStorage.setItem(manualFixStorageKey, JSON.stringify(manualFixSummary));
       } catch {}
     }
-    apiRequest("PUT", `/api/conversions/${numericId}/manual-fixes`, { items: manualFixSummary }).catch(() => {});
+    apiRequest("PUT", `/api/conversions/${numericId}/manual-fixes`, { items: manualFixSummary }).catch(() => {
+      toast({
+        title: "Notes not saved to server",
+        description: "Your accessibility notes are stored locally but could not be synced to the server. They may not be available on other devices.",
+        variant: "destructive",
+      });
+    });
   }, [manualFixSummary, manualFixStorageKey, numericId]);
 
   useEffect(() => {
