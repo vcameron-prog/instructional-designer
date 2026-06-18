@@ -1879,7 +1879,7 @@ export default function ResultPage() {
                         setCaptionTexts(updated);
                       }}
                       placeholder="e.g., Weekly assignment schedule"
-                      onKeyDown={(e) => { if (e.key === "Enter" && index === captionTexts.length - 1 && captionTexts.every((t) => t.trim()) && !captionTexts.some((t) => t.trim().toLowerCase() === "table summary")) setCaptionStep("preview"); }}
+                      onKeyDown={(e) => { if (e.key === "Enter" && index === captionTexts.length - 1 && captionTexts.every((t) => t.trim()) && !captionTexts.some((t) => t.trim().toLowerCase() === "table summary") && (() => { const g: Record<string, number> = {}; for (const t of captionTexts) { const k = t.trim().toLowerCase(); g[k] = (g[k] ?? 0) + 1; if (g[k] > 1) return false; } return true; })()) setCaptionStep("preview"); }}
                       data-testid={`input-caption-text-${index}`}
                       autoFocus={index === 0}
                     />
@@ -1923,8 +1923,8 @@ export default function ResultPage() {
                     <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
                     <span>
                       {dupes.length === 1
-                        ? `Tables ${dupes[0].map((n) => `#${n}`).join(" and ")} share the same caption. Each caption should uniquely describe its table.`
-                        : `${dupes.length} groups of tables share duplicate captions (${dupes.map((g) => g.map((n) => `#${n}`).join(" & ")).join("; ")}). Each caption should uniquely describe its table.`}
+                        ? `Tables ${dupes[0].map((n) => `#${n}`).join(" and ")} share the same caption. Give each table a unique description to enable the Preview button.`
+                        : `${dupes.length} groups of tables share duplicate captions (${dupes.map((g) => g.map((n) => `#${n}`).join(" & ")).join("; ")}). Give each table a unique description to enable the Preview button.`}
                     </span>
                   </div>
                 );
@@ -1955,7 +1955,7 @@ export default function ResultPage() {
                 <Button
                   onClick={captionEditMode === "edit" ? handleApplyCaptionFix : () => setCaptionStep("preview")}
                   className="gap-2"
-                  disabled={captionEditMode === "edit" ? (!captionEditText.trim() || captionEditText.trim().toLowerCase() === "table summary") : (captionTexts.some((t) => !t.trim()) || captionTexts.some((t) => t.trim().toLowerCase() === "table summary"))}
+                  disabled={captionEditMode === "edit" ? (!captionEditText.trim() || captionEditText.trim().toLowerCase() === "table summary") : (captionTexts.some((t) => !t.trim()) || captionTexts.some((t) => t.trim().toLowerCase() === "table summary") || (() => { const g: Record<string, number> = {}; for (const t of captionTexts) { const k = t.trim().toLowerCase(); if (!k) continue; g[k] = (g[k] ?? 0) + 1; if (g[k] > 1) return true; } return false; })())}
                   data-testid="button-apply-caption"
                 >
                   <CheckCircle className="w-4 h-4" />
