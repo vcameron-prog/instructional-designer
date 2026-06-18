@@ -3098,9 +3098,21 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           return res.status(404).json({ error: "Course not found" });
         }
 
-        const contentItems = await storage.getContentByCourse(courseId);
+        let contentItems = await storage.getContentByCourse(courseId);
         if (contentItems.length === 0) {
           return res.status(404).json({ error: "No generated content found for this course" });
+        }
+
+        const idsParam = req.query.ids as string | undefined;
+        if (idsParam) {
+          const requestedIds = idsParam.split(",").map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+          if (requestedIds.length > 0) {
+            contentItems = contentItems.filter(item => requestedIds.includes(item.id));
+          }
+        }
+
+        if (contentItems.length === 0) {
+          return res.status(404).json({ error: "No matching content found for export" });
         }
 
         const JSZip = (await import("jszip")).default;

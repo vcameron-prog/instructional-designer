@@ -4,6 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowLeft, BookOpen, Calendar, FileText, Layout, CheckCircle, Sparkles, Target, ArrowRight, FolderOpen, Loader2, Scale, ShieldCheck, Link2, HelpCircle, GraduationCap, Library, Eye, Wrench, Pencil, Bot, AlertTriangle, Download } from "lucide-react";
 import { TOOLS } from "@/lib/constants";
 import { PoweredByFooter } from "@/components/powered-by-footer";
@@ -37,13 +39,31 @@ export default function ToolSelection() {
   const courseId = params.id ? parseInt(params.id) : undefined;
   const [, navigate] = useLocation();
   const [isExporting, setIsExporting] = useState(false);
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   useEffect(() => { window.scrollTo(0, 0); }, []);
 
-  const handleExportAll = () => {
-    if (!courseId || isExporting) return;
+  const openExportModal = (contents: GeneratedContent[]) => {
+    setSelectedIds(new Set(contents.map(c => c.id)));
+    setExportModalOpen(true);
+  };
+
+  const toggleId = (id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleDownloadSelected = () => {
+    if (!courseId || isExporting || selectedIds.size === 0) return;
     setIsExporting(true);
+    setExportModalOpen(false);
+    const ids = Array.from(selectedIds).join(",");
     const a = document.createElement("a");
-    a.href = `/api/courses/${courseId}/export`;
+    a.href = `/api/courses/${courseId}/export?ids=${ids}`;
     a.style.display = "none";
     document.body.appendChild(a);
     a.click();
@@ -150,15 +170,15 @@ export default function ToolSelection() {
                 <TooltipTrigger asChild>
                   <span
                     tabIndex={generatedContents.length === 0 ? 0 : undefined}
-                    aria-label={generatedContents.length === 0 ? "Export all — no materials yet" : undefined}
+                    aria-label={generatedContents.length === 0 ? "Export — no materials yet" : undefined}
                     style={{ display: "inline-flex" }}
                   >
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={handleExportAll}
+                      onClick={() => openExportModal(generatedContents)}
                       disabled={generatedContents.length === 0 || isExporting}
-                      aria-label="Export all course materials as a ZIP file"
+                      aria-label="Choose course materials to export as a ZIP file"
                       data-testid="button-export-all"
                       style={generatedContents.length === 0 ? { pointerEvents: "none" } : undefined}
                     >
@@ -167,14 +187,14 @@ export default function ToolSelection() {
                       ) : (
                         <Download className="w-4 h-4 mr-1.5" aria-hidden="true" />
                       )}
-                      {isExporting ? "Preparing…" : "Export all"}
+                      {isExporting ? "Preparing…" : "Export"}
                     </Button>
                   </span>
                 </TooltipTrigger>
                 <TooltipContent>
                   {generatedContents.length === 0
-                    ? "Generate some course materials first to enable bulk export."
-                    : "Download all materials as a ZIP of .docx files"}
+                    ? "Generate some course materials first to enable export."
+                    : "Choose which materials to download as a ZIP of .docx files"}
                 </TooltipContent>
               </Tooltip>
               <HeaderControls variant="light" showHome={true} />
@@ -409,6 +429,93 @@ export default function ToolSelection() {
         </div>
       </div>
       <PoweredByFooter />
+
+      <Dialog open={exportModalOpen} onOpenChange={setExportModalOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Choose materials to export</DialogTitle>
+            <DialogDescription>
+              Select the materials you want to include in the ZIP download. All items are selected by default.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="mt-2 space-y-2 max-h-80 overflow-y-auto pr-1" role="group" aria-label="Materials to export">
+            {generatedContents.map((content) => {
+              const tool = TOOLS.find(t => t.id === content.toolType);
+              const Icon = tool ? iconMap[tool.icon] : FileText;
+              const checked = selectedIds.has(content.id);
+              return (
+                <label
+                  key={content.id}
+                  className="flex items-center gap-3 rounded-lg border p-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                  data-testid={`export-item-${content.id}`}
+                >
+                  <Checkbox
+                    checked={checked}
+                    onCheckedChange={() => toggleId(content.id)}
+                    id={`export-check-${content.id}`}
+                    data-testid={`checkbox-export-${content.id}`}
+                    aria-label={`Include ${content.toolName}`}
+                  />
+                  <div className="w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <Icon className="w-4 h-4 text-primary" aria-hidden="true" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{content.toolName}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(content.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                </label>
+              );
+            })}
+          </div>
+
+          <div className="flex items-center justify-between pt-2 border-t text-sm text-muted-foreground">
+            <span data-testid="text-selected-count">
+              {selectedIds.size} of {generatedContents.length} selected
+            </span>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="underline underline-offset-2 hover:text-foreground transition-colors"
+                onClick={() => setSelectedIds(new Set(generatedContents.map(c => c.id)))}
+                data-testid="button-select-all"
+              >
+                Select all
+              </button>
+              <span aria-hidden="true">·</span>
+              <button
+                type="button"
+                className="underline underline-offset-2 hover:text-foreground transition-colors"
+                onClick={() => setSelectedIds(new Set())}
+                data-testid="button-deselect-all"
+              >
+                Deselect all
+              </button>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setExportModalOpen(false)}
+              data-testid="button-cancel-export"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDownloadSelected}
+              disabled={selectedIds.size === 0}
+              data-testid="button-download-selected"
+              aria-label={selectedIds.size === 0 ? "Select at least one item to download" : `Download ${selectedIds.size} selected item${selectedIds.size === 1 ? "" : "s"}`}
+            >
+              <Download className="w-4 h-4 mr-1.5" aria-hidden="true" />
+              Download selected ({selectedIds.size})
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }
