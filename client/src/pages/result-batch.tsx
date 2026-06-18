@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import ReactMarkdown, { type Components } from "react-markdown";
@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Dialog,
   DialogContent,
@@ -232,6 +233,99 @@ const checkAccessibility = (content: string): AccessibilityIssue[] => {
   return issues;
 };
 
+type DiffLine = { type: "unchanged" | "removed" | "added"; text: string };
+type WordSpan = { text: string; changed: boolean };
+
+function tokenize(text: string): string[] {
+  return text.split(/(\s+)/).filter((t) => t.length > 0);
+}
+
+function computeWordDiff(removed: string, added: string): { removedSpans: WordSpan[]; addedSpans: WordSpan[] } {
+  const a = tokenize(removed);
+  const b = tokenize(added);
+  const m = a.length, n = b.length;
+  const dp: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] + 1 : Math.max(dp[i - 1][j], dp[i][j - 1]);
+    }
+  }
+  const removedSpans: WordSpan[] = [];
+  const addedSpans: WordSpan[] = [];
+  let i = m, j = n;
+  const ops: Array<{ op: "same" | "remove" | "add"; text: string }> = [];
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && a[i - 1] === b[j - 1]) {
+      ops.unshift({ op: "same", text: a[i - 1] });
+      i--; j--;
+    } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+      ops.unshift({ op: "add", text: b[j - 1] });
+      j--;
+    } else {
+      ops.unshift({ op: "remove", text: a[i - 1] });
+      i--;
+    }
+  }
+  for (const op of ops) {
+    if (op.op === "same") {
+      removedSpans.push({ text: op.text, changed: false });
+      addedSpans.push({ text: op.text, changed: false });
+    } else if (op.op === "remove") {
+      removedSpans.push({ text: op.text, changed: true });
+    } else {
+      addedSpans.push({ text: op.text, changed: true });
+    }
+  }
+  return { removedSpans, addedSpans };
+}
+
+function computeLineDiff(before: string, after: string): DiffLine[] {
+  const a = before.split("\n");
+  const b = after.split("\n");
+  const m = a.length, n = b.length;
+  const dp: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] + 1 : Math.max(dp[i - 1][j], dp[i][j - 1]);
+    }
+  }
+  const result: DiffLine[] = [];
+  let i = m, j = n;
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && a[i - 1] === b[j - 1]) {
+      result.unshift({ type: "unchanged", text: a[i - 1] });
+      i--; j--;
+    } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+      result.unshift({ type: "added", text: b[j - 1] });
+      j--;
+    } else {
+      result.unshift({ type: "removed", text: a[i - 1] });
+      i--;
+    }
+  }
+  return result;
+}
+
+function buildDiffHunks(diff: DiffLine[], context = 2): Array<DiffLine | "ellipsis"> {
+  const changed = new Set<number>();
+  diff.forEach((line, idx) => { if (line.type !== "unchanged") changed.add(idx); });
+  if (changed.size === 0) return [];
+  const visible = new Set<number>();
+  changed.forEach((idx) => {
+    for (let k = Math.max(0, idx - context); k <= Math.min(diff.length - 1, idx + context); k++) {
+      visible.add(k);
+    }
+  });
+  const result: Array<DiffLine | "ellipsis"> = [];
+  let prev = -1;
+  Array.from(visible).sort((a, b) => a - b).forEach((idx) => {
+    if (prev !== -1 && idx > prev + 1) result.push("ellipsis");
+    result.push(diff[idx]);
+    prev = idx;
+  });
+  return result;
+}
+
 interface ContentPanelProps {
   label: string;
   contentId: number;
@@ -248,6 +342,11 @@ function ContentPanel({ label, contentId, badgeColor, testIdPrefix, courseId }: 
 
   const [showAccessibility, setShowAccessibility] = useState(false);
   const [fixingIssue, setFixingIssue] = useState<string | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewFixType, setPreviewFixType] = useState<string | null>(null);
+  const [previewBefore, setPreviewBefore] = useState("");
+  const [previewAfter, setPreviewAfter] = useState("");
+  const [skipPreview, setSkipPreview] = useState(() => localStorage.getItem("a11y-skip-preview") === "true");
 
   const [refinementOpen, setRefinementOpen] = useState(false);
   const [refinementRequest, setRefinementRequest] = useState("");
@@ -278,6 +377,43 @@ function ContentPanel({ label, contentId, badgeColor, testIdPrefix, courseId }: 
       toast({ title: "Fix failed", description: error.message, variant: "destructive" });
     },
   });
+
+  const previewFixMutation = useMutation({
+    mutationFn: async (fixType: string) => {
+      const response = await apiRequest("POST", `/api/content/${contentId}/preview-fix`, { fixType });
+      return response.json() as Promise<{ before: string; after: string }>;
+    },
+    onSuccess: (data, fixType) => {
+      setPreviewBefore(data.before);
+      setPreviewAfter(data.after);
+      setPreviewFixType(fixType);
+      setPreviewOpen(true);
+    },
+    onError: (error) => {
+      if (isSessionExpiredMessage(error.message)) return;
+      toast({ title: "Preview failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const handleToggleSkipPreview = (value: boolean) => {
+    setSkipPreview(value);
+    localStorage.setItem("a11y-skip-preview", value ? "true" : "false");
+  };
+
+  const handleFixThis = (fixType: string) => {
+    if (skipPreview) {
+      handleApplyFix(fixType);
+    } else {
+      setPreviewFixType(fixType);
+      previewFixMutation.mutate(fixType);
+    }
+  };
+
+  const handleConfirmFix = () => {
+    if (!previewFixType) return;
+    setPreviewOpen(false);
+    handleApplyFix(previewFixType);
+  };
 
   const refineMutation = useMutation({
     mutationFn: async () => {
@@ -555,6 +691,24 @@ function ContentPanel({ label, contentId, badgeColor, testIdPrefix, courseId }: 
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <CardContent className="pt-0 px-4 pb-4 space-y-3">
+                    {accessibilityIssues.length > 0 && (
+                      <div className="flex items-center gap-2 pb-1 border-b border-border/50">
+                        <input
+                          id={`skip-preview-toggle-${testIdPrefix}`}
+                          type="checkbox"
+                          className="w-4 h-4 accent-primary cursor-pointer"
+                          checked={skipPreview}
+                          onChange={(e) => handleToggleSkipPreview(e.target.checked)}
+                          data-testid={`checkbox-skip-preview-${testIdPrefix}`}
+                        />
+                        <label
+                          htmlFor={`skip-preview-toggle-${testIdPrefix}`}
+                          className="text-sm text-muted-foreground cursor-pointer select-none"
+                        >
+                          Apply fixes directly without previewing
+                        </label>
+                      </div>
+                    )}
                     {accessibilityIssues.length === 0 ? (
                       <p className="text-sm text-muted-foreground">No accessibility issues detected.</p>
                     ) : (
@@ -580,20 +734,34 @@ function ContentPanel({ label, contentId, badgeColor, testIdPrefix, courseId }: 
                                   {issue.type}
                                 </Badge>
                                 {issue.fixType && contentId && (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="gap-1.5 text-xs h-7 px-2"
-                                    disabled={fixingIssue === issue.fixType || applyFixMutation.isPending}
-                                    onClick={() => handleApplyFix(issue.fixType!)}
-                                    data-testid={`button-fix-${testIdPrefix}-${issue.fixType}`}
-                                  >
-                                    {fixingIssue === issue.fixType ? (
-                                      <><Loader2 className="w-3 h-3 animate-spin" />Fixing…</>
-                                    ) : (
-                                      <><CheckCircle className="w-3 h-3" />Fix this</>
+                                  <div className="flex items-center gap-1.5">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="gap-1.5 text-xs h-7 px-2"
+                                      disabled={fixingIssue === issue.fixType || applyFixMutation.isPending || previewFixMutation.isPending}
+                                      onClick={() => handleFixThis(issue.fixType!)}
+                                      data-testid={`button-fix-${testIdPrefix}-${issue.fixType}`}
+                                    >
+                                      {fixingIssue === issue.fixType ? (
+                                        <><Loader2 className="w-3 h-3 animate-spin" />Fixing…</>
+                                      ) : previewFixMutation.isPending && previewFixType === issue.fixType ? (
+                                        <><Loader2 className="w-3 h-3 animate-spin" />Loading…</>
+                                      ) : (
+                                        <><CheckCircle className="w-3 h-3" />Fix this</>
+                                      )}
+                                    </Button>
+                                    {!skipPreview && (
+                                      <button
+                                        className="text-[10px] text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors leading-none"
+                                        disabled={fixingIssue !== null || applyFixMutation.isPending || previewFixMutation.isPending}
+                                        onClick={() => handleApplyFix(issue.fixType!)}
+                                        data-testid={`button-fix-direct-${testIdPrefix}-${issue.fixType}`}
+                                      >
+                                        Apply directly
+                                      </button>
                                     )}
-                                  </Button>
+                                  </div>
                                 )}
                               </div>
                               <p className="text-sm font-medium">{issue.message}</p>
@@ -622,6 +790,119 @@ function ContentPanel({ label, contentId, badgeColor, testIdPrefix, courseId }: 
           </>
         )}
       </CardContent>
+
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-2xl" data-testid={`dialog-fix-preview-${testIdPrefix}`}>
+          <DialogHeader>
+            <DialogTitle>Preview Fix</DialogTitle>
+            <DialogDescription>
+              Review what will change before applying the fix. Lines in{" "}
+              <span className="text-red-600 dark:text-red-400 font-medium">red</span> will be removed and lines in{" "}
+              <span className="text-green-600 dark:text-green-400 font-medium">green</span> will be added.
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="h-80 rounded border bg-muted/30 p-3 font-mono text-xs leading-relaxed" data-testid={`diff-preview-scroll-${testIdPrefix}`}>
+            {(() => {
+              const diff = computeLineDiff(previewBefore, previewAfter);
+              const hunks = buildDiffHunks(diff);
+              if (hunks.length === 0) {
+                return <p className="text-muted-foreground italic">No changes would be made by this fix.</p>;
+              }
+              const elements: ReactNode[] = [];
+              let i2 = 0;
+              while (i2 < hunks.length) {
+                const item = hunks[i2];
+                if (item === "ellipsis") {
+                  elements.push(
+                    <div key={i2} className="text-muted-foreground text-center py-0.5 select-none">···</div>
+                  );
+                  i2++;
+                  continue;
+                }
+                const next = hunks[i2 + 1];
+                const isPair =
+                  item.type === "removed" &&
+                  next !== undefined &&
+                  next !== "ellipsis" &&
+                  next.type === "added";
+                if (isPair) {
+                  const nextLine = next as DiffLine;
+                  const { removedSpans, addedSpans } = computeWordDiff(item.text, nextLine.text);
+                  elements.push(
+                    <div key={i2} className="bg-red-100 dark:bg-red-950 text-red-800 dark:text-red-200 px-2 py-0.5 rounded-sm whitespace-pre-wrap break-all">
+                      <span className="select-none mr-1 opacity-60">−</span>
+                      {removedSpans.map((s, si) =>
+                        s.changed
+                          ? <mark key={si} className="bg-red-300 dark:bg-red-700 text-red-900 dark:text-red-100 rounded-sm px-0.5">{s.text}</mark>
+                          : <span key={si}>{s.text}</span>
+                      )}
+                    </div>
+                  );
+                  elements.push(
+                    <div key={i2 + 1} className="bg-green-100 dark:bg-green-950 text-green-800 dark:text-green-200 px-2 py-0.5 rounded-sm whitespace-pre-wrap break-all">
+                      <span className="select-none mr-1 opacity-60">+</span>
+                      {addedSpans.map((s, si) =>
+                        s.changed
+                          ? <mark key={si} className="bg-green-300 dark:bg-green-700 text-green-900 dark:text-green-100 rounded-sm px-0.5">{s.text}</mark>
+                          : <span key={si}>{s.text}</span>
+                      )}
+                    </div>
+                  );
+                  i2 += 2;
+                  continue;
+                }
+                if (item.type === "removed") {
+                  elements.push(
+                    <div key={i2} className="bg-red-100 dark:bg-red-950 text-red-800 dark:text-red-200 px-2 py-0.5 rounded-sm whitespace-pre-wrap break-all">
+                      <span className="select-none mr-1 opacity-60">−</span>{item.text || " "}
+                    </div>
+                  );
+                } else if (item.type === "added") {
+                  elements.push(
+                    <div key={i2} className="bg-green-100 dark:bg-green-950 text-green-800 dark:text-green-200 px-2 py-0.5 rounded-sm whitespace-pre-wrap break-all">
+                      <span className="select-none mr-1 opacity-60">+</span>{item.text || " "}
+                    </div>
+                  );
+                } else {
+                  elements.push(
+                    <div key={i2} className="text-muted-foreground px-2 py-0.5 whitespace-pre-wrap break-all">
+                      <span className="select-none mr-1 opacity-40"> </span>{item.text || " "}
+                    </div>
+                  );
+                }
+                i2++;
+              }
+              return elements;
+            })()}
+          </ScrollArea>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="ghost"
+              onClick={() => setPreviewOpen(false)}
+              data-testid={`button-preview-cancel-${testIdPrefix}`}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmFix}
+              disabled={fixingIssue !== null || applyFixMutation.isPending}
+              data-testid={`button-preview-confirm-${testIdPrefix}`}
+            >
+              {applyFixMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin mr-1.5" />
+                  Applying…
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-4 h-4 mr-1.5" />
+                  Apply fix
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
