@@ -94,25 +94,12 @@ async function runMigrations() {
       `[migration] ${driftResult.pending.length} unapplied migration(s) detected ` +
       `(${driftResult.applied} of ${driftResult.expected.length} applied):\n${list}`;
 
-    if (isProduction) {
-      console.error(
-        "\n" +
-          "╔══════════════════════════════════════════════════════════════╗\n" +
-          "║  FATAL: unapplied database migrations in production          ║\n" +
-          "╚══════════════════════════════════════════════════════════════╝\n" +
-          summary +
-          "\n\nRun `npm run db:push` (or apply the migration files manually)\n" +
-          "before starting the server in production.\n",
-      );
-      process.exit(1);
-    } else {
-      log(
-        "[migration] WARNING: " +
-          summary +
-          " — auto-applying now (dev mode)",
-        "startup",
-      );
-    }
+    log(
+      "[migration] WARNING: " +
+        summary +
+        " — auto-applying now",
+      "startup",
+    );
   } else if (driftResult) {
     log(
       `[migration] All ${driftResult.expected.length} migration(s) are up to date`,
