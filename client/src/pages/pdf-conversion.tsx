@@ -378,6 +378,7 @@ export default function PdfConversion() {
         queryKey: ["/api/conversions", numericId],
       });
       if (data?.noFixReason) {
+        hadNoFixReasonRef.current.add(variables.issueIndex);
         setNoFixReasons(prev => ({ ...prev, [variables.issueIndex]: data.noFixReason }));
         const noFixIssueSummary = variables.issueTitle ? `'${variables.issueTitle}': ` : "";
         toast({
@@ -387,7 +388,8 @@ export default function PdfConversion() {
         });
         return;
       }
-      const hadPreviousNoFixReason = !!noFixReasons[variables.issueIndex];
+      const hadPreviousNoFixReason = hadNoFixReasonRef.current.has(variables.issueIndex);
+      hadNoFixReasonRef.current.delete(variables.issueIndex);
       setNoFixReasons(prev => {
         const next = { ...prev };
         delete next[variables.issueIndex];
@@ -486,6 +488,7 @@ export default function PdfConversion() {
   const [fixingIndex, setFixingIndex] = useState<number | null>(null);
   const [fixError, setFixError] = useState<string | null>(null);
   const [noFixReasons, setNoFixReasons] = useState<Record<number, string>>({});
+  const hadNoFixReasonRef = useRef<Set<number>>(new Set());
   const [fixAllProgress, setFixAllProgress] = useState<{ current: number; total: number } | null>(null);
   const [isFixingAll, setIsFixingAll] = useState(false);
   const [isFixingAllAria, setIsFixingAllAria] = useState(false);
@@ -2756,7 +2759,7 @@ export default function PdfConversion() {
                                 <span className="mt-0.5 flex-shrink-0 inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-800/60 border border-amber-300 dark:border-amber-600 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">
                                   Manual fix needed
                                 </span>
-                                <div className="flex flex-col gap-0.5">
+                                <div className="flex flex-col gap-0.5 flex-1">
                                   {issue.title && (
                                     <p className="text-xs font-semibold text-amber-800 dark:text-amber-200">
                                       {issue.title}
@@ -2766,6 +2769,21 @@ export default function PdfConversion() {
                                     {noFixReasons[i]}
                                   </p>
                                 </div>
+                                <button
+                                  onClick={() =>
+                                    setNoFixReasons((prev) => {
+                                      const next = { ...prev };
+                                      delete next[i];
+                                      return next;
+                                    })
+                                  }
+                                  className="flex-shrink-0 ml-1 p-0.5 rounded text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-800/60 transition-colors"
+                                  aria-label="Dismiss manual fix notice"
+                                  data-testid={`button-dismiss-no-fix-${i}`}
+                                  title="Dismiss"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
                               </div>
                             )}
                             {showAcceptForm === i && isFixable && (
