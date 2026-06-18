@@ -3640,6 +3640,32 @@ describe("applyAriaCheckboxRoleFix", () => {
     expect(result).toBe(`<input type="checkbox" aria-label="Plain text only">`);
     expect(result).not.toContain("<label");
   });
+
+  it("label-wrap output produces zero new accessibility warnings on rich content", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><main><h1>T</h1><div role="checkbox"><strong>Important</strong> option</div></main></body></html>`;
+    const fixed = applyAriaCheckboxRoleFix(html);
+    expect(fixed).toContain("<label><input");
+    const issues = runDeterministicChecks(fixed);
+    const newIssues = issues.filter(
+      (i) =>
+        (i.status === "fail" || i.status === "warning") &&
+        i.title !== "ARIA Checkbox Role on Non-Input Element",
+    );
+    expect(newIssues).toHaveLength(0);
+  });
+
+  it("label-wrap output produces zero new accessibility warnings with multiple rich-content checkboxes", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><main><h1>T</h1><div role="checkbox"><em>Choice</em> A</div><div role="checkbox"><strong>Choice</strong> B</div></main></body></html>`;
+    const fixed = applyAriaCheckboxRoleFix(html);
+    expect(fixed).toContain("<label><input");
+    const issues = runDeterministicChecks(fixed);
+    const newIssues = issues.filter(
+      (i) =>
+        (i.status === "fail" || i.status === "warning") &&
+        i.title !== "ARIA Checkbox Role on Non-Input Element",
+    );
+    expect(newIssues).toHaveLength(0);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -3707,6 +3733,32 @@ describe("applyAriaRadioRoleFix", () => {
     const result = applyAriaRadioRoleFix(html);
     expect(result).toBe(`<input type="radio" aria-label="Plain text only">`);
     expect(result).not.toContain("<label");
+  });
+
+  it("label-wrap output produces zero new accessibility warnings on rich content", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><main><h1>T</h1><div role="radio"><em>Option</em> A</div></main></body></html>`;
+    const fixed = applyAriaRadioRoleFix(html);
+    expect(fixed).toContain("<label><input");
+    const issues = runDeterministicChecks(fixed);
+    const newIssues = issues.filter(
+      (i) =>
+        (i.status === "fail" || i.status === "warning") &&
+        i.title !== "ARIA Radio Role on Non-Input Element",
+    );
+    expect(newIssues).toHaveLength(0);
+  });
+
+  it("label-wrap output produces zero new accessibility warnings with multiple rich-content radios", () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><main><h1>T</h1><div role="radio"><strong>Yes</strong> please</div><div role="radio"><strong>No</strong> thanks</div></main></body></html>`;
+    const fixed = applyAriaRadioRoleFix(html);
+    expect(fixed).toContain("<label><input");
+    const issues = runDeterministicChecks(fixed);
+    const newIssues = issues.filter(
+      (i) =>
+        (i.status === "fail" || i.status === "warning") &&
+        i.title !== "ARIA Radio Role on Non-Input Element",
+    );
+    expect(newIssues).toHaveLength(0);
   });
 });
 
