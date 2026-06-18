@@ -71,17 +71,7 @@ import {
   Tooltip as RechartsTooltip,
   Legend,
 } from "recharts";
-import { EXTRACTION_ERROR_MESSAGES, EXTRACTION_ERROR_FALLBACK } from "@shared/extraction-error-messages";
-
-const EXTRACTION_ERROR_SET = new Set<string>([
-  ...Object.values(EXTRACTION_ERROR_MESSAGES),
-  EXTRACTION_ERROR_FALLBACK,
-]);
-
-function isExtractionError(errorMessage: string | null | undefined): boolean {
-  if (!errorMessage) return false;
-  return EXTRACTION_ERROR_SET.has(errorMessage);
-}
+import { isExtractionError } from "@shared/extraction-error-messages";
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 B";

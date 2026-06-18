@@ -18,3 +18,13 @@ export const EXTRACTION_ERROR_MESSAGES: Record<string, string> = {
 
 export const EXTRACTION_ERROR_FALLBACK =
   "This file could not be read. It may be corrupted or in an unsupported format.";
+
+const EXTRACTION_ERROR_SET = new Set<string>([
+  ...Object.values(EXTRACTION_ERROR_MESSAGES),
+  EXTRACTION_ERROR_FALLBACK,
+]);
+
+export function isExtractionError(errorMessage: string | null | undefined): boolean {
+  if (!errorMessage) return false;
+  return EXTRACTION_ERROR_SET.has(errorMessage);
+}
