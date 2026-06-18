@@ -28,9 +28,10 @@ function nodeTextContent(node: Element): string {
 function extractTextFromContentXml(
   doc: Document,
   format: "odt" | "ods" | "odp",
-): { paragraphs: string[]; tables: ExtractedTable[] } {
+): { paragraphs: string[]; tables: ExtractedTable[]; slideCount: number } {
   const paragraphs: string[] = [];
   const tables: ExtractedTable[] = [];
+  let slideCount = 0;
 
   if (format === "ods") {
     // Spreadsheet: iterate sheets (table:table) → rows → cells
@@ -66,6 +67,7 @@ function extractTextFromContentXml(
     // Presentation: iterate draw:page elements (slides)
     const NS_DRAW = "urn:oasis:names:tc:opendocument:xmlns:drawing:1.0";
     const slides = getNodesByNS(doc as unknown as Document, NS_DRAW, "page");
+    slideCount = slides.length;
     slides.forEach((slide, slideIdx) => {
       const slideParts: string[] = [`--- Slide ${slideIdx + 1} ---`];
       const pNodes = getNodesByNS(slide, NS_TEXT, "p");
@@ -128,7 +130,7 @@ function extractTextFromContentXml(
     }
   }
 
-  return { paragraphs, tables };
+  return { paragraphs, tables, slideCount };
 }
 
 export async function extractOdfContent(
@@ -146,7 +148,7 @@ export async function extractOdfContent(
   const parser = new DOMParser();
   const doc = parser.parseFromString(contentXml, "text/xml");
 
-  const { paragraphs, tables } = extractTextFromContentXml(doc as unknown as Document, format);
+  const { paragraphs, tables, slideCount } = extractTextFromContentXml(doc as unknown as Document, format);
 
   // Try to read metadata
   let title: string | undefined;
@@ -168,10 +170,12 @@ export async function extractOdfContent(
   const text = paragraphs.join("\n\n").trim();
   const lineCount = paragraphs.length;
   const estimatedPages = Math.max(1, Math.ceil(lineCount / 30));
+  // For ODP use the actual slide count; for other formats fall back to estimated pages.
+  const pageCount = format === "odp" ? Math.max(1, slideCount) : estimatedPages;
 
   return {
     text,
-    pageCount: estimatedPages,
+    pageCount,
     metadata: {
       ...(title ? { title } : {}),
       ...(author ? { author } : {}),

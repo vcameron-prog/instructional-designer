@@ -4324,6 +4324,59 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           }, TIMEOUT_MS);
         });
 
+        function buildExtractionSummary(
+          srcType: string,
+          extraction: { text: string; pageCount: number; tables: Array<{ rows: string[][] }> },
+          finalText: string,
+        ): string {
+          const fmt = (n: number, singular: string, plural?: string) =>
+            `${n.toLocaleString()} ${n === 1 ? singular : (plural ?? singular + "s")}`;
+
+          const wordCount = finalText.trim().split(/\s+/).filter(Boolean).length;
+          const tableCount = extraction.tables.length;
+          const pageCount = extraction.pageCount;
+          const tablePart = tableCount > 0 ? ` and ${fmt(tableCount, "table")}` : "";
+
+          if (srcType === "csv") {
+            const rows = extraction.tables[0]?.rows.length ?? 0;
+            const dataRows = Math.max(0, rows - 1);
+            return `Extracted ${fmt(dataRows, "data row")}${rows > 0 ? " (plus header)" : ""}. Generating accessible HTML…`;
+          }
+
+          if (srcType === "xlsx" || srcType === "google-sheet") {
+            const sheetCount = extraction.tables.length;
+            const totalRows = extraction.tables.reduce((sum, t) => sum + Math.max(0, t.rows.length - 1), 0);
+            const sheetPart = sheetCount > 1 ? ` across ${fmt(sheetCount, "sheet")}` : "";
+            return `Extracted ${fmt(totalRows, "data row")}${sheetPart}. Generating accessible HTML…`;
+          }
+
+          if (srcType === "ods") {
+            const sheetCount = extraction.tables.length;
+            const totalRows = extraction.tables.reduce((sum, t) => sum + Math.max(0, t.rows.length - 1), 0);
+            const sheetPart = sheetCount > 1 ? ` across ${fmt(sheetCount, "sheet")}` : "";
+            return `Extracted ${fmt(totalRows, "data row")}${sheetPart}. Generating accessible HTML…`;
+          }
+
+          if (srcType === "pptx" || srcType === "google-slide") {
+            return `Extracted ${fmt(pageCount, "slide")}${tablePart}. Generating accessible HTML…`;
+          }
+
+          if (srcType === "odp") {
+            return `Extracted ${fmt(pageCount, "slide")}${tablePart}. Generating accessible HTML…`;
+          }
+
+          if (srcType === "epub") {
+            return `Extracted ${fmt(wordCount, "word")} across ${fmt(pageCount, "chapter")}${tablePart}. Generating accessible HTML…`;
+          }
+
+          if (srcType === "pdf") {
+            const pagePart = pageCount > 1 ? ` across ${fmt(pageCount, "page")}` : "";
+            return `Extracted ${fmt(wordCount, "word")}${pagePart}${tablePart}. Generating accessible HTML…`;
+          }
+
+          return `Extracted ${fmt(wordCount, "word")}${tablePart}. Generating accessible HTML…`;
+        }
+
         const innerWorkPromise = (async () => {
           const { generateAccessibleDocument, evaluateOriginalDocument } =
             await import("./lib/accessibility-engine");
@@ -4443,6 +4496,8 @@ Please generate an IMPROVED version that incorporates the requested changes whil
 
           // Bail out before the most expensive AI step if already timed out.
           if (aborted) throw new Error("aborted");
+
+          await updateStatusMessage(buildExtractionSummary(srcType, extraction, finalText));
 
           await updateStatusMessage("Evaluating original document…");
           const originalReport = evaluateOriginalDocument(finalText);
