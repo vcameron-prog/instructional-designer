@@ -36,6 +36,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { HeaderControls } from "@/components/header-controls";
@@ -1812,49 +1818,71 @@ export default function PdfConversion() {
                             : "hover:border-primary/20",
                         )}
                       >
-                        <button
-                          onClick={() => toggleIssue(key)}
-                          className="w-full flex items-center gap-3 p-3 text-left"
-                          aria-expanded={isExpanded}
-                          data-testid={`issue-toggle-${i}`}
-                        >
-                          <StatusBadge status={issue.status} />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <h3 className="font-bold text-foreground text-sm">
-                                {issue.title}
-                              </h3>
-                              <span className="text-xs font-mono bg-secondary text-secondary-foreground px-2 py-0.5 rounded font-bold">
-                                WCAG {issue.criterion} ({issue.level})
-                              </span>
-                              {isFixable && (
-                                isInstant ? (
-                                  <span
-                                    className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800"
-                                    data-testid={`badge-fix-type-${i}`}
-                                  >
-                                    <Zap className="w-3 h-3" aria-hidden="true" />
-                                    Instant fix
-                                  </span>
-                                ) : (
-                                  <span
-                                    className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 border border-violet-200 dark:border-violet-800"
-                                    data-testid={`badge-fix-type-${i}`}
-                                  >
-                                    <Wand2 className="w-3 h-3" aria-hidden="true" />
-                                    AI-powered
-                                  </span>
-                                )
-                              )}
+                        <div className="flex items-center gap-2 pr-3">
+                          <button
+                            onClick={() => toggleIssue(key)}
+                            className="flex-1 flex items-center gap-3 p-3 text-left min-w-0"
+                            aria-expanded={isExpanded}
+                            data-testid={`issue-toggle-${i}`}
+                          >
+                            <StatusBadge status={issue.status} />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h3 className="font-bold text-foreground text-sm">
+                                  {issue.title}
+                                </h3>
+                                <span className="text-xs font-mono bg-secondary text-secondary-foreground px-2 py-0.5 rounded font-bold">
+                                  WCAG {issue.criterion} ({issue.level})
+                                </span>
+                              </div>
                             </div>
-                          </div>
-                          <ChevronDown
-                            className={cn(
-                              "w-4 h-4 text-muted-foreground transition-transform",
-                              isExpanded && "rotate-180",
-                            )}
-                          />
-                        </button>
+                            <ChevronDown
+                              className={cn(
+                                "w-4 h-4 text-muted-foreground transition-transform shrink-0",
+                                isExpanded && "rotate-180",
+                              )}
+                            />
+                          </button>
+                          {isFixable && (
+                            isInstant ? (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span
+                                      tabIndex={0}
+                                      className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 cursor-default shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                                      data-testid={`badge-fix-type-${i}`}
+                                    >
+                                      <Zap className="w-3 h-3" aria-hidden="true" />
+                                      Instant fix
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    Applied instantly using a built-in rule — no AI needed
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            ) : (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span
+                                      tabIndex={0}
+                                      className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 border border-violet-200 dark:border-violet-800 cursor-default shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+                                      data-testid={`badge-fix-type-${i}`}
+                                    >
+                                      <Wand2 className="w-3 h-3" aria-hidden="true" />
+                                      AI-powered
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    Fixed by Claude AI — takes a few seconds
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )
+                          )}
+                        </div>
 
                         {isExpanded && (
                           <div className="px-3 pb-3 space-y-3 border-t pt-3">
