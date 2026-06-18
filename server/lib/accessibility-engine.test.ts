@@ -181,6 +181,13 @@ describe("runDeterministicChecks", () => {
       expect(altCheck!.status).toBe("fail");
     });
 
+    it("passes when an img has a backtick-quoted attribute before alt", () => {
+      const html = `<html lang="en"><body><img class=\`hero\` src="photo.jpg" alt="A cat"></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const altCheck = issues.find((i) => i.criterion === "1.1.1");
+      expect(altCheck!.status).toBe("pass");
+    });
+
     it("fails when some images are missing alt and reports the count and filenames", () => {
       const html = `<html lang="en"><body>
         <img src="a.jpg" alt="Image A">

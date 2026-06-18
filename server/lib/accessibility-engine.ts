@@ -39,7 +39,7 @@ function escapeRegex(s: string): string {
  *
  * Use as a string so it can be interpolated into `new RegExp(...)` calls.
  */
-const ATTR_PATTERN = "(?:[^>\"']|\"[^\"]*\"|'[^']*')*";
+const ATTR_PATTERN = "(?:[^>\"'`]|\"[^\"]*\"|'[^']*'|`[^`]*`)*";
 
 const anthropic = new Anthropic({
   apiKey: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
