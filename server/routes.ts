@@ -3036,7 +3036,10 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         const userId = getUserId(req) as string;
         const id = parseInt(req.params.id as string);
         if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
-        await storage.deleteSavedOutcome(id, userId);
+        const deleted = await storage.deleteSavedOutcome(id, userId);
+        if (deleted === 0) {
+          return res.status(404).json({ error: "Outcome not found" });
+        }
         res.status(204).send();
       } catch (error) {
         console.error("Error deleting saved outcome:", error);

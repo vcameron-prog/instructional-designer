@@ -6,8 +6,9 @@ import request from "supertest";
 // ---------------------------------------------------------------------------
 // Hoisted mocks
 // ---------------------------------------------------------------------------
-const { mockUpdateSavedOutcome, authPassesHolder } = vi.hoisted(() => ({
+const { mockUpdateSavedOutcome, mockDeleteSavedOutcome, authPassesHolder } = vi.hoisted(() => ({
   mockUpdateSavedOutcome: vi.fn(),
+  mockDeleteSavedOutcome: vi.fn(),
   authPassesHolder: { value: true },
 }));
 
@@ -19,7 +20,7 @@ vi.mock("./storage", () => ({
     updateSavedOutcome: mockUpdateSavedOutcome,
     getSavedOutcomes: vi.fn(),
     createSavedOutcome: vi.fn(),
-    deleteSavedOutcome: vi.fn(),
+    deleteSavedOutcome: mockDeleteSavedOutcome,
     getAllCourses: vi.fn(),
     getCourse: vi.fn(),
     getContent: vi.fn(),
@@ -261,6 +262,75 @@ describe("PATCH /api/outcomes/:id", () => {
       .patch("/api/outcomes/7")
       .send({ text: "Valid text" })
       .expect(500);
+
+    expect(res.body).toHaveProperty("error");
+  });
+});
+
+describe("DELETE /api/outcomes/:id", () => {
+  let app: express.Express;
+
+  beforeEach(async () => {
+    vi.resetModules();
+    vi.clearAllMocks();
+    authPassesHolder.value = true;
+    app = await buildApp();
+  });
+
+  // -------------------------------------------------------------------------
+  // 204 — owner successfully deletes their outcome
+  // -------------------------------------------------------------------------
+  it("returns 204 when the authenticated owner deletes their outcome", async () => {
+    const outcomeId = 7;
+    mockDeleteSavedOutcome.mockResolvedValue(1);
+
+    await request(app).delete(`/api/outcomes/${outcomeId}`).expect(204);
+
+    expect(mockDeleteSavedOutcome).toHaveBeenCalledTimes(1);
+    expect(mockDeleteSavedOutcome).toHaveBeenCalledWith(outcomeId, "owner-user-123");
+  });
+
+  // -------------------------------------------------------------------------
+  // 404 — outcome not found or belongs to a different user
+  // -------------------------------------------------------------------------
+  it("returns 404 when storage reports 0 rows deleted (not found or not owned)", async () => {
+    const outcomeId = 99;
+    mockDeleteSavedOutcome.mockResolvedValue(0);
+
+    const res = await request(app).delete(`/api/outcomes/${outcomeId}`).expect(404);
+
+    expect(res.body).toHaveProperty("error");
+    expect(mockDeleteSavedOutcome).toHaveBeenCalledWith(outcomeId, "owner-user-123");
+  });
+
+  // -------------------------------------------------------------------------
+  // 401 — unauthenticated request
+  // -------------------------------------------------------------------------
+  it("returns 401 when the request has no authenticated session", async () => {
+    authPassesHolder.value = false;
+
+    await request(app).delete("/api/outcomes/7").expect(401);
+
+    expect(mockDeleteSavedOutcome).not.toHaveBeenCalled();
+  });
+
+  // -------------------------------------------------------------------------
+  // 400 — invalid :id param
+  // -------------------------------------------------------------------------
+  it("returns 400 when the :id param is not a valid integer", async () => {
+    const res = await request(app).delete("/api/outcomes/not-a-number").expect(400);
+
+    expect(res.body).toHaveProperty("error");
+    expect(mockDeleteSavedOutcome).not.toHaveBeenCalled();
+  });
+
+  // -------------------------------------------------------------------------
+  // 500 — unexpected storage failure
+  // -------------------------------------------------------------------------
+  it("returns 500 for an unexpected storage error", async () => {
+    mockDeleteSavedOutcome.mockRejectedValue(new Error("Database connection lost"));
+
+    const res = await request(app).delete("/api/outcomes/7").expect(500);
 
     expect(res.body).toHaveProperty("error");
   });

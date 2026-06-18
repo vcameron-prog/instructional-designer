@@ -71,7 +71,7 @@ export interface IStorage {
   getSavedOutcomes(userId: string): Promise<SavedOutcome[]>;
   createSavedOutcome(text: string, userId: string): Promise<SavedOutcome>;
   updateSavedOutcome(id: number, text: string, userId: string): Promise<SavedOutcome>;
-  deleteSavedOutcome(id: number, userId: string): Promise<void>;
+  deleteSavedOutcome(id: number, userId: string): Promise<number>;
 
   // Manual Fix Items (per conversion)
   getManualFixItems(id: number): Promise<{ title: string; reason: string }[] | null>;
@@ -302,8 +302,12 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
-  async deleteSavedOutcome(id: number, userId: string): Promise<void> {
-    await db.delete(savedOutcomes).where(and(eq(savedOutcomes.id, id), eq(savedOutcomes.userId, userId)));
+  async deleteSavedOutcome(id: number, userId: string): Promise<number> {
+    const rows = await db
+      .delete(savedOutcomes)
+      .where(and(eq(savedOutcomes.id, id), eq(savedOutcomes.userId, userId)))
+      .returning({ id: savedOutcomes.id });
+    return rows.length;
   }
 
   // Tool Usage (user-scoped via course ownership)
