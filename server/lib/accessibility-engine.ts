@@ -772,10 +772,12 @@ export function runDeterministicChecks(html: string): ComplianceIssue[] {
     return tag !== "a";
   });
   if (nonAnchorsWithLinkRole.length > 0) {
-    const tagList = nonAnchorsWithLinkRole
-      .slice(0, 5)
-      .map((el) => `<${el.tagName?.toLowerCase()}>`)
-      .join(", ");
+    const linkTagCounts: Record<string, number> = {};
+    nonAnchorsWithLinkRole.forEach((el) => {
+      const tag = `<${el.tagName?.toLowerCase()}>`;
+      linkTagCounts[tag] = (linkTagCounts[tag] ?? 0) + 1;
+    });
+    const tagList = Object.keys(linkTagCounts).slice(0, 5).join(", ");
     issues.push({
       criterion: "4.1.2",
       title: "ARIA Link Role on Non-Anchor Element",
@@ -783,6 +785,7 @@ export function runDeterministicChecks(html: string): ComplianceIssue[] {
       status: "warning",
       description: "Using role=\"link\" on a non-anchor element (e.g. <div> or <span>) is a misuse of ARIA. Use a native <a> element with an href attribute instead.",
       details: `Found ${nonAnchorsWithLinkRole.length} element(s) with role="link" that are not native anchor elements (e.g. ${tagList}). Replace them with <a href="..."> for built-in keyboard and accessibility support.`,
+      tagCounts: linkTagCounts,
     });
   }
 
