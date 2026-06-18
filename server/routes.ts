@@ -2527,6 +2527,30 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     },
   );
 
+  // Semester rollover — creates a new course from an existing one with a new semester, no content
+  app.post(
+    "/api/courses/:id/rollover",
+    isBsuAuthenticated,
+    async (req: Request, res: Response) => {
+      try {
+        const userId = getUserId(req) as string;
+        const id = parseInt(req.params.id as string);
+        const { semester } = z.object({ semester: z.string().min(1) }).parse(req.body);
+        const rolledOver = await storage.rolloverCourse(id, userId, semester);
+        if (!rolledOver) {
+          return res.status(404).json({ error: "Course not found" });
+        }
+        res.status(201).json(rolledOver);
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          return res.status(400).json({ error: "semester is required" });
+        }
+        console.error("Error rolling over course:", error);
+        res.status(500).json({ error: "Failed to create new semester course" });
+      }
+    },
+  );
+
   // Saved Content Library API (BSU faculty only)
   app.get(
     "/api/library",

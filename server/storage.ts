@@ -49,6 +49,9 @@ export interface IStorage {
   
   // Course Duplication (user-scoped)
   duplicateCourse(id: number, userId: string): Promise<Course | undefined>;
+
+  // Semester Rollover (user-scoped) — copies course setup only, no generated content
+  rolloverCourse(id: number, userId: string, semester: string): Promise<Course | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -228,6 +231,30 @@ export class DatabaseStorage implements IStorage {
     }, userId);
 
     return duplicated;
+  }
+
+  // Semester Rollover (user-scoped) — copies course setup only, no generated content or syllabus
+  async rolloverCourse(id: number, userId: string, semester: string): Promise<Course | undefined> {
+    const original = await this.getCourse(id, userId);
+    if (!original) return undefined;
+
+    const rolledOver = await this.createCourse({
+      courseName: original.courseName,
+      courseNumber: original.courseNumber,
+      sectionNumber: original.sectionNumber,
+      courseLevel: original.courseLevel,
+      credits: original.credits,
+      semester,
+      instructor: original.instructor,
+      department: original.department,
+      courseDescription: original.courseDescription,
+      learningOutcomes: original.learningOutcomes,
+      prerequisites: original.prerequisites,
+      existingSyllabus: null,
+      additionalContext: original.additionalContext,
+    }, userId);
+
+    return rolledOver;
   }
 }
 

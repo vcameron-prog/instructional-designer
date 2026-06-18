@@ -138,6 +138,21 @@ export default function LibraryPage() {
     },
   });
 
+  const rolloverCourseMutation = useMutation({
+    mutationFn: async ({ id, semester }: { id: number; semester: string }) => {
+      const res = await apiRequest("POST", `/api/courses/${id}/rollover`, { semester });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
+      navigate(`/course/${data.id}/tools`);
+      toast({ title: "New semester created", description: `${data.courseName} — ${data.semester}` });
+    },
+    onError: () => {
+      toast({ title: "Failed to create new semester course", variant: "destructive" });
+    },
+  });
+
   const copyToClipboard = async (content: string) => {
     await navigator.clipboard.writeText(content);
     toast({ title: "Copied to clipboard" });
@@ -214,7 +229,9 @@ export default function LibraryPage() {
                     onNavigate={() => navigate(`/course/${course.id}/tools`)}
                     onDuplicate={() => duplicateCourseMutation.mutate(course.id)}
                     onDelete={() => deleteCourseMutation.mutate(course.id)}
+                    onRollover={(semester) => rolloverCourseMutation.mutate({ id: course.id, semester })}
                     isDuplicating={duplicateCourseMutation.isPending}
+                    isRollingOver={rolloverCourseMutation.isPending}
                   />
                 ))
               )}

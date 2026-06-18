@@ -44,6 +44,24 @@ export function parseSemesterString(semester: string): { type: string; year: str
   return { type: "", year: "" };
 }
 
+export function getNextSemester(semester: string): { type: string; year: number } {
+  const { type, year } = parseSemesterString(semester);
+  const yearNum = parseInt(year) || new Date().getFullYear();
+
+  switch (type) {
+    case "Fall":
+      return { type: "Spring", year: yearNum + 1 };
+    case "Spring":
+      return { type: "Fall", year: yearNum };
+    case "Summer Session I":
+      return { type: "Summer Session II", year: yearNum };
+    case "Summer Session II":
+      return { type: "Fall", year: yearNum };
+    default:
+      return { type: "Fall", year: yearNum };
+  }
+}
+
 export const BSU_CALENDAR: Record<string, { startDate: string; endDate: string; breaks: { name: string; start: string; end: string }[] }> = {
   "Fall 2025": {
     startDate: "2025-09-03",
