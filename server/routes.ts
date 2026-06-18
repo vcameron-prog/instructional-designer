@@ -4736,7 +4736,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
             }
           } catch (extractErr: any) {
             console.error(`[conversion #${id}] extraction failed (${srcType}): ${extractErr.message}`);
-            const { EXTRACTION_ERROR_MESSAGES, EXTRACTION_ERROR_FALLBACK } = await import("./lib/extraction-error-messages");
+            const { EXTRACTION_ERROR_MESSAGES, EXTRACTION_ERROR_FALLBACK } = await import("../shared/extraction-error-messages");
             const friendly = EXTRACTION_ERROR_MESSAGES[srcType] ?? EXTRACTION_ERROR_FALLBACK;
             throw new Error(friendly);
           }

@@ -71,6 +71,17 @@ import {
   Tooltip as RechartsTooltip,
   Legend,
 } from "recharts";
+import { EXTRACTION_ERROR_MESSAGES, EXTRACTION_ERROR_FALLBACK } from "@shared/extraction-error-messages";
+
+const EXTRACTION_ERROR_SET = new Set<string>([
+  ...Object.values(EXTRACTION_ERROR_MESSAGES),
+  EXTRACTION_ERROR_FALLBACK,
+]);
+
+function isExtractionError(errorMessage: string | null | undefined): boolean {
+  if (!errorMessage) return false;
+  return EXTRACTION_ERROR_SET.has(errorMessage);
+}
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 B";
@@ -1776,7 +1787,11 @@ export default function PdfConversion() {
                 <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <h2 className="font-bold">Remediation Failed</h2>
+                    <h2 className="font-bold" data-testid="text-error-heading">
+                      {isExtractionError(conversion.errorMessage)
+                        ? "File Could Not Be Read"
+                        : "Remediation Failed"}
+                    </h2>
                     <button
                       type="button"
                       data-testid="button-copy-error"
