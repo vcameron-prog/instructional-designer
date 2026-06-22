@@ -594,3 +594,104 @@ describe("RichTextEditor — toolbar mark toggles", () => {
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// Link popover — "Remove link" button visibility and behavior
+// ---------------------------------------------------------------------------
+//
+// jsdom constraint recap (same as toolbar mark toggle tests above):
+//   - userEvent.click on the content area moves the TipTap cursor to pos 0
+//     (outside any block), so isActive() always returns false after a click.
+//   - We instead rely on TipTap's initial cursor placement (pos 1, inside the
+//     first node) which reflects the actual mark state of the content.
+//   - fireEvent.click is used for toolbar buttons so the editor remains focused
+//     and TipTap's focus() chain command hits its early-exit path.
+//   - The link popover is a controlled <Popover open={linkPopoverOpen}>.
+//     Opening it via the toolbar button sets linkPopoverOpen=true and evaluates
+//     editor.isActive("link") to derive linkIsActive.
+
+describe("RichTextEditor — link popover Remove link button", () => {
+  it("Remove link button (rte-link-remove) is present in popover when cursor is on an active link", async () => {
+    render(
+      <RichTextEditor
+        initialHtml='<p><a href="https://example.com">link text</a></p>'
+        onChange={() => {}}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("rich-text-editor")).toBeInTheDocument());
+
+    // TipTap's initial cursor sits at pos 1 — inside the link mark.
+    // Open the popover via fireEvent to keep editor focus intact.
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("rte-toolbar-add-link"));
+    });
+
+    // Popover is now open; rte-link-remove should be visible because
+    // openLinkPopover() found editor.isActive("link") === true.
+    await waitFor(() => {
+      expect(screen.getByTestId("rte-link-remove")).toBeInTheDocument();
+    });
+  });
+
+  it("clicking Remove link closes the popover and unsets the link", async () => {
+    const onChange = vi.fn();
+    render(
+      <RichTextEditor
+        initialHtml='<p><a href="https://example.com">link text</a></p>'
+        onChange={onChange}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("rich-text-editor")).toBeInTheDocument());
+
+    // Open popover with cursor on the link
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("rte-toolbar-add-link"));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("rte-link-remove")).toBeInTheDocument();
+    });
+
+    // Click Remove link; this calls removeLink() which runs unsetLink() then
+    // closes the popover by setting linkPopoverOpen=false.
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("rte-link-remove"));
+    });
+
+    // Popover should be closed: the Confirm button is only rendered when open.
+    await waitFor(() => {
+      expect(screen.queryByTestId("rte-link-confirm")).not.toBeInTheDocument();
+    });
+
+    // The onChange callback should have been called with HTML that no longer
+    // contains an <a> element.
+    await waitFor(() => {
+      expect(onChange).toHaveBeenCalled();
+      const lastHtml = onChange.mock.calls[onChange.mock.calls.length - 1][0] as string;
+      expect(lastHtml).not.toMatch(/<a[\s>]/i);
+    });
+  });
+
+  it("Remove link button is NOT present in popover when cursor is outside a link", async () => {
+    render(
+      <RichTextEditor initialHtml="<p>Plain text with no link</p>" onChange={() => {}} />,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("rich-text-editor")).toBeInTheDocument());
+
+    // Open popover; editor.isActive("link") is false → linkIsActive=false
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("rte-toolbar-add-link"));
+    });
+
+    // Popover is open (Cancel button is always rendered inside it)
+    await waitFor(() => {
+      expect(screen.getByTestId("rte-link-cancel")).toBeInTheDocument();
+    });
+
+    // Remove link button must NOT be present
+    expect(screen.queryByTestId("rte-link-remove")).not.toBeInTheDocument();
+  });
+});
