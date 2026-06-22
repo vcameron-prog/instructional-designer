@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import ExcelJS from "exceljs";
 import { buildXlsx } from "./xlsx-builder.js";
 
@@ -369,6 +369,142 @@ describe("buildXlsx – colspan clamping to true table width", () => {
 
     expect(merges).toContain("A1:C1");
     expect(ws.getCell(1, 1).value).toBe("Exact Header");
+  });
+});
+
+
+// ---------------------------------------------------------------------------
+// Pre-merge style capture helper
+// ---------------------------------------------------------------------------
+// We spy on Worksheet.prototype.mergeCells so we can read slave-cell styles
+// at the exact moment the builder calls mergeCells(), before ExcelJS can
+// propagate any styles internally during the merge operation.
+// ---------------------------------------------------------------------------
+type CellSnapshot = { bold: boolean | undefined; argb: string | undefined };
+
+function snapCell(ws: ExcelJS.Worksheet, row: number, col: number): CellSnapshot {
+  const c = ws.getCell(row, col);
+  return {
+    bold: (c.font as ExcelJS.Font | undefined)?.bold,
+    argb: (c.fill as ExcelJS.FillPattern | undefined)?.fgColor?.argb,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Worksheet prototype reference
+// ExcelJS does not expose Worksheet as a named export, so we obtain the
+// prototype from a live instance – all worksheets share it.
+// ---------------------------------------------------------------------------
+function getWsProto(): Record<string, unknown> {
+  return Object.getPrototypeOf(
+    new ExcelJS.Workbook().addWorksheet("_probe"),
+  ) as Record<string, unknown>;
+}
+
+function makeMergeSpy(snapshots: Map<string, CellSnapshot>) {
+  const wsProto = getWsProto();
+  const origFn = wsProto.mergeCells as (...args: unknown[]) => void;
+  vi.spyOn(wsProto, "mergeCells").mockImplementation(
+    function (this: ExcelJS.Worksheet, ...args: unknown[]) {
+      // builder always calls mergeCells(startRow, startCol, endRow, endCol)
+      const [sr, sc, er, ec] = args as [number, number, number, number];
+      for (let r = sr; r <= er; r++) {
+        for (let c = sc; c <= ec; c++) {
+          if (r !== sr || c !== sc) {
+            snapshots.set(`${r},${c}`, snapCell(this, r, c));
+          }
+        }
+      }
+      origFn.apply(this, args);
+    },
+  );
+}
+
+describe("buildXlsx – header cell styling (pre-merge verification)", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("applies bold font and grey fill to all slave cells of a th colspan=3 before mergeCells() fires", async () => {
+    const snapshots = new Map<string, CellSnapshot>();
+    makeMergeSpy(snapshots);
+
+    const html = `
+      <table>
+        <thead>
+          <tr><th colspan="3">Full Name</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>First</td><td>Middle</td><td>Last</td></tr>
+        </tbody>
+      </table>`;
+
+    await buildXlsx(html);
+
+    // mergeCells must have been intercepted
+    expect(snapshots.size).toBeGreaterThan(0);
+
+    // We also verify the master cell (A1) is styled — read it from the live
+    // workbook that buildXlsx wrote, then re-load to confirm post-build state.
+    // The spy captures slave cells; load the buffer to verify the master too.
+    const wsCheck = await loadWorksheet(html);
+    const master = wsCheck.getCell(1, 1);
+    expect(master.font?.bold).toBe(true);
+    expect((master.fill as ExcelJS.FillPattern)?.fgColor?.argb).toBe("FFE8E8E8");
+
+    // Slave cells B1 (1,2) and C1 (1,3) must be bold + grey BEFORE the merge
+    const b1 = snapshots.get("1,2");
+    expect(b1?.bold).toBe(true);
+    expect(b1?.argb).toBe("FFE8E8E8");
+
+    const c1 = snapshots.get("1,3");
+    expect(c1?.bold).toBe(true);
+    expect(c1?.argb).toBe("FFE8E8E8");
+  });
+
+  it("does NOT apply header styling to slave cells of a td colspan before mergeCells() fires", async () => {
+    const snapshots = new Map<string, CellSnapshot>();
+    makeMergeSpy(snapshots);
+
+    const html = `
+      <table>
+        <tbody>
+          <tr><td colspan="3">Data</td></tr>
+        </tbody>
+      </table>`;
+
+    await buildXlsx(html);
+
+    // Slave cells B1 and C1 must NOT have the grey fill
+    const b1 = snapshots.get("1,2");
+    expect(b1?.bold).toBeFalsy();
+    expect(b1?.argb).not.toBe("FFE8E8E8");
+
+    const c1 = snapshots.get("1,3");
+    expect(c1?.bold).toBeFalsy();
+    expect(c1?.argb).not.toBe("FFE8E8E8");
+  });
+
+  it("applies bold + grey to all slave cells in a th colspan=2 rowspan=2 before mergeCells() fires", async () => {
+    const snapshots = new Map<string, CellSnapshot>();
+    makeMergeSpy(snapshots);
+
+    const html = `
+      <table>
+        <thead>
+          <tr><th colspan="2" rowspan="2">Corner</th><th>Col3</th></tr>
+          <tr><th>Col3-Row2</th></tr>
+        </thead>
+      </table>`;
+
+    await buildXlsx(html);
+
+    // All three slave cells of the 2×2 merged th (B1, A2, B2) must be styled
+    for (const key of ["1,2", "2,1", "2,2"]) {
+      const snap = snapshots.get(key);
+      expect(snap?.bold, `cell ${key} should be bold before merge`).toBe(true);
+      expect(snap?.argb, `cell ${key} should have grey fill before merge`).toBe("FFE8E8E8");
+    }
   });
 });
 
