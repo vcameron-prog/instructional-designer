@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { getChainPrefillFields, TOOLS } from "./constants";
+import {
+  getChainPrefillFields,
+  computeAiStepDuration,
+  AI_STEP_DURATION_MS,
+  TOOLS,
+} from "./constants";
+import type { GenerationStep } from "./constants";
 
 // ---------------------------------------------------------------------------
 // TOOLS chain configuration — verifies the result page will render chain
@@ -318,5 +324,172 @@ describe("sessionStorage prefill contract", () => {
     expect(shouldApply).toBe(true);
     expect(parsed.fields.assessmentType).toBe("Research Paper");
     expect(parsed.fields.criteria).toBe("Critical thinking");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// computeAiStepDuration — adaptive step timing
+// The progress bar relies on this function to decide how long each AI step
+// should animate. Wrong bounds or broken heuristics silently corrupt timing.
+// ---------------------------------------------------------------------------
+
+const MIN = AI_STEP_DURATION_MS.single.min; // 5000
+const MAX = AI_STEP_DURATION_MS.single.max; // 18000
+const BATCH_MAX = AI_STEP_DURATION_MS.batch.max; // 14000
+
+/** A step with adaptive bounds — mirrors the "Generating content" step. */
+const adaptiveStep: GenerationStep = {
+  label: "Generating content with AI",
+  ariaLabel: "Step 3: Generating content with AI",
+  durationMs: 12000,
+  minDurationMs: MIN,
+  maxDurationMs: MAX,
+};
+
+/** A step with no bounds — mirrors fixed-duration steps like "Saving". */
+const fixedStep: GenerationStep = {
+  label: "Saving your materials",
+  ariaLabel: "Step 5: Saving your materials",
+  durationMs: 1000,
+};
+
+/** An adaptive step using the batch bounds. */
+const batchAdaptiveStep: GenerationStep = {
+  label: "Generating assignment with AI",
+  ariaLabel: "Step 3: Generating assignment with AI",
+  durationMs: 10000,
+  minDurationMs: AI_STEP_DURATION_MS.batch.min,
+  maxDurationMs: BATCH_MAX,
+};
+
+describe("computeAiStepDuration — steps without min/max bounds", () => {
+  it("returns durationMs unchanged when minDurationMs is absent", () => {
+    expect(computeAiStepDuration(fixedStep, "standard", false)).toBe(1000);
+  });
+
+  it("returns durationMs unchanged even in batch mode", () => {
+    expect(computeAiStepDuration(fixedStep, "concise", true)).toBe(1000);
+  });
+
+  it("returns durationMs unchanged regardless of outputDetail value", () => {
+    expect(computeAiStepDuration(fixedStep, "concise", false)).toBe(1000);
+    expect(computeAiStepDuration(fixedStep, "standard", false)).toBe(1000);
+  });
+});
+
+describe("computeAiStepDuration — concise output → minDurationMs", () => {
+  it('returns minDurationMs for outputDetail "concise"', () => {
+    expect(computeAiStepDuration(adaptiveStep, "concise", false)).toBe(MIN);
+  });
+
+  it("is not affected by unrelated outputDetail strings when score is explicit 0", () => {
+    expect(
+      computeAiStepDuration(adaptiveStep, "concise", false, 0),
+    ).toBe(MIN);
+  });
+});
+
+describe("computeAiStepDuration — standard output → maxDurationMs", () => {
+  it('returns maxDurationMs for outputDetail "standard"', () => {
+    expect(computeAiStepDuration(adaptiveStep, "standard", false)).toBe(MAX);
+  });
+
+  it("returns maxDurationMs for any non-concise outputDetail string", () => {
+    expect(computeAiStepDuration(adaptiveStep, "detailed", false)).toBe(MAX);
+    expect(computeAiStepDuration(adaptiveStep, "", false)).toBe(MAX);
+  });
+});
+
+describe("computeAiStepDuration — batch mode → always maxDurationMs", () => {
+  it("returns maxDurationMs when isBatch is true regardless of concise detail", () => {
+    expect(computeAiStepDuration(adaptiveStep, "concise", true)).toBe(MAX);
+  });
+
+  it("returns maxDurationMs when isBatch is true regardless of standard detail", () => {
+    expect(computeAiStepDuration(adaptiveStep, "standard", true)).toBe(MAX);
+  });
+
+  it("returns maxDurationMs when isBatch is true even with complexityScore 0", () => {
+    expect(computeAiStepDuration(adaptiveStep, "concise", true, 0)).toBe(MAX);
+  });
+
+  it("returns the batch step's maxDurationMs in batch mode", () => {
+    expect(
+      computeAiStepDuration(batchAdaptiveStep, "concise", true),
+    ).toBe(BATCH_MAX);
+  });
+});
+
+describe("computeAiStepDuration — complexityScore overrides outputDetail", () => {
+  it("score 0 → minDurationMs (identical to concise)", () => {
+    expect(computeAiStepDuration(adaptiveStep, "standard", false, 0)).toBe(MIN);
+  });
+
+  it("score 1 → maxDurationMs (identical to standard)", () => {
+    expect(computeAiStepDuration(adaptiveStep, "concise", false, 1)).toBe(MAX);
+  });
+
+  it("score 0.5 → midpoint between min and max", () => {
+    const expected = Math.round(MIN + 0.5 * (MAX - MIN));
+    expect(computeAiStepDuration(adaptiveStep, "concise", false, 0.5)).toBe(
+      expected,
+    );
+  });
+
+  it("score 0.25 → 25 % of the way from min to max", () => {
+    const expected = Math.round(MIN + 0.25 * (MAX - MIN));
+    expect(computeAiStepDuration(adaptiveStep, "standard", false, 0.25)).toBe(
+      expected,
+    );
+  });
+});
+
+describe("computeAiStepDuration — complexityScore clamping", () => {
+  it("clamps negative scores to 0 → returns minDurationMs", () => {
+    expect(computeAiStepDuration(adaptiveStep, "standard", false, -0.5)).toBe(
+      MIN,
+    );
+  });
+
+  it("clamps scores above 1 to 1 → returns maxDurationMs", () => {
+    expect(computeAiStepDuration(adaptiveStep, "concise", false, 1.5)).toBe(
+      MAX,
+    );
+  });
+
+  it("clamps extreme negative values to 0", () => {
+    expect(computeAiStepDuration(adaptiveStep, "concise", false, -999)).toBe(
+      MIN,
+    );
+  });
+
+  it("clamps extreme positive values to 1", () => {
+    expect(computeAiStepDuration(adaptiveStep, "concise", false, 999)).toBe(
+      MAX,
+    );
+  });
+});
+
+describe("computeAiStepDuration — AI_STEP_DURATION_MS constant contract", () => {
+  it("single.min is less than single.max", () => {
+    expect(AI_STEP_DURATION_MS.single.min).toBeLessThan(
+      AI_STEP_DURATION_MS.single.max,
+    );
+  });
+
+  it("batch.min is less than batch.max", () => {
+    expect(AI_STEP_DURATION_MS.batch.min).toBeLessThan(
+      AI_STEP_DURATION_MS.batch.max,
+    );
+  });
+
+  it("single.min is a positive integer number of milliseconds", () => {
+    expect(AI_STEP_DURATION_MS.single.min).toBeGreaterThan(0);
+    expect(Number.isInteger(AI_STEP_DURATION_MS.single.min)).toBe(true);
+  });
+
+  it("batch.max is a positive integer number of milliseconds", () => {
+    expect(AI_STEP_DURATION_MS.batch.max).toBeGreaterThan(0);
+    expect(Number.isInteger(AI_STEP_DURATION_MS.batch.max)).toBe(true);
   });
 });
