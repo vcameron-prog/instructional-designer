@@ -6,6 +6,10 @@ hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 channel = "stable-24_05"
 
 [[ports]]
+localPort = 3001
+externalPort = 3001
+
+[[ports]]
 localPort = 5000
 externalPort = 80
 
@@ -44,6 +48,10 @@ args = "schema-drift"
 [[workflows.workflow.tasks]]
 task = "workflow.run"
 args = "migration-journal"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Instructional Designer"
 
 [[workflows.workflow]]
 name = "Start application"
@@ -97,6 +105,18 @@ args = "npx tsx scripts/check-migration-journal.ts"
 
 [workflows.workflow.metadata]
 isValidation = true
+
+[[workflows.workflow]]
+name = "Instructional Designer"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd instructional-designer && PORT=3001 npm run dev"
+waitForPort = 3001
+
+[workflows.workflow.metadata]
+outputType = "console"
 
 [agent]
 integrations = ["javascript_anthropic_ai_integrations:2.0.0", "javascript_log_in_with_replit:2.0.0", "github:1.0.0"]

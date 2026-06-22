@@ -1,0 +1,57 @@
+1. OpenAI Client — added timeout and retries
+(lib/integrations-openai-ai-server/src/client.ts)
+
+export const openai = new OpenAI({
+  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+  timeout: 5 * 60 * 1000,    // 5-minute timeout per request
+  maxRetries: 2,              // retry up to 2 times on failure
+});
+2. AI Model Switch — gpt-5-mini → gpt-4o-mini
+(artifacts/api-server/src/lib/accessibility-engine.ts)
+
+All four AI call sites were updated:
+
+// Conversion (single chunk)
+const htmlResponse = await openai.chat.completions.create({
+  model: "gpt-4o-mini",  // was "gpt-5-mini"
+  max_completion_tokens: 16384,
+  ...
+});
+// Conversion (continuation chunks)
+const htmlResponse = await openai.chat.completions.create({
+  model: "gpt-4o-mini",  // was "gpt-5-mini"
+  max_completion_tokens: 16384,
+  ...
+});
+// Compliance audit
+const aiReportResponse = await openai.chat.completions.create({
+  model: "gpt-4o-mini",  // was "gpt-5-mini"
+  max_completion_tokens: 4096,
+  ...
+});
+// Fix compliance issue
+const fixResponse = await openai.chat.completions.create({
+  model: "gpt-4o-mini",  // was "gpt-5-mini"
+  max_completion_tokens: 16384,
+  ...
+});
+Note: OCR stays on gpt-4o (unchanged — it was already working fine).
+
+3. Background processing logging and safety net
+(artifacts/api-server/src/routes/conversions.ts)
+
+// Added log at start of background processing
+(async () => {
+  logger.info({ conversionId: params.data.id }, "Background processing started");
+  try {
+    // ... processing code ...
+    // Added log on successful completion
+    logger.info({ conversionId: params.data.id }, "Background processing completed successfully");
+  } catch (err: unknown) {
+    // existing error handling...
+  }
+})().catch((unexpectedErr) => {
+  // Safety net for any unhandled rejection
+  logger.error({ err: unexpectedErr, conversionId: params.data.id }, "Unhandled error in background processing");
+});

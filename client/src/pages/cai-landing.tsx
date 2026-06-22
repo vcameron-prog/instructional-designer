@@ -152,7 +152,9 @@ export default function CaiLandingPage() {
             <span className="text-sm" data-testid="text-bsu-faculty-prompt">
               BSU Faculty?{" "}
               <a
-                href="/bsu"
+                href={import.meta.env.VITE_ID_APP_URL || "#"}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="font-semibold text-primary underline hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
                 data-testid="link-bsu-faculty-login"
               >

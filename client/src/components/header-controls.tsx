@@ -20,8 +20,8 @@ interface HeaderControlsProps {
 export function HeaderControls({
   variant = "light",
   showHome = false,
-  homePath = "/bsu",
-  showLibrary = true,
+  homePath = "/",
+  showLibrary = false,
   showHelp = true,
   showSettings = true,
   showLogout = true,

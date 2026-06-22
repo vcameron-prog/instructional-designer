@@ -1,0 +1,1984 @@
+import { useState, useEffect, useMemo, useRef, type ReactNode } from "react";
+import { diffLines } from "diff";
+import { isSessionExpiredMessage } from "@/lib/upload-error-utils";
+import { checkAccessibility, type AccessibilityIssue } from "@/lib/accessibility-checks";
+import { useLocation, useParams } from "wouter";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import ReactMarkdown, { type Components } from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
+import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
+
+const sanitizeSchema = {
+  ...defaultSchema,
+  tagNames: [
+    ...(defaultSchema.tagNames || []),
+    "table", "thead", "tbody", "tfoot", "tr", "th", "td", "caption", "colgroup", "col",
+  ],
+  attributes: {
+    ...defaultSchema.attributes,
+    th: [...(defaultSchema.attributes?.th || []), "scope", "colSpan", "rowSpan"],
+    td: [...(defaultSchema.attributes?.td || []), "colSpan", "rowSpan"],
+    col: [...(defaultSchema.attributes?.col || []), "span"],
+    table: [...(defaultSchema.attributes?.table || []), "summary"],
+  },
+};
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { PoweredByFooter } from "@/components/powered-by-footer";
+import { LoadingScreen } from "@/components/loading-screen";
+import { HeaderControls } from "@/components/header-controls";
+import { ArrowLeft, ArrowRight, Copy, Download, FileText, RefreshCw, CheckCircle, AlertTriangle, Lightbulb, ChevronDown, ChevronRight, Loader2, Library, Link2, Link2Off, History, RotateCcw, Pencil, Zap } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { TOOLS, LOADING_MESSAGES, getChainPrefillFields, getFixTypeDescription } from "@/lib/constants";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
+import { usePageTitle } from "@/hooks/use-page-title";
+import { useAuth } from "@/hooks/use-auth";
+import type { Course, GeneratedContent, ContentVersion } from "@shared/schema";
+
+interface AppConfig {
+  versionHistoryLimit: number;
+}
+
+  const COLLAPSED_HEADING_PATTERNS = [
+    /submission\s*(requirements|guidelines)?/i,
+    /blackboard/i,
+    /grading\s*(criteria|rubric|overview)?/i,
+    /resources?\s*(and\s*support|&\s*support|materials)?/i,
+    /support\s*materials/i,
+    /reference/i, /bibliography/i,
+    /\budl\b/i, /universal\s*design\s*for\s*learning/i,
+    /cultural\s*(relevance|responsiveness|inclusivity)/i,
+    /\bsel\b/i, /social[- ]emotional\s*learning/i,
+    /ai[- ]powered/i, /inclusive\s*design/i, /accessibility\s*(features|check)?/i,
+    /research\s*(reasoning|basis|citations?|references?|framework|pedagog)?/i,
+    /timeline\s*(and\s*milestones)?/i,
+    /citation/i, /rubric\s*criteria/i,
+    /milestone/i,
+  ];
+
+function isCollapsedSection(heading: string): boolean {
+  return COLLAPSED_HEADING_PATTERNS.some((p) => p.test(heading));
+}
+
+interface ContentSection {
+  heading: string;
+  body: string;
+  collapsed: boolean;
+}
+
+function splitContentIntoSections(markdown: string): ContentSection[] {
+  const lines = markdown.split("\n");
+  const sections: ContentSection[] = [];
+  let currentHeading = "";
+  let currentLines: string[] = [];
+  let insideCodeFence = false;
+
+  for (const line of lines) {
+    if (/^```/.test(line)) {
+      insideCodeFence = !insideCodeFence;
+    }
+
+    const h2Match = !insideCodeFence && line.match(/^##\s+(.+)$/);
+    if (h2Match) {
+      if (currentHeading || currentLines.length > 0) {
+        sections.push({
+          heading: currentHeading,
+          body: currentLines.join("\n").trim(),
+          collapsed: currentHeading ? isCollapsedSection(currentHeading) : false,
+        });
+      }
+      currentHeading = h2Match[1].replace(/\*\*/g, "").trim();
+      currentLines = [];
+    } else {
+      currentLines.push(line);
+    }
+  }
+
+  if (currentHeading || currentLines.length > 0) {
+    sections.push({
+      heading: currentHeading,
+      body: currentLines.join("\n").trim(),
+      collapsed: currentHeading ? isCollapsedSection(currentHeading) : false,
+    });
+  }
+
+  return sections;
+}
+
+type DiffLine = { type: "unchanged" | "removed" | "added"; text: string };
+
+type WordSpan = { text: string; changed: boolean };
+
+function tokenize(text: string): string[] {
+  return text.split(/(\s+)/).filter((t) => t.length > 0);
+}
+
+function computeWordDiff(removed: string, added: string): { removedSpans: WordSpan[]; addedSpans: WordSpan[] } {
+  const a = tokenize(removed);
+  const b = tokenize(added);
+  const m = a.length, n = b.length;
+  const dp: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] + 1 : Math.max(dp[i - 1][j], dp[i][j - 1]);
+    }
+  }
+  const removedSpans: WordSpan[] = [];
+  const addedSpans: WordSpan[] = [];
+  let i = m, j = n;
+  const ops: Array<{ op: "same" | "remove" | "add"; text: string }> = [];
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && a[i - 1] === b[j - 1]) {
+      ops.unshift({ op: "same", text: a[i - 1] });
+      i--; j--;
+    } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+      ops.unshift({ op: "add", text: b[j - 1] });
+      j--;
+    } else {
+      ops.unshift({ op: "remove", text: a[i - 1] });
+      i--;
+    }
+  }
+  for (const op of ops) {
+    if (op.op === "same") {
+      removedSpans.push({ text: op.text, changed: false });
+      addedSpans.push({ text: op.text, changed: false });
+    } else if (op.op === "remove") {
+      removedSpans.push({ text: op.text, changed: true });
+    } else {
+      addedSpans.push({ text: op.text, changed: true });
+    }
+  }
+  return { removedSpans, addedSpans };
+}
+
+function computeLineDiff(before: string, after: string): DiffLine[] {
+  const a = before.split("\n");
+  const b = after.split("\n");
+  const m = a.length, n = b.length;
+  const dp: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] + 1 : Math.max(dp[i - 1][j], dp[i][j - 1]);
+    }
+  }
+  const result: DiffLine[] = [];
+  let i = m, j = n;
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && a[i - 1] === b[j - 1]) {
+      result.unshift({ type: "unchanged", text: a[i - 1] });
+      i--; j--;
+    } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+      result.unshift({ type: "added", text: b[j - 1] });
+      j--;
+    } else {
+      result.unshift({ type: "removed", text: a[i - 1] });
+      i--;
+    }
+  }
+  return result;
+}
+
+function buildDiffHunks(diff: DiffLine[], context = 2): Array<DiffLine | "ellipsis"> {
+  const changed = new Set<number>();
+  diff.forEach((line, idx) => { if (line.type !== "unchanged") changed.add(idx); });
+  if (changed.size === 0) return [];
+  const visible = new Set<number>();
+  changed.forEach((idx) => {
+    for (let k = Math.max(0, idx - context); k <= Math.min(diff.length - 1, idx + context); k++) {
+      visible.add(k);
+    }
+  });
+  const result: Array<DiffLine | "ellipsis"> = [];
+  let prev = -1;
+  Array.from(visible).sort((a, b) => a - b).forEach((idx) => {
+    if (prev !== -1 && idx > prev + 1) result.push("ellipsis");
+    result.push(diff[idx]);
+    prev = idx;
+  });
+  return result;
+}
+
+function extractChildrenText(children: React.ReactNode): string {
+  if (typeof children === "string") return children;
+  if (typeof children === "number") return String(children);
+  if (Array.isArray(children)) return children.map(extractChildrenText).join("");
+  if (children && typeof children === "object" && "props" in (children as object)) {
+    return extractChildrenText((children as { props: { children?: React.ReactNode } }).props.children);
+  }
+  return "";
+}
+
+export default function ResultPage() {
+  const params = useParams();
+  const courseId = params.id ? parseInt(params.id) : undefined;
+  const isAnon = params.contentId === "anon";
+  const contentId = isAnon ? undefined : (params.contentId ? parseInt(params.contentId) : undefined);
+  const [location, navigate] = useLocation();
+  const { toast } = useToast();
+  const { isAuthenticated } = useAuth();
+
+  const isStandalone = location.startsWith("/quick-tools");
+  const backPath = isStandalone ? "/quick-tools" : `/course/${courseId}/tools`;
+
+  const [copied, setCopied] = useState(false);
+  const [showAccessibility, setShowAccessibility] = useState(false);
+  const [refinementOpen, setRefinementOpen] = useState(false);
+  const [refinementRequest, setRefinementRequest] = useState("");
+  const [isRefining, setIsRefining] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState("");
+  const [saveLibraryOpen, setSaveLibraryOpen] = useState(false);
+  const [libraryTitle, setLibraryTitle] = useState("");
+  const [libraryDescription, setLibraryDescription] = useState("");
+  const [expandedSections, setExpandedSections] = useState<Record<number, boolean>>({});
+  const [fixingIssue, setFixingIssue] = useState<string | null>(null);
+  const [versionHistoryOpen, setVersionHistoryOpen] = useState(false);
+  const [selectedVersionId, setSelectedVersionId] = useState<number | null>(null);
+  const [showDiff, setShowDiff] = useState(true);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewFixType, setPreviewFixType] = useState<string | null>(null);
+  const [previewBefore, setPreviewBefore] = useState("");
+  const [previewAfter, setPreviewAfter] = useState("");
+  const [skipPreview, setSkipPreview] = useState(() => localStorage.getItem("a11y-skip-preview") === "true");
+  const [skipPreviewHydrated, setSkipPreviewHydrated] = useState(false);
+
+  const { data: serverPrefs } = useQuery<{ skipPreview?: boolean }>({
+    queryKey: ["/api/preferences"],
+    queryFn: async () => {
+      const res = await fetch("/api/preferences", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch preferences");
+      return res.json();
+    },
+    enabled: isAuthenticated,
+    staleTime: 1000 * 60 * 5,
+    retry: false,
+  });
+
+  useEffect(() => {
+    if (!isAuthenticated || skipPreviewHydrated || !serverPrefs) return;
+    if (serverPrefs.skipPreview !== undefined) {
+      setSkipPreview(serverPrefs.skipPreview);
+      localStorage.setItem("a11y-skip-preview", serverPrefs.skipPreview ? "true" : "false");
+    }
+    setSkipPreviewHydrated(true);
+  }, [serverPrefs, isAuthenticated, skipPreviewHydrated]);
+
+  const [captionDialogOpen, setCaptionDialogOpen] = useState(false);
+  const [captionTexts, setCaptionTexts] = useState<string[]>(["Table summary"]);
+  const [captionEditText, setCaptionEditText] = useState("Table summary");
+  const [captionEditMode, setCaptionEditMode] = useState<"add" | "edit">("add");
+  const [captionStep, setCaptionStep] = useState<"input" | "preview">("input");
+  const [captionTablePreviews, setCaptionTablePreviews] = useState<string[][][]>([]);
+  const [captionEditIndex, setCaptionEditIndex] = useState<number>(0);
+  const [captionEditOtherCaptions, setCaptionEditOtherCaptions] = useState<string[]>([]);
+  const [captionAllowDefault, setCaptionAllowDefault] = useState(false);
+
+  const firstChangeRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    setExpandedSections({});
+  }, [contentId]);
+
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+    });
+  }, [contentId, isAnon]);
+
+  const { data: versions } = useQuery<ContentVersion[]>({
+    queryKey: ["/api/content", contentId, "versions"],
+    enabled: !!contentId && versionHistoryOpen,
+    staleTime: 0,
+  });
+
+  useEffect(() => {
+    if (versions && versions.length > 0 && selectedVersionId === null) {
+      setSelectedVersionId(versions[0].id);
+    }
+  }, [versions]);
+
+  const anonData = isAnon ? queryClient.getQueryData<GeneratedContent>(["/api/standalone-content", "anon"]) : undefined;
+
+  const { data: fetchedContent, isLoading } = useQuery<GeneratedContent>({
+    queryKey: isStandalone ? ["/api/standalone-content", contentId] : ["/api/content", contentId],
+    enabled: !!contentId && !isAnon,
+  });
+
+  const { data: appConfig } = useQuery<AppConfig>({
+    queryKey: ["/api/config"],
+  });
+
+  const content = isAnon ? (anonData as GeneratedContent | undefined) : fetchedContent;
+
+  const linkedCourseId = courseId ?? content?.courseId ?? undefined;
+
+  const { data: course } = useQuery<Course>({
+    queryKey: ["/api/courses", linkedCourseId],
+    enabled: !!linkedCourseId,
+  });
+
+  usePageTitle(content ? content.toolName + " Result" : "Result");
+
+  const refineMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", `/api/content/${contentId}/refine`, {
+        refinementRequest,
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/content", contentId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/standalone-content", contentId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/content", contentId, "versions"] });
+      setRefinementOpen(false);
+      setRefinementRequest("");
+      setIsRefining(false);
+      toast({ title: "Content refined successfully!" });
+    },
+    onError: (error) => {
+      setIsRefining(false);
+      if (isSessionExpiredMessage(error.message)) return;
+      toast({ title: "Refinement failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const saveToLibraryMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/library", {
+        title: libraryTitle || content?.toolName,
+        toolType: content?.toolType,
+        content: content?.content,
+        description: libraryDescription,
+        formData: content?.formData ?? null,
+        courseId: courseId ?? null,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/library"] });
+      setSaveLibraryOpen(false);
+      setLibraryTitle("");
+      setLibraryDescription("");
+      toast({ title: "Saved as template!", description: "You can access this template from the Content Library to use in any course." });
+    },
+    onError: (error) => {
+      if (isSessionExpiredMessage(error.message)) return;
+      toast({ title: "Failed to save", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const toggleApprovalMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("PATCH", `/api/content/${contentId}/approval`, {
+        isApproved: !content?.isApproved,
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/content", contentId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId, "content"] });
+      const isNowApproved = data.isApproved;
+      toast({ 
+        title: isNowApproved ? "Added to Course Materials" : "Removed from Course Materials",
+        description: isNowApproved 
+          ? "This content will inform other tools in this course." 
+          : "This content will no longer influence other tools."
+      });
+    },
+    onError: (error) => {
+      if (isSessionExpiredMessage(error.message)) return;
+      toast({ title: "Failed to update", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const undoFixMutation = useMutation({
+    mutationFn: async (versionId: number) => {
+      const response = await apiRequest("POST", `/api/content/${contentId}/restore-version`, { versionId });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/content", contentId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/standalone-content", contentId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/content", contentId, "versions"] });
+      toast({
+        title: "Fix undone",
+        description: appConfig
+          ? `Content restored to the version before the fix. Up to ${appConfig.versionHistoryLimit} versions are kept.`
+          : "Content restored to the version before the fix.",
+      });
+    },
+    onError: (error) => {
+      if (isSessionExpiredMessage(error.message)) return;
+      toast({ title: "Undo failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const restoreVersionMutation = useMutation({
+    mutationFn: async (versionId: number) => {
+      const response = await apiRequest("POST", `/api/content/${contentId}/restore-version`, { versionId });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/content", contentId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/standalone-content", contentId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/content", contentId, "versions"] });
+      setVersionHistoryOpen(false);
+      setSelectedVersionId(null);
+      toast({ title: "Version restored", description: "Content has been restored to the selected version." });
+    },
+    onError: (error) => {
+      if (isSessionExpiredMessage(error.message)) return;
+      toast({ title: "Restore failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const applyFixMutation = useMutation({
+    mutationFn: async ({ fixType, captionTexts, captionText, captionIndex }: { fixType: string; captionTexts?: string[]; captionText?: string; captionIndex?: number }) => {
+      const body: Record<string, unknown> = { fixType };
+      if (captionTexts !== undefined) body.captionTexts = captionTexts;
+      if (captionText !== undefined) body.captionText = captionText;
+      if (captionIndex !== undefined) body.captionIndex = captionIndex;
+      const response = await apiRequest("POST", `/api/content/${contentId}/fix-accessibility`, body);
+      return response.json();
+    },
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/content", contentId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/standalone-content", contentId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/content", contentId, "versions"] });
+      setFixingIssue(null);
+      const preFixVersionId: number | null = data?.preFixVersionId ?? null;
+      const tablesFixed: number | undefined = data?.tablesFixed;
+      const isTableFix = variables.fixType === "fix-html-table-caption" || variables.fixType === "fix-html-table-thead";
+      const tableCountLabel = isTableFix && typeof tablesFixed === "number"
+        ? `Fixed ${tablesFixed} ${tablesFixed === 1 ? "table" : "tables"}. `
+        : "";
+      const versionNote = appConfig ? `Up to ${appConfig.versionHistoryLimit} versions are kept.` : "";
+      toast({
+        title: "Fix applied successfully!",
+        description: tableCountLabel || versionNote
+          ? `${tableCountLabel}${versionNote}`.trim()
+          : undefined,
+        action: preFixVersionId
+          ? (
+            <ToastAction
+              altText="Undo fix"
+              onClick={() => undoFixMutation.mutate(preFixVersionId)}
+              data-testid="button-undo-fix"
+            >
+              Undo
+            </ToastAction>
+          )
+          : undefined,
+      });
+    },
+    onError: (error) => {
+      setFixingIssue(null);
+      if (isSessionExpiredMessage(error.message)) return;
+      toast({ title: "Fix failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const extractAllCaptions = (html: string): string[] => {
+    const captionRegex = /<caption(?:\s[^>]*)?>([\s\S]*?)<\/caption>/gi;
+    const captions: string[] = [];
+    let match;
+    while ((match = captionRegex.exec(html)) !== null) {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(match[1], "text/html");
+      const text = doc.body.textContent?.trim() ?? "";
+      if (text) captions.push(text);
+    }
+    return captions;
+  };
+
+  const countTablesWithoutCaptions = (html: string): number => {
+    const tableRegex = /<table(?:\s[^>]*)?>[\s\S]*?<\/table>/gi;
+    let count = 0;
+    let match;
+    while ((match = tableRegex.exec(html)) !== null) {
+      if (!/<caption[\s>]/i.test(match[0])) count++;
+    }
+    return count;
+  };
+
+  const extractTablePreviews = (html: string): string[][][] => {
+    const tableRegex = /<table(?:\s[^>]*)?>[\s\S]*?<\/table>/gi;
+    const previews: string[][][] = [];
+    let match;
+    while ((match = tableRegex.exec(html)) !== null) {
+      if (!/<caption[\s>]/i.test(match[0])) {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(match[0], "text/html");
+        const rows = Array.from(doc.querySelectorAll("tr")).slice(0, 3);
+        const rowTexts = rows.map((row) =>
+          Array.from(row.querySelectorAll("th, td"))
+            .map((cell) => cell.textContent?.trim() ?? "")
+        ).filter((r) => r.length > 0);
+        previews.push(rowTexts);
+      }
+    }
+    return previews;
+  };
+
+  const openCaptionDialog = () => {
+    const count = content ? countTablesWithoutCaptions(content.content) : 1;
+    setCaptionTexts(Array(Math.max(1, count)).fill("Table summary"));
+    setCaptionTablePreviews(content ? extractTablePreviews(content.content) : []);
+    setCaptionEditMode("add");
+    setCaptionStep("input");
+    setCaptionAllowDefault(false);
+    setCaptionDialogOpen(true);
+  };
+
+  const handleApplyFix = (fixType: string) => {
+    if (fixType === "fix-html-table-caption") {
+      openCaptionDialog();
+      return;
+    }
+    setFixingIssue(fixType);
+    applyFixMutation.mutate({ fixType });
+  };
+
+  const handleEditCaption = (currentCaption: string, captionIndex: number) => {
+    setCaptionEditMode("edit");
+    setCaptionEditText(currentCaption);
+    setCaptionEditIndex(captionIndex);
+    const allCaptions = content ? extractAllCaptions(content.content) : [];
+    const others = allCaptions.filter((_, i) => i !== captionIndex);
+    setCaptionEditOtherCaptions(others);
+    setCaptionDialogOpen(true);
+  };
+
+  const handleApplyCaptionFix = () => {
+    if (captionEditMode === "edit" && (!captionEditText.trim() || captionEditText.trim().toLowerCase() === "table summary")) {
+      return;
+    }
+    setCaptionDialogOpen(false);
+    if (captionEditMode === "edit") {
+      setFixingIssue("edit-html-table-caption");
+      applyFixMutation.mutate({ fixType: "edit-html-table-caption", captionText: captionEditText, captionIndex: captionEditIndex });
+    } else {
+      setFixingIssue("fix-html-table-caption");
+      applyFixMutation.mutate({ fixType: "fix-html-table-caption", captionTexts });
+    }
+  };
+
+  const previewFixMutation = useMutation({
+    mutationFn: async (fixType: string) => {
+      const response = await apiRequest("POST", `/api/content/${contentId}/preview-fix`, { fixType });
+      return response.json() as Promise<{ before: string; after: string }>;
+    },
+    onSuccess: (data, fixType) => {
+      setPreviewBefore(data.before);
+      setPreviewAfter(data.after);
+      setPreviewFixType(fixType);
+      setPreviewOpen(true);
+    },
+    onError: (error) => {
+      if (isSessionExpiredMessage(error.message)) return;
+      toast({ title: "Preview failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const handlePreviewFix = (fixType: string) => {
+    setPreviewFixType(fixType);
+    previewFixMutation.mutate(fixType);
+  };
+
+  const handleToggleSkipPreview = (value: boolean) => {
+    setSkipPreview(value);
+    localStorage.setItem("a11y-skip-preview", value ? "true" : "false");
+    if (isAuthenticated) {
+      apiRequest("PATCH", "/api/preferences", { skipPreview: value })
+        .then(() => {
+          queryClient.setQueryData(["/api/preferences"], (prev: Record<string, unknown> | undefined) =>
+            prev ? { ...prev, skipPreview: value } : { skipPreview: value }
+          );
+        })
+        .catch(() => { console.warn("Failed to sync skip-preview preference to server"); });
+    }
+  };
+
+  const handleFixThis = (fixType: string) => {
+    if (fixType === "fix-html-table-caption") {
+      openCaptionDialog();
+      return;
+    }
+    if (skipPreview) {
+      handleApplyFix(fixType);
+    } else {
+      handlePreviewFix(fixType);
+    }
+  };
+
+  const handleConfirmFix = () => {
+    if (!previewFixType) return;
+    setPreviewOpen(false);
+    handleApplyFix(previewFixType);
+  };
+
+  const handleCopy = async () => {
+    if (!content) return;
+    await navigator.clipboard.writeText(content.content);
+    setCopied(true);
+    toast({ title: "Copied to clipboard!" });
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleDownloadText = () => {
+    if (!content) return;
+    const blob = new Blob([content.content], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const filename = course
+      ? `${content.toolName.replace(/\s/g, "_")}_${course.courseNumber}.txt`
+      : `${content.toolName.replace(/\s/g, "_")}.txt`;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadWord = async () => {
+    if (!content) return;
+    try {
+      const response = await fetch(`/api/content/${contentId}/export-docx`);
+      if (!response.ok) {
+        throw new Error("Export failed");
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const filename = course 
+        ? `${content.toolName.replace(/\s+/g, "_")}_${course.courseNumber}.docx`
+        : `${content.toolName.replace(/\s+/g, "_")}.docx`;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast({ title: "Word document downloaded!" });
+    } catch (error) {
+      toast({ title: "Export failed", description: "Could not generate Word document", variant: "destructive" });
+    }
+  };
+
+  const handleRefine = () => {
+    if (!refinementRequest.trim()) {
+      toast({ title: "Please describe what changes you'd like to make", variant: "destructive" });
+      return;
+    }
+    setIsRefining(true);
+    let index = 0;
+    setLoadingMessage("Processing your refinement request...");
+    const refinementMessages = [
+      "Processing your refinement request...",
+      "Analyzing requested changes...",
+      "Updating content structure...",
+      "Incorporating your feedback...",
+      "Finalizing refined version...",
+    ];
+    const interval = setInterval(() => {
+      index = (index + 1) % refinementMessages.length;
+      setLoadingMessage(refinementMessages[index]);
+    }, 2000);
+    
+    refineMutation.mutate(undefined, {
+      onSettled: () => clearInterval(interval),
+    });
+  };
+
+  function getVersionLabel(version: ContentVersion): string {
+    if (version.refinementRequest === "accessibility-fix-snapshot") {
+      return "Before accessibility fix";
+    }
+    if (version.refinementRequest === "Previous version") {
+      return "Before refinement";
+    }
+    if (version.refinementRequest) {
+      return `Before: ${version.refinementRequest}`;
+    }
+    return "Saved version";
+  }
+
+  const selectedVersion = versions?.find(v => v.id === selectedVersionId) ?? null;
+
+  const versionDiff = useMemo(() => {
+    if (!selectedVersion || !content) return null;
+    return diffLines(selectedVersion.content, content.content);
+  }, [selectedVersion, content]);
+
+  const versionLineSummaries = useMemo(() => {
+    if (!versions || !content) return new Map<number, { added: number; removed: number }>();
+    const map = new Map<number, { added: number; removed: number }>();
+    for (const version of versions) {
+      const parts = diffLines(version.content, content.content);
+      let added = 0;
+      let removed = 0;
+      for (const part of parts) {
+        if (part.added) added += part.count ?? 0;
+        else if (part.removed) removed += part.count ?? 0;
+      }
+      map.set(version.id, { added, removed });
+    }
+    return map;
+  }, [versions, content]);
+
+  const hasChanges = useMemo(() => versionDiff?.some(p => p.added || p.removed) ?? false, [versionDiff]);
+
+  useEffect(() => {
+    if (showDiff && versionDiff && hasChanges) {
+      const timer = setTimeout(() => {
+        firstChangeRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 80);
+      return () => clearTimeout(timer);
+    }
+  }, [showDiff, versionDiff, hasChanges]);
+
+  const jumpToFirstChange = () => {
+    if (!showDiff) {
+      setShowDiff(true);
+    } else {
+      firstChangeRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
+
+  const tool = content ? TOOLS.find(t => t.id === content.toolType) : null;
+  const accessibilityIssues = content ? checkAccessibility(content.content) : [];
+
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
+
+  if (!content) {
+    return (
+      <main id="main-content" tabIndex={-1} className="min-h-screen flex flex-col bg-background">
+        <div className="flex-1 flex items-center justify-center">
+          <Card className="max-w-md">
+            <CardContent className="p-6 text-center">
+              <p className="text-muted-foreground">Content not found</p>
+              <Button className="mt-4" onClick={() => navigate(backPath)}>
+                Return to Tools
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+        <PoweredByFooter />
+      </main>
+    );
+  }
+
+  if (isRefining) {
+    return (
+      <main id="main-content" tabIndex={-1} className="min-h-screen flex flex-col bg-gradient-to-br from-primary/5 to-accent/5">
+        <div className="flex-1 flex items-center justify-center">
+          <Card className="max-w-lg w-full mx-4">
+            <CardContent className="p-12 text-center" role="status" aria-live="polite">
+              <div className="w-20 h-20 mx-auto mb-8 relative">
+                <div className="absolute inset-0 bg-secondary/20 rounded-full animate-ping" aria-hidden="true" />
+                <div className="relative w-full h-full bg-secondary rounded-full flex items-center justify-center">
+                  <RefreshCw className="w-10 h-10 text-white animate-spin-slow" aria-hidden="true" />
+                </div>
+              </div>
+              <h2 className="text-2xl font-bold mb-4">Refining Your Content</h2>
+              <p className="text-muted-foreground mb-6 animate-pulse-subtle">
+                {loadingMessage}
+              </p>
+              <div className="flex justify-center gap-1" aria-hidden="true">
+                {[0, 1, 2].map(i => (
+                  <div
+                    key={i}
+                    className="w-2 h-2 bg-secondary rounded-full animate-bounce"
+                    style={{ animationDelay: `${i * 0.15}s` }}
+                  />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+        <PoweredByFooter />
+      </main>
+    );
+  }
+
+  return (
+    <main id="main-content" tabIndex={-1} className="min-h-screen bg-background">
+      <div className="border-b bg-card">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate(backPath)}
+                aria-label="Back to tools"
+                data-testid="button-back-tools"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <FileText className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h1 className="text-xl font-bold">{content.toolName}</h1>
+                    {!!(content.formData && typeof content.formData === "object" && (content.formData as Record<string, unknown>).outputDetail) && (
+                      <Badge
+                        variant="secondary"
+                        className="text-xs font-normal"
+                        data-testid="badge-output-detail"
+                      >
+                        {String((content.formData as Record<string, unknown>).outputDetail) === "standard" ? "Standard" : "Concise"}
+                      </Badge>
+                    )}
+                  </div>
+                  {course && (
+                    <p className="text-sm text-muted-foreground">{course.courseName} ({course.courseNumber})</p>
+                  )}
+                </div>
+              </div>
+            </div>
+            <HeaderControls variant="light" showHome={true} />
+          </div>
+        </div>
+      </div>
+
+      {!!content.courseId && course?.syllabusUploadedAt && content.createdAt && new Date(content.createdAt) < new Date(course.syllabusUploadedAt) && (
+        <div
+          className="bg-yellow-50 border-b border-yellow-200"
+          role="alert"
+          data-testid="banner-stale-content"
+        >
+          <div className="container mx-auto px-4 py-3 max-w-5xl flex items-center gap-3">
+            <AlertTriangle className="w-5 h-5 text-yellow-600 shrink-0" aria-hidden="true" />
+            <p className="text-sm text-yellow-800">
+              This was generated before your latest syllabus upload. Consider regenerating.
+            </p>
+          </div>
+        </div>
+      )}
+
+      <div className="container mx-auto px-4 py-8 max-w-5xl">
+        <Card className="mb-6">
+          <CardContent className="py-3 px-4">
+            <div className="flex flex-wrap gap-2 items-center">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCopy}
+                data-testid="button-copy"
+              >
+                {copied ? <CheckCircle className="w-4 h-4 mr-1.5" /> : <Copy className="w-4 h-4 mr-1.5" />}
+                <span aria-live="polite">{copied ? "Copied!" : "Copy"}</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadText}
+                data-testid="button-download-txt"
+              >
+                <Download className="w-4 h-4 mr-1.5" />
+                .txt
+              </Button>
+              {!isAnon && <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadWord}
+                data-testid="button-download-docx"
+              >
+                <FileText className="w-4 h-4 mr-1.5" />
+                .docx
+              </Button>}
+              {!isStandalone && (
+              <Button
+                variant={content.isApproved ? "default" : "outline"}
+                size="sm"
+                onClick={() => toggleApprovalMutation.mutate()}
+                disabled={toggleApprovalMutation.isPending}
+                aria-pressed={content.isApproved}
+                aria-label={content.isApproved ? "Connected to course. Click to disconnect." : "Not connected. Click to connect to course."}
+                data-testid="button-toggle-approval"
+              >
+                <span aria-live="polite">
+                {content.isApproved ? (
+                  <>
+                    <Link2 className="w-4 h-4 mr-1.5 inline" />
+                    Connected
+                  </>
+                ) : (
+                  <>
+                    <Link2Off className="w-4 h-4 mr-1.5 inline" />
+                    Connect to Course
+                  </>
+                )}
+                </span>
+              </Button>
+              )}
+              {isAuthenticated && <Dialog open={saveLibraryOpen} onOpenChange={setSaveLibraryOpen}>
+                <DialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    data-testid="button-save-library"
+                  >
+                    <Library className="w-4 h-4 mr-1.5" />
+                    Save as Template
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Save as Template</DialogTitle>
+                    <DialogDescription>
+                      Save this content to reuse across other courses
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="library-title">Title</Label>
+                      <Input
+                        id="library-title"
+                        placeholder={content?.toolName}
+                        value={libraryTitle}
+                        onChange={(e) => setLibraryTitle(e.target.value)}
+                        data-testid="input-library-title"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="library-description">Description (optional)</Label>
+                      <Textarea
+                        id="library-description"
+                        placeholder="Add notes about this content..."
+                        value={libraryDescription}
+                        onChange={(e) => setLibraryDescription(e.target.value)}
+                        data-testid="textarea-library-description"
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setSaveLibraryOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button 
+                      onClick={() => saveToLibraryMutation.mutate()}
+                      disabled={saveToLibraryMutation.isPending}
+                      data-testid="button-confirm-save-library"
+                    >
+                      {saveToLibraryMutation.isPending ? "Saving..." : "Save Template"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>}
+            </div>
+          </CardContent>
+        </Card>
+        <Collapsible open={showAccessibility} onOpenChange={setShowAccessibility} className="mb-6">
+            <Card className={accessibilityIssues.length === 0 ? "border-green-500" : "border-primary"}>
+              <CollapsibleTrigger asChild>
+                <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      {accessibilityIssues.length === 0 ? (
+                        <div className="w-10 h-10 bg-green-500/10 rounded-lg flex items-center justify-center" data-testid="icon-accessibility-all-clear">
+                          <CheckCircle className="w-5 h-5 text-green-500" />
+                        </div>
+                      ) : (
+                        <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+                          <Lightbulb className="w-5 h-5 text-primary" />
+                        </div>
+                      )}
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <CardTitle className="text-lg">Accessibility Check</CardTitle>
+                          {accessibilityIssues.length === 0 ? (
+                            <Badge
+                              className="bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/30 hover:bg-green-500/15"
+                              variant="outline"
+                              data-testid="badge-accessibility-all-clear"
+                            >
+                              ✓ All Clear
+                            </Badge>
+                          ) : accessibilityIssues.some(i => i.severity === "warning") ? (
+                            <Badge
+                              className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/15"
+                              variant="outline"
+                              data-testid="badge-accessibility-count"
+                            >
+                              {accessibilityIssues.length} issue{accessibilityIssues.length !== 1 ? "s" : ""}
+                            </Badge>
+                          ) : (
+                            <Badge
+                              className="bg-primary/10 text-primary border-primary/30 hover:bg-primary/10"
+                              variant="outline"
+                              data-testid="badge-accessibility-count"
+                            >
+                              {accessibilityIssues.length} suggestion{accessibilityIssues.length !== 1 ? "s" : ""}
+                            </Badge>
+                          )}
+                        </div>
+                        <CardDescription>
+                          {accessibilityIssues.length === 0
+                            ? "Looks good! No accessibility issues detected."
+                            : accessibilityIssues.some(i => i.severity === "warning")
+                              ? `${accessibilityIssues.length} issue${accessibilityIssues.length !== 1 ? "s" : ""} found — review before distributing`
+                              : `${accessibilityIssues.length} suggestion${accessibilityIssues.length !== 1 ? "s" : ""} to improve accessibility`}
+                        </CardDescription>
+                      </div>
+                    </div>
+                    <ChevronDown className={`w-5 h-5 transition-transform ${showAccessibility ? "rotate-180" : ""}`} />
+                  </div>
+                </CardHeader>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <CardContent className="pt-0 space-y-3">
+                  <div className="flex items-center gap-2 pb-1 border-b border-border/50">
+                    <input
+                      id="skip-preview-toggle"
+                      type="checkbox"
+                      className="w-4 h-4 accent-primary cursor-pointer"
+                      checked={skipPreview}
+                      onChange={(e) => handleToggleSkipPreview(e.target.checked)}
+                      data-testid="checkbox-skip-preview"
+                    />
+                    <label
+                      htmlFor="skip-preview-toggle"
+                      className="text-sm text-muted-foreground cursor-pointer select-none"
+                    >
+                      Apply fixes directly without previewing
+                    </label>
+                  </div>
+                  {accessibilityIssues.map((issue, index) => (
+                    <div
+                      key={index}
+                      className={`p-4 rounded-lg border-l-4 ${
+                        issue.severity === "warning"
+                          ? "bg-secondary/10 border-secondary"
+                          : "bg-primary/5 border-primary"
+                      }`}
+                      data-testid={`accessibility-issue-${index}`}
+                    >
+                      <div className="flex items-start gap-3">
+                        {issue.severity === "warning" ? (
+                          <AlertTriangle className="w-5 h-5 text-secondary mt-0.5 shrink-0" />
+                        ) : (
+                          <Lightbulb className="w-5 h-5 text-primary mt-0.5 shrink-0" />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-3 flex-wrap">
+                            <Badge variant="outline" className="mb-2 text-xs">
+                              {issue.type}
+                            </Badge>
+                            {issue.fixType && !isAnon && contentId && (
+                              <div className="mb-2 flex items-center gap-1.5">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="gap-1.5 text-xs h-7 px-2"
+                                  disabled={fixingIssue === issue.fixType || applyFixMutation.isPending || previewFixMutation.isPending}
+                                  onClick={() => handleFixThis(issue.fixType!)}
+                                  data-testid={`button-fix-${issue.fixType}`}
+                                >
+                                  {fixingIssue === issue.fixType ? (
+                                    <>
+                                      <Loader2 className="w-3 h-3 animate-spin" />
+                                      {issue.fixType === "fix-vague-link-text" ? "Rewriting links…" : "Fixing…"}
+                                    </>
+                                  ) : previewFixMutation.isPending && previewFixType === issue.fixType ? (
+                                    <>
+                                      <Loader2 className="w-3 h-3 animate-spin" />
+                                      {issue.fixType === "fix-vague-link-text" ? "Rewriting links…" : "Loading…"}
+                                    </>
+                                  ) : (
+                                    <>
+                                      <CheckCircle className="w-3 h-3" />
+                                      Fix this
+                                    </>
+                                  )}
+                                </Button>
+                                {!skipPreview && (
+                                  <button
+                                    className="text-[10px] text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors leading-none"
+                                    disabled={fixingIssue !== null || applyFixMutation.isPending || previewFixMutation.isPending}
+                                    onClick={() => handleApplyFix(issue.fixType!)}
+                                    data-testid={`button-fix-direct-${issue.fixType}`}
+                                  >
+                                    Apply directly
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          <p className="font-medium">{issue.message}</p>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            <strong>Fix:</strong> {issue.fix}
+                          </p>
+                          {issue.fixType === "fix-vague-link-text" && (
+                            <div className="mt-2 px-3 py-2 rounded-md bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-xs text-blue-800 dark:text-blue-300">
+                              <strong>Title II notice:</strong> When applied, this fix will update your link text to meet Title II accessibility requirements using AI-generated descriptions based on surrounding context. The destination URLs are preserved — please verify each link still points to the correct location after applying.
+                            </div>
+                          )}
+                          {issue.fixType && getFixTypeDescription(issue.fixType) && (
+                            <div
+                              className="mt-2 rounded-lg border bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800 px-3 py-2.5 space-y-1"
+                              data-testid={`aria-fix-callout-${issue.fixType}`}
+                            >
+                              <p className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wide">
+                                What this fix does
+                              </p>
+                              <p className="text-sm text-amber-900 dark:text-amber-200">
+                                {getFixTypeDescription(issue.fixType)}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-4 space-y-0">
+            <div>
+              <CardTitle>Generated Content</CardTitle>
+              <CardDescription>
+                Created on {new Date(content.createdAt).toLocaleDateString()} at{" "}
+                {new Date(content.createdAt).toLocaleTimeString()}
+              </CardDescription>
+            </div>
+            {isAuthenticated && !isAnon && contentId && (
+            <div className="flex items-center gap-2">
+              <Dialog open={versionHistoryOpen} onOpenChange={(open) => { setVersionHistoryOpen(open); if (!open) setSelectedVersionId(null); }}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" className="gap-2" data-testid="button-version-history">
+                    <History className="w-4 h-4" />
+                    History
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-4xl max-h-[85vh] flex flex-col">
+                  <DialogHeader>
+                    <DialogTitle>Version History</DialogTitle>
+                    <DialogDescription>
+                      Browse all saved versions and restore any previous state
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="flex flex-col sm:flex-row gap-4 flex-1 min-h-0 overflow-hidden">
+                    <div className="sm:w-64 shrink-0 flex flex-col min-h-0">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                        {versions?.length ?? 0} saved version{versions?.length !== 1 ? "s" : ""}
+                      </p>
+                      {!versions ? (
+                        <div className="flex items-center justify-center py-8">
+                          <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                        </div>
+                      ) : versions.length === 0 ? (
+                        <div className="py-8 text-center">
+                          <History className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                          <p className="text-sm text-muted-foreground">No saved versions yet.</p>
+                          <p className="text-xs text-muted-foreground mt-1">Versions are saved automatically when you refine or apply accessibility fixes.</p>
+                        </div>
+                      ) : (
+                        <ScrollArea className="flex-1">
+                          <div className="space-y-1 pr-2">
+                            {versions.map((version) => {
+                              const summary = versionLineSummaries.get(version.id);
+                              const hasAdded = (summary?.added ?? 0) > 0;
+                              const hasRemoved = (summary?.removed ?? 0) > 0;
+                              return (
+                              <button
+                                key={version.id}
+                                className={`w-full text-left rounded-md px-3 py-2.5 transition-colors border ${
+                                  selectedVersionId === version.id
+                                    ? "bg-primary/10 border-primary/30"
+                                    : "bg-background hover:bg-muted border-transparent hover:border-border"
+                                }`}
+                                onClick={() => setSelectedVersionId(version.id)}
+                                data-testid={`version-item-${version.id}`}
+                              >
+                                <p className="text-sm font-medium leading-snug truncate" title={getVersionLabel(version)}>{getVersionLabel(version)}</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                  {new Date(version.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                                  {" · "}
+                                  {new Date(version.createdAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
+                                </p>
+                                {(hasAdded || hasRemoved) && (
+                                  <div className="flex items-center gap-1.5 mt-1.5" aria-label={`${summary?.added ?? 0} lines added, ${summary?.removed ?? 0} lines removed`}>
+                                    {hasAdded && (
+                                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400" data-testid={`version-lines-added-${version.id}`}>
+                                        +{summary!.added}
+                                      </span>
+                                    )}
+                                    {hasRemoved && (
+                                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400" data-testid={`version-lines-removed-${version.id}`}>
+                                        −{summary!.removed}
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </button>
+                              );
+                            })}
+                          </div>
+                        </ScrollArea>
+                      )}
+                    </div>
+                    <div className="flex-1 flex flex-col min-h-0 border rounded-md overflow-hidden">
+                      {selectedVersion ? (
+                        <>
+                          <div className="px-4 py-3 border-b bg-muted/30 shrink-0 flex items-center justify-between gap-3 flex-wrap">
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium break-words">{getVersionLabel(selectedVersion)}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {new Date(selectedVersion.createdAt).toLocaleString()}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="flex items-center rounded-md border overflow-hidden">
+                                <button
+                                  className={`px-2.5 py-1 text-xs font-medium transition-colors ${showDiff ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
+                                  onClick={() => setShowDiff(true)}
+                                  data-testid="button-view-diff"
+                                  aria-pressed={showDiff}
+                                >
+                                  Changes
+                                </button>
+                                <button
+                                  className={`px-2.5 py-1 text-xs font-medium transition-colors border-l ${!showDiff ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
+                                  onClick={() => setShowDiff(false)}
+                                  data-testid="button-view-raw"
+                                  aria-pressed={!showDiff}
+                                >
+                                  Full text
+                                </button>
+                              </div>
+                              {hasChanges && (
+                                <button
+                                  className="px-2.5 py-1 text-xs font-medium transition-colors rounded-md border bg-background text-muted-foreground hover:bg-muted shrink-0"
+                                  onClick={jumpToFirstChange}
+                                  data-testid="button-jump-to-first-change"
+                                  aria-label="Jump to first change"
+                                  title="Jump to first change"
+                                >
+                                  ↓ First change
+                                </button>
+                              )}
+                              <Button
+                                size="sm"
+                                className="gap-1.5 shrink-0"
+                                onClick={() => restoreVersionMutation.mutate(selectedVersion.id)}
+                                disabled={restoreVersionMutation.isPending}
+                                data-testid="button-restore-version"
+                              >
+                                {restoreVersionMutation.isPending ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <RotateCcw className="w-3.5 h-3.5" />
+                                )}
+                                Restore this version
+                              </Button>
+                            </div>
+                          </div>
+                          <ScrollArea className="flex-1 p-4">
+                            {showDiff && versionDiff ? (
+                              <div className="font-mono text-xs leading-relaxed" data-testid="version-diff-content" aria-label="Diff between selected version and current content">
+                                <div className="flex items-center gap-4 mb-3 text-xs text-muted-foreground">
+                                  <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-red-100 border border-red-300" aria-hidden="true" />Removed since this version</span>
+                                  <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-green-100 border border-green-300" aria-hidden="true" />Added since this version</span>
+                                </div>
+                                {(() => {
+                                  let firstChangeSeen = false;
+                                  return versionDiff.map((part, i) => {
+                                    const isFirst = (part.removed || part.added) && !firstChangeSeen;
+                                    if (isFirst) firstChangeSeen = true;
+                                    if (part.removed) {
+                                      return (
+                                        <div key={i} ref={isFirst ? firstChangeRef : undefined} className="bg-red-50 border-l-2 border-red-400 pl-2 -ml-2 whitespace-pre-wrap text-red-800 dark:bg-red-950/30 dark:text-red-300 dark:border-red-600">
+                                          {part.value}
+                                        </div>
+                                      );
+                                    }
+                                    if (part.added) {
+                                      return (
+                                        <div key={i} ref={isFirst ? firstChangeRef : undefined} className="bg-green-50 border-l-2 border-green-400 pl-2 -ml-2 whitespace-pre-wrap text-green-800 dark:bg-green-950/30 dark:text-green-300 dark:border-green-600">
+                                          {part.value}
+                                        </div>
+                                      );
+                                    }
+                                    return (
+                                      <div key={i} className="whitespace-pre-wrap text-foreground">
+                                        {part.value}
+                                      </div>
+                                    );
+                                  });
+                                })()}
+                              </div>
+                            ) : (
+                              <div className="prose prose-sm max-w-none dark:prose-invert whitespace-pre-wrap text-sm text-foreground leading-relaxed font-mono" data-testid="version-preview-content">
+                                {selectedVersion.content}
+                              </div>
+                            )}
+                          </ScrollArea>
+                        </>
+                      ) : (
+                        <div className="flex-1 flex items-center justify-center">
+                          <div className="text-center">
+                            <History className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+                            <p className="text-sm text-muted-foreground">Select a version to preview its content</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            <Dialog open={refinementOpen} onOpenChange={setRefinementOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="gap-2" data-testid="button-refine">
+                  <RefreshCw className="w-4 h-4" />
+                  Refine
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>Refine Your Content</DialogTitle>
+                  <DialogDescription>
+                    Describe the changes you'd like to make to improve this content
+                  </DialogDescription>
+                </DialogHeader>
+                {appConfig && (
+                  <p className="text-xs text-muted-foreground" data-testid="text-version-history-limit">
+                    Showing up to {appConfig.versionHistoryLimit} versions
+                  </p>
+                )}
+                <Textarea
+                  placeholder="e.g., Make the rubric more detailed, add more UDL accommodations, simplify the language..."
+                  value={refinementRequest}
+                  onChange={(e) => setRefinementRequest(e.target.value)}
+                  className="min-h-32"
+                  data-testid="textarea-refinement"
+                />
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setRefinementOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleRefine} className="gap-2" data-testid="button-submit-refine">
+                    <RefreshCw className="w-4 h-4" />
+                    Refine Content
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+            </div>
+            )}
+          </CardHeader>
+          <CardContent>
+            <ScrollArea className="h-[600px] pr-4">
+              <div className="prose prose-sm max-w-none dark:prose-invert prose-headings:text-primary prose-headings:font-bold prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-p:text-foreground prose-li:text-foreground prose-strong:text-foreground prose-table:text-sm">
+                {(() => {
+                  const autoExpand = localStorage.getItem("bsu-auto-expand-sections") === "true";
+                  const sections = splitContentIntoSections(content.content).map(s =>
+                    autoExpand ? { ...s, collapsed: false } : s
+                  );
+
+                  // Compute how many captions each section contributes (from the
+                  // source HTML) so that every section's caption counter starts at
+                  // the correct global document-order offset.  This makes caption
+                  // index assignment reliable even when earlier sections are
+                  // collapsed/unmounted and even when two captions share the same
+                  // text.
+                  const sectionCaptionCounts = sections.map(
+                    (s) => [...s.body.matchAll(/<caption[^>]*>/gi)].length,
+                  );
+                  const sectionStartIndices = sectionCaptionCounts.reduce(
+                    (acc, count, i) => {
+                      acc.push(i === 0 ? 0 : acc[i - 1] + sectionCaptionCounts[i - 1]);
+                      return acc;
+                    },
+                    [] as number[],
+                  );
+
+                  // Factory that creates a Components map whose caption renderer
+                  // uses a local counter offset by `startIdx`.
+                  const makeMarkdownComponents = (startIdx: number): Components => {
+                    const localCounter = { index: 0 };
+                    return {
+                      table: ({ node, children, ...props }) => (
+                        <div className="overflow-x-auto my-4">
+                          <table {...props} className="min-w-full border-collapse border border-border">
+                            {children}
+                          </table>
+                        </div>
+                      ),
+                      caption: ({ node, children, ...props }) => {
+                        const globalIndex = startIdx + localCounter.index++;
+                        const captionText = extractChildrenText(children);
+                        return (
+                          <caption {...props} className="text-sm text-muted-foreground mb-2 caption-top group/cap">
+                            {children}
+                            {!isAnon && contentId && (
+                              <button
+                                className="ml-1.5 opacity-0 group-hover/cap:opacity-100 transition-opacity inline-flex items-center text-muted-foreground hover:text-foreground focus:opacity-100 focus:outline-none"
+                                onClick={(e) => { e.preventDefault(); handleEditCaption(captionText, globalIndex); }}
+                                title="Edit caption"
+                                type="button"
+                                data-testid="button-edit-caption"
+                                aria-label="Edit table caption"
+                              >
+                                <Pencil className="w-3 h-3" />
+                              </button>
+                            )}
+                          </caption>
+                        );
+                      },
+                      thead: ({ node, children, ...props }) => (
+                        <thead {...props} className="bg-muted">{children}</thead>
+                      ),
+                      th: ({ node, children, ...props }) => (
+                        <th {...props} className="border border-border px-3 py-2 text-left font-semibold text-foreground">
+                          {children}
+                        </th>
+                      ),
+                      td: ({ node, children, ...props }) => (
+                        <td {...props} className="border border-border px-3 py-2 text-foreground">
+                          {children}
+                        </td>
+                      ),
+                      h1: ({ children }) => (
+                        <h1 className="text-2xl font-bold text-primary mt-6 mb-3">{children}</h1>
+                      ),
+                      h2: ({ children }) => (
+                        <h2 className="text-xl font-bold text-primary mt-5 mb-2">{children}</h2>
+                      ),
+                      h3: ({ children }) => (
+                        <h3 className="text-lg font-semibold text-primary mt-4 mb-2">{children}</h3>
+                      ),
+                      ul: ({ children }) => (
+                        <ul className="list-disc pl-6 my-2 space-y-1">{children}</ul>
+                      ),
+                      ol: ({ children }) => (
+                        <ol className="list-decimal pl-6 my-2 space-y-1">{children}</ol>
+                      ),
+                      li: ({ children }) => (
+                        <li className="text-foreground">{children}</li>
+                      ),
+                      p: ({ children }) => (
+                        <p className="my-2 text-foreground leading-relaxed">{children}</p>
+                      ),
+                      strong: ({ children }) => (
+                        <strong className="font-semibold text-foreground">{children}</strong>
+                      ),
+                      hr: () => (
+                        <hr className="my-4 border-border" />
+                      ),
+                    };
+                  };
+
+                  if (sections.length <= 1) {
+                    return (
+                      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema]]} components={makeMarkdownComponents(0)}>
+                        {content.content}
+                      </ReactMarkdown>
+                    );
+                  }
+
+                  return sections.map((section, idx) => {
+                    const sectionComponents = makeMarkdownComponents(sectionStartIndices[idx]);
+
+                    if (!section.heading) {
+                      return (
+                        <div key={idx} data-testid={`section-intro-${idx}`}>
+                          <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema]]} components={sectionComponents}>
+                            {section.body}
+                          </ReactMarkdown>
+                        </div>
+                      );
+                    }
+
+                    if (!section.collapsed) {
+                      return (
+                        <div key={idx} data-testid={`section-expanded-${idx}`}>
+                          <h2 className="text-xl font-bold text-primary mt-5 mb-2">{section.heading}</h2>
+                          <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema]]} components={sectionComponents}>
+                            {section.body}
+                          </ReactMarkdown>
+                        </div>
+                      );
+                    }
+
+                    const isOpen = expandedSections[idx] ?? false;
+                    const sectionWordCount = section.body.trim().split(/\s+/).filter(Boolean).length;
+                    const readingMins = Math.max(1, Math.ceil(sectionWordCount / 200));
+                    return (
+                      <Collapsible key={idx} open={isOpen} onOpenChange={(open) => setExpandedSections(prev => ({ ...prev, [idx]: open }))}>
+                        <div className="flex items-center gap-2 mt-5 mb-2">
+                          <CollapsibleTrigger asChild>
+                            <button
+                              className="flex items-center gap-2 min-w-0 flex-1 text-left group cursor-pointer hover:bg-muted/50 rounded-md px-2 py-1 -mx-2 transition-colors"
+                              data-testid={`collapsible-trigger-${idx}`}
+                            >
+                              <ChevronRight className={`w-4 h-4 text-primary transition-transform shrink-0 ${isOpen ? "rotate-90" : ""}`} />
+                              <h2 className="text-xl font-bold text-primary">{section.heading}</h2>
+                            </button>
+                          </CollapsibleTrigger>
+                          <Badge
+                            className="bg-primary/10 text-primary border-primary/30 hover:bg-primary/10 shrink-0"
+                            variant="outline"
+                            data-testid={`badge-section-readtime-${idx}`}
+                          >
+                            ~{readingMins} min read
+                          </Badge>
+                        </div>
+                        <CollapsibleContent>
+                          <div data-testid={`collapsible-content-${idx}`}>
+                            <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema]]} components={sectionComponents}>
+                              {section.body}
+                            </ReactMarkdown>
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    );
+                  });
+                })()}
+              </div>
+            </ScrollArea>
+          </CardContent>
+        </Card>
+
+        {(() => {
+          const chains = tool?.chains ?? [];
+          if (chains.length === 0) return null;
+          return (
+            <Card className="mt-8 border-primary/20 bg-primary/5" data-testid="card-next-steps">
+              <CardHeader className="pb-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <Zap className="w-5 h-5 text-primary" aria-hidden="true" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg">Next Steps</CardTitle>
+                    <CardDescription>Launch a related tool pre-filled with context from this result</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-3">
+                  {chains.map((chain) => {
+                    const targetTool = TOOLS.find(t => t.id === chain.targetId);
+                    if (!targetTool) return null;
+                    return (
+                      <Button
+                        key={chain.targetId}
+                        variant="outline"
+                        className="gap-2 border-primary/30 hover:border-primary hover:bg-primary/10"
+                        onClick={() => {
+                          const prefill = getChainPrefillFields(
+                            content.toolType,
+                            chain.targetId,
+                            (content.formData as Record<string, any>) ?? {},
+                            content.content,
+                          );
+                          const sourceTool = TOOLS.find(t => t.id === content.toolType);
+                          sessionStorage.setItem("bsu-chain-prefill", JSON.stringify({ targetToolId: chain.targetId, fields: prefill, sourceName: sourceTool?.name ?? content.toolType }));
+                          navigate(isStandalone ? `/quick-tools/${chain.targetId}` : `/course/${courseId}/tool/${chain.targetId}`);
+                        }}
+                        data-testid={`button-chain-${chain.targetId}`}
+                      >
+                        {chain.label}
+                        <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                      </Button>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })()}
+
+        <div className="mt-8 flex justify-center">
+          <Button
+            variant="outline"
+            size="lg"
+            onClick={() => navigate(isStandalone ? `/quick-tools/${content.toolType}` : `/course/${courseId}/tool/${content.toolType}`)}
+            className="gap-2"
+            data-testid="button-create-another"
+          >
+            Create Another {tool?.name || "Item"}
+          </Button>
+        </div>
+      </div>
+      <PoweredByFooter />
+
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-2xl" data-testid="dialog-fix-preview">
+          <DialogHeader>
+            <DialogTitle>Preview Fix</DialogTitle>
+            <DialogDescription>
+              Review what will change before applying the fix. Lines in{" "}
+              <span className="text-red-600 dark:text-red-400 font-medium">red</span> will be removed and lines in{" "}
+              <span className="text-green-600 dark:text-green-400 font-medium">green</span> will be added.
+            </DialogDescription>
+          </DialogHeader>
+          {previewFixType && getFixTypeDescription(previewFixType) && (
+            <div
+              className="rounded-lg border bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800 px-3 py-2.5 space-y-1"
+              data-testid="dialog-fix-preview-explanation"
+            >
+              <p className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wide">
+                What this fix does
+              </p>
+              <p className="text-sm text-amber-900 dark:text-amber-200">
+                {getFixTypeDescription(previewFixType)}
+              </p>
+            </div>
+          )}
+          <ScrollArea className="h-80 rounded border bg-muted/30 p-3 font-mono text-xs leading-relaxed" data-testid="diff-preview-scroll">
+            {(() => {
+              const diff = computeLineDiff(previewBefore, previewAfter);
+              const hunks = buildDiffHunks(diff);
+              if (hunks.length === 0) {
+                return <p className="text-muted-foreground italic">No changes would be made by this fix.</p>;
+              }
+              const elements: ReactNode[] = [];
+              let i2 = 0;
+              while (i2 < hunks.length) {
+                const item = hunks[i2];
+                if (item === "ellipsis") {
+                  elements.push(
+                    <div key={i2} className="text-muted-foreground text-center py-0.5 select-none">···</div>
+                  );
+                  i2++;
+                  continue;
+                }
+                const next = hunks[i2 + 1];
+                const isPair =
+                  item.type === "removed" &&
+                  next !== undefined &&
+                  next !== "ellipsis" &&
+                  next.type === "added";
+                if (isPair) {
+                  const nextLine = next as DiffLine;
+                  const { removedSpans, addedSpans } = computeWordDiff(item.text, nextLine.text);
+                  elements.push(
+                    <div key={i2} className="bg-red-100 dark:bg-red-950 text-red-800 dark:text-red-200 px-2 py-0.5 rounded-sm whitespace-pre-wrap break-all" data-testid="diff-line-removed">
+                      <span className="select-none mr-1 opacity-60">−</span>
+                      {removedSpans.map((s, si) =>
+                        s.changed
+                          ? <mark key={si} className="bg-red-300 dark:bg-red-700 text-red-900 dark:text-red-100 rounded-sm px-0.5" data-testid="diff-word-removed">{s.text}</mark>
+                          : <span key={si}>{s.text}</span>
+                      )}
+                    </div>
+                  );
+                  elements.push(
+                    <div key={i2 + 1} className="bg-green-100 dark:bg-green-950 text-green-800 dark:text-green-200 px-2 py-0.5 rounded-sm whitespace-pre-wrap break-all" data-testid="diff-line-added">
+                      <span className="select-none mr-1 opacity-60">+</span>
+                      {addedSpans.map((s, si) =>
+                        s.changed
+                          ? <mark key={si} className="bg-green-300 dark:bg-green-700 text-green-900 dark:text-green-100 rounded-sm px-0.5" data-testid="diff-word-added">{s.text}</mark>
+                          : <span key={si}>{s.text}</span>
+                      )}
+                    </div>
+                  );
+                  i2 += 2;
+                  continue;
+                }
+                if (item.type === "removed") {
+                  elements.push(
+                    <div key={i2} className="bg-red-100 dark:bg-red-950 text-red-800 dark:text-red-200 px-2 py-0.5 rounded-sm whitespace-pre-wrap break-all" data-testid="diff-line-removed">
+                      <span className="select-none mr-1 opacity-60">−</span>{item.text || " "}
+                    </div>
+                  );
+                } else if (item.type === "added") {
+                  elements.push(
+                    <div key={i2} className="bg-green-100 dark:bg-green-950 text-green-800 dark:text-green-200 px-2 py-0.5 rounded-sm whitespace-pre-wrap break-all" data-testid="diff-line-added">
+                      <span className="select-none mr-1 opacity-60">+</span>{item.text || " "}
+                    </div>
+                  );
+                } else {
+                  elements.push(
+                    <div key={i2} className="text-muted-foreground px-2 py-0.5 whitespace-pre-wrap break-all" data-testid="diff-line-unchanged">
+                      <span className="select-none mr-1 opacity-40"> </span>{item.text || " "}
+                    </div>
+                  );
+                }
+                i2++;
+              }
+              return elements;
+            })()}
+          </ScrollArea>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="ghost"
+              onClick={() => setPreviewOpen(false)}
+              data-testid="button-preview-cancel"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmFix}
+              disabled={fixingIssue !== null || applyFixMutation.isPending}
+              data-testid="button-preview-confirm"
+            >
+              {applyFixMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin mr-1.5" />
+                  Applying…
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-4 h-4 mr-1.5" />
+                  Apply fix
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={captionDialogOpen} onOpenChange={(open) => { if (!open) { setCaptionDialogOpen(false); setCaptionStep("input"); setCaptionAllowDefault(false); } }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {captionEditMode === "edit"
+                ? "Edit Table Caption"
+                : captionStep === "preview"
+                  ? `Preview ${captionTexts.length > 1 ? "Captions" : "Caption"}`
+                  : `Set Table ${captionTexts.length > 1 ? "Captions" : "Caption"}`}
+            </DialogTitle>
+            <DialogDescription>
+              {captionEditMode === "edit"
+                ? "Update the caption to better describe what this table contains. Captions help screen reader users understand the table's purpose."
+                : captionStep === "preview"
+                  ? `Review how each caption will appear with its table. Click "Back" to make changes or "Apply" to confirm.`
+                  : captionTexts.length > 1
+                    ? `Enter a meaningful caption for each of the ${captionTexts.length} tables missing a caption. Good captions help screen reader users understand each table's purpose.`
+                    : "Enter a meaningful caption that describes what this table contains. A good caption helps screen reader users understand the table's purpose."}
+            </DialogDescription>
+          </DialogHeader>
+
+          {captionStep === "preview" && captionEditMode === "add" ? (
+            <div className="space-y-3">
+              <div className="space-y-4 max-h-80 overflow-y-auto pr-1">
+                {captionTexts.map((text, index) => {
+                  const rows = captionTablePreviews[index] ?? [];
+                  const hasHeader = rows.length > 0 && rows[0].length > 0;
+                  const headerRow = hasHeader ? rows[0] : null;
+                  const bodyRows = hasHeader ? rows.slice(1) : rows;
+                  return (
+                    <div key={index} className="rounded-md border border-border overflow-hidden text-sm">
+                      <div className="bg-muted/60 px-3 py-2 font-medium text-foreground flex items-center gap-2">
+                        <span className="text-xs uppercase tracking-wide text-muted-foreground">Caption</span>
+                        <span data-testid={`preview-caption-${index}`} className="font-semibold">{text || <span className="italic text-muted-foreground">No caption entered</span>}</span>
+                      </div>
+                      {rows.length > 0 ? (
+                        <div className="px-3 py-2 bg-background overflow-x-auto">
+                          <table className="w-full text-xs border-collapse">
+                            {headerRow && (
+                              <thead>
+                                <tr className="bg-muted">
+                                  {headerRow.map((cell, ci) => (
+                                    <th key={ci} className="border border-border px-2 py-1 text-left font-semibold text-foreground truncate max-w-[12ch]" title={cell}>
+                                      {cell || <span className="text-muted-foreground italic">—</span>}
+                                    </th>
+                                  ))}
+                                </tr>
+                              </thead>
+                            )}
+                            {bodyRows.length > 0 && (
+                              <tbody>
+                                {bodyRows.map((row, ri) => (
+                                  <tr key={ri} className={ri % 2 === 0 ? "bg-background" : "bg-muted/30"}>
+                                    {row.map((cell, ci) => (
+                                      <td key={ci} className="border border-border px-2 py-1 text-muted-foreground truncate max-w-[12ch]" title={cell}>
+                                        {cell || <span className="italic">—</span>}
+                                      </td>
+                                    ))}
+                                  </tr>
+                                ))}
+                              </tbody>
+                            )}
+                          </table>
+                        </div>
+                      ) : (
+                        <div className="px-3 py-2 bg-background text-xs text-muted-foreground italic">
+                          Table {index + 1} — no preview available
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              {(() => {
+                const groups: Record<string, number[]> = {};
+                captionTexts.forEach((t, i) => {
+                  const key = t.trim().toLowerCase();
+                  if (!key) return;
+                  if (!groups[key]) groups[key] = [];
+                  groups[key].push(i + 1);
+                });
+                const dupes = Object.values(groups).filter((indices) => indices.length > 1);
+                if (dupes.length === 0) return null;
+                return (
+                  <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300" role="alert" data-testid="warning-duplicate-caption-preview">
+                    <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
+                    <span>
+                      {dupes.length === 1
+                        ? `Tables ${dupes[0].map((n) => `#${n}`).join(" and ")} share the same caption. Go back and give each table a unique description.`
+                        : `${dupes.length} groups of tables share duplicate captions (${dupes.map((g) => g.map((n) => `#${n}`).join(" & ")).join("; ")}). Go back and give each table a unique description.`}
+                    </span>
+                  </div>
+                );
+              })()}
+            </div>
+          ) : (
+            <>
+              <div className="space-y-4 max-h-72 overflow-y-auto pr-1">
+                {captionEditMode === "edit" ? (
+                  <div className="space-y-1">
+                    <Label htmlFor="caption-input-edit">Caption text</Label>
+                    <Input
+                      id="caption-input-edit"
+                      value={captionEditText}
+                      onChange={(e) => setCaptionEditText(e.target.value)}
+                      placeholder="e.g., Weekly assignment schedule"
+                      onKeyDown={(e) => { if (e.key === "Enter") handleApplyCaptionFix(); }}
+                      data-testid="input-caption-text"
+                      autoFocus
+                    />
+                  </div>
+                ) : captionTexts.map((text, index) => (
+                  <div key={index} className="space-y-1">
+                    <Label htmlFor={`caption-input-${index}`}>
+                      {captionTexts.length > 1 ? `Table ${index + 1} caption` : "Caption text"}
+                    </Label>
+                    <Input
+                      id={`caption-input-${index}`}
+                      value={text}
+                      onChange={(e) => {
+                        const updated = [...captionTexts];
+                        updated[index] = e.target.value;
+                        setCaptionTexts(updated);
+                      }}
+                      placeholder="e.g., Weekly assignment schedule"
+                      onKeyDown={(e) => { if (e.key === "Enter" && index === captionTexts.length - 1 && captionTexts.every((t) => t.trim()) && (captionAllowDefault || !captionTexts.some((t) => t.trim().toLowerCase() === "table summary")) && (() => { const g: Record<string, number> = {}; for (const t of captionTexts) { const k = t.trim().toLowerCase(); g[k] = (g[k] ?? 0) + 1; if (g[k] > 1) return false; } return true; })()) setCaptionStep("preview"); }}
+                      data-testid={`input-caption-text-${index}`}
+                      autoFocus={index === 0}
+                    />
+                  </div>
+                ))}
+              </div>
+              {captionEditMode === "edit" && captionEditText.trim() && captionEditOtherCaptions.some((c) => c.trim().toLowerCase() === captionEditText.trim().toLowerCase()) && (
+                <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300" role="alert" data-testid="warning-duplicate-caption-edit">
+                  <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
+                  <span>Another table already uses this caption. Each caption should uniquely describe its table.</span>
+                </div>
+              )}
+              {captionEditMode === "edit" && captionEditText.trim().toLowerCase() === "table summary" && (
+                <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300" role="alert" data-testid="warning-generic-caption">
+                  <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
+                  <span>This caption still uses the default "Table summary" text. Replace it with a description of what the table actually contains before saving.</span>
+                </div>
+              )}
+              {captionEditMode === "add" && captionTexts.some((t) => t.trim().toLowerCase() === "table summary") && (
+                <div className="flex flex-col gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300" role="alert" data-testid="warning-generic-caption">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
+                    <span>
+                      {captionTexts.filter((t) => t.trim().toLowerCase() === "table summary").length > 1
+                        ? `${captionTexts.filter((t) => t.trim().toLowerCase() === "table summary").length} captions still use the default "Table summary" text. Replace them with descriptions of what each table actually contains before previewing.`
+                        : `One caption still uses the default "Table summary" text. Replace it with a description of what the table actually contains before previewing.`}
+                    </span>
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer select-none pl-6" data-testid="checkbox-allow-default-caption">
+                    <input
+                      type="checkbox"
+                      checked={captionAllowDefault}
+                      onChange={(e) => setCaptionAllowDefault(e.target.checked)}
+                      className="rounded border-amber-400 accent-amber-700"
+                    />
+                    <span>I understand — proceed with the default text anyway</span>
+                  </label>
+                </div>
+              )}
+              {captionEditMode === "add" && (() => {
+                const groups: Record<string, number[]> = {};
+                captionTexts.forEach((t, i) => {
+                  const key = t.trim().toLowerCase();
+                  if (!key) return;
+                  if (!groups[key]) groups[key] = [];
+                  groups[key].push(i + 1);
+                });
+                const dupes = Object.values(groups).filter((indices) => indices.length > 1);
+                if (dupes.length === 0) return null;
+                return (
+                  <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300" role="alert" data-testid="warning-duplicate-caption">
+                    <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
+                    <span>
+                      {dupes.length === 1
+                        ? `Tables ${dupes[0].map((n) => `#${n}`).join(" and ")} share the same caption. Give each table a unique description to enable the Preview button.`
+                        : `${dupes.length} groups of tables share duplicate captions (${dupes.map((g) => g.map((n) => `#${n}`).join(" & ")).join("; ")}). Give each table a unique description to enable the Preview button.`}
+                    </span>
+                  </div>
+                );
+              })()}
+            </>
+          )}
+
+          <DialogFooter>
+            {captionStep === "preview" && captionEditMode === "add" ? (
+              <>
+                <Button variant="outline" onClick={() => setCaptionStep("input")} data-testid="button-back-caption">
+                  Back
+                </Button>
+                <Button
+                  onClick={handleApplyCaptionFix}
+                  className="gap-2"
+                  data-testid="button-apply-caption"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  Apply {captionTexts.length > 1 ? "Captions" : "Caption"}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="outline" onClick={() => { setCaptionDialogOpen(false); setCaptionStep("input"); }} data-testid="button-cancel-caption">
+                  Cancel
+                </Button>
+                <Button
+                  onClick={captionEditMode === "edit" ? handleApplyCaptionFix : () => setCaptionStep("preview")}
+                  className="gap-2"
+                  disabled={captionEditMode === "edit" ? (!captionEditText.trim() || captionEditText.trim().toLowerCase() === "table summary") : (captionTexts.some((t) => !t.trim()) || (!captionAllowDefault && captionTexts.some((t) => t.trim().toLowerCase() === "table summary")) || (() => { const g: Record<string, number> = {}; for (const t of captionTexts) { const k = t.trim().toLowerCase(); if (!k) continue; g[k] = (g[k] ?? 0) + 1; if (g[k] > 1) return true; } return false; })())}
+                  data-testid="button-apply-caption"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  {captionEditMode === "edit" ? "Save Caption" : `Preview ${captionTexts.length > 1 ? "Captions" : "Caption"}`}
+                </Button>
+              </>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </main>
+  );
+}
