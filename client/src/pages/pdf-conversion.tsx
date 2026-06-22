@@ -3022,37 +3022,44 @@ export default function PdfConversion() {
                                     {noFixReasons[i]}
                                   </p>
                                 </div>
-                                <button
-                                  onClick={() => {
-                                    const copyText = issue.title
-                                      ? `Manual fix needed — ${issue.title}${issue.criterion ? ` (WCAG ${issue.criterion})` : ""}: ${noFixReasons[i]}`
-                                      : `Manual fix needed: ${noFixReasons[i]}`;
-                                    navigator.clipboard.writeText(copyText).then(() => {
-                                      setCopiedNoFixKeys((prev) => {
-                                        const next = new Set(prev);
-                                        next.add(i);
-                                        return next;
-                                      });
-                                      setTimeout(() => {
-                                        setCopiedNoFixKeys((prev) => {
-                                          const next = new Set(prev);
-                                          next.delete(i);
-                                          return next;
+                                <Tooltip open={copiedNoFixKeys.has(i)}>
+                                  <TooltipTrigger asChild>
+                                    <button
+                                      onClick={() => {
+                                        const copyText = issue.title
+                                          ? `Manual fix needed — ${issue.title}${issue.criterion ? ` (WCAG ${issue.criterion})` : ""}: ${noFixReasons[i]}`
+                                          : `Manual fix needed: ${noFixReasons[i]}`;
+                                        navigator.clipboard.writeText(copyText).then(() => {
+                                          setCopiedNoFixKeys((prev) => {
+                                            const next = new Set(prev);
+                                            next.add(i);
+                                            return next;
+                                          });
+                                          setTimeout(() => {
+                                            setCopiedNoFixKeys((prev) => {
+                                              const next = new Set(prev);
+                                              next.delete(i);
+                                              return next;
+                                            });
+                                          }, 2000);
                                         });
-                                      }, 2000);
-                                    });
-                                  }}
-                                  className="flex-shrink-0 p-0.5 rounded text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-800/60 transition-colors"
-                                  aria-label="Copy manual fix guidance"
-                                  data-testid={`button-copy-no-fix-${i}`}
-                                  title="Copy guidance"
-                                >
-                                  {copiedNoFixKeys.has(i) ? (
-                                    <Check className="w-3.5 h-3.5" />
-                                  ) : (
-                                    <ClipboardCopy className="w-3.5 h-3.5" />
-                                  )}
-                                </button>
+                                      }}
+                                      className="flex-shrink-0 p-0.5 rounded text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-800/60 transition-colors"
+                                      aria-label="Copy manual fix guidance"
+                                      data-testid={`button-copy-no-fix-${i}`}
+                                      title="Copy guidance"
+                                    >
+                                      {copiedNoFixKeys.has(i) ? (
+                                        <Check className="w-3.5 h-3.5" />
+                                      ) : (
+                                        <ClipboardCopy className="w-3.5 h-3.5" />
+                                      )}
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top">
+                                    <p>Copied!</p>
+                                  </TooltipContent>
+                                </Tooltip>
                                 <button
                                   onClick={() =>
                                     setNoFixReasons((prev) => {
