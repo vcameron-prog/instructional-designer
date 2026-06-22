@@ -92,10 +92,19 @@ async function runMigrations() {
       `[migration] ${driftResult.pending.length} unapplied migration(s) detected ` +
       `(${driftResult.applied} of ${driftResult.expected.length} applied):\n${list}`;
 
+    if (isProduction) {
+      console.error(
+        `\n[migration] FATAL: ${summary}\n\n` +
+          `Production startup aborted. Run migrations before deploying:\n` +
+          `  npm run db:migrate\n`,
+      );
+      process.exit(1);
+    }
+
     log(
       "[migration] WARNING: " +
         summary +
-        " — auto-applying now",
+        " — auto-applying now (dev only)",
       "startup",
     );
   } else if (driftResult) {

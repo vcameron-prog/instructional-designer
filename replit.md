@@ -65,6 +65,30 @@ Preferred communication style: Simple, everyday language.
 - **Public Stats API**: `GET /api/stats/public` returns monthly activity counts, optionally protected by `STATS_API_KEY` env var (requires `x-api-key` header).
 - **Metrics API**: `GET /api/metrics` returns in-memory runtime counters. Currently exposes `aiFixRetry.count` (how many times `fixComplianceIssue` fell back to the strict-prompt retry path since last server restart) and `aiFixRetry.lastAt` (ISO timestamp of the most recent retry). No auth required. Counter resets on server restart.
 
+## Database Migrations & Deploy Order
+
+Migrations are managed with Drizzle Kit and must be applied **before** the server starts in production.
+
+| Environment | Behavior |
+|-------------|----------|
+| Development | Server auto-applies pending migrations on startup via `drizzle-orm/migrator`. |
+| Production  | Server **refuses to start** if any migrations are pending. Run `npm run db:migrate` first. |
+
+### Key npm scripts
+
+| Script | Command | Purpose |
+|--------|---------|---------|
+| `npm run db:migrate` | `drizzle-kit migrate` | Apply pending migration files to the database |
+| `npm run db:push` | `drizzle-kit push` | Push schema directly (dev/prototype use only — not for production) |
+
+### Deploy order (production)
+
+1. Build the app (`npm run build`)
+2. Run `npm run db:migrate` to apply any pending migrations
+3. Start the server (`npm start`)
+
+The `scripts/post-merge.sh` post-merge hook runs `npm run db:migrate` automatically as part of the CI/CD pipeline, so migrations are applied before the new server process starts.
+
 ## External Dependencies
 
 ### AI Services

@@ -14,5 +14,5 @@ else
   echo "package.json/package-lock.json unchanged — skipping npm install"
 fi
 
-npx drizzle-kit migrate
+npm run db:migrate
 bash scripts/check-schema-drift.sh
