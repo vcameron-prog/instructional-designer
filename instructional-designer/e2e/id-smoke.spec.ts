@@ -276,6 +276,7 @@ test.describe("Course creation — form submits and lands on tools page", () => 
 // ===========================================================================
 // Test 5 — Quick-tool form generates content and result page renders
 // ===========================================================================
+// (see also Test 6 below for the batch assignment+rubric flow)
 test.describe("Quick-tool — assignment form generates content", () => {
   test.beforeEach(async ({ page }) => {
     await loginAsUser(page);
@@ -359,6 +360,125 @@ test.describe("Quick-tool — assignment form generates content", () => {
     await expect(
       page.getByTestId("button-copy"),
       "copy button is visible on result page — content loaded without errors",
+    ).toBeVisible({ timeout: 10_000 });
+  });
+});
+
+// ===========================================================================
+// Test 6 — Batch assignment+rubric form generates both and result-batch renders
+// ===========================================================================
+test.describe("Quick-tool — batch assignment+rubric form generates both items", () => {
+  test.beforeEach(async ({ page }) => {
+    await loginAsUser(page);
+  });
+
+  test("enables rubric switch, mocks batch endpoint, and result-batch page renders both panels", async ({
+    page,
+  }) => {
+    // ---------------------------------------------------------------------------
+    // Mock IDs for the two generated records.
+    // ---------------------------------------------------------------------------
+    const ASSIGNMENT_ID = 77701;
+    const RUBRIC_ID = 77702;
+
+    const mockAssignment = {
+      id: ASSIGNMENT_ID,
+      courseId: null,
+      userId: "e2e-user-001",
+      visitorToken: null,
+      toolType: "assignment",
+      toolName: "Assignment",
+      formData: {},
+      content:
+        "## Overview\n\nBatch smoke-test assignment.\n\n## Learning Objectives\n\nStudents will demonstrate mastery.",
+      isApproved: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const mockRubric = {
+      id: RUBRIC_ID,
+      courseId: null,
+      userId: "e2e-user-001",
+      visitorToken: null,
+      toolType: "rubric",
+      toolName: "Rubric",
+      formData: {},
+      content:
+        "## Criteria\n\nBatch smoke-test rubric.\n\n## Scoring\n\nExcellent / Satisfactory / Needs Improvement.",
+      isApproved: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    // Mock the batch generation endpoint
+    await page.route("**/api/generate-batch-assignment-rubric", async (route) => {
+      await route.fulfill({
+        status: 201,
+        contentType: "application/json",
+        body: JSON.stringify({ assignmentId: ASSIGNMENT_ID, rubricId: RUBRIC_ID }),
+      });
+    });
+
+    // Mock the individual content fetches that result-batch makes for each panel
+    await page.route(`**/api/standalone-content/${ASSIGNMENT_ID}`, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(mockAssignment),
+      });
+    });
+
+    await page.route(`**/api/standalone-content/${RUBRIC_ID}`, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(mockRubric),
+      });
+    });
+
+    // Navigate to the assignment quick-tool form
+    await page.goto("/quick-tools/assignment");
+    await expect(page, "navigates to assignment tool form").toHaveURL(
+      /\/quick-tools\/assignment/,
+      { timeout: 10_000 },
+    );
+
+    // Enable the "Generate matching rubric" toggle
+    const rubricSwitch = page.getByTestId("switch-generate-rubric");
+    await expect(rubricSwitch, "generate-rubric switch is visible").toBeVisible({ timeout: 10_000 });
+    await rubricSwitch.click();
+
+    // Fill the required form fields
+    await page.getByTestId("select-assignmentType").click();
+    await page.getByRole("option", { name: "Essay/Paper" }).click();
+
+    await page.getByTestId("textarea-learningObjectives").fill(
+      "Students will critically evaluate primary sources and construct evidence-based arguments.",
+    );
+
+    await page.getByTestId("select-duration").click();
+    await page.getByRole("option", { name: "1 week" }).click();
+
+    // Submit — the mocked batch endpoint responds immediately
+    await page.getByTestId("button-generate").click();
+
+    // Should navigate to the result-batch page for both mocked IDs
+    await expect(page, "lands on result-batch page for mocked content").toHaveURL(
+      new RegExp(`/quick-tools/result-batch/${ASSIGNMENT_ID}/${RUBRIC_ID}`),
+      { timeout: 15_000 },
+    );
+
+    // The assignment copy button confirms the assignment panel loaded without errors
+    await expect(
+      page.getByTestId("button-copy-assignment"),
+      "copy button for assignment panel is visible — assignment content loaded",
+    ).toBeVisible({ timeout: 10_000 });
+
+    // The rubric copy button confirms the rubric panel loaded without errors
+    await expect(
+      page.getByTestId("button-copy-rubric"),
+      "copy button for rubric panel is visible — rubric content loaded",
     ).toBeVisible({ timeout: 10_000 });
   });
 });
