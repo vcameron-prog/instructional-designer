@@ -1,1 +1,2 @@
-ALTER TABLE "conversions" ADD COLUMN IF NOT EXISTS "extraction_warnings" jsonb;
+-- No-op: extraction_warnings is a converter-only column managed by the root app.
+SELECT 1;
