@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { INVALID_ID_ERROR } from "./routes";
+import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest";
+import { INVALID_ID_ERROR, MAX_CONCURRENT_DOCX_EXPORTS } from "./routes";
 import express from "express";
 import { createServer } from "http";
 import request from "supertest";
@@ -260,4 +260,107 @@ describe("GET /api/conversions/:id/download-docx — error cases", () => {
     expect(mockBuildDocx).toHaveBeenCalledTimes(1);
     expect(parseInt(res.headers["content-length"] ?? "0")).toBeGreaterThan(0);
   });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: concurrency/dedup guards (app built once in beforeAll)
+//
+// The app is built once so that module-level state (activeDocxExports,
+// activeDocxExportKeys) persists across requests within each describe block.
+// Per-test resetModules/clearAllMocks would tear that state down, which would
+// prevent the blocker pattern from working.
+// ---------------------------------------------------------------------------
+describe("GET /api/conversions/:id/download-docx — 503 concurrency cap", () => {
+  let app: express.Express;
+
+  const VALID_CONVERSION = {
+    accessibleHtml:
+      "<html lang=\"en\"><head><title>Doc</title></head><body><p>Hi</p></body></html>",
+    originalFilename: "test.pdf",
+    status: "completed",
+    updatedAt: new Date().toISOString(),
+  };
+
+  beforeAll(async () => {
+    vi.resetModules();
+    vi.clearAllMocks();
+    currentUser.sub = "user-abc";
+
+    app = await buildApp();
+
+    mockDbSelectWhere.mockResolvedValue([VALID_CONVERSION]);
+    mockBuildDocx.mockResolvedValue(Buffer.from("PK\x03\x04fake-docx"));
+  });
+
+  // -----------------------------------------------------------------------
+  // 503 — global concurrency cap (MAX_CONCURRENT_DOCX_EXPORTS = 3 by default)
+  //
+  // Fill all slots with blocking requests using distinct conversion IDs so
+  // none of them trigger the 409 dedup path.  A further request must then
+  // receive 503.  Release all blockers at the end so activeDocxExports
+  // returns to 0 and no state leaks into subsequent test runs.
+  // -----------------------------------------------------------------------
+  it("returns 503 when the concurrent DOCX export cap is reached", async () => {
+    const MAX_SLOTS = MAX_CONCURRENT_DOCX_EXPORTS;
+    const resolvers: Array<(v: Buffer) => void> = [];
+    const inflightDone: Promise<any>[] = [];
+
+    for (let i = 0; i < MAX_SLOTS; i++) {
+      const blocker = new Promise<Buffer>(resolve => {
+        resolvers.push(resolve);
+      });
+      mockBuildDocx.mockImplementationOnce(() => blocker);
+    }
+
+    for (let i = 0; i < MAX_SLOTS; i++) {
+      inflightDone.push(
+        new Promise<any>(resolve => {
+          request(app)
+            .get(`/api/conversions/${101 + i}/download-docx`)
+            .end((_err, res) => resolve(res));
+        }),
+      );
+      await new Promise(r => setTimeout(r, 30));
+    }
+
+    const res = await request(app).get("/api/conversions/200/download-docx");
+
+    expect(res.status).toBe(503);
+    expect(res.body.error).toMatch(/busy/i);
+
+    resolvers.forEach(r => r(Buffer.from("PK\x03\x04fake-docx")));
+    await Promise.all(inflightDone);
+  }, 15_000);
+
+  // -----------------------------------------------------------------------
+  // 409 — per-conversion in-flight deduplication
+  //
+  // A blocker keeps the first request alive; a second request for the same
+  // conversion ID must be rejected with 409.  The blocker is released after
+  // the assertion so activeDocxExports and activeDocxExportKeys return to 0,
+  // leaving no leaked state for subsequent tests.
+  // -----------------------------------------------------------------------
+  it("returns 409 when a DOCX export for the same conversion is already in progress", async () => {
+    let resolveDocx!: (buf: Buffer) => void;
+    const blocker = new Promise<Buffer>(resolve => {
+      resolveDocx = resolve;
+    });
+    mockBuildDocx.mockImplementationOnce(() => blocker);
+
+    const req1Done = new Promise<any>(resolve => {
+      request(app)
+        .get("/api/conversions/42/download-docx")
+        .end((_err, res) => resolve(res));
+    });
+
+    await new Promise(r => setTimeout(r, 50));
+
+    const res2 = await request(app).get("/api/conversions/42/download-docx");
+
+    expect(res2.status).toBe(409);
+    expect(res2.body.error).toMatch(/already in progress/i);
+
+    resolveDocx(Buffer.from("PK\x03\x04fake-docx"));
+    await req1Done;
+  }, 15_000);
 });
