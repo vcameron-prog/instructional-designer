@@ -773,9 +773,16 @@ export default function ToolForm() {
                 </div>
               </div>
               <h2 className="text-2xl font-bold mb-4">Generating Your {tool.name}</h2>
-              <p className="text-sm font-medium mb-6 animate-pulse-subtle text-green-600">
-                {activeStepIndex >= generationSteps.length ? "All done!" : generationSteps[activeStepIndex]?.label}
-              </p>
+              {activeStepIndex >= generationSteps.length ? (
+                <p className="text-sm font-semibold mb-6 flex items-center justify-center gap-1.5 text-green-600" data-testid="text-generation-done">
+                  <Check className="w-4 h-4" aria-hidden="true" />
+                  All done!
+                </p>
+              ) : (
+                <p className="text-sm font-medium mb-6 animate-pulse-subtle text-muted-foreground" data-testid="text-generation-step">
+                  {generationSteps[activeStepIndex]?.label}
+                </p>
+              )}
               <GenerationStepList steps={generationSteps} activeIndex={activeStepIndex} />
               <div className="flex justify-center gap-1" aria-hidden="true">
                 {[0, 1, 2].map(i => (
