@@ -103,7 +103,7 @@ integrations = ["javascript_anthropic_ai_integrations:2.0.0", "javascript_log_in
 
 [postMerge]
 path = "scripts/post-merge.sh"
-timeoutMs = 20000
+timeoutMs = 45000
 
 [userenv]
 
