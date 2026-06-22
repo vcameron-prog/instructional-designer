@@ -16,8 +16,12 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
+# VITE_CONVERTER_APP_URL is required for the converter-link smoke test.
+# Use a placeholder URL in test environments where no real converter is deployed.
+VITE_CONVERTER_APP_URL="${VITE_CONVERTER_APP_URL:-https://bsu-accessibility-tool.replit.app}"
+
 # Start the dev server in the background from the project root
-PORT="$PORT" PLAYWRIGHT_TEST=1 npm run dev &
+PORT="$PORT" PLAYWRIGHT_TEST=1 VITE_CONVERTER_APP_URL="$VITE_CONVERTER_APP_URL" npm run dev &
 SERVER_PID=$!
 
 echo "Waiting for server on port $PORT (pid $SERVER_PID)..."

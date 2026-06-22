@@ -453,7 +453,10 @@ test.describe("Quick-tool — batch assignment+rubric form generates both items"
     await page.getByTestId("select-assignmentType").click();
     await page.getByRole("option", { name: "Essay/Paper" }).click();
 
-    await page.getByTestId("textarea-learningObjectives").fill(
+    const learningObjectivesTextarea = page.getByTestId("textarea-learningObjectives");
+    await expect(learningObjectivesTextarea, "learningObjectives textarea is visible").toBeVisible({ timeout: 10_000 });
+    await learningObjectivesTextarea.scrollIntoViewIfNeeded();
+    await learningObjectivesTextarea.fill(
       "Students will critically evaluate primary sources and construct evidence-based arguments.",
     );
 

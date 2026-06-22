@@ -1,4 +1,5 @@
 import { pool } from "../db";
+import type { PoolClient } from "pg";
 
 interface ColumnSpec {
   table: string;
@@ -41,7 +42,7 @@ const REQUIRED_TABLES = [
 type LogFn = (message: string, source?: string) => void;
 
 export async function checkDbSchema(log: LogFn = (msg) => console.log(msg)): Promise<void> {
-  let client: Awaited<ReturnType<typeof pool.connect>> | undefined;
+  let client: PoolClient | undefined;
   try {
     client = await pool.connect();
     // ── 1. Check required tables ──────────────────────────────────────────
