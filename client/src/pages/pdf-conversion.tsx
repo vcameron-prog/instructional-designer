@@ -516,6 +516,8 @@ export default function PdfConversion() {
   const [copiedImageKeys, setCopiedImageKeys] = useState<Set<string>>(new Set());
   const [copiedAllKeys, setCopiedAllKeys] = useState<Set<number>>(new Set());
   const [copiedNoFixKeys, setCopiedNoFixKeys] = useState<Set<number>>(new Set());
+  const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [bannerVisible, setBannerVisible] = useState(true);
   const [acceptingIndex, setAcceptingIndex] = useState<number | null>(null);
   const [revertingIndex, setRevertingIndex] = useState<number | null>(null);
   const [justificationText, setJustificationText] = useState("");
@@ -605,6 +607,20 @@ export default function PdfConversion() {
       setElapsedSeconds(0);
     }
   }, [isProcessingOrUploaded, conversion?.processingStartedAt]);
+
+  const isBannerShown = isAuthenticated && !!user && conversion?.userId === user?.id &&
+    (conversion?.status === "completed" || conversion?.status === "failed") && !bannerDismissed;
+
+  useEffect(() => {
+    if (!isBannerShown) return;
+    setBannerVisible(true);
+    const fadeTimer = setTimeout(() => setBannerVisible(false), 5000);
+    const removeTimer = setTimeout(() => setBannerDismissed(true), 5600);
+    return () => {
+      clearTimeout(fadeTimer);
+      clearTimeout(removeTimer);
+    };
+  }, [isBannerShown]);
 
   useEffect(() => {
     const msg = conversion?.statusMessage ?? null;
@@ -1319,22 +1335,33 @@ export default function PdfConversion() {
       </header>
 
       <div className="container mx-auto px-4 py-6 space-y-6">
-        {isAuthenticated && user && conversion.userId === user.id && (conversion.status === "completed" || conversion.status === "failed") && (
+        {isBannerShown && (
           <div
-            className="flex items-center justify-between gap-3 px-4 py-2.5 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl text-sm"
+            className="flex items-center justify-between gap-3 px-4 py-2.5 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl text-sm transition-opacity duration-500"
+            style={{ opacity: bannerVisible ? 1 : 0 }}
             data-testid="banner-saved-to-account"
           >
             <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
               <BookmarkCheck className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
               <span>Saved to your account</span>
             </div>
-            <button
-              onClick={() => navigate("/pdf-accessibility/history")}
-              className="text-green-700 dark:text-green-400 font-semibold underline underline-offset-2 hover:opacity-80 transition-opacity whitespace-nowrap"
-              data-testid="link-view-history"
-            >
-              View history →
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => { setBannerDismissed(true); navigate("/pdf-accessibility/history"); }}
+                className="text-green-700 dark:text-green-400 font-semibold underline underline-offset-2 hover:opacity-80 transition-opacity whitespace-nowrap"
+                data-testid="link-view-history"
+              >
+                View history →
+              </button>
+              <button
+                onClick={() => setBannerDismissed(true)}
+                className="text-green-600 dark:text-green-500 hover:opacity-70 transition-opacity"
+                aria-label="Dismiss notification"
+                data-testid="button-dismiss-banner"
+              >
+                <X className="w-4 h-4" aria-hidden="true" />
+              </button>
+            </div>
           </div>
         )}
 
