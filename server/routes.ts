@@ -3018,6 +3018,8 @@ export async function registerRoutes(
 
   // =========================================================================
   // TEST-ONLY ROUTES (disabled in production)
+  // Used by Playwright e2e tests to set up a synthetic session and seed data
+  // without going through the real Replit OIDC flow or file-upload pipeline.
   // =========================================================================
   if (process.env.NODE_ENV !== "production") {
     // POST /api/test/login
@@ -3034,6 +3036,7 @@ export async function registerRoutes(
         res.status(400).json({ error: "sub and email are required" });
         return;
       }
+      // Upsert the user row so foreign-key constraints pass.
       try {
         await db
           .insert(users)
@@ -3045,6 +3048,9 @@ export async function registerRoutes(
       } catch {
         // users table may not exist in all test environments; ignore.
       }
+      // Write directly to req.session (bypassing Passport) and call
+      // session.save() so express-session commits the row and emits
+      // Set-Cookie over plain HTTP (req.login() does not do this over HTTP).
       const sessionUser = {
         claims: {
           sub,
@@ -3079,6 +3085,7 @@ export async function registerRoutes(
         errorMessage,
         sourceType,
         complianceReport,
+        originalComplianceReport,
         accessibleHtml,
         manualFixItems,
       } = req.body as {
@@ -3087,9 +3094,10 @@ export async function registerRoutes(
         status?: string;
         errorMessage?: string;
         sourceType?: string;
-        complianceReport?: object;
+        complianceReport?: unknown;
+        originalComplianceReport?: unknown;
         accessibleHtml?: string;
-        manualFixItems?: Array<{ title: string; reason: string }>;
+        manualFixItems?: unknown;
       };
 
       try {
@@ -3103,7 +3111,7 @@ export async function registerRoutes(
             status: status ?? "completed",
             errorMessage: errorMessage ?? null,
             complianceReport: complianceReport ?? null,
-            originalComplianceReport: complianceReport ?? null,
+            originalComplianceReport: originalComplianceReport ?? complianceReport ?? null,
             accessibleHtml: accessibleHtml ?? null,
             manualFixItems: manualFixItems ?? null,
           })
