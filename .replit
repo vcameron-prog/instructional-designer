@@ -126,12 +126,12 @@ outputType = "console"
 name = "id-smoke"
 author = "agent"
 
+[workflows.workflow.metadata]
+isValidation = true
+
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "PLAYWRIGHT_BASE_URL=http://127.0.0.1:3001 npx playwright test --config instructional-designer/playwright.config.ts"
-
-[workflows.workflow.metadata]
-isValidation = true
 
 [agent]
 integrations = ["javascript_anthropic_ai_integrations:2.0.0", "javascript_log_in_with_replit:2.0.0", "github:1.0.0"]
