@@ -104,6 +104,28 @@ describe("EXTRACTION_ERROR_MESSAGES constant", () => {
     }
   });
 
+  it("FORMAT_KEYWORDS and SUPPORTED_FORMAT_KEYS contain identical keys so adding a new format to one without the other is caught", () => {
+    const formatKeywordKeys = new Set(Object.keys(FORMAT_KEYWORDS));
+    const supportedKeys = new Set(SUPPORTED_FORMAT_KEYS as readonly string[]);
+
+    const inKeywordsNotSupported = [...formatKeywordKeys].filter(
+      (k) => !supportedKeys.has(k),
+    );
+    const inSupportedNotKeywords = [...supportedKeys].filter(
+      (k) => !formatKeywordKeys.has(k),
+    );
+
+    expect(
+      inKeywordsNotSupported,
+      `Keys in FORMAT_KEYWORDS but missing from SUPPORTED_FORMAT_KEYS: ${inKeywordsNotSupported.join(", ")}`,
+    ).toEqual([]);
+
+    expect(
+      inSupportedNotKeywords,
+      `Keys in SUPPORTED_FORMAT_KEYS but missing from FORMAT_KEYWORDS: ${inSupportedNotKeywords.join(", ")}`,
+    ).toEqual([]);
+  });
+
   it("applying EXTRACTION_ERROR_FALLBACK when a key is missing produces a string", () => {
     const result =
       EXTRACTION_ERROR_MESSAGES["not-a-real-format"] ?? EXTRACTION_ERROR_FALLBACK;
