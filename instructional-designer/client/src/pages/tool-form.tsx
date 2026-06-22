@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
 import { ArrowLeft, Loader2, Sparkles, BookOpen, Calendar, FileText, Layout, CheckCircle, Target, Scale, ShieldCheck, Eye, Bot, Globe, BookmarkPlus, ChevronDown, Trash2, SlidersHorizontal, Library, Info, X, Check } from "lucide-react";
-import { TOOLS, BSU_CALENDAR, GENERATION_STEPS, BATCH_GENERATION_STEPS, COURSE_LEVELS, CONTENT_PREFILL_MAP, type GenerationStep } from "@/lib/constants";
+import { TOOLS, BSU_CALENDAR, GENERATION_STEPS, BATCH_GENERATION_STEPS, COURSE_LEVELS, CONTENT_PREFILL_MAP, computeAiStepDuration, type GenerationStep } from "@/lib/constants";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isSessionExpiredMessage } from "@/lib/upload-error-utils";
 import { pushFilterState } from "@/lib/nav-utils";
@@ -374,6 +374,8 @@ export default function ToolForm() {
   const [activeStepIndex, setActiveStepIndex] = useState(0);
   const stepTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const outputDetailRef = useRef<string>(formData.outputDetail ?? "concise");
+  outputDetailRef.current = formData.outputDetail ?? "concise";
   const [selectedPrefillId, setSelectedPrefillId] = useState<string>("");
   const [preFilledFields, setPreFilledFields] = useState<Set<string>>(new Set());
   const [language, setLanguage] = useState(
@@ -537,18 +539,22 @@ export default function ToolForm() {
     setActiveStepIndex(0);
     let current = 0;
     const steps = isBatchTool ? BATCH_GENERATION_STEPS : GENERATION_STEPS;
+    const outputDetail = outputDetailRef.current;
+    const effectiveDurations = steps.map(step =>
+      computeAiStepDuration(step, outputDetail, isBatchTool)
+    );
 
     const advance = () => {
       current += 1;
       if (current < steps.length) {
         setActiveStepIndex(current);
-        stepTimerRef.current = setTimeout(advance, steps[current].durationMs);
+        stepTimerRef.current = setTimeout(advance, effectiveDurations[current]);
       } else {
         stepTimerRef.current = null;
       }
     };
 
-    stepTimerRef.current = setTimeout(advance, steps[0].durationMs);
+    stepTimerRef.current = setTimeout(advance, effectiveDurations[0]);
     return () => {
       if (stepTimerRef.current) {
         clearTimeout(stepTimerRef.current);

@@ -294,12 +294,36 @@ export interface GenerationStep {
   label: string;
   ariaLabel: string;
   durationMs: number;
+  minDurationMs?: number;
+  maxDurationMs?: number;
+}
+
+export const AI_STEP_DURATION_MS = {
+  single: { min: 5000, max: 18000 },
+  batch: { min: 7000, max: 14000 },
+} as const;
+
+export function computeAiStepDuration(
+  step: GenerationStep,
+  outputDetail: string,
+  isBatch: boolean,
+): number {
+  const { minDurationMs, maxDurationMs, durationMs } = step;
+  if (minDurationMs === undefined || maxDurationMs === undefined) return durationMs;
+  if (isBatch) return maxDurationMs;
+  return outputDetail === "concise" ? minDurationMs : maxDurationMs;
 }
 
 export const GENERATION_STEPS: GenerationStep[] = [
   { label: "Assembling course context", ariaLabel: "Step 1: Assembling course context", durationMs: 1200 },
   { label: "Applying pedagogical frameworks", ariaLabel: "Step 2: Applying pedagogical frameworks", durationMs: 2000 },
-  { label: "Generating content with AI", ariaLabel: "Step 3: Generating content with AI", durationMs: 12000 },
+  {
+    label: "Generating content with AI",
+    ariaLabel: "Step 3: Generating content with AI",
+    durationMs: 12000,
+    minDurationMs: AI_STEP_DURATION_MS.single.min,
+    maxDurationMs: AI_STEP_DURATION_MS.single.max,
+  },
   { label: "Formatting and post-processing", ariaLabel: "Step 4: Formatting and post-processing", durationMs: 1800 },
   { label: "Saving your materials", ariaLabel: "Step 5: Saving your materials", durationMs: 1000 },
 ];
@@ -307,8 +331,20 @@ export const GENERATION_STEPS: GenerationStep[] = [
 export const BATCH_GENERATION_STEPS: GenerationStep[] = [
   { label: "Assembling course context", ariaLabel: "Step 1: Assembling course context", durationMs: 1200 },
   { label: "Applying pedagogical frameworks", ariaLabel: "Step 2: Applying pedagogical frameworks", durationMs: 2000 },
-  { label: "Generating assignment with AI", ariaLabel: "Step 3: Generating assignment with AI", durationMs: 10000 },
-  { label: "Generating matching rubric with AI", ariaLabel: "Step 4: Generating matching rubric with AI", durationMs: 8000 },
+  {
+    label: "Generating assignment with AI",
+    ariaLabel: "Step 3: Generating assignment with AI",
+    durationMs: 10000,
+    minDurationMs: AI_STEP_DURATION_MS.batch.min,
+    maxDurationMs: AI_STEP_DURATION_MS.batch.max,
+  },
+  {
+    label: "Generating matching rubric with AI",
+    ariaLabel: "Step 4: Generating matching rubric with AI",
+    durationMs: 8000,
+    minDurationMs: AI_STEP_DURATION_MS.batch.min,
+    maxDurationMs: AI_STEP_DURATION_MS.batch.max,
+  },
   { label: "Saving your materials", ariaLabel: "Step 5: Saving your materials", durationMs: 1000 },
 ];
 
