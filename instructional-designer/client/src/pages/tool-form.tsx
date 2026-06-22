@@ -848,7 +848,12 @@ export default function ToolForm() {
                   <Sparkles className={`w-10 h-10 text-white ${activeStepIndex < generationSteps.length ? "animate-pulse" : ""}`} aria-hidden="true" />
                 </div>
               </div>
-              <h2 className="text-2xl font-bold mb-4">Generating Your {tool.name}</h2>
+              <h2
+                className="text-2xl font-bold mb-4 transition-opacity duration-300"
+                style={{ opacity: activeStepIndex >= generationSteps.length ? 0 : 1 }}
+              >
+                Generating Your {tool.name}
+              </h2>
               <div className="relative mb-6 h-5">
                 <p
                   className="absolute inset-0 text-sm font-medium flex items-center justify-center animate-pulse-subtle text-muted-foreground transition-opacity duration-300"
