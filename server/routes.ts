@@ -8,6 +8,7 @@ import {
   setupAuth,
   registerAuthRoutes,
   isAuthenticated,
+  isBsuAuthenticated,
   optionalAuth,
   getSessionSaveFailMetrics,
 } from "./replit_integrations/auth";
@@ -2939,6 +2940,71 @@ export async function registerRoutes(
         activePdfExports--;
         activePdfExportKeys.delete(pdfExportKey);
       }
+    },
+  );
+
+  /**
+   * Toggle the approval status of a course-linked generated content item.
+   *
+   * Ownership rules (applied in order):
+   *  1. If the content has a userId, the requesting user must match it.
+   *  2. If the content has a courseId (but no userId), the requesting user
+   *     must own the linked course.
+   *  3. All other cases → 404 (no owner, or ownership mismatch).
+   *
+   * The route is guarded by isBsuAuthenticated so anonymous callers are
+   * rejected before any ownership checks run.
+   */
+  app.patch(
+    "/api/content/:id/approval",
+    isBsuAuthenticated,
+    async (req: Request, res: Response) => {
+      const userId = getUserId(req)!;
+      const id = parseInt(req.params.id as string);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid ID" });
+        return;
+      }
+
+      const content = await storage.getGeneratedContent(id);
+      if (!content) {
+        res.status(404).json({ error: "Content not found" });
+        return;
+      }
+
+      // Direct user ownership
+      if (content.userId) {
+        if (content.userId !== userId) {
+          res.status(404).json({ error: "Content not found" });
+          return;
+        }
+        const updated = await storage.toggleContentApproval(id);
+        if (!updated) {
+          res.status(404).json({ error: "Content not found" });
+          return;
+        }
+        res.json(updated);
+        return;
+      }
+
+      // Course-linked content: verify the requesting user owns the course
+      if (content.courseId) {
+        const course = await storage.getCourseByOwner(content.courseId, userId);
+        if (!course) {
+          res.status(404).json({ error: "Content not found" });
+          return;
+        }
+        const updated = await storage.toggleContentApproval(id);
+        if (!updated) {
+          res.status(404).json({ error: "Content not found" });
+          return;
+        }
+        res.json(updated);
+        return;
+      }
+
+      // No owner of any kind — deny
+      res.status(404).json({ error: "Content not found" });
     },
   );
 
