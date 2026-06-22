@@ -51,6 +51,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={LandingPage} />
+      <Route path="/bsu" component={LandingPage} />
       <Route path="/new-course" component={NewCourseWrapper} />
       <Route path="/course/:id/edit" component={EditCourseWrapper} />
       <Route path="/course/:id/tools" component={ToolSelection} />
