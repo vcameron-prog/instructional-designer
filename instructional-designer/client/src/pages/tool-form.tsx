@@ -287,8 +287,24 @@ function loadOutputDetail(): string {
 }
 
 function GenerationStepList({ steps, activeIndex }: { steps: GenerationStep[]; activeIndex: number }) {
+  const listRef = useRef<HTMLOListElement>(null);
+  const [minHeight, setMinHeight] = useState<number | undefined>(undefined);
+
+  useEffect(() => {
+    if (listRef.current && minHeight === undefined) {
+      setMinHeight(listRef.current.offsetHeight);
+    }
+  });
+
   return (
-    <ol className="text-left space-y-3 mb-6" role="status" aria-live="polite" aria-label="Generation progress">
+    <ol
+      ref={listRef}
+      style={minHeight !== undefined ? { minHeight } : undefined}
+      className="text-left space-y-3 mb-6"
+      role="status"
+      aria-live="polite"
+      aria-label="Generation progress"
+    >
       {steps.map((step, i) => {
         const isDone = i < activeIndex;
         const isActive = i === activeIndex;
