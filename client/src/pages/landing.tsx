@@ -3,8 +3,8 @@ import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import bsuCaiLogo from "@assets/bsu-cai-logo.png";
 import {
-  GraduationCap,
   Sparkles,
   FolderOpen,
   ArrowRight,
@@ -121,8 +121,13 @@ export default function LandingPage() {
 
       <div className="relative z-10 container mx-auto px-4 py-12 md:py-20">
         <div className="text-center mb-12 animate-fade-in-up">
-          <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-primary to-accent rounded-3xl mb-8 shadow-2xl">
-            <GraduationCap className="w-14 h-14 text-white" />
+          <div className="inline-block mb-8">
+            <img
+              src={bsuCaiLogo}
+              alt="BSU Center for Artificial Intelligence"
+              className="h-16 md:h-20 w-auto dark:bg-white/95 dark:rounded-xl dark:px-4 dark:py-2"
+              data-testid="img-hero-logo"
+            />
           </div>
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground mb-4 tracking-tight">
             Accessibility Tool
