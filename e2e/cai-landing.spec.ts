@@ -5,7 +5,7 @@
  * These tests verify that the key interactive elements are present and functional:
  *   1. The CAI hero heading is visible.
  *   2. "Open Accessibility Converter" navigates to /accessibility.
- *   3. "BSU Faculty Login →" navigates to /bsu.
+ *   3. "BSU Faculty Login →" navigates to /faculty.
  *
  * Run with:
  *   npx playwright test e2e/cai-landing.spec.ts
@@ -37,7 +37,7 @@ test.describe("CAI landing page smoke tests", () => {
     await expect(page).toHaveURL(/\/accessibility/, { timeout: 10_000 });
   });
 
-  test("BSU Faculty Login link navigates to /bsu", async ({ page }) => {
+  test("BSU Faculty Login link navigates to /faculty", async ({ page }) => {
     await page.goto("/");
 
     const bsuLink = page.getByTestId("link-bsu-faculty-login");
@@ -45,6 +45,6 @@ test.describe("CAI landing page smoke tests", () => {
 
     await bsuLink.click();
 
-    await expect(page).toHaveURL(/\/bsu/, { timeout: 10_000 });
+    await expect(page).toHaveURL(/\/faculty/, { timeout: 10_000 });
   });
 });

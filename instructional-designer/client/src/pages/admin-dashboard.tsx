@@ -261,7 +261,7 @@ export default function AdminDashboard() {
               <ShieldAlert className="w-16 h-16 text-destructive mx-auto mb-4" />
               <h1 className="text-2xl font-bold mb-2">Access Denied</h1>
               <p className="text-muted-foreground mb-6">You do not have admin access to view this page.</p>
-              <Button onClick={() => navigate("/bsu")} data-testid="button-back-home">
+              <Button onClick={() => navigate("/faculty")} data-testid="button-back-home">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back to Home
               </Button>
@@ -283,7 +283,7 @@ export default function AdminDashboard() {
               <h1 className="text-2xl font-bold mb-2">Failed to Load Dashboard</h1>
               <p className="text-muted-foreground mb-6">{error?.message || "An error occurred while loading stats."}</p>
               <div className="flex gap-3 justify-center">
-                <Button variant="outline" onClick={() => navigate("/bsu")} data-testid="button-error-back">
+                <Button variant="outline" onClick={() => navigate("/faculty")} data-testid="button-error-back">
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   Back to Home
                 </Button>
@@ -327,7 +327,7 @@ export default function AdminDashboard() {
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate("/bsu")} data-testid="button-admin-back">
+            <Button variant="ghost" size="icon" onClick={() => navigate("/faculty")} data-testid="button-admin-back">
               <ArrowLeft className="w-5 h-5" />
             </Button>
             <div>

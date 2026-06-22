@@ -1,7 +1,7 @@
 /**
- * Smoke tests for the BSU faculty landing page (/bsu).
+ * Smoke tests for the BSU faculty landing page (/faculty).
  *
- * /bsu is the faculty-specific entry point linked from the CAI landing page.
+ * /faculty is the faculty-specific entry point linked from the CAI landing page.
  * These tests verify the key elements present for an unauthenticated visitor:
  *   1. The "Accessibility Tool" hero heading is visible.
  *   2. The BSU login CTA is present and points to /api/login.
@@ -14,8 +14,8 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("BSU faculty landing page smoke tests", () => {
-  test("hero heading is visible on /bsu", async ({ page }) => {
-    await page.goto("/bsu");
+  test("hero heading is visible on /faculty", async ({ page }) => {
+    await page.goto("/faculty");
 
     const heading = page.locator("h1");
     await expect(heading).toBeVisible({ timeout: 15_000 });
@@ -23,7 +23,7 @@ test.describe("BSU faculty landing page smoke tests", () => {
   });
 
   test("BSU login CTA is present", async ({ page }) => {
-    await page.goto("/bsu");
+    await page.goto("/faculty");
 
     const loginBtn = page.getByTestId("button-login-bsu");
     await expect(loginBtn).toBeVisible({ timeout: 15_000 });
@@ -33,7 +33,7 @@ test.describe("BSU faculty landing page smoke tests", () => {
   test("Accessibility Converter card is visible without login", async ({
     page,
   }) => {
-    await page.goto("/bsu");
+    await page.goto("/faculty");
 
     const converterCard = page.getByTestId("card-pdf-accessibility");
     await expect(converterCard).toBeVisible({ timeout: 15_000 });

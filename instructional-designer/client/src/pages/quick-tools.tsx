@@ -94,7 +94,7 @@ export default function QuickTools() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => navigate("/bsu")}
+                onClick={() => navigate("/faculty")}
                 aria-label="Back to home"
                 data-testid="button-back-home"
               >

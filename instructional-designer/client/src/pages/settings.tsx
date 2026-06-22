@@ -145,7 +145,7 @@ export default function SettingsPage() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => navigate("/bsu")}
+            onClick={() => navigate("/faculty")}
             className="gap-2"
             data-testid="button-back-home"
           >
