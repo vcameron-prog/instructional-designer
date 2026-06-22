@@ -327,6 +327,51 @@ describe("buildXlsx – degenerate / edge-case input", () => {
   });
 });
 
+describe("buildXlsx – colspan clamping to true table width", () => {
+  it("clamps a colspan wider than the data columns so no phantom columns appear", async () => {
+    const html = `
+      <table>
+        <thead>
+          <tr><th colspan="10">Wide Header</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>A</td><td>B</td><td>C</td></tr>
+        </tbody>
+      </table>`;
+
+    const ws = await loadWorksheet(html);
+    const merges = mergeStrings(ws);
+
+    // The merge must be clamped to the 3 actual data columns, not 10
+    expect(merges).toContain("A1:C1");
+    expect(merges).not.toContain("A1:J1");
+
+    // Data row should still be in columns 1–3 with no phantom gap
+    expect(ws.getCell(2, 1).value).toBe("A");
+    expect(ws.getCell(2, 2).value).toBe("B");
+    expect(ws.getCell(2, 3).value).toBe("C");
+    expect(ws.getCell(2, 4).value).toBeNull();
+  });
+
+  it("does not clamp a colspan that exactly matches the data column count", async () => {
+    const html = `
+      <table>
+        <thead>
+          <tr><th colspan="3">Exact Header</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>X</td><td>Y</td><td>Z</td></tr>
+        </tbody>
+      </table>`;
+
+    const ws = await loadWorksheet(html);
+    const merges = mergeStrings(ws);
+
+    expect(merges).toContain("A1:C1");
+    expect(ws.getCell(1, 1).value).toBe("Exact Header");
+  });
+});
+
 describe("buildXlsx – occupancy grid correctness", () => {
   it("does not overwrite a position already occupied by a rowspan from above", async () => {
     const html = `

@@ -107,6 +107,27 @@ export async function buildXlsx(
     const tableRows = getDirectTableRows(table);
     if (tableRows.length === 0) return;
 
+    // Pre-pass: determine the true column width of the table (i.e. the widest
+    // row measured as the sum of colspans).  Rows with more than one cell are
+    // the reliable signal; single-cell rows (full-width title/caption rows)
+    // are used only when no multi-cell row exists.
+    let maxCols = 0;
+    let maxColsSingleCell = 0;
+    for (const row of tableRows) {
+      const cells = getDirectCells(row);
+      const colSum = cells.reduce(
+        (sum, cell) => sum + getSpan(cell, "colspan"),
+        0,
+      );
+      if (cells.length > 1) {
+        if (colSum > maxCols) maxCols = colSum;
+      } else {
+        if (colSum > maxColsSingleCell) maxColsSingleCell = colSum;
+      }
+    }
+    if (maxCols === 0) maxCols = maxColsSingleCell;
+    if (maxCols === 0) maxCols = MAX_COLSPAN; // empty or all-no-cell table
+
     // Track which (excelRow, excelCol) positions are already consumed by a
     // spanning cell from an earlier row or an earlier cell in the same row.
     // Keys are "row,col" strings (both 1-indexed).
@@ -138,10 +159,21 @@ export async function buildXlsx(
           xlCell.fill = HEADER_FILL;
         }
 
+        // Clamp colspan so the merge never extends past the table's true width.
+        // This prevents phantom empty columns when a header like
+        // colspan="10" appears in a table that only has 3 data columns.
+        // The Math.max(..., 1) guards against colCursor exceeding maxCols
+        // (possible with heavy overlapping rowspans), ensuring the cursor
+        // always advances by at least one position.
+        const effectiveColspan = Math.max(
+          1,
+          Math.min(colspan, maxCols - colCursor + 1),
+        );
+
         // Handle merging when the cell spans multiple columns and/or rows
-        if (colspan > 1 || rowspan > 1) {
+        if (effectiveColspan > 1 || rowspan > 1) {
           const endRow = Math.min(excelRow + rowspan - 1, 1_048_576);
-          const endCol = Math.min(colCursor + colspan - 1, 16_384);
+          const endCol = Math.min(colCursor + effectiveColspan - 1, maxCols);
 
           // Mark every position in the span (except the master) as occupied
           // and apply header styling to slave cells so the full merged range
@@ -163,7 +195,7 @@ export async function buildXlsx(
           sheet.mergeCells(excelRow, colCursor, endRow, endCol);
         }
 
-        colCursor += colspan;
+        colCursor += effectiveColspan;
       }
     }
 
