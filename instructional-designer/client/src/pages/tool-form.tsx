@@ -843,16 +843,25 @@ export default function ToolForm() {
                 </div>
               </div>
               <h2 className="text-2xl font-bold mb-4">Generating Your {tool.name}</h2>
-              {activeStepIndex >= generationSteps.length ? (
-                <p className="text-sm font-semibold mb-6 flex items-center justify-center gap-1.5 text-green-600" data-testid="text-generation-done">
+              <div className="relative mb-6 h-5">
+                <p
+                  className="absolute inset-0 text-sm font-medium flex items-center justify-center animate-pulse-subtle text-muted-foreground transition-opacity duration-300"
+                  style={{ opacity: activeStepIndex >= generationSteps.length ? 0 : 1 }}
+                  aria-hidden={activeStepIndex >= generationSteps.length}
+                  data-testid="text-generation-step"
+                >
+                  {generationSteps[activeStepIndex]?.label}
+                </p>
+                <p
+                  className="absolute inset-0 text-sm font-semibold flex items-center justify-center gap-1.5 text-green-600 transition-opacity duration-300"
+                  style={{ opacity: activeStepIndex >= generationSteps.length ? 1 : 0 }}
+                  aria-hidden={activeStepIndex < generationSteps.length}
+                  data-testid="text-generation-done"
+                >
                   <Check className="w-4 h-4" aria-hidden="true" />
                   All done!
                 </p>
-              ) : (
-                <p className="text-sm font-medium mb-6 animate-pulse-subtle text-muted-foreground" data-testid="text-generation-step">
-                  {generationSteps[activeStepIndex]?.label}
-                </p>
-              )}
+              </div>
               <GenerationStepList steps={generationSteps} activeIndex={activeStepIndex} />
               <div className="flex justify-center gap-1 h-2" aria-hidden="true">
                 {activeStepIndex < generationSteps.length && [0, 1, 2].map(i => (
