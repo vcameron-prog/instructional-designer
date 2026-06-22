@@ -482,7 +482,15 @@ export function RichTextEditor({
                 data-testid="rte-link-current-url"
               >
                 <span className="font-medium">Current link:</span>{" "}
-                {prevLinkUrl}
+                <a
+                  href={prevLinkUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline hover:text-foreground transition-colors"
+                  data-testid="rte-link-current-url-anchor"
+                >
+                  {prevLinkUrl}
+                </a>
               </p>
             )}
             <div className="flex items-center justify-between gap-1.5">
