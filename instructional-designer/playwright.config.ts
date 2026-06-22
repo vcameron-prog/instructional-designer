@@ -32,10 +32,16 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `PORT=${ID_PORT} PLAYWRIGHT_TEST=1 npm run dev`,
+    // The command is intentionally a no-op: when running under the validation
+    // step, smoke-test.sh starts the server externally before Playwright runs,
+    // so Playwright just reuses it.  When a developer is already running the
+    // app locally, reuseExistingServer also picks up that server.
+    // This avoids Playwright spawning /bin/sh internally, which fails in the
+    // validation runner's sandboxed environment (spawn /bin/sh ENOENT).
+    command: `node -e "process.exit(0)"`,
     cwd: "instructional-designer",
     url: BASE_URL,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: true,
     timeout: 90_000,
   },
 });
