@@ -199,6 +199,8 @@ import { registerRoutes } from "./routes.js";
 // ---------------------------------------------------------------------------
 import {
   isAuthenticated as realIsAuthenticated,
+  isBsuAuthenticated as realIsBsuAuthenticated,
+  optionalAuth as realOptionalAuth,
   getSessionSaveFailMetrics,
 } from "./replit_integrations/auth/replitAuth.js";
 
@@ -402,7 +404,212 @@ describe("persistSession failure path – sessionSaveFail counter", () => {
 });
 
 // ===========================================================================
-// Section 3: End-to-end – real failure counter flows through GET /api/metrics
+// Section 3: persistSession failure path – isBsuAuthenticated
+// ===========================================================================
+
+describe("persistSession failure path – isBsuAuthenticated", () => {
+  const FAKE_OIDC_CONFIG = { issuer: "https://replit.com/oidc" };
+
+  function makeBsuTokenResponse(exp = VALID_AT) {
+    return {
+      access_token: "new-access-token",
+      refresh_token: "new-refresh-token",
+      claims: () => ({
+        sub: "bsu-001",
+        email: "faculty@bridgew.edu",
+        exp,
+        first_name: "BSU",
+        last_name: "Faculty",
+        profile_image_url: null,
+      }),
+    };
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockDiscovery.mockResolvedValue(FAKE_OIDC_CONFIG);
+    mockRefreshTokenGrant.mockResolvedValue(makeBsuTokenResponse());
+    mockUpsertUser.mockResolvedValue(undefined);
+  });
+
+  it("increments sessionSaveFail.count when session.save() rejects during isBsuAuthenticated token refresh", async () => {
+    const req = makeReq(
+      { expires_at: EXPIRED_AT, access_token: "old", refresh_token: "valid-rt" },
+      true,
+      true
+    );
+    const res = makeRes();
+    const next = vi.fn();
+
+    const countBefore = (await getSessionSaveFailMetrics()).count;
+
+    await realIsBsuAuthenticated(req as any, res as any, next);
+
+    const { count, lastAt } = await getSessionSaveFailMetrics();
+    expect(count).toBe(countBefore + 1);
+    expect(lastAt).not.toBeNull();
+  });
+
+  it("still calls next() after a session.save() failure in isBsuAuthenticated (BSU email present)", async () => {
+    const req = makeReq(
+      { expires_at: EXPIRED_AT, access_token: "old", refresh_token: "valid-rt" },
+      true,
+      true
+    );
+    const res = makeRes();
+    const next = vi.fn();
+
+    await realIsBsuAuthenticated(req as any, res as any, next);
+
+    expect(next).toHaveBeenCalledOnce();
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
+  it("does NOT increment sessionSaveFail.count when session.save() succeeds in isBsuAuthenticated", async () => {
+    const req = makeReq(
+      { expires_at: EXPIRED_AT, access_token: "old", refresh_token: "valid-rt" },
+      true,
+      false
+    );
+    const res = makeRes();
+    const next = vi.fn();
+
+    const countBefore = (await getSessionSaveFailMetrics()).count;
+
+    await realIsBsuAuthenticated(req as any, res as any, next);
+
+    expect((await getSessionSaveFailMetrics()).count).toBe(countBefore);
+  });
+
+  it("sets lastAt to a recent ISO timestamp after a session.save() failure in isBsuAuthenticated", async () => {
+    const before = new Date();
+
+    const req = makeReq(
+      { expires_at: EXPIRED_AT, access_token: "old", refresh_token: "valid-rt" },
+      true,
+      true
+    );
+    await realIsBsuAuthenticated(req as any, makeRes() as any, vi.fn());
+
+    const { lastAt } = await getSessionSaveFailMetrics();
+    expect(lastAt).not.toBeNull();
+    const recorded = new Date(lastAt!);
+    const after = new Date();
+    expect(recorded.getTime()).toBeGreaterThanOrEqual(before.getTime() - 100);
+    expect(recorded.getTime()).toBeLessThanOrEqual(after.getTime() + 100);
+  });
+});
+
+// ===========================================================================
+// Section 4: persistSession failure path – optionalAuth
+// ===========================================================================
+
+describe("persistSession failure path – optionalAuth", () => {
+  const FAKE_OIDC_CONFIG = { issuer: "https://replit.com/oidc" };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockDiscovery.mockResolvedValue(FAKE_OIDC_CONFIG);
+    mockRefreshTokenGrant.mockResolvedValue(makeTokenResponse());
+    mockUpsertUser.mockResolvedValue(undefined);
+  });
+
+  it("increments sessionSaveFail.count when session.save() rejects during optionalAuth token refresh", async () => {
+    const req = makeReq(
+      { expires_at: EXPIRED_AT, access_token: "old", refresh_token: "valid-rt" },
+      true,
+      true
+    );
+    const res = makeRes();
+    const next = vi.fn();
+
+    const countBefore = (await getSessionSaveFailMetrics()).count;
+
+    await realOptionalAuth(req as any, res as any, next);
+
+    const { count, lastAt } = await getSessionSaveFailMetrics();
+    expect(count).toBe(countBefore + 1);
+    expect(lastAt).not.toBeNull();
+  });
+
+  it("always calls next() after a session.save() failure in optionalAuth", async () => {
+    const req = makeReq(
+      { expires_at: EXPIRED_AT, access_token: "old", refresh_token: "valid-rt" },
+      true,
+      true
+    );
+    const res = makeRes();
+    const next = vi.fn();
+
+    await realOptionalAuth(req as any, res as any, next);
+
+    expect(next).toHaveBeenCalledOnce();
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
+  it("does NOT increment sessionSaveFail.count when session.save() succeeds in optionalAuth", async () => {
+    const req = makeReq(
+      { expires_at: EXPIRED_AT, access_token: "old", refresh_token: "valid-rt" },
+      true,
+      false
+    );
+    const res = makeRes();
+    const next = vi.fn();
+
+    const countBefore = (await getSessionSaveFailMetrics()).count;
+
+    await realOptionalAuth(req as any, res as any, next);
+
+    expect((await getSessionSaveFailMetrics()).count).toBe(countBefore);
+  });
+
+  it("sets lastAt to a recent ISO timestamp after a session.save() failure in optionalAuth", async () => {
+    const before = new Date();
+
+    const req = makeReq(
+      { expires_at: EXPIRED_AT, access_token: "old", refresh_token: "valid-rt" },
+      true,
+      true
+    );
+    await realOptionalAuth(req as any, makeRes() as any, vi.fn());
+
+    const { lastAt } = await getSessionSaveFailMetrics();
+    expect(lastAt).not.toBeNull();
+    const recorded = new Date(lastAt!);
+    const after = new Date();
+    expect(recorded.getTime()).toBeGreaterThanOrEqual(before.getTime() - 100);
+    expect(recorded.getTime()).toBeLessThanOrEqual(after.getTime() + 100);
+  });
+
+  it("calls next() even when the user has no refresh_token (optionalAuth skips refresh silently)", async () => {
+    const req = makeReq(
+      { expires_at: EXPIRED_AT, access_token: "old" },
+      true,
+      false
+    );
+    const res = makeRes();
+    const next = vi.fn();
+
+    await realOptionalAuth(req as any, res as any, next);
+
+    expect(next).toHaveBeenCalledOnce();
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
+  it("calls next() when the user is not authenticated (optionalAuth bypasses all refresh logic)", async () => {
+    const req = makeReq({}, false, false);
+    const res = makeRes();
+    const next = vi.fn();
+
+    await realOptionalAuth(req as any, res as any, next);
+
+    expect(next).toHaveBeenCalledOnce();
+    expect(res.status).not.toHaveBeenCalled();
+  });
+});
+
+// ===========================================================================
+// Section 5: End-to-end – real failure counter flows through GET /api/metrics
 // ===========================================================================
 
 describe("End-to-end: real persistSession failure appears in GET /api/metrics", () => {
