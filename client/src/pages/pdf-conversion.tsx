@@ -2460,36 +2460,43 @@ export default function PdfConversion() {
                         {manualFixSummary.length === 1 ? "issue" : "issues"})
                       </p>
                       <div className="flex items-center gap-2 shrink-0">
-                        <button
-                          onClick={() => {
-                            const text = manualFixSummary
-                              .map(({ title, reason, criterion }) =>
-                                `• ${title}${criterion ? ` (WCAG ${criterion})` : ""}: ${reason}`,
-                              )
-                              .join("\n");
-                            navigator.clipboard.writeText(text).then(() => {
-                              setCopiedManualFix(true);
-                              setTimeout(() => setCopiedManualFix(false), 2000);
-                            }).catch(() => {
-                              toast({ title: "Copy failed", description: "Could not access the clipboard. Please try again.", variant: "destructive" });
-                            });
-                          }}
-                          className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/30 hover:bg-amber-200 dark:hover:bg-amber-800/50 border border-amber-300 dark:border-amber-700 rounded-md transition-colors"
-                          aria-label="Copy manual fix list to clipboard"
-                          data-testid="button-copy-manual-fix-list"
-                        >
-                          {copiedManualFix ? (
-                            <>
-                              <Check className="w-3 h-3" aria-hidden="true" />
-                              Copied!
-                            </>
-                          ) : (
-                            <>
-                              <ClipboardCopy className="w-3 h-3" aria-hidden="true" />
-                              Copy list
-                            </>
-                          )}
-                        </button>
+                        <Tooltip open={copiedManualFix}>
+                          <TooltipTrigger asChild>
+                            <button
+                              onClick={() => {
+                                const text = manualFixSummary
+                                  .map(({ title, reason, criterion }) =>
+                                    `• ${title}${criterion ? ` (WCAG ${criterion})` : ""}: ${reason}`,
+                                  )
+                                  .join("\n");
+                                navigator.clipboard.writeText(text).then(() => {
+                                  setCopiedManualFix(true);
+                                  setTimeout(() => setCopiedManualFix(false), 2000);
+                                }).catch(() => {
+                                  toast({ title: "Copy failed", description: "Could not access the clipboard. Please try again.", variant: "destructive" });
+                                });
+                              }}
+                              className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/30 hover:bg-amber-200 dark:hover:bg-amber-800/50 border border-amber-300 dark:border-amber-700 rounded-md transition-colors"
+                              aria-label="Copy manual fix list to clipboard"
+                              data-testid="button-copy-manual-fix-list"
+                            >
+                              {copiedManualFix ? (
+                                <>
+                                  <Check className="w-3 h-3" aria-hidden="true" />
+                                  Copied!
+                                </>
+                              ) : (
+                                <>
+                                  <ClipboardCopy className="w-3 h-3" aria-hidden="true" />
+                                  Copy list
+                                </>
+                              )}
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top">
+                            <p>Copied!</p>
+                          </TooltipContent>
+                        </Tooltip>
                         <button
                           onClick={() => setManualFixSummary([])}
                           className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-200 bg-transparent hover:bg-amber-100 dark:hover:bg-amber-900/30 border border-amber-300 dark:border-amber-700 rounded-md transition-colors"
@@ -2807,20 +2814,27 @@ export default function PdfConversion() {
                                       Images missing alt text
                                     </p>
                                     <div className="flex items-center gap-1">
-                                      <button
-                                        onClick={() => copyAllFilenames(issue.imageItems.map((item: any) => item.label), i)}
-                                        className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-800/60 border border-amber-300 dark:border-amber-700 transition-colors"
-                                        data-testid={`button-copy-all-filenames-${i}`}
-                                        title={`Copy all ${issue.imageItems.length} filename${issue.imageItems.length === 1 ? "" : "s"}`}
-                                        aria-label={`Copy all ${issue.imageItems.length} filename${issue.imageItems.length === 1 ? "" : "s"}`}
-                                      >
-                                        {copiedAllKeys.has(i) ? (
-                                          <Check className="w-3 h-3" />
-                                        ) : (
-                                          <ClipboardCopy className="w-3 h-3" />
-                                        )}
-                                        {copiedAllKeys.has(i) ? "Copied!" : `Copy all (${issue.imageItems.length})`}
-                                      </button>
+                                      <Tooltip open={copiedAllKeys.has(i)}>
+                                        <TooltipTrigger asChild>
+                                          <button
+                                            onClick={() => copyAllFilenames(issue.imageItems.map((item: any) => item.label), i)}
+                                            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-800/60 border border-amber-300 dark:border-amber-700 transition-colors"
+                                            data-testid={`button-copy-all-filenames-${i}`}
+                                            title={`Copy all ${issue.imageItems.length} filename${issue.imageItems.length === 1 ? "" : "s"}`}
+                                            aria-label={`Copy all ${issue.imageItems.length} filename${issue.imageItems.length === 1 ? "" : "s"}`}
+                                          >
+                                            {copiedAllKeys.has(i) ? (
+                                              <Check className="w-3 h-3" />
+                                            ) : (
+                                              <ClipboardCopy className="w-3 h-3" />
+                                            )}
+                                            {copiedAllKeys.has(i) ? "Copied!" : `Copy all (${issue.imageItems.length})`}
+                                          </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="top">
+                                          <p>Copied!</p>
+                                        </TooltipContent>
+                                      </Tooltip>
                                       <button
                                         onClick={() => {
                                           const text = issue.imageItems.map((item: any) => item.label).join("\n");
@@ -2890,19 +2904,29 @@ export default function PdfConversion() {
                                         >
                                           {item.label}
                                         </span>
-                                        <button
-                                          onClick={() => copyImageFilename(item.label, `${i}-${imgIdx}`)}
-                                          className="flex-shrink-0 inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-800/60 border border-amber-300 dark:border-amber-700 transition-colors"
-                                          data-testid={`button-copy-filename-${imgIdx}`}
-                                          title="Copy filename"
-                                          aria-label={`Copy filename: ${item.label}`}
-                                        >
-                                          {copiedImageKeys.has(`${i}-${imgIdx}`) ? (
-                                            <Check className="w-3 h-3" />
-                                          ) : (
-                                            <ClipboardCopy className="w-3 h-3" />
-                                          )}
-                                        </button>
+                                        <Tooltip open={copiedImageKeys.has(`${i}-${imgIdx}`)}>
+                                          <TooltipTrigger asChild>
+                                            <button
+                                              onClick={() => copyImageFilename(item.label, `${i}-${imgIdx}`)}
+                                              className="flex-shrink-0 inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-800/60 border border-amber-300 dark:border-amber-700 transition-colors"
+                                              data-testid={`button-copy-filename-${imgIdx}`}
+                                              title="Copy filename"
+                                              aria-label={`Copy filename: ${item.label}`}
+                                            >
+                                              {copiedImageKeys.has(`${i}-${imgIdx}`) ? (
+                                                <>
+                                                  <Check className="w-3 h-3" />
+                                                  Copied!
+                                                </>
+                                              ) : (
+                                                <ClipboardCopy className="w-3 h-3" />
+                                              )}
+                                            </button>
+                                          </TooltipTrigger>
+                                          <TooltipContent side="top">
+                                            <p>Copied!</p>
+                                          </TooltipContent>
+                                        </Tooltip>
                                         <button
                                           onClick={() => jumpToImage(item.originalIndex)}
                                           className="flex-shrink-0 inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-800/60 border border-amber-300 dark:border-amber-700 transition-colors"
