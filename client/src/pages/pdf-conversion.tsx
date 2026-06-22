@@ -31,6 +31,8 @@ import {
   ExternalLink,
   Layers,
   BookmarkCheck,
+  Sparkles,
+  ArrowRight,
 } from "lucide-react";
 import { SiGoogledrive, SiGooglesheets, SiGoogleslides } from "react-icons/si";
 import {
@@ -323,6 +325,8 @@ export default function PdfConversion() {
   const [, navigate] = useLocation();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
+  const idAppUrl = import.meta.env.VITE_ID_APP_URL;
+  const hasIdAppLink = !!idAppUrl && idAppUrl !== "#";
   usePageTitle("Conversion Details");
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -3109,6 +3113,28 @@ export default function PdfConversion() {
           This tool improves document accessibility but does not guarantee full WCAG 2.1 compliance. Automated remediation is a starting point — only a human reviewer can confirm a document is genuinely accessible. Each institution is responsible for verifying its own content.
         </p>
       </div>
+      {hasIdAppLink && (
+        <div className="border-t border-border bg-muted/30 py-4 px-4">
+          <div className="container mx-auto max-w-4xl flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Sparkles className="w-4 h-4 flex-shrink-0 text-primary" aria-hidden="true" />
+              <span>Also from BSU Center for AI:</span>
+              <span className="font-semibold text-foreground">BSU Instructional Designer</span>
+              <span className="hidden sm:inline text-muted-foreground">— AI-powered tool for creating course materials</span>
+            </div>
+            <a
+              href={idAppUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-primary border border-primary/30 rounded-lg hover:bg-primary/10 transition-colors whitespace-nowrap"
+              data-testid="link-id-app"
+            >
+              Visit Instructional Designer
+              <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
+            </a>
+          </div>
+        </div>
+      )}
       <PoweredByFooter />
     </main>
   );
