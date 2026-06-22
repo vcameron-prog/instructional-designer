@@ -2487,13 +2487,19 @@ export default function PdfConversion() {
                       </div>
                     </div>
                     <ul className="space-y-1">
-                      {manualFixSummary.map(({ title, reason }, idx) => (
+                      {manualFixSummary.map(({ title, reason, criterion }, idx) => (
                         <li
                           key={idx}
                           className="text-sm text-amber-900 dark:text-amber-200"
                           data-testid={`manual-fix-item-${idx}`}
                         >
-                          <span className="font-medium">{title}:</span> {reason}
+                          <span className="font-medium">{title}</span>
+                          {criterion && (
+                            <span className="ml-1 text-amber-700 dark:text-amber-400 font-mono text-xs">
+                              (WCAG {criterion})
+                            </span>
+                          )}
+                          <span>: {reason}</span>
                         </li>
                       ))}
                     </ul>
