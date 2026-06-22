@@ -2620,9 +2620,17 @@ export default function PdfConversion() {
                                 <TooltipProvider>
                                   <Tooltip>
                                     <TooltipTrigger asChild>
-                                      <span className="text-xs font-mono bg-secondary text-secondary-foreground px-2 py-0.5 rounded font-bold cursor-default">
+                                      <a
+                                        href={wcagCriterionUrl(issue.criterion)}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        data-testid={`wcag-link-${issue.criterion}`}
+                                        aria-label={`WCAG ${issue.criterion} guideline (opens in new tab)`}
+                                        className="text-xs font-mono bg-secondary text-secondary-foreground px-2 py-0.5 rounded font-bold hover:underline"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
                                         WCAG {issue.criterion} ({issue.level})
-                                      </span>
+                                      </a>
                                     </TooltipTrigger>
                                     <TooltipContent>
                                       {issue.level === "A"
