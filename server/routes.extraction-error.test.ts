@@ -126,6 +126,28 @@ describe("EXTRACTION_ERROR_MESSAGES constant", () => {
     ).toEqual([]);
   });
 
+  it("EXTRACTION_ERROR_MESSAGES and SUPPORTED_FORMAT_KEYS contain identical keys so adding a new format without an error message is caught", () => {
+    const messageKeys = new Set(Object.keys(EXTRACTION_ERROR_MESSAGES));
+    const supportedKeys = new Set(SUPPORTED_FORMAT_KEYS as readonly string[]);
+
+    const inMessagesNotSupported = [...messageKeys].filter(
+      (k) => !supportedKeys.has(k),
+    );
+    const inSupportedNotMessages = [...supportedKeys].filter(
+      (k) => !messageKeys.has(k),
+    );
+
+    expect(
+      inMessagesNotSupported,
+      `Keys in EXTRACTION_ERROR_MESSAGES but missing from SUPPORTED_FORMAT_KEYS: ${inMessagesNotSupported.join(", ")}`,
+    ).toEqual([]);
+
+    expect(
+      inSupportedNotMessages,
+      `Keys in SUPPORTED_FORMAT_KEYS but missing from EXTRACTION_ERROR_MESSAGES: ${inSupportedNotMessages.join(", ")}`,
+    ).toEqual([]);
+  });
+
   it("applying EXTRACTION_ERROR_FALLBACK when a key is missing produces a string", () => {
     const result =
       EXTRACTION_ERROR_MESSAGES["not-a-real-format"] ?? EXTRACTION_ERROR_FALLBACK;
