@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "fs";
 import { join } from "path";
 import iconv from "iconv-lite";
-import { extractRtfContent, stripRtfFallback } from "./rtf-extractor.js";
+import { extractRtfContent, stripRtfFallback, detectCodepage } from "./rtf-extractor.js";
 
 const fixturesDir = join(import.meta.dirname, "fixtures");
 
@@ -331,6 +331,44 @@ describe("extractRtfContent — primary parser path", () => {
 
       expect(result.warnings).toBeUndefined();
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// detectCodepage — direct unit tests (no rtf-parser overhead)
+// ---------------------------------------------------------------------------
+
+describe("detectCodepage — direct unit tests", () => {
+  it("detects \\ansicpg codepage and sets hasAnsicpg=true when \\ansicpg is present", () => {
+    const result = detectCodepage("{\\rtf1\\ansi\\ansicpg1252\\deff0 caf\\'e9\\par}");
+    expect(result.hasAnsicpg).toBe(true);
+    expect(result.codepage).toBe(1252);
+    expect(result.hasHighBytes).toBe(true);
+  });
+
+  it("returns hasAnsicpg=false and codepage=1252 (default) when \\ansicpg is absent but high bytes are present", () => {
+    const result = detectCodepage("{\\rtf1\\ansi\\deff0 caf\\'e9\\par}");
+    expect(result.hasAnsicpg).toBe(false);
+    expect(result.codepage).toBe(1252);
+    expect(result.hasHighBytes).toBe(true);
+  });
+
+  it("returns hasAnsicpg=false and hasHighBytes=false for pure ASCII input with no \\ansicpg", () => {
+    const result = detectCodepage("{\\rtf1\\ansi\\deff0 Hello world\\par}");
+    expect(result.hasAnsicpg).toBe(false);
+    expect(result.codepage).toBe(1252);
+    expect(result.hasHighBytes).toBe(false);
+  });
+
+  it("extracts the correct codepage number from \\ansicpg", () => {
+    const result = detectCodepage("{\\rtf1\\ansi\\ansicpg932\\deff0 \\par}");
+    expect(result.hasAnsicpg).toBe(true);
+    expect(result.codepage).toBe(932);
+  });
+
+  it("does not detect high bytes when only low-byte \\' escapes are present", () => {
+    const result = detectCodepage("{\\rtf1\\ansi\\deff0 \\'41\\'42\\par}");
+    expect(result.hasHighBytes).toBe(false);
   });
 });
 

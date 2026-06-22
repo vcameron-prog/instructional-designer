@@ -83,13 +83,13 @@ const CJK_ENCODINGS = new Set(
   [...DBCS_CODEPAGES].map((cp) => CODEPAGE_TO_ENCODING[cp]).filter(Boolean)
 );
 
-interface CodepageDetection {
+export interface CodepageDetection {
   codepage: number;
   hasAnsicpg: boolean;
   hasHighBytes: boolean;
 }
 
-function detectCodepage(rtf: string): CodepageDetection {
+export function detectCodepage(rtf: string): CodepageDetection {
   const m = rtf.match(/\\ansicpg(\d+)/);
   const hasAnsicpg = m !== null;
   const codepage = hasAnsicpg ? parseInt(m![1], 10) : 1252;
