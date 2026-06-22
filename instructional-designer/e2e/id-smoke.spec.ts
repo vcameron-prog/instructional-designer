@@ -190,8 +190,30 @@ test.describe("Landing page — Accessibility Converter link", () => {
 // Test 4 — Course creation lands on the tools page
 // ===========================================================================
 test.describe("Course creation — form submits and lands on tools page", () => {
+  // Track any course IDs created during this describe block so we can delete
+  // them in afterEach, keeping the dev database free of stale test rows.
+  let createdCourseId: number | null = null;
+
   test.beforeEach(async ({ page }) => {
+    createdCourseId = null;
     await loginAsUser(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    if (createdCourseId !== null) {
+      // Re-authenticate as the same e2e user so the session cookie is present,
+      // then issue a DELETE against the course that was just created.
+      await loginAsUser(page);
+      const resp = await page.request.delete(`/api/courses/${createdCourseId}`);
+      // 204 = deleted, 404 = already gone — both are acceptable outcomes.
+      const ok = resp.status() === 204 || resp.status() === 404;
+      if (!ok) {
+        console.warn(
+          `[e2e teardown] Failed to delete test course ${createdCourseId}: HTTP ${resp.status()}`,
+        );
+      }
+      createdCourseId = null;
+    }
   });
 
   test("fills course form and navigates to the course tools page", async ({ page }) => {
@@ -236,6 +258,12 @@ test.describe("Course creation — form submits and lands on tools page", () => 
       /\/course\/\d+\/tools/,
       { timeout: 15_000 },
     );
+
+    // Extract the course ID from the URL so afterEach can clean it up.
+    const urlMatch = page.url().match(/\/course\/(\d+)\/tools/);
+    if (urlMatch) {
+      createdCourseId = parseInt(urlMatch[1], 10);
+    }
 
     // The tools page shows a back-home button as its persistent chrome
     await expect(
