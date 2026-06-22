@@ -5,3 +5,4 @@ server/public
 vite.config.ts.*
 *.tar.gz
 instructional-designer/test-results/
+instructional-designer/test-results/.last-run.json
