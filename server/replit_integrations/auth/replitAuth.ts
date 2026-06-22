@@ -52,11 +52,18 @@ function updateUserSession(
   user.expires_at = user.claims?.exp;
 }
 
-function persistSession(req: Parameters<RequestHandler>[0], user: any): Promise<void> {
+async function persistSession(req: Parameters<RequestHandler>[0], user: any): Promise<void> {
   (req.session as any).passport = { user };
-  return new Promise((resolve, reject) =>
-    req.session.save((err) => (err ? reject(err) : resolve()))
-  );
+  try {
+    await new Promise<void>((resolve, reject) =>
+      req.session.save((err) => (err ? reject(err) : resolve()))
+    );
+  } catch (err) {
+    console.warn(
+      "[auth] session.save() failed after token refresh — continuing with in-memory session:",
+      err
+    );
+  }
 }
 
 async function upsertUser(claims: any) {

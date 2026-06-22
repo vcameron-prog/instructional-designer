@@ -190,6 +190,26 @@ describe("isAuthenticated", () => {
     expect(next).not.toHaveBeenCalled();
     expect(req.session.save).not.toHaveBeenCalled();
   });
+
+  it("still calls next() when session.save() fails after a successful token refresh", async () => {
+    const req = makeReq({ expires_at: EXPIRED_AT, refresh_token: "valid-rt" });
+    req.session.save = vi.fn((cb: (err?: Error | null) => void) => cb(new Error("DB unavailable")));
+    const res = makeRes();
+    const next = vi.fn();
+
+    await isAuthenticated(req as any, res as any, next);
+
+    // Token was refreshed and in-memory state was updated.
+    expect(mockRefreshTokenGrant).toHaveBeenCalledOnce();
+    expect(req.session.passport.user.access_token).toBe("new-access-token");
+
+    // session.save() was attempted but failed — that must not produce a 401.
+    expect(req.session.save).toHaveBeenCalledOnce();
+    expect(res.status).not.toHaveBeenCalled();
+
+    // Middleware chain still continued.
+    expect(next).toHaveBeenCalledOnce();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -292,6 +312,26 @@ describe("isBsuAuthenticated", () => {
     expect(res.status).toHaveBeenCalledWith(401);
     expect(next).not.toHaveBeenCalled();
   });
+
+  it("still proceeds to the email check when session.save() fails after a successful token refresh", async () => {
+    const req = makeReq({ expires_at: EXPIRED_AT, refresh_token: "bsu-rt" });
+    req.session.save = vi.fn((cb: (err?: Error | null) => void) => cb(new Error("DB unavailable")));
+    const res = makeRes();
+    const next = vi.fn();
+
+    await isBsuAuthenticated(req as any, res as any, next);
+
+    // Token was refreshed.
+    expect(mockRefreshTokenGrant).toHaveBeenCalledOnce();
+    expect(req.session.passport.user.access_token).toBe("new-access-token");
+
+    // session.save() was attempted but failed — must not produce a 401.
+    expect(req.session.save).toHaveBeenCalledOnce();
+    expect(res.status).not.toHaveBeenCalledWith(401);
+
+    // The refreshed token has a @bridgew.edu email so next() is called.
+    expect(next).toHaveBeenCalledOnce();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -376,6 +416,23 @@ describe("optionalAuth", () => {
     expect(mockRefreshTokenGrant).not.toHaveBeenCalled();
     expect(req.session.save).not.toHaveBeenCalled();
     // Still calls next even though refresh was skipped.
+    expect(next).toHaveBeenCalledOnce();
+  });
+
+  it("still calls next() when session.save() fails after a successful token refresh", async () => {
+    const req = makeReq({ expires_at: EXPIRED_AT, refresh_token: "valid-rt" });
+    req.session.save = vi.fn((cb: (err?: Error | null) => void) => cb(new Error("DB unavailable")));
+    const res = makeRes();
+    const next = vi.fn();
+
+    await optionalAuth(req as any, res as any, next);
+
+    // Token was refreshed and in-memory state was updated.
+    expect(mockRefreshTokenGrant).toHaveBeenCalledOnce();
+    expect(req.session.passport.user.access_token).toBe("new-access-token");
+
+    // session.save() was attempted but failed — optionalAuth must still call next().
+    expect(req.session.save).toHaveBeenCalledOnce();
     expect(next).toHaveBeenCalledOnce();
   });
 });
