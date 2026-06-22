@@ -139,6 +139,33 @@ describe("EXTRACTION_ERROR_MESSAGES constant", () => {
       "Fallback must not contain raw technical output (stack traces, error codes, identifiers)",
     ).not.toMatch(/Error:|at\s+\w+\s*\(|ENOENT|EACCES|undefined|null\b|stack/i);
   });
+
+  it("EXTRACTION_ERROR_FALLBACK does not mention any specific format name", () => {
+    const FORMAT_KEYWORDS: Record<string, RegExp> = {
+      pdf:            /pdf/i,
+      docx:           /word|docx/i,
+      xlsx:           /excel|spreadsheet/i,
+      pptx:           /powerpoint|presentation/i,
+      csv:            /csv/i,
+      rtf:            /rtf/i,
+      html:           /html/i,
+      odt:            /opendocument/i,
+      ods:            /opendocument|spreadsheet/i,
+      odp:            /opendocument|presentation/i,
+      epub:           /epub/i,
+      doc:            /\.doc/i,
+      "google-doc":   /google/i,
+      "google-sheet": /google/i,
+      "google-slide": /google/i,
+    };
+
+    for (const [key, pattern] of Object.entries(FORMAT_KEYWORDS)) {
+      expect(
+        pattern.test(EXTRACTION_ERROR_FALLBACK),
+        `EXTRACTION_ERROR_FALLBACK must not match the format-specific pattern for "${key}" (/${pattern.source}/${pattern.flags}). Got: "${EXTRACTION_ERROR_FALLBACK}"`,
+      ).toBe(false);
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------
