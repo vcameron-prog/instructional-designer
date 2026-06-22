@@ -16,6 +16,8 @@ export const EXTRACTION_ERROR_MESSAGES: Record<string, string> = {
   pdf: "This PDF could not be read. It may be corrupted, password-protected, or not a valid PDF.",
 };
 
+export const SUPPORTED_FORMAT_KEYS: readonly string[] = Object.keys(EXTRACTION_ERROR_MESSAGES);
+
 export const EXTRACTION_ERROR_FALLBACK =
   "This file could not be read. It may be corrupted or in an unsupported format.";
 

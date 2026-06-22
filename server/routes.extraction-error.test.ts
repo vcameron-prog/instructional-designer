@@ -17,29 +17,12 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   EXTRACTION_ERROR_MESSAGES,
   EXTRACTION_ERROR_FALLBACK,
+  SUPPORTED_FORMAT_KEYS,
 } from "./lib/extraction-error-messages.js";
 
 // ---------------------------------------------------------------------------
 // Part 1: Unit tests for the EXTRACTION_ERROR_MESSAGES constant
 // ---------------------------------------------------------------------------
-
-const SUPPORTED_FORMAT_KEYS = [
-  "pdf",
-  "docx",
-  "xlsx",
-  "pptx",
-  "csv",
-  "rtf",
-  "html",
-  "odt",
-  "ods",
-  "odp",
-  "epub",
-  "doc",
-  "google-doc",
-  "google-sheet",
-  "google-slide",
-] as const;
 
 const FORMAT_KEYWORDS: Record<string, RegExp> = {
   pdf:            /pdf/i,
