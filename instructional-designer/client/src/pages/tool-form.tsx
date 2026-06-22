@@ -767,9 +767,11 @@ export default function ToolForm() {
           <Card className="max-w-lg w-full mx-4">
             <CardContent className="p-12 text-center">
               <div className="w-20 h-20 mx-auto mb-8 relative">
-                <div className="absolute inset-0 bg-primary/20 rounded-full animate-ping" />
+                {activeStepIndex < generationSteps.length && (
+                  <div className="absolute inset-0 bg-primary/20 rounded-full animate-ping" />
+                )}
                 <div className="relative w-full h-full bg-primary rounded-full flex items-center justify-center">
-                  <Sparkles className="w-10 h-10 text-white animate-pulse" aria-hidden="true" />
+                  <Sparkles className={`w-10 h-10 text-white ${activeStepIndex < generationSteps.length ? "animate-pulse" : ""}`} aria-hidden="true" />
                 </div>
               </div>
               <h2 className="text-2xl font-bold mb-4">Generating Your {tool.name}</h2>
@@ -784,15 +786,17 @@ export default function ToolForm() {
                 </p>
               )}
               <GenerationStepList steps={generationSteps} activeIndex={activeStepIndex} />
-              <div className="flex justify-center gap-1" aria-hidden="true">
-                {[0, 1, 2].map(i => (
-                  <div
-                    key={i}
-                    className="w-2 h-2 bg-primary rounded-full animate-bounce"
-                    style={{ animationDelay: `${i * 0.15}s` }}
-                  />
-                ))}
-              </div>
+              {activeStepIndex < generationSteps.length && (
+                <div className="flex justify-center gap-1" aria-hidden="true">
+                  {[0, 1, 2].map(i => (
+                    <div
+                      key={i}
+                      className="w-2 h-2 bg-primary rounded-full animate-bounce"
+                      style={{ animationDelay: `${i * 0.15}s` }}
+                    />
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
