@@ -372,6 +372,8 @@ export default function ToolForm() {
   });
   const [isGenerating, setIsGenerating] = useState(false);
   const [activeStepIndex, setActiveStepIndex] = useState(0);
+  const stepTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedPrefillId, setSelectedPrefillId] = useState<string>("");
   const [preFilledFields, setPreFilledFields] = useState<Set<string>>(new Set());
   const [language, setLanguage] = useState(
@@ -482,30 +484,43 @@ export default function ToolForm() {
       return response.json();
     },
     onSuccess: (data) => {
-      if (toolId === "assignment" && generateRubric && data.assignmentId && data.rubricId) {
+      if (stepTimerRef.current) {
+        clearTimeout(stepTimerRef.current);
+        stepTimerRef.current = null;
+      }
+      const completedSteps = (toolId === "assignment" && generateRubric)
+        ? BATCH_GENERATION_STEPS.length
+        : GENERATION_STEPS.length;
+      setActiveStepIndex(completedSteps);
+
+      holdTimerRef.current = setTimeout(() => {
+        holdTimerRef.current = null;
+        setIsGenerating(false);
+        if (toolId === "assignment" && generateRubric && data.assignmentId && data.rubricId) {
+          if (isStandalone) {
+            queryClient.invalidateQueries({ queryKey: ["/api/content/recent-quick-tools"] });
+            navigate(`/quick-tools/result-batch/${data.assignmentId}/${data.rubricId}`);
+          } else {
+            queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId, "content"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId, "tool-usage"] });
+            navigate(`/course/${courseId}/result-batch/${data.assignmentId}/${data.rubricId}`);
+          }
+          return;
+        }
         if (isStandalone) {
           queryClient.invalidateQueries({ queryKey: ["/api/content/recent-quick-tools"] });
-          navigate(`/quick-tools/result-batch/${data.assignmentId}/${data.rubricId}`);
+          if (data.id) {
+            navigate(`/quick-tools/result/${data.id}`);
+          } else {
+            queryClient.setQueryData(["/api/standalone-content", "anon"], data);
+            navigate(`/quick-tools/result/anon`);
+          }
         } else {
           queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId, "content"] });
           queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId, "tool-usage"] });
-          navigate(`/course/${courseId}/result-batch/${data.assignmentId}/${data.rubricId}`);
+          navigate(`/course/${courseId}/result/${data.id}`);
         }
-        return;
-      }
-      if (isStandalone) {
-        queryClient.invalidateQueries({ queryKey: ["/api/content/recent-quick-tools"] });
-        if (data.id) {
-          navigate(`/quick-tools/result/${data.id}`);
-        } else {
-          queryClient.setQueryData(["/api/standalone-content", "anon"], data);
-          navigate(`/quick-tools/result/anon`);
-        }
-      } else {
-        queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId, "content"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId, "tool-usage"] });
-        navigate(`/course/${courseId}/result/${data.id}`);
-      }
+      }, 600);
     },
     onError: (error) => {
       setIsGenerating(false);
@@ -527,13 +542,29 @@ export default function ToolForm() {
       current += 1;
       if (current < steps.length) {
         setActiveStepIndex(current);
-        timer = setTimeout(advance, steps[current].durationMs);
+        stepTimerRef.current = setTimeout(advance, steps[current].durationMs);
+      } else {
+        stepTimerRef.current = null;
       }
     };
 
-    let timer = setTimeout(advance, steps[0].durationMs);
-    return () => clearTimeout(timer);
+    stepTimerRef.current = setTimeout(advance, steps[0].durationMs);
+    return () => {
+      if (stepTimerRef.current) {
+        clearTimeout(stepTimerRef.current);
+        stepTimerRef.current = null;
+      }
+    };
   }, [isGenerating, isBatchTool]);
+
+  useEffect(() => {
+    return () => {
+      if (holdTimerRef.current) {
+        clearTimeout(holdTimerRef.current);
+        holdTimerRef.current = null;
+      }
+    };
+  }, []);
 
   const handleInputChange = (name: string, value: any) => {
     setFormData(prev => {
@@ -742,8 +773,8 @@ export default function ToolForm() {
                 </div>
               </div>
               <h2 className="text-2xl font-bold mb-4">Generating Your {tool.name}</h2>
-              <p className="text-sm text-primary font-medium mb-6 animate-pulse-subtle">
-                {generationSteps[activeStepIndex]?.label}
+              <p className="text-sm font-medium mb-6 animate-pulse-subtle text-green-600">
+                {activeStepIndex >= generationSteps.length ? "All done!" : generationSteps[activeStepIndex]?.label}
               </p>
               <GenerationStepList steps={generationSteps} activeIndex={activeStepIndex} />
               <div className="flex justify-center gap-1" aria-hidden="true">
