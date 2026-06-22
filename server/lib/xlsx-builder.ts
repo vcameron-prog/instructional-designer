@@ -139,10 +139,17 @@ export async function buildXlsx(
           const endCol = colCursor + colspan - 1;
 
           // Mark every position in the span (except the master) as occupied
+          // and apply header styling to slave cells so the full merged range
+          // appears bold + grey in Excel and LibreOffice.
           for (let r = excelRow; r <= endRow; r++) {
             for (let c = colCursor; c <= endCol; c++) {
               if (r !== excelRow || c !== colCursor) {
                 occupied.add(`${r},${c}`);
+                if (isHeader) {
+                  const slaveCell = sheet.getCell(r, c);
+                  slaveCell.font = { bold: true };
+                  slaveCell.fill = HEADER_FILL;
+                }
               }
             }
           }
