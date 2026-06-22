@@ -509,7 +509,7 @@ export default function PdfConversion() {
   // Set true when state is updated from a server fetch (poll or visibilitychange)
   // so the sync effect skips writing back to the server and re-broadcasting.
   const receivedFromServerRef = useRef(false);
-  const [manualFixSummary, setManualFixSummary] = useState<{ title: string; reason: string }[]>([]);
+  const [manualFixSummary, setManualFixSummary] = useState<{ title: string; reason: string; criterion?: string }[]>([]);
   const [copiedManualFix, setCopiedManualFix] = useState(false);
   const [copiedError, setCopiedError] = useState(false);
   const [copiedFixError, setCopiedFixError] = useState(false);
@@ -939,7 +939,7 @@ export default function PdfConversion() {
 
     let anyRetried = false;
     const collectedFixNotes: string[] = [];
-    const manualFixItems: { title: string; reason: string }[] = [];
+    const manualFixItems: { title: string; reason: string; criterion?: string }[] = [];
     try {
       for (let j = 0; j < fixableIndices.length; j++) {
         setFixAllProgress({ current: j + 1, total: fixableIndices.length });
@@ -950,7 +950,8 @@ export default function PdfConversion() {
         if (data?.noFixReason) {
           setNoFixReasons(prev => ({ ...prev, [issueIndex]: data.noFixReason }));
           const issueTitle = report.issues[issueIndex]?.title ?? `Issue ${issueIndex + 1}`;
-          manualFixItems.push({ title: issueTitle, reason: data.noFixReason });
+          const issueCriterion = report.issues[issueIndex]?.criterion;
+          manualFixItems.push({ title: issueTitle, reason: data.noFixReason, criterion: issueCriterion });
         }
         const note = data?.complianceReport?.issues?.[issueIndex]?.fixNotes;
         if (note && !collectedFixNotes.includes(note)) {
@@ -2447,7 +2448,9 @@ export default function PdfConversion() {
                         <button
                           onClick={() => {
                             const text = manualFixSummary
-                              .map(({ title, reason }) => `• ${title}: ${reason}`)
+                              .map(({ title, reason, criterion }) =>
+                                `• ${title}${criterion ? ` (WCAG ${criterion})` : ""}: ${reason}`,
+                              )
                               .join("\n");
                             navigator.clipboard.writeText(text).then(() => {
                               setCopiedManualFix(true);
