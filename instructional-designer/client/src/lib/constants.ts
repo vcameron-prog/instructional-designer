@@ -307,11 +307,18 @@ export function computeAiStepDuration(
   step: GenerationStep,
   outputDetail: string,
   isBatch: boolean,
+  complexityScore?: number,
 ): number {
   const { minDurationMs, maxDurationMs, durationMs } = step;
   if (minDurationMs === undefined || maxDurationMs === undefined) return durationMs;
   if (isBatch) return maxDurationMs;
-  return outputDetail === "concise" ? minDurationMs : maxDurationMs;
+  const score =
+    complexityScore !== undefined
+      ? Math.max(0, Math.min(1, complexityScore))
+      : outputDetail === "concise"
+        ? 0
+        : 1;
+  return Math.round(minDurationMs + score * (maxDurationMs - minDurationMs));
 }
 
 export const GENERATION_STEPS: GenerationStep[] = [

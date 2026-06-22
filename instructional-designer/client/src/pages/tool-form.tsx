@@ -38,6 +38,51 @@ interface ToolFormField {
   helper?: string;
 }
 
+const DURATION_COMPLEXITY_OPTIONS = [
+  "1 hour (single class activity)",
+  "2 hours",
+  "3 hours",
+  "4 hours",
+  "5 hours",
+  "1 week",
+  "2 weeks",
+  "3 weeks",
+  "4 weeks",
+  "Semester-long project",
+];
+
+const COMPLEXITY_TEXT_FIELDS = [
+  "learningObjectives",
+  "additionalContext",
+  "criteria",
+  "currentSyllabusText",
+  "specificConcerns",
+  "majorTopics",
+  "assessments",
+];
+
+const COMPLEXITY_TEXT_CEILING = 800;
+
+function computeComplexityScore(formData: Record<string, any>): number {
+  const durationIdx = DURATION_COMPLEXITY_OPTIONS.indexOf(formData.duration ?? "");
+  const durationScore =
+    durationIdx >= 0 ? durationIdx / (DURATION_COMPLEXITY_OPTIONS.length - 1) : 0;
+
+  const MAX_FRAMEWORKS = 5;
+  const selectedFrameworks = Array.isArray(formData.inclusiveDesignOptions)
+    ? formData.inclusiveDesignOptions.length
+    : 0;
+  const frameworkScore = Math.min(selectedFrameworks / MAX_FRAMEWORKS, 1);
+
+  const totalChars = COMPLEXITY_TEXT_FIELDS.reduce(
+    (sum, f) => sum + ((formData[f] as string | undefined)?.length ?? 0),
+    0,
+  );
+  const textScore = Math.min(totalChars / COMPLEXITY_TEXT_CEILING, 1);
+
+  return durationScore * 0.4 + frameworkScore * 0.3 + textScore * 0.3;
+}
+
 const getFormFields = (toolId: string): ToolFormField[] => {
   const fields: Record<string, ToolFormField[]> = {
     assignment: [
@@ -556,8 +601,9 @@ export default function ToolForm() {
     let current = 0;
     const steps = isBatchTool ? BATCH_GENERATION_STEPS : GENERATION_STEPS;
     const outputDetail = outputDetailRef.current;
+    const complexityScore = computeComplexityScore(formData);
     const effectiveDurations = steps.map(step =>
-      computeAiStepDuration(step, outputDetail, isBatchTool)
+      computeAiStepDuration(step, outputDetail, isBatchTool, complexityScore)
     );
 
     const advance = () => {
