@@ -3065,6 +3065,16 @@ export default function PdfConversion() {
           </div>
         )}
       </div>
+      <div
+        className="w-full max-w-2xl mx-auto mt-6 mb-4 flex items-start gap-3 px-4 py-3 bg-muted/50 border border-border rounded-xl text-sm"
+        data-testid="banner-compliance-notice"
+        role="note"
+      >
+        <Info className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-0.5" aria-hidden="true" />
+        <p className="text-muted-foreground">
+          This tool improves document accessibility but does not guarantee full WCAG 2.1 compliance. Automated remediation is a starting point — only a human reviewer can confirm a document is genuinely accessible. Each institution is responsible for verifying its own content.
+        </p>
+      </div>
       <PoweredByFooter />
     </main>
   );
