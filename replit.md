@@ -84,10 +84,20 @@ Migrations are managed with Drizzle Kit and must be applied **before** the serve
 ### Deploy order (production)
 
 1. Build the app (`npm run build`)
-2. Run `npm run db:migrate` to apply any pending migrations
-3. Start the server (`npm start`)
+2. Start the server: `npm start`
 
-The `scripts/post-merge.sh` post-merge hook runs `npm run db:migrate` automatically as part of the CI/CD pipeline, so migrations are applied before the new server process starts.
+`npm start` automatically runs the `prestart` npm lifecycle hook before launching the server. The hook (`npm run db:migrate && npx tsx scripts/assert-migrations-applied.ts`) provides the migration gate:
+  - Runs `npm run db:migrate` to apply any pending migrations.
+  - Runs `scripts/assert-migrations-applied.ts` to verify zero pending migrations remain in the DB (aborts with exit 1 if any remain).
+  - If both checks pass, `node dist/index.cjs` starts.
+
+This ensures no window exists where production traffic is served against a mismatched schema. If migrate or the assertion fails, `npm start` aborts before the server process is launched.
+
+`scripts/pre-start.sh` is a standalone all-in-one script (migrate + assert + exec server) for deploy environments that invoke the server directly rather than via `npm start`.
+
+The `scripts/post-merge.sh` post-merge hook also runs `npm run db:migrate` followed by `scripts/assert-migrations-applied.ts` automatically as part of the CI/CD pipeline. The server additionally performs its own startup check (aborting in production if pending migrations are detected) as a final safety net.
+
+Run `bash scripts/test-pre-start-gate.sh` to verify the gate exits non-zero before the server starts in simulated failure scenarios (missing DATABASE_URL, unreachable DB).
 
 ## External Dependencies
 

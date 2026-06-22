@@ -16,3 +16,7 @@ fi
 
 npm run db:migrate
 bash scripts/check-schema-drift.sh
+
+# Verify the DB actually reflects all applied migrations after the migrate step.
+# This catches cases where drizzle-kit migrate exits 0 but silently skipped rows.
+npx tsx scripts/assert-migrations-applied.ts
