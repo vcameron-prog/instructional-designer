@@ -2,8 +2,8 @@ import nodemailer from "nodemailer";
 import cron from "node-cron";
 import { db } from "../db";
 import { users } from "../../shared/models/auth";
-import { courses, generatedContent, conversions } from "../../shared/schema";
-import { sql, gte, and, eq } from "drizzle-orm";
+import { conversions } from "../../shared/schema";
+import { sql, gte } from "drizzle-orm";
 
 const SUMMARY_EMAIL_TO = process.env.SUMMARY_EMAIL_TO || "vcameron@bridgew.edu";
 const SUMMARY_EMAIL_FROM = process.env.SUMMARY_EMAIL_FROM || "";
@@ -15,16 +15,14 @@ interface DailySummaryStats {
   conversionsCompleted: number;
   conversionsFailed: number;
   failedConversions: Array<{ filename: string; error: string | null; createdAt: Date }>;
-  contentGenerated: number;
   allTimeUsers: number;
-  allTimeCourses: number;
   allTimeConversions: number;
 }
 
 async function fetchDailyStats(): Promise<DailySummaryStats> {
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-  const [newUsers, conversionRows, contentRows, totals] = await Promise.all([
+  const [newUsers, conversionRows, totals] = await Promise.all([
     db
       .select({
         firstName: users.firstName,
@@ -46,14 +44,8 @@ async function fetchDailyStats(): Promise<DailySummaryStats> {
       .where(gte(conversions.createdAt, since)),
 
     db
-      .select({ count: sql<number>`count(*)` })
-      .from(generatedContent)
-      .where(gte(generatedContent.createdAt, since)),
-
-    db
       .select({
         totalUsers: sql<number>`(select count(*) from users)`,
-        totalCourses: sql<number>`(select count(*) from courses)`,
         totalConversions: sql<number>`(select count(*) from conversions)`,
       })
       .from(users)
@@ -72,9 +64,7 @@ async function fetchDailyStats(): Promise<DailySummaryStats> {
       error: r.errorMessage,
       createdAt: r.createdAt,
     })),
-    contentGenerated: Number(contentRows[0]?.count ?? 0),
     allTimeUsers: Number(totals[0]?.totalUsers ?? 0),
-    allTimeCourses: Number(totals[0]?.totalCourses ?? 0),
     allTimeConversions: Number(totals[0]?.totalConversions ?? 0),
   };
 }
@@ -83,8 +73,7 @@ function buildEmailHtml(stats: DailySummaryStats, date: string): string {
   const hasActivity =
     stats.newUsers.length > 0 ||
     stats.conversionsCompleted > 0 ||
-    stats.conversionsFailed > 0 ||
-    stats.contentGenerated > 0;
+    stats.conversionsFailed > 0;
 
   const newUsersSection =
     stats.newUsers.length > 0
@@ -138,82 +127,45 @@ function buildEmailHtml(stats: DailySummaryStats, date: string): string {
         <!-- Header -->
         <tr>
           <td style="background:#8b0000;padding:24px 24px 20px;text-align:center;">
-            <p style="margin:0;font-size:20px;font-weight:700;color:#ffffff;">Accessibility Tool</p>
-            <p style="margin:6px 0 0;font-size:14px;color:#ffcccc;">Daily Summary — ${date}</p>
+            <h1 style="margin:0;color:#ffffff;font-size:20px;font-weight:700;">BSU Accessibility Converter</h1>
+            <p style="margin:6px 0 0;color:#f5c6c6;font-size:13px;">Daily Summary — ${date}</p>
           </td>
         </tr>
 
-        <!-- Status banner -->
+        ${!hasActivity ? `
         <tr>
-          <td style="padding:16px 24px;border-bottom:1px solid #f0f0f0;background:${hasActivity ? "#f0fdf4" : "#fafafa"};">
-            <p style="margin:0;font-size:15px;color:${hasActivity ? "#166534" : "#666"};">
-              ${hasActivity ? "Activity recorded in the last 24 hours." : "Quiet day — no activity in the last 24 hours."}
-            </p>
+          <td style="padding:32px 24px;text-align:center;color:#666;">
+            No activity in the last 24 hours.
           </td>
-        </tr>
+        </tr>` : ""}
 
-        <!-- Last 24h stats grid -->
+        <!-- Stats row -->
+        ${hasActivity ? `
         <tr>
-          <td style="padding:20px 24px 8px;">
-            <p style="margin:0 0 12px;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#888;">Last 24 Hours</p>
+          <td style="padding:16px 24px;border-bottom:1px solid #f0f0f0;">
             <table width="100%" cellpadding="0" cellspacing="0">
               <tr>
-                <td style="width:33%;text-align:center;padding:12px;background:#f9f9f9;border-radius:6px;">
-                  <p style="margin:0;font-size:28px;font-weight:700;color:#8b0000;">${stats.newUsers.length}</p>
-                  <p style="margin:4px 0 0;font-size:12px;color:#666;">New users</p>
+                <td style="text-align:center;padding:8px;">
+                  <p style="margin:0;font-size:28px;font-weight:700;color:#9e1b32;">${stats.conversionsCompleted}</p>
+                  <p style="margin:4px 0 0;font-size:12px;color:#666;text-transform:uppercase;letter-spacing:.5px;">Conversions</p>
                 </td>
-                <td style="width:4px;"></td>
-                <td style="width:33%;text-align:center;padding:12px;background:#f9f9f9;border-radius:6px;">
-                  <p style="margin:0;font-size:28px;font-weight:700;color:#166534;">${stats.conversionsCompleted}</p>
-                  <p style="margin:4px 0 0;font-size:12px;color:#666;">Docs converted</p>
-                </td>
-                <td style="width:4px;"></td>
-                <td style="width:33%;text-align:center;padding:12px;background:#f9f9f9;border-radius:6px;">
-                  <p style="margin:0;font-size:28px;font-weight:700;color:#1d4ed8;">${stats.contentGenerated}</p>
-                  <p style="margin:4px 0 0;font-size:12px;color:#666;">AI content generated</p>
+                <td style="text-align:center;padding:8px;">
+                  <p style="margin:0;font-size:28px;font-weight:700;color:#9e1b32;">${stats.newUsers.length}</p>
+                  <p style="margin:4px 0 0;font-size:12px;color:#666;text-transform:uppercase;letter-spacing:.5px;">New Users</p>
                 </td>
               </tr>
             </table>
           </td>
-        </tr>
+        </tr>` : ""}
 
-        <!-- New users detail -->
         ${newUsersSection}
-
-        <!-- Failed conversions -->
         ${failedSection}
 
-        <!-- All-time totals -->
+        <!-- Footer totals -->
         <tr>
-          <td style="padding:20px 24px 8px;">
-            <p style="margin:0 0 12px;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#888;">All-Time Totals</p>
-            <table width="100%" cellpadding="0" cellspacing="0">
-              <tr>
-                <td style="width:33%;text-align:center;padding:10px;border:1px solid #e5e5e5;border-radius:6px;">
-                  <p style="margin:0;font-size:22px;font-weight:700;color:#1a1a1a;">${stats.allTimeUsers}</p>
-                  <p style="margin:4px 0 0;font-size:12px;color:#666;">Total users</p>
-                </td>
-                <td style="width:4px;"></td>
-                <td style="width:33%;text-align:center;padding:10px;border:1px solid #e5e5e5;border-radius:6px;">
-                  <p style="margin:0;font-size:22px;font-weight:700;color:#1a1a1a;">${stats.allTimeCourses}</p>
-                  <p style="margin:4px 0 0;font-size:12px;color:#666;">Courses created</p>
-                </td>
-                <td style="width:4px;"></td>
-                <td style="width:33%;text-align:center;padding:10px;border:1px solid #e5e5e5;border-radius:6px;">
-                  <p style="margin:0;font-size:22px;font-weight:700;color:#1a1a1a;">${stats.allTimeConversions}</p>
-                  <p style="margin:4px 0 0;font-size:12px;color:#666;">Documents converted</p>
-                </td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-
-        <!-- Footer -->
-        <tr>
-          <td style="padding:20px 24px;border-top:1px solid #f0f0f0;text-align:center;">
-            <p style="margin:0;font-size:12px;color:#999;">
-              Sent automatically by the Accessibility Tool &bull;
-              <a href="https://bsu-instructional-designer.replit.app/admin" style="color:#8b0000;">View admin dashboard</a>
+          <td style="padding:16px 24px;background:#fafafa;border-top:1px solid #eee;">
+            <p style="margin:0;font-size:12px;color:#888;">
+              All-time totals &mdash; Users: <strong>${stats.allTimeUsers}</strong> &nbsp;|&nbsp; Conversions: <strong>${stats.allTimeConversions}</strong>
             </p>
           </td>
         </tr>
@@ -225,9 +177,9 @@ function buildEmailHtml(stats: DailySummaryStats, date: string): string {
 </html>`;
 }
 
-export async function sendDailySummary(): Promise<void> {
+async function sendDailySummary(): Promise<void> {
   if (!SUMMARY_EMAIL_FROM || !SUMMARY_EMAIL_PASSWORD) {
-    console.warn("[daily-summary] Skipping: SUMMARY_EMAIL_FROM or SUMMARY_EMAIL_PASSWORD not set.");
+    console.log("[daily-summary] Email credentials not configured — skipping.");
     return;
   }
 
@@ -251,9 +203,9 @@ export async function sendDailySummary(): Promise<void> {
   });
 
   await transporter.sendMail({
-    from: `"BSU ID Tool" <${SUMMARY_EMAIL_FROM}>`,
+    from: `"BSU Accessibility Converter" <${SUMMARY_EMAIL_FROM}>`,
     to: SUMMARY_EMAIL_TO,
-    subject: `BSU ID Tool — Daily Summary ${date}`,
+    subject: `BSU Accessibility Converter — Daily Summary ${date}`,
     html,
   });
 
@@ -279,7 +231,7 @@ export async function sendConversionCompleteEmail(
   });
 
   const name = firstName ?? "there";
-  const appUrl = process.env.APP_URL || "https://bsu-instructional-designer.replit.app";
+  const appUrl = process.env.APP_URL || "https://bsu-accessibility-converter.replit.app";
   const scoreHtml = score !== null
     ? `<p style="margin:0 0 12px">Compliance score: <strong style="color:${score >= 90 ? "#16a34a" : score >= 70 ? "#d97706" : "#dc2626"}">${score}%</strong></p>`
     : "";
@@ -295,7 +247,7 @@ export async function sendConversionCompleteEmail(
 ${scoreHtml}
 <p style="margin:0 0 20px">Review the output, apply any suggested fixes, then download as Word (.docx), HTML, or PDF.</p>
 <a href="${appUrl}/pdf-accessibility" style="display:inline-block;padding:10px 20px;background:#9e1b32;color:#fff;text-decoration:none;border-radius:6px;font-weight:600">View Document</a>
-<p style="margin:24px 0 0;font-size:12px;color:#888">Accessibility Tool &mdash; Bridgewater State University</p>
+<p style="margin:24px 0 0;font-size:12px;color:#888">Accessibility Converter &mdash; Bridgewater State University</p>
 </body></html>`,
   });
 }

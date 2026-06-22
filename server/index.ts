@@ -2,8 +2,6 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
-import { seedDatabase } from "./seed";
-import { trimAllOversizedVersions } from "./lib/trimVersions";
 import { scheduleDailySummary } from "./lib/daily-summary";
 import { clearRateLimiterIntervals, initRateLimitCleanupMetrics } from "./lib/rateLimiters.js";
 import { db, pool } from "./db";
@@ -209,12 +207,6 @@ async function resetStaleProcessingJobs() {
 
   // Seed in-memory rate-limit cleanup metrics from the DB so counters survive restarts
   await initRateLimitCleanupMetrics();
-
-  // Seed database with sample data
-  await seedDatabase();
-
-  // Enforce version history limit on any pre-existing oversized rows
-  await trimAllOversizedVersions();
 
   // Schedule the daily health summary email (7am ET by default)
   scheduleDailySummary();
