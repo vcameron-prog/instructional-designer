@@ -18,6 +18,12 @@ export interface MigrationDriftResult {
   expected: string[];
   applied: number;
   pending: string[];
+  /**
+   * Number of migrations the DB reports as applied beyond what the journal
+   * knows about. A positive value means at least one migration file was
+   * deleted after being applied — the schema may be in an unknown state.
+   */
+  extra: number;
 }
 
 /**
@@ -34,7 +40,7 @@ export async function checkMigrationDrift(
   const journalPath = path.join(migrationsDir, "meta", "_journal.json");
 
   if (!fs.existsSync(journalPath)) {
-    return { expected: [], applied: 0, pending: [] };
+    return { expected: [], applied: 0, pending: [], extra: 0 };
   }
 
   const journal: Journal = JSON.parse(fs.readFileSync(journalPath, "utf-8"));
@@ -67,10 +73,12 @@ export async function checkMigrationDrift(
   }
 
   const pending = expectedTags.slice(appliedCount);
+  const extra = Math.max(0, appliedCount - expectedTags.length);
 
   return {
     expected: expectedTags,
     applied: appliedCount,
     pending,
+    extra,
   };
 }

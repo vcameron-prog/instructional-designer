@@ -29,6 +29,19 @@ export async function runMigrations(): Promise<void> {
     console.error(err);
   }
 
+  if (driftResult && driftResult.extra > 0) {
+    console.error(
+      `\n[migration] FATAL: the database reports ${driftResult.extra} more applied migration(s) ` +
+        `than the journal tracks (${driftResult.applied} applied, ` +
+        `${driftResult.expected.length} in journal).\n\n` +
+        `This means at least one migration file was deleted after being applied to the database.\n` +
+        `The schema may be in an unknown state. Startup aborted.\n\n` +
+        `To fix: restore the missing migration file(s) or manually reconcile the\n` +
+        `drizzle.__drizzle_migrations table with the current migrations/meta/_journal.json.\n`,
+    );
+    process.exit(1);
+  }
+
   if (driftResult && driftResult.pending.length > 0) {
     const list = driftResult.pending.map((t) => `  • ${t}`).join("\n");
     const summary =

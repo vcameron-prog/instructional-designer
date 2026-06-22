@@ -73,7 +73,7 @@ describe("checkMigrationDrift", () => {
     const pool = makePool(true, 0);
     const result = await checkMigrationDrift(pool);
 
-    expect(result).toEqual({ expected: [], applied: 0, pending: [] });
+    expect(result).toEqual({ expected: [], applied: 0, pending: [], extra: 0 });
     expect(pool.connect).not.toHaveBeenCalled();
   });
 
@@ -178,5 +178,79 @@ describe("checkMigrationDrift", () => {
 
     expect(result.expected).toEqual(["0000_real"]);
     expect(result.pending).toEqual(["0000_real"]);
+    expect(result.extra).toBe(0);
+  });
+
+  // -------------------------------------------------------------------------
+  // Over-applied — DB has more applied migrations than the journal tracks
+  // -------------------------------------------------------------------------
+
+  it("sets extra to the count of migrations applied beyond the journal", async () => {
+    const tags = ["0000_first", "0001_second"];
+
+    mockExistsSync.mockImplementation((p: string) => {
+      if (String(p).endsWith(JOURNAL_PATH_SUFFIX)) return true;
+      return tags.some((t) => String(p).endsWith(`${t}.sql`));
+    });
+    mockReadFileSync.mockReturnValue(buildJournal(tags));
+
+    // DB says 3 applied but journal only has 2 entries — one file was deleted
+    const pool = makePool(true, 3);
+    const result = await checkMigrationDrift(pool);
+
+    expect(result.expected).toEqual(tags);
+    expect(result.applied).toBe(3);
+    expect(result.pending).toEqual([]);
+    expect(result.extra).toBe(1);
+  });
+
+  it("sets extra correctly when multiple migration files are missing", async () => {
+    const tags = ["0000_first"];
+
+    mockExistsSync.mockImplementation((p: string) => {
+      if (String(p).endsWith(JOURNAL_PATH_SUFFIX)) return true;
+      return tags.some((t) => String(p).endsWith(`${t}.sql`));
+    });
+    mockReadFileSync.mockReturnValue(buildJournal(tags));
+
+    // DB says 4 applied but journal only has 1 entry
+    const pool = makePool(true, 4);
+    const result = await checkMigrationDrift(pool);
+
+    expect(result.expected).toEqual(tags);
+    expect(result.applied).toBe(4);
+    expect(result.pending).toEqual([]);
+    expect(result.extra).toBe(3);
+  });
+
+  it("returns extra of 0 when applied equals expected length", async () => {
+    const tags = ["0000_first", "0001_second"];
+
+    mockExistsSync.mockImplementation((p: string) => {
+      if (String(p).endsWith(JOURNAL_PATH_SUFFIX)) return true;
+      return tags.some((t) => String(p).endsWith(`${t}.sql`));
+    });
+    mockReadFileSync.mockReturnValue(buildJournal(tags));
+
+    const pool = makePool(true, tags.length);
+    const result = await checkMigrationDrift(pool);
+
+    expect(result.extra).toBe(0);
+  });
+
+  it("returns extra of 0 when applied is less than expected length (pending case)", async () => {
+    const tags = ["0000_first", "0001_second", "0002_third"];
+
+    mockExistsSync.mockImplementation((p: string) => {
+      if (String(p).endsWith(JOURNAL_PATH_SUFFIX)) return true;
+      return tags.some((t) => String(p).endsWith(`${t}.sql`));
+    });
+    mockReadFileSync.mockReturnValue(buildJournal(tags));
+
+    const pool = makePool(true, 1);
+    const result = await checkMigrationDrift(pool);
+
+    expect(result.extra).toBe(0);
+    expect(result.pending).toEqual(["0001_second", "0002_third"]);
   });
 });

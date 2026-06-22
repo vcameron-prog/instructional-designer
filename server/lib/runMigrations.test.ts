@@ -64,6 +64,7 @@ describe("runMigrations – production guard", () => {
       expected: ["0000_initial", "0001_add_users"],
       applied: 1,
       pending: ["0001_add_users"],
+      extra: 0,
     });
 
     await expect(runMigrations()).rejects.toThrow("process.exit(1)");
@@ -77,6 +78,7 @@ describe("runMigrations – production guard", () => {
       expected: ["0000_initial", "0001_add_users"],
       applied: 1,
       pending: ["0001_add_users"],
+      extra: 0,
     });
 
     await expect(runMigrations()).rejects.toThrow("process.exit(1)");
@@ -94,6 +96,7 @@ describe("runMigrations – production guard", () => {
       expected: ["0000_initial", "0001_add_users"],
       applied: 1,
       pending: ["0001_add_users"],
+      extra: 0,
     });
 
     await expect(runMigrations()).resolves.not.toThrow();
@@ -107,6 +110,7 @@ describe("runMigrations – production guard", () => {
       expected: ["0000_initial", "0001_add_users"],
       applied: 2,
       pending: [],
+      extra: 0,
     });
 
     await expect(runMigrations()).resolves.not.toThrow();
@@ -122,5 +126,54 @@ describe("runMigrations – production guard", () => {
 
     expect(exitSpy).not.toHaveBeenCalled();
     expect(mockMigrate).toHaveBeenCalledOnce();
+  });
+
+  // -------------------------------------------------------------------------
+  // Over-applied guard — deleted migration files
+  // -------------------------------------------------------------------------
+
+  it("calls process.exit(1) in production when extra > 0", async () => {
+    process.env.NODE_ENV = "production";
+    mockCheckMigrationDrift.mockResolvedValue({
+      expected: ["0000_initial", "0001_add_users"],
+      applied: 3,
+      pending: [],
+      extra: 1,
+    });
+
+    await expect(runMigrations()).rejects.toThrow("process.exit(1)");
+
+    expect(exitSpy).toHaveBeenCalledWith(1);
+  });
+
+  it("calls process.exit(1) in development when extra > 0", async () => {
+    process.env.NODE_ENV = "development";
+    mockCheckMigrationDrift.mockResolvedValue({
+      expected: ["0000_initial"],
+      applied: 3,
+      pending: [],
+      extra: 2,
+    });
+
+    await expect(runMigrations()).rejects.toThrow("process.exit(1)");
+
+    expect(exitSpy).toHaveBeenCalledWith(1);
+  });
+
+  it("logs an actionable FATAL error message when migration files are deleted", async () => {
+    process.env.NODE_ENV = "production";
+    mockCheckMigrationDrift.mockResolvedValue({
+      expected: ["0000_initial", "0001_add_users"],
+      applied: 3,
+      pending: [],
+      extra: 1,
+    });
+
+    await expect(runMigrations()).rejects.toThrow("process.exit(1)");
+
+    const errorArg: string = errorSpy.mock.calls[0][0];
+    expect(errorArg).toContain("FATAL");
+    expect(errorArg).toContain("deleted after being applied");
+    expect(errorArg).toContain("Startup aborted");
   });
 });
