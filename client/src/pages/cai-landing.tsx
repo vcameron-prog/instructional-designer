@@ -115,18 +115,6 @@ export default function CaiLandingPage() {
             </Card>
           </div>
 
-          <div className="mt-10 text-center">
-            <Button
-              size="lg"
-              onClick={() => navigate("/accessibility")}
-              className="gap-2"
-              data-testid="button-open-converter-2"
-            >
-              <Accessibility className="w-4 h-4" />
-              Convert a Document
-              <ArrowRight className="w-4 h-4" />
-            </Button>
-          </div>
         </div>
       </section>
 
