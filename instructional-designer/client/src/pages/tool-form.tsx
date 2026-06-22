@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
 import { ArrowLeft, Loader2, Sparkles, BookOpen, Calendar, FileText, Layout, CheckCircle, Target, Scale, ShieldCheck, Eye, Bot, Globe, BookmarkPlus, ChevronDown, Trash2, SlidersHorizontal, Library, Info, X, Check } from "lucide-react";
-import { TOOLS, BSU_CALENDAR, GENERATION_STEPS, BATCH_GENERATION_STEPS, COURSE_LEVELS, CONTENT_PREFILL_MAP, computeAiStepDuration, type GenerationStep } from "@/lib/constants";
+import { TOOLS, BSU_CALENDAR, GENERATION_STEPS, BATCH_GENERATION_STEPS, COURSE_LEVELS, CONTENT_PREFILL_MAP, computeAiStepDuration, computeComplexityScore, DURATION_COMPLEXITY_OPTIONS, type GenerationStep } from "@/lib/constants";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isSessionExpiredMessage } from "@/lib/upload-error-utils";
 import { pushFilterState } from "@/lib/nav-utils";
@@ -38,55 +38,6 @@ interface ToolFormField {
   helper?: string;
 }
 
-const DURATION_COMPLEXITY_OPTIONS = [
-  "1 hour (single class activity)",
-  "2 hours",
-  "3 hours",
-  "4 hours",
-  "5 hours",
-  "1 week",
-  "2 weeks",
-  "3 weeks",
-  "4 weeks",
-  "Semester-long project",
-];
-
-const COMPLEXITY_TEXT_FIELDS = [
-  "learningObjectives",
-  "additionalContext",
-  "criteria",
-  "currentSyllabusText",
-  "specificConcerns",
-  "majorTopics",
-  "assessments",
-];
-
-const COMPLEXITY_TEXT_CEILING = 800;
-
-function computeComplexityScore(formData: Record<string, any>, outputDetail?: string): number {
-  const durationIdx = DURATION_COMPLEXITY_OPTIONS.indexOf(formData.duration ?? "");
-  const durationScore =
-    durationIdx >= 0 ? durationIdx / (DURATION_COMPLEXITY_OPTIONS.length - 1) : 0;
-
-  const MAX_FRAMEWORKS = 5;
-  const selectedFrameworks = Array.isArray(formData.inclusiveDesignOptions)
-    ? formData.inclusiveDesignOptions.length
-    : 0;
-  const frameworkScore = Math.min(selectedFrameworks / MAX_FRAMEWORKS, 1);
-
-  const totalChars = COMPLEXITY_TEXT_FIELDS.reduce(
-    (sum, f) => sum + ((formData[f] as string | undefined)?.length ?? 0),
-    0,
-  );
-  const textScore = Math.min(totalChars / COMPLEXITY_TEXT_CEILING, 1);
-
-  const baseScore = durationScore * 0.4 + frameworkScore * 0.3 + textScore * 0.3;
-
-  const detailOffset =
-    outputDetail === "concise" ? -0.1 : outputDetail === "standard" ? 0.1 : 0;
-
-  return Math.max(0, Math.min(1, baseScore + detailOffset));
-}
 
 const getFormFields = (toolId: string): ToolFormField[] => {
   const fields: Record<string, ToolFormField[]> = {

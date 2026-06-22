@@ -17,6 +17,7 @@ export default defineConfig({
       "server/**/*.test.ts",
       "client/src/lib/**/*.test.ts",
       "client/src/components/**/*.test.tsx",
+      "instructional-designer/client/src/lib/**/*.test.ts",
     ],
     environmentMatchGlobs: [
       ["client/src/components/**", "jsdom"],

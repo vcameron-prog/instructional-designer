@@ -355,6 +355,56 @@ export const BATCH_GENERATION_STEPS: GenerationStep[] = [
   { label: "Saving your materials", ariaLabel: "Step 5: Saving your materials", durationMs: 1000 },
 ];
 
+export const DURATION_COMPLEXITY_OPTIONS = [
+  "1 hour (single class activity)",
+  "2 hours",
+  "3 hours",
+  "4 hours",
+  "5 hours",
+  "1 week",
+  "2 weeks",
+  "3 weeks",
+  "4 weeks",
+  "Semester-long project",
+];
+
+export const COMPLEXITY_TEXT_FIELDS = [
+  "learningObjectives",
+  "additionalContext",
+  "criteria",
+  "currentSyllabusText",
+  "specificConcerns",
+  "majorTopics",
+  "assessments",
+];
+
+export const COMPLEXITY_TEXT_CEILING = 800;
+
+export function computeComplexityScore(formData: Record<string, any>, outputDetail?: string): number {
+  const durationIdx = DURATION_COMPLEXITY_OPTIONS.indexOf(formData.duration ?? "");
+  const durationScore =
+    durationIdx >= 0 ? durationIdx / (DURATION_COMPLEXITY_OPTIONS.length - 1) : 0;
+
+  const MAX_FRAMEWORKS = 5;
+  const selectedFrameworks = Array.isArray(formData.inclusiveDesignOptions)
+    ? formData.inclusiveDesignOptions.length
+    : 0;
+  const frameworkScore = Math.min(selectedFrameworks / MAX_FRAMEWORKS, 1);
+
+  const totalChars = COMPLEXITY_TEXT_FIELDS.reduce(
+    (sum, f) => sum + ((formData[f] as string | undefined)?.length ?? 0),
+    0,
+  );
+  const textScore = Math.min(totalChars / COMPLEXITY_TEXT_CEILING, 1);
+
+  const baseScore = durationScore * 0.4 + frameworkScore * 0.3 + textScore * 0.3;
+
+  const detailOffset =
+    outputDetail === "concise" ? -0.1 : outputDetail === "standard" ? 0.1 : 0;
+
+  return Math.max(0, Math.min(1, baseScore + detailOffset));
+}
+
 export const FIX_TYPE_DESCRIPTIONS: Record<string, string> = {
   "fix-aria-combobox":
     'Swaps each element using role="combobox" for a native <select> element, keeping all existing attributes. A native <select> provides the built-in keyboard and screen-reader support that assistive technology expects.',
