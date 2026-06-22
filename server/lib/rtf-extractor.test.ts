@@ -538,6 +538,42 @@ describe("buildFontEncodingMap — direct unit tests", () => {
       expect(map.get(0)).toBe("windows-1252");
     });
 
+    it("maps font 0 with fcharset161 to windows-1253 (Greek)", () => {
+      const rtf = `{\\rtf1{\\fonttbl{\\f0\\fnil\\fcharset161 Arial Greek;}}}`;
+      const map = buildFontEncodingMap(rtf);
+      expect(map.get(0)).toBe("windows-1253");
+    });
+
+    it("maps font 0 with fcharset162 to windows-1254 (Turkish)", () => {
+      const rtf = `{\\rtf1{\\fonttbl{\\f0\\fnil\\fcharset162 Arial Turkish;}}}`;
+      const map = buildFontEncodingMap(rtf);
+      expect(map.get(0)).toBe("windows-1254");
+    });
+
+    it("maps font 0 with fcharset163 to windows-1258 (Vietnamese)", () => {
+      const rtf = `{\\rtf1{\\fonttbl{\\f0\\fnil\\fcharset163 Arial Vietnamese;}}}`;
+      const map = buildFontEncodingMap(rtf);
+      expect(map.get(0)).toBe("windows-1258");
+    });
+
+    it("maps font 0 with fcharset177 to windows-1255 (Hebrew)", () => {
+      const rtf = `{\\rtf1{\\fonttbl{\\f0\\fnil\\fcharset177 Arial Hebrew;}}}`;
+      const map = buildFontEncodingMap(rtf);
+      expect(map.get(0)).toBe("windows-1255");
+    });
+
+    it("maps font 0 with fcharset178 to windows-1256 (Arabic)", () => {
+      const rtf = `{\\rtf1{\\fonttbl{\\f0\\fnil\\fcharset178 Arial Arabic;}}}`;
+      const map = buildFontEncodingMap(rtf);
+      expect(map.get(0)).toBe("windows-1256");
+    });
+
+    it("maps font 0 with fcharset186 to windows-1257 (Baltic)", () => {
+      const rtf = `{\\rtf1{\\fonttbl{\\f0\\fnil\\fcharset186 Arial Baltic;}}}`;
+      const map = buildFontEncodingMap(rtf);
+      expect(map.get(0)).toBe("windows-1257");
+    });
+
     it("returns a map with exactly one entry for a single-font RTF", () => {
       const rtf = `{\\rtf1{\\fonttbl{\\f0\\fnil\\fcharset128 MS Mincho;}}}`;
       const map = buildFontEncodingMap(rtf);
