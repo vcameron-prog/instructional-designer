@@ -105,7 +105,7 @@ vi.mock("./db", () => ({
       }),
     }),
     delete: (_table: any) => ({ where: () => Promise.resolve(undefined) }),
-    insert: (_table: any) => ({ values: (_data: any) => ({ onConflictDoUpdate: () => Promise.resolve(undefined) }) }),
+    insert: (_table: any) => ({ values: () => ({ onConflictDoUpdate: vi.fn().mockResolvedValue({}) }) }),
   },
 }));
 
@@ -130,7 +130,7 @@ vi.mock("./storage", () => ({
 vi.mock("./lib/accessibility-engine", () => ({
   getDeterministicFixerKeys: () => [],
   getAiFixRetryMetrics: mockGetAiFixRetryMetrics,
-  getPersistAiFixRetryLastFailed: vi.fn().mockReturnValue(null),
+  getPersistAiFixRetryLastFailed: vi.fn().mockReturnValue(false),
   fixComplianceIssue: vi.fn(),
   fixAllAriaRoleMisuse: vi.fn(),
 }));

@@ -17,10 +17,12 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // ---------------------------------------------------------------------------
 // Hoisted mocks – must be established before any import of the module under test.
 // ---------------------------------------------------------------------------
-const { mockRefreshTokenGrant, mockDiscovery, mockUpsertUser } = vi.hoisted(() => ({
+const { mockRefreshTokenGrant, mockDiscovery, mockUpsertUser, mockDbInsert, mockDbSelect } = vi.hoisted(() => ({
   mockRefreshTokenGrant: vi.fn(),
   mockDiscovery: vi.fn(),
   mockUpsertUser: vi.fn(),
+  mockDbInsert: vi.fn(),
+  mockDbSelect: vi.fn(),
 }));
 
 vi.mock("openid-client", () => ({
@@ -42,6 +44,21 @@ vi.mock("connect-pg-simple", () => ({
   default: () => class MockPgStore {},
 }));
 
+vi.mock("../../db", () => ({
+  db: {
+    insert: mockDbInsert,
+    select: mockDbSelect,
+  },
+}));
+
+vi.mock("@shared/schema", async () => {
+  const actual = await vi.importActual<typeof import("@shared/schema")>("@shared/schema");
+  return {
+    ...actual,
+    appMetrics: { key: "key", count: "count", lastAt: "last_at" },
+  };
+});
+
 vi.mock("express-session", () => ({
   default: vi.fn(() => vi.fn()),
 }));
@@ -60,7 +77,13 @@ vi.mock("passport", () => ({
 // ---------------------------------------------------------------------------
 // Module under test – imported AFTER all vi.mock() calls.
 // ---------------------------------------------------------------------------
-import { isAuthenticated, isBsuAuthenticated, optionalAuth } from "./replitAuth.js";
+import {
+  isAuthenticated,
+  isBsuAuthenticated,
+  optionalAuth,
+  getSessionSaveFailMetrics,
+  SESSION_SAVE_FAIL_METRIC_KEY,
+} from "./replitAuth.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -434,5 +457,194 @@ describe("optionalAuth", () => {
     // session.save() was attempted but failed — optionalAuth must still call next().
     expect(req.session.save).toHaveBeenCalledOnce();
     expect(next).toHaveBeenCalledOnce();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getSessionSaveFailMetrics and persistSessionSaveFail
+// ---------------------------------------------------------------------------
+describe("getSessionSaveFailMetrics and persistSessionSaveFail", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockDiscovery.mockResolvedValue(FAKE_OIDC_CONFIG);
+    mockRefreshTokenGrant.mockResolvedValue(makeTokenResponse());
+    mockUpsertUser.mockResolvedValue(undefined);
+    mockDbInsert.mockReturnValue({
+      values: vi.fn().mockReturnValue({
+        onConflictDoUpdate: vi.fn().mockResolvedValue({}),
+      }),
+    });
+    mockDbSelect.mockImplementation(() => ({
+      from: vi.fn().mockImplementation(() => ({
+        where: vi.fn().mockResolvedValue([]),
+      })),
+    }));
+  });
+
+  it("SESSION_SAVE_FAIL_METRIC_KEY has the canonical string value 'session_save_fail'", () => {
+    expect(SESSION_SAVE_FAIL_METRIC_KEY).toBe("session_save_fail");
+  });
+
+  it("getSessionSaveFailMetrics queries the DB using the exported constant as the key", async () => {
+    let capturedWhereArg: unknown;
+
+    mockDbSelect.mockImplementation(() => ({
+      from: vi.fn().mockImplementation(() => ({
+        where: vi.fn().mockImplementation((sqlArg: unknown) => {
+          capturedWhereArg = sqlArg;
+          return Promise.resolve([]);
+        }),
+      })),
+    }));
+
+    await getSessionSaveFailMetrics();
+
+    expect(mockDbSelect).toHaveBeenCalledOnce();
+    expect(JSON.stringify(capturedWhereArg)).toContain(SESSION_SAVE_FAIL_METRIC_KEY);
+  });
+
+  it("getSessionSaveFailMetrics maps lifetime DB row to lifetimeCount", async () => {
+    const now = new Date("2026-06-15T10:00:00.000Z");
+
+    mockDbSelect.mockImplementation(() => ({
+      from: vi.fn().mockImplementation(() => ({
+        where: vi.fn().mockResolvedValue([
+          { key: SESSION_SAVE_FAIL_METRIC_KEY, count: 42, lastAt: now },
+        ]),
+      })),
+    }));
+
+    const result = await getSessionSaveFailMetrics();
+
+    expect(result.lifetimeCount).toBe(42);
+    expect(result.thisMonthCount).toBe(0);
+  });
+
+  it("getSessionSaveFailMetrics maps the monthly DB row to thisMonthCount independently of the lifetime row", async () => {
+    const now = new Date();
+    const yyyy = now.getUTCFullYear();
+    const mm = String(now.getUTCMonth() + 1).padStart(2, "0");
+    const monthKey = `${SESSION_SAVE_FAIL_METRIC_KEY}.month.${yyyy}-${mm}`;
+
+    mockDbSelect.mockImplementation(() => ({
+      from: vi.fn().mockImplementation(() => ({
+        where: vi.fn().mockResolvedValue([
+          { key: SESSION_SAVE_FAIL_METRIC_KEY, count: 10, lastAt: now },
+          { key: monthKey, count: 3, lastAt: now },
+        ]),
+      })),
+    }));
+
+    const result = await getSessionSaveFailMetrics();
+
+    expect(result.lifetimeCount).toBe(10);
+    expect(result.thisMonthCount).toBe(3);
+  });
+
+  it("getSessionSaveFailMetrics falls back to in-memory values when the DB throws", async () => {
+    mockDbSelect.mockImplementation(() => ({
+      from: vi.fn().mockImplementation(() => ({
+        where: vi.fn().mockRejectedValue(new Error("DB unavailable")),
+      })),
+    }));
+
+    const result = await getSessionSaveFailMetrics();
+
+    expect(result).toEqual({
+      count: expect.any(Number),
+      lastAt: expect.toSatisfy((v: unknown) => v === null || typeof v === "string"),
+      lifetimeCount: expect.any(Number),
+      thisMonthCount: 0,
+    });
+  });
+
+  it("persistSessionSaveFail upserts the lifetime key as the first DB write when session.save() fails", async () => {
+    type InsertValues = { key: string; count: number; lastAt: Date };
+    type OnConflictSet = { count: unknown; lastAt: unknown };
+    const capturedRows: InsertValues[] = [];
+    const capturedSets: OnConflictSet[] = [];
+    mockDbInsert.mockReturnValue({
+      values: vi.fn().mockImplementation((v: InsertValues) => {
+        capturedRows.push(v);
+        return {
+          onConflictDoUpdate: vi.fn().mockImplementation(({ set }: { set: OnConflictSet }) => {
+            capturedSets.push(set);
+            return Promise.resolve({});
+          }),
+        };
+      }),
+    });
+
+    const req = makeReq({ expires_at: EXPIRED_AT, refresh_token: "valid-rt" });
+    req.session.save = vi.fn((cb: (err?: Error | null) => void) => cb(new Error("session store error")));
+    const res = makeRes();
+    const next = vi.fn();
+
+    await isAuthenticated(req as any, res as any, next);
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+    expect(capturedRows.length).toBeGreaterThanOrEqual(1);
+    expect(capturedRows[0].key).toBe(SESSION_SAVE_FAIL_METRIC_KEY);
+    expect(capturedRows[0].count).toBe(1);
+    expect(capturedRows[0].lastAt).toBeInstanceOf(Date);
+    expect(capturedSets[0]).toHaveProperty("count");
+    expect(capturedSets[0]).toHaveProperty("lastAt");
+  });
+
+  it("persistSessionSaveFail upserts the monthly key with YYYY-MM format as the second DB write", async () => {
+    type InsertValues = { key: string; count: number; lastAt: Date };
+    type OnConflictSet = { count: unknown; lastAt: unknown };
+    const capturedRows: InsertValues[] = [];
+    const capturedSets: OnConflictSet[] = [];
+    mockDbInsert.mockReturnValue({
+      values: vi.fn().mockImplementation((v: InsertValues) => {
+        capturedRows.push(v);
+        return {
+          onConflictDoUpdate: vi.fn().mockImplementation(({ set }: { set: OnConflictSet }) => {
+            capturedSets.push(set);
+            return Promise.resolve({});
+          }),
+        };
+      }),
+    });
+
+    const req = makeReq({ expires_at: EXPIRED_AT, refresh_token: "valid-rt" });
+    req.session.save = vi.fn((cb: (err?: Error | null) => void) => cb(new Error("session store error")));
+    const res = makeRes();
+    const next = vi.fn();
+
+    await isAuthenticated(req as any, res as any, next);
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+    expect(capturedRows.length).toBe(2);
+    expect(capturedRows[1].key).toMatch(/^session_save_fail\.month\.\d{4}-\d{2}$/);
+    expect(capturedRows[1].count).toBe(1);
+    expect(capturedRows[1].lastAt).toBeInstanceOf(Date);
+    expect(capturedSets[1]).toHaveProperty("count");
+    expect(capturedSets[1]).toHaveProperty("lastAt");
+  });
+
+  it("persistSessionSaveFail emits console.warn and does not throw when db.insert rejects", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    mockDbInsert.mockReturnValue({
+      values: vi.fn().mockReturnValue({
+        onConflictDoUpdate: vi.fn().mockRejectedValue(new Error("DB write failure")),
+      }),
+    });
+
+    const req = makeReq({ expires_at: EXPIRED_AT, refresh_token: "valid-rt" });
+    req.session.save = vi.fn((cb: (err?: Error | null) => void) => cb(new Error("session store error")));
+    const res = makeRes();
+    const next = vi.fn();
+
+    await isAuthenticated(req as any, res as any, next);
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("Failed to persist session_save_fail metric to DB:"),
+      expect.any(Error),
+    );
+
+    warnSpy.mockRestore();
   });
 });
