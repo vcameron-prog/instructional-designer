@@ -137,6 +137,20 @@ const activeXlsxExportKeys = new Set<string>();
 // test assertions can import it rather than duplicating the literal.
 export const INVALID_ID_ERROR = "Invalid id";
 
+// Shared error messages for frequently-repeated response strings.
+// Centralised so every route returns the identical text and test assertions
+// can import the constant rather than duplicating the literal value.
+export const CONVERSION_NOT_FOUND_ERROR = "Conversion not found";
+export const UPLOAD_RATE_LIMIT_ERROR = "Upload rate limit exceeded. Please try again later.";
+export const PROCESSING_RATE_LIMIT_ERROR = "Too many processing requests. Please wait before submitting another document.";
+export const FIX_RATE_LIMIT_ERROR = "Too many fix requests. Please wait before trying again.";
+export const DOCX_EXPORT_RATE_LIMIT_ERROR = "Too many DOCX export requests. Please wait before trying again.";
+export const XLSX_EXPORT_RATE_LIMIT_ERROR = "Too many XLSX export requests. Please wait before trying again.";
+export const PDF_EXPORT_RATE_LIMIT_ERROR = "Too many PDF export requests. Please wait before trying again.";
+export const ISSUE_NOT_FOUND_ERROR = "Issue not found";
+export const ISSUE_INDEX_REQUIRED_ERROR = "issueIndex required";
+export const CONVERSION_MUST_BE_COMPLETED_ERROR = "Conversion must be completed";
+
 
 async function fixVagueLinkTextAI(text: string): Promise<string> {
   const message = await anthropic.messages.create({
@@ -417,7 +431,7 @@ export async function registerRoutes(
         .where(conversionOwnerFilter(id, userId, getVisitorToken(req)));
 
       if (!conversion) {
-        res.status(404).json({ error: "Conversion not found" });
+        res.status(404).json({ error: CONVERSION_NOT_FOUND_ERROR });
         return;
       }
       res.json(conversion);
@@ -439,7 +453,7 @@ export async function registerRoutes(
         .from(conversions)
         .where(conversionOwnerFilter(id, userId, getVisitorToken(req)));
       if (!owned) {
-        res.status(404).json({ error: "Conversion not found" });
+        res.status(404).json({ error: CONVERSION_NOT_FOUND_ERROR });
         return;
       }
       const items = await storage.getManualFixItems(id);
@@ -462,7 +476,7 @@ export async function registerRoutes(
         .from(conversions)
         .where(conversionOwnerFilter(id, userId, getVisitorToken(req)));
       if (!owned) {
-        res.status(404).json({ error: "Conversion not found" });
+        res.status(404).json({ error: CONVERSION_NOT_FOUND_ERROR });
         return;
       }
       const { items } = req.body as { items?: unknown };
@@ -490,7 +504,7 @@ export async function registerRoutes(
     const userId = getUserId(req);
     if (userId) {
       if (!await checkSharedRateLimit(userId, "upload", UPLOAD_RATE_LIMIT, UPLOAD_RATE_WINDOW_MS, () => checkUploadRateLimit(userId))) {
-        res.status(429).json({ error: "Upload rate limit exceeded. Please try again later." });
+        res.status(429).json({ error: UPLOAD_RATE_LIMIT_ERROR });
         return;
       }
     }
@@ -517,7 +531,7 @@ export async function registerRoutes(
         // Fallback to strict process-local IP check if DB is unavailable
         () => checkAnonRateLimit(ip),
       )) {
-        res.status(429).json({ error: "Upload rate limit exceeded. Please try again later." });
+        res.status(429).json({ error: UPLOAD_RATE_LIMIT_ERROR });
         return;
       }
     }
@@ -634,7 +648,7 @@ export async function registerRoutes(
 
       if (userId) {
         if (!await checkSharedRateLimit(userId, "upload", UPLOAD_RATE_LIMIT, UPLOAD_RATE_WINDOW_MS, () => checkUploadRateLimit(userId))) {
-          return res.status(429).json({ error: "Upload rate limit exceeded. Please try again later." });
+          return res.status(429).json({ error: UPLOAD_RATE_LIMIT_ERROR });
         }
       }
 
@@ -649,7 +663,7 @@ export async function registerRoutes(
           `ip:${ip}`, "upload", SHARED_ANON_UPLOAD_RATE_LIMIT, ANON_RATE_WINDOW_MS,
           () => checkAnonRateLimit(ip),
         )) {
-          return res.status(429).json({ error: "Upload rate limit exceeded. Please try again later." });
+          return res.status(429).json({ error: UPLOAD_RATE_LIMIT_ERROR });
         }
       }
 
@@ -875,7 +889,7 @@ export async function registerRoutes(
 
       if (userId) {
         if (!await checkSharedRateLimit(userId, "upload", UPLOAD_RATE_LIMIT, UPLOAD_RATE_WINDOW_MS, () => checkUploadRateLimit(userId))) {
-          return res.status(429).json({ error: "Upload rate limit exceeded. Please try again later." });
+          return res.status(429).json({ error: UPLOAD_RATE_LIMIT_ERROR });
         }
       }
 
@@ -890,7 +904,7 @@ export async function registerRoutes(
           `ip:${ip}`, "upload", SHARED_ANON_UPLOAD_RATE_LIMIT, ANON_RATE_WINDOW_MS,
           () => checkAnonRateLimit(ip),
         )) {
-          return res.status(429).json({ error: "Upload rate limit exceeded. Please try again later." });
+          return res.status(429).json({ error: UPLOAD_RATE_LIMIT_ERROR });
         }
       }
 
@@ -1113,7 +1127,7 @@ export async function registerRoutes(
 
       if (userId) {
         if (!await checkSharedRateLimit(userId, "upload", UPLOAD_RATE_LIMIT, UPLOAD_RATE_WINDOW_MS, () => checkUploadRateLimit(userId))) {
-          return res.status(429).json({ error: "Upload rate limit exceeded. Please try again later." });
+          return res.status(429).json({ error: UPLOAD_RATE_LIMIT_ERROR });
         }
       }
 
@@ -1128,7 +1142,7 @@ export async function registerRoutes(
           `ip:${ip}`, "upload", SHARED_ANON_UPLOAD_RATE_LIMIT, ANON_RATE_WINDOW_MS,
           () => checkAnonRateLimit(ip),
         )) {
-          return res.status(429).json({ error: "Upload rate limit exceeded. Please try again later." });
+          return res.status(429).json({ error: UPLOAD_RATE_LIMIT_ERROR });
         }
       }
 
@@ -1351,7 +1365,7 @@ export async function registerRoutes(
         .where(conversionOwnerFilter(id, userId, getVisitorToken(req)));
 
       if (!conversion) {
-        res.status(404).json({ error: "Conversion not found" });
+        res.status(404).json({ error: CONVERSION_NOT_FOUND_ERROR });
         return;
       }
       if (conversion.status === "processing") {
@@ -1387,7 +1401,7 @@ export async function registerRoutes(
           () => checkHeavyOpRateLimit(`process:ip:${ip}`),
         )) {
           activeProcessingKeys.delete(processingKey);
-          res.status(429).json({ error: "Too many processing requests. Please wait before submitting another document." });
+          res.status(429).json({ error: PROCESSING_RATE_LIMIT_ERROR });
           return;
         }
         // DB-backed active-job check: if ANY instance is already processing a
@@ -1419,7 +1433,7 @@ export async function registerRoutes(
           () => checkHeavyOpRateLimit(`process:user:${userId}`),
         )) {
           activeProcessingKeys.delete(processingKey);
-          res.status(429).json({ error: "Too many processing requests. Please wait before submitting another document." });
+          res.status(429).json({ error: PROCESSING_RATE_LIMIT_ERROR });
           return;
         }
       }
@@ -1855,7 +1869,7 @@ export async function registerRoutes(
         .where(conversionOwnerFilter(id, userId, getVisitorToken(req)));
 
       if (!conversion) {
-        res.status(404).json({ error: "Conversion not found" });
+        res.status(404).json({ error: CONVERSION_NOT_FOUND_ERROR });
         return;
       }
 
@@ -1908,7 +1922,7 @@ export async function registerRoutes(
         .where(conversionOwnerFilter(id, userId, getVisitorToken(req)));
 
       if (!conversion) {
-        res.status(404).json({ error: "Conversion not found" });
+        res.status(404).json({ error: CONVERSION_NOT_FOUND_ERROR });
         return;
       }
 
@@ -1964,7 +1978,7 @@ export async function registerRoutes(
         .where(conversionOwnerFilter(id, userId, getVisitorToken(req)));
 
       if (!conversion) {
-        res.status(404).json({ error: "Conversion not found" });
+        res.status(404).json({ error: CONVERSION_NOT_FOUND_ERROR });
         return;
       }
       if (!["completed", "failed"].includes(conversion.status)) {
@@ -2089,7 +2103,7 @@ export async function registerRoutes(
 
       const { issueIndex } = req.body;
       if (typeof issueIndex !== "number") {
-        res.status(400).json({ error: "issueIndex required" });
+        res.status(400).json({ error: ISSUE_INDEX_REQUIRED_ERROR });
         return;
       }
 
@@ -2099,11 +2113,11 @@ export async function registerRoutes(
         .where(conversionOwnerFilter(id, userId, getVisitorToken(req)));
 
       if (!conversion) {
-        res.status(404).json({ error: "Conversion not found" });
+        res.status(404).json({ error: CONVERSION_NOT_FOUND_ERROR });
         return;
       }
       if (conversion.status !== "completed" || !conversion.accessibleHtml) {
-        res.status(400).json({ error: "Conversion must be completed" });
+        res.status(400).json({ error: CONVERSION_MUST_BE_COMPLETED_ERROR });
         return;
       }
 
@@ -2127,7 +2141,7 @@ export async function registerRoutes(
           `ip:${ip}`, "fix", SHARED_HEAVY_OP_RATE_LIMIT, HEAVY_OP_RATE_WINDOW_MS,
           () => checkHeavyOpRateLimit(`fix:ip:${ip}`),
         )) {
-          res.status(429).json({ error: "Too many fix requests. Please wait before trying again." });
+          res.status(429).json({ error: FIX_RATE_LIMIT_ERROR });
           return;
         }
       } else {
@@ -2138,7 +2152,7 @@ export async function registerRoutes(
           `user:${userId}`, "fix", SHARED_HEAVY_OP_RATE_LIMIT, HEAVY_OP_RATE_WINDOW_MS,
           () => checkHeavyOpRateLimit(`fix:user:${userId}`),
         )) {
-          res.status(429).json({ error: "Too many fix requests. Please wait before trying again." });
+          res.status(429).json({ error: FIX_RATE_LIMIT_ERROR });
           return;
         }
       }
@@ -2151,7 +2165,7 @@ export async function registerRoutes(
 
       const report = conversion.complianceReport as any;
       if (!report?.issues?.[issueIndex]) {
-        res.status(400).json({ error: "Issue not found" });
+        res.status(400).json({ error: ISSUE_NOT_FOUND_ERROR });
         return;
       }
 
@@ -2226,11 +2240,11 @@ export async function registerRoutes(
         .where(conversionOwnerFilter(id, userId, getVisitorToken(req)));
 
       if (!conversion) {
-        res.status(404).json({ error: "Conversion not found" });
+        res.status(404).json({ error: CONVERSION_NOT_FOUND_ERROR });
         return;
       }
       if (conversion.status !== "completed" || !conversion.accessibleHtml) {
-        res.status(400).json({ error: "Conversion must be completed" });
+        res.status(400).json({ error: CONVERSION_MUST_BE_COMPLETED_ERROR });
         return;
       }
 
@@ -2296,7 +2310,7 @@ export async function registerRoutes(
 
       const { issueIndex, justification } = req.body;
       if (typeof issueIndex !== "number") {
-        res.status(400).json({ error: "issueIndex required" });
+        res.status(400).json({ error: ISSUE_INDEX_REQUIRED_ERROR });
         return;
       }
 
@@ -2306,13 +2320,13 @@ export async function registerRoutes(
         .where(conversionOwnerFilter(id, userId, getVisitorToken(req)));
 
       if (!conversion) {
-        res.status(404).json({ error: "Conversion not found" });
+        res.status(404).json({ error: CONVERSION_NOT_FOUND_ERROR });
         return;
       }
 
       const report = conversion.complianceReport as any;
       if (!report?.issues?.[issueIndex]) {
-        res.status(400).json({ error: "Issue not found" });
+        res.status(400).json({ error: ISSUE_NOT_FOUND_ERROR });
         return;
       }
 
@@ -2366,7 +2380,7 @@ export async function registerRoutes(
 
       const { issueIndex } = req.body;
       if (typeof issueIndex !== "number") {
-        res.status(400).json({ error: "issueIndex required" });
+        res.status(400).json({ error: ISSUE_INDEX_REQUIRED_ERROR });
         return;
       }
 
@@ -2376,13 +2390,13 @@ export async function registerRoutes(
         .where(conversionOwnerFilter(id, userId, getVisitorToken(req)));
 
       if (!conversion) {
-        res.status(404).json({ error: "Conversion not found" });
+        res.status(404).json({ error: CONVERSION_NOT_FOUND_ERROR });
         return;
       }
 
       const report = conversion.complianceReport as any;
       if (!report?.issues?.[issueIndex]) {
-        res.status(400).json({ error: "Issue not found" });
+        res.status(400).json({ error: ISSUE_NOT_FOUND_ERROR });
         return;
       }
 
@@ -2451,7 +2465,7 @@ export async function registerRoutes(
         .where(conversionOwnerFilter(id, userId, getVisitorToken(req)));
 
       if (!conversion) {
-        res.status(404).json({ error: "Conversion not found" });
+        res.status(404).json({ error: CONVERSION_NOT_FOUND_ERROR });
         return;
       }
       if (conversion.status !== "completed") {
@@ -2505,7 +2519,7 @@ export async function registerRoutes(
         .where(conversionOwnerFilter(id, userId, getVisitorToken(req)));
 
       if (!conversion) {
-        res.status(404).json({ error: "Conversion not found" });
+        res.status(404).json({ error: CONVERSION_NOT_FOUND_ERROR });
         return;
       }
       if (conversion.status !== "completed" || !conversion.accessibleHtml) {
@@ -2579,7 +2593,7 @@ export async function registerRoutes(
         .where(conversionOwnerFilter(id, userId, getVisitorToken(req)));
 
       if (!conversion) {
-        res.status(404).json({ error: "Conversion not found" });
+        res.status(404).json({ error: CONVERSION_NOT_FOUND_ERROR });
         return;
       }
       if (conversion.status !== "completed" || !conversion.accessibleHtml) {
@@ -2598,7 +2612,7 @@ export async function registerRoutes(
           `ip:${ip}`, "docx_export", SHARED_HEAVY_OP_RATE_LIMIT, HEAVY_OP_RATE_WINDOW_MS,
           () => checkHeavyOpRateLimit(`docx:ip:${ip}`),
         )) {
-          res.status(429).json({ error: "Too many DOCX export requests. Please wait before trying again." });
+          res.status(429).json({ error: DOCX_EXPORT_RATE_LIMIT_ERROR });
           return;
         }
       } else {
@@ -2609,7 +2623,7 @@ export async function registerRoutes(
           `user:${userId}`, "docx_export", SHARED_HEAVY_OP_RATE_LIMIT, HEAVY_OP_RATE_WINDOW_MS,
           () => checkHeavyOpRateLimit(`docx:user:${userId}`),
         )) {
-          res.status(429).json({ error: "Too many DOCX export requests. Please wait before trying again." });
+          res.status(429).json({ error: DOCX_EXPORT_RATE_LIMIT_ERROR });
           return;
         }
       }
@@ -2718,7 +2732,7 @@ export async function registerRoutes(
         .where(conversionOwnerFilter(id, userId, getVisitorToken(req)));
 
       if (!conversion) {
-        res.status(404).json({ error: "Conversion not found" });
+        res.status(404).json({ error: CONVERSION_NOT_FOUND_ERROR });
         return;
       }
 
@@ -2739,7 +2753,7 @@ export async function registerRoutes(
           `ip:${ip}`, "xlsx_export", SHARED_HEAVY_OP_RATE_LIMIT, HEAVY_OP_RATE_WINDOW_MS,
           () => checkHeavyOpRateLimit(`xlsx:ip:${ip}`),
         )) {
-          res.status(429).json({ error: "Too many XLSX export requests. Please wait before trying again." });
+          res.status(429).json({ error: XLSX_EXPORT_RATE_LIMIT_ERROR });
           return;
         }
       } else {
@@ -2747,7 +2761,7 @@ export async function registerRoutes(
           `user:${userId}`, "xlsx_export", SHARED_HEAVY_OP_RATE_LIMIT, HEAVY_OP_RATE_WINDOW_MS,
           () => checkHeavyOpRateLimit(`xlsx:user:${userId}`),
         )) {
-          res.status(429).json({ error: "Too many XLSX export requests. Please wait before trying again." });
+          res.status(429).json({ error: XLSX_EXPORT_RATE_LIMIT_ERROR });
           return;
         }
       }
@@ -2822,7 +2836,7 @@ export async function registerRoutes(
         .where(conversionOwnerFilter(id, userId, getVisitorToken(req)));
 
       if (!conversion) {
-        res.status(404).json({ error: "Conversion not found" });
+        res.status(404).json({ error: CONVERSION_NOT_FOUND_ERROR });
         return;
       }
       if (conversion.status !== "completed" || !conversion.accessibleHtml) {
@@ -2841,7 +2855,7 @@ export async function registerRoutes(
           `ip:${ip}`, "pdf_export", SHARED_HEAVY_OP_RATE_LIMIT, HEAVY_OP_RATE_WINDOW_MS,
           () => checkHeavyOpRateLimit(`pdf:ip:${ip}`),
         )) {
-          res.status(429).json({ error: "Too many PDF export requests. Please wait before trying again." });
+          res.status(429).json({ error: PDF_EXPORT_RATE_LIMIT_ERROR });
           return;
         }
       } else {
@@ -2852,7 +2866,7 @@ export async function registerRoutes(
           `user:${userId}`, "pdf_export", SHARED_HEAVY_OP_RATE_LIMIT, HEAVY_OP_RATE_WINDOW_MS,
           () => checkHeavyOpRateLimit(`pdf:user:${userId}`),
         )) {
-          res.status(429).json({ error: "Too many PDF export requests. Please wait before trying again." });
+          res.status(429).json({ error: PDF_EXPORT_RATE_LIMIT_ERROR });
           return;
         }
       }
