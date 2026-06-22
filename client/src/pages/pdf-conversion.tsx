@@ -1441,7 +1441,7 @@ export default function PdfConversion() {
                 <div className="flex items-center gap-2 flex-wrap">
                   <StatusBadge status={displayStatus} />
                   {conversion.sourceType === "google-doc" && (
-                    <span className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 px-2 py-0.5 rounded-full font-semibold border border-blue-200 dark:border-blue-800">
+                    <span className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 px-2 py-0.5 rounded-full font-semibold border border-blue-200 dark:border-blue-800" data-testid="badge-source-type">
                       <SiGoogledrive className="w-3 h-3 text-[#4285F4]" aria-hidden="true" />
                       Google Doc
                     </span>

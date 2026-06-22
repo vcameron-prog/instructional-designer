@@ -397,7 +397,7 @@ export default function PdfHistory() {
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {conv.sourceType && conv.sourceType !== "pdf" && (
-                        <span className="inline-flex items-center gap-1 font-semibold mr-1">
+                        <span className="inline-flex items-center gap-1 font-semibold mr-1" data-testid={`label-source-type-${conv.id}`}>
                           {conv.sourceType === "google-doc" ? (
                             <>
                               <SiGoogledrive className="w-3 h-3 text-[#4285F4]" aria-hidden="true" />

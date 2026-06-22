@@ -3008,5 +3008,106 @@ export async function registerRoutes(
     },
   );
 
+  // =========================================================================
+  // TEST-ONLY ROUTES (disabled in production)
+  // =========================================================================
+  if (process.env.NODE_ENV !== "production") {
+    // POST /api/test/login
+    // Creates a server-side session for a synthetic user without going through
+    // the real Replit OIDC flow. Used by Playwright E2E tests.
+    app.post("/api/test/login", async (req: Request, res: Response) => {
+      const { sub, email, firstName, lastName } = req.body as {
+        sub: string;
+        email: string;
+        firstName?: string;
+        lastName?: string;
+      };
+      if (!sub || !email) {
+        res.status(400).json({ error: "sub and email are required" });
+        return;
+      }
+      try {
+        await db
+          .insert(users)
+          .values({ id: sub, email, firstName: firstName ?? null, lastName: lastName ?? null })
+          .onConflictDoUpdate({
+            target: users.id,
+            set: { email, firstName: firstName ?? null, lastName: lastName ?? null },
+          });
+      } catch {
+        // users table may not exist in all test environments; ignore.
+      }
+      const sessionUser = {
+        claims: {
+          sub,
+          email,
+          first_name: firstName ?? "",
+          last_name: lastName ?? "",
+        },
+        access_token: "playwright-test-token",
+        refresh_token: "playwright-test-refresh",
+        expires_at: Math.floor(Date.now() / 1000) + 7200,
+      };
+      (req.session as any).passport = { user: sessionUser };
+      req.session.save((err) => {
+        if (err) {
+          res.status(500).json({ error: String(err) });
+          return;
+        }
+        res.json({ ok: true, sub, email, sessionId: req.sessionID });
+      });
+    });
+
+    // POST /api/test/seed-conversion
+    // Directly inserts a conversion row into the database with the provided
+    // fields, bypassing the upload and AI-processing pipeline.  Returns the
+    // new row id so tests can navigate straight to the result page.
+    // Disabled in production.
+    app.post("/api/test/seed-conversion", async (req: Request, res: Response) => {
+      const {
+        userId,
+        originalFilename,
+        status,
+        errorMessage,
+        sourceType,
+        complianceReport,
+        accessibleHtml,
+        manualFixItems,
+      } = req.body as {
+        userId?: string;
+        originalFilename?: string;
+        status?: string;
+        errorMessage?: string;
+        sourceType?: string;
+        complianceReport?: object;
+        accessibleHtml?: string;
+        manualFixItems?: Array<{ title: string; reason: string }>;
+      };
+
+      try {
+        const [row] = await db
+          .insert(conversions)
+          .values({
+            userId: userId ?? null,
+            originalFilename: originalFilename ?? "test-document.pdf",
+            fileSize: 1024,
+            sourceType: sourceType ?? "pdf",
+            status: status ?? "completed",
+            errorMessage: errorMessage ?? null,
+            complianceReport: complianceReport ?? null,
+            originalComplianceReport: complianceReport ?? null,
+            accessibleHtml: accessibleHtml ?? null,
+            manualFixItems: manualFixItems ?? null,
+          })
+          .returning({ id: conversions.id });
+
+        res.status(201).json({ id: row.id });
+      } catch (err) {
+        console.error("[test] seed-conversion failed:", err);
+        res.status(500).json({ error: String(err) });
+      }
+    });
+  }
+
   return httpServer;
 }
