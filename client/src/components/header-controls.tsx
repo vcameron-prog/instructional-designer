@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/use-auth";
 interface HeaderControlsProps {
   variant?: "light" | "dark";
   showHome?: boolean;
+  homePath?: string;
   showLibrary?: boolean;
   showHelp?: boolean;
   showSettings?: boolean;
@@ -19,6 +20,7 @@ interface HeaderControlsProps {
 export function HeaderControls({
   variant = "light",
   showHome = false,
+  homePath = "/bsu",
   showLibrary = true,
   showHelp = true,
   showSettings = true,
@@ -102,7 +104,7 @@ export function HeaderControls({
               variant={btnVariant}
               size="icon"
               className={btnClass}
-              onClick={() => navigate("/")}
+              onClick={() => navigate(homePath)}
               data-testid="button-home"
               aria-label="Go to home"
             >

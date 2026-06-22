@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import LandingPage from "@/pages/landing";
+import CaiLandingPage from "@/pages/cai-landing";
 import CourseForm from "@/pages/course-form";
 import ToolSelection from "@/pages/tool-selection";
 import ToolForm from "@/pages/tool-form";
@@ -54,7 +55,8 @@ function FocusManager() {
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={LandingPage} />
+      <Route path="/" component={CaiLandingPage} />
+      <Route path="/bsu" component={LandingPage} />
       <Route path="/new-course" component={NewCourseWrapper} />
       <Route path="/course/:id/edit" component={EditCourseWrapper} />
       <Route path="/course/:id/tools" component={ToolSelection} />

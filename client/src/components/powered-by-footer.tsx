@@ -1,7 +1,15 @@
 import { Sparkles, Shield } from "lucide-react";
 import bsuAiLogo from "@assets/bsu-cai-logo.png";
+import { useLocation } from "wouter";
 
 export function PoweredByFooter() {
+  const [location] = useLocation();
+  const isCaiRoot = location === "/";
+
+  if (isCaiRoot) {
+    return null;
+  }
+
   return (
     <footer className="mt-12 py-8 bg-gray-200 dark:bg-gray-800" data-testid="footer-powered-by">
       <div className="container mx-auto px-4 space-y-4">
