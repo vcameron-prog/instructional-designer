@@ -243,6 +243,7 @@ export function RichTextEditor({
 }: RichTextEditorProps) {
   const [linkPopoverOpen, setLinkPopoverOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
+  const [linkIsActive, setLinkIsActive] = useState(false);
   const linkInputRef = useRef<HTMLInputElement>(null);
 
   const editor = useEditor({
@@ -302,7 +303,9 @@ export function RichTextEditor({
 
   const openLinkPopover = useCallback(() => {
     if (!editor) return;
+    const isActive = editor.isActive("link");
     const prev = editor.getAttributes("link").href as string | undefined;
+    setLinkIsActive(isActive);
     setLinkUrl(prev ?? "https://");
     setLinkPopoverOpen(true);
     setTimeout(() => linkInputRef.current?.focus(), 0);
@@ -321,6 +324,12 @@ export function RichTextEditor({
   const cancelLink = useCallback(() => {
     setLinkPopoverOpen(false);
   }, []);
+
+  const removeLink = useCallback(() => {
+    if (!editor) return;
+    editor.chain().focus().extendMarkRange("link").unsetLink().run();
+    setLinkPopoverOpen(false);
+  }, [editor]);
 
   if (!editor) return null;
 
@@ -465,28 +474,43 @@ export function RichTextEditor({
               }}
               className="mb-2 h-8 text-sm"
             />
-            <div className="flex justify-end gap-1.5">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={cancelLink}
-                data-testid="rte-link-cancel"
-                className="h-7 px-2 text-xs"
-              >
-                <X className="w-3 h-3 mr-1" />
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                onClick={confirmLink}
-                data-testid="rte-link-confirm"
-                className="h-7 px-2 text-xs"
-              >
-                <Check className="w-3 h-3 mr-1" />
-                Confirm
-              </Button>
+            <div className="flex items-center justify-between gap-1.5">
+              {linkIsActive && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={removeLink}
+                  data-testid="rte-link-remove"
+                  className="h-7 px-2 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+                >
+                  <Unlink className="w-3 h-3 mr-1" />
+                  Remove link
+                </Button>
+              )}
+              <div className="flex gap-1.5 ml-auto">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={cancelLink}
+                  data-testid="rte-link-cancel"
+                  className="h-7 px-2 text-xs"
+                >
+                  <X className="w-3 h-3 mr-1" />
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={confirmLink}
+                  data-testid="rte-link-confirm"
+                  className="h-7 px-2 text-xs"
+                >
+                  <Check className="w-3 h-3 mr-1" />
+                  Confirm
+                </Button>
+              </div>
             </div>
           </PopoverContent>
         </Popover>
