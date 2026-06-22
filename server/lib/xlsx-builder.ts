@@ -60,11 +60,16 @@ function tableCaption(table: HTMLElement): string | null {
   return null;
 }
 
+const MAX_COLSPAN = 16_384; // Excel column limit
+const MAX_ROWSPAN = 1_000;  // practical cap; no real table rowspan exceeds this
+
 function getSpan(cell: HTMLElement, attr: string): number {
   const raw = cell.getAttribute(attr);
   if (!raw) return 1;
   const n = parseInt(raw, 10);
-  return Number.isFinite(n) && n >= 1 ? n : 1;
+  if (!Number.isFinite(n) || n < 1) return 1;
+  const max = attr === "colspan" ? MAX_COLSPAN : MAX_ROWSPAN;
+  return Math.min(n, max);
 }
 
 const HEADER_FILL: ExcelJS.FillPattern = {
@@ -135,8 +140,8 @@ export async function buildXlsx(
 
         // Handle merging when the cell spans multiple columns and/or rows
         if (colspan > 1 || rowspan > 1) {
-          const endRow = excelRow + rowspan - 1;
-          const endCol = colCursor + colspan - 1;
+          const endRow = Math.min(excelRow + rowspan - 1, 1_048_576);
+          const endCol = Math.min(colCursor + colspan - 1, 16_384);
 
           // Mark every position in the span (except the master) as occupied
           // and apply header styling to slave cells so the full merged range

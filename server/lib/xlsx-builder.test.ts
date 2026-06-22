@@ -257,6 +257,76 @@ describe("buildXlsx – combined colspan + rowspan on the same cell", () => {
   });
 });
 
+describe("buildXlsx – degenerate / edge-case input", () => {
+  it("returns a usable workbook for an empty table (no rows)", async () => {
+    const html = `<table></table>`;
+    await expect(buildXlsx(html)).resolves.toBeInstanceOf(Buffer);
+    const ws = await loadWorksheet(html);
+    expect(ws).toBeDefined();
+  });
+
+  it("treats colspan=\"0\" as colspan=1 (no crash, no merge)", async () => {
+    const html = `
+      <table>
+        <tbody>
+          <tr><td colspan="0">Cell</td><td>Next</td></tr>
+        </tbody>
+      </table>`;
+
+    const ws = await loadWorksheet(html);
+    const merges = mergeStrings(ws);
+
+    expect(merges).toHaveLength(0);
+    expect(ws.getCell(1, 1).value).toBe("Cell");
+    expect(ws.getCell(1, 2).value).toBe("Next");
+  });
+
+  it("treats a non-numeric rowspan as rowspan=1 (no crash, no merge)", async () => {
+    const html = `
+      <table>
+        <tbody>
+          <tr><td rowspan="abc">Cell</td><td>Right</td></tr>
+          <tr><td>Below-left</td><td>Below-right</td></tr>
+        </tbody>
+      </table>`;
+
+    const ws = await loadWorksheet(html);
+    const merges = mergeStrings(ws);
+
+    expect(merges).toHaveLength(0);
+    expect(ws.getCell(1, 1).value).toBe("Cell");
+    expect(ws.getCell(2, 1).value).toBe("Below-left");
+  });
+
+  it("clamps an unreasonably large colspan to the Excel column limit without throwing", async () => {
+    const html = `
+      <table>
+        <tbody>
+          <tr><td colspan="999999">Wide</td></tr>
+        </tbody>
+      </table>`;
+
+    await expect(buildXlsx(html)).resolves.toBeInstanceOf(Buffer);
+    const ws = await loadWorksheet(html);
+    expect(ws.getCell(1, 1).value).toBe("Wide");
+  });
+
+  it("clamps an unreasonably large rowspan to the Excel row limit without throwing", async () => {
+    const html = `
+      <table>
+        <tbody>
+          <tr><td rowspan="9999999">Tall</td><td>R1C2</td></tr>
+          <tr><td>R2C2</td></tr>
+        </tbody>
+      </table>`;
+
+    await expect(buildXlsx(html)).resolves.toBeInstanceOf(Buffer);
+    const ws = await loadWorksheet(html);
+    expect(ws.getCell(1, 1).value).toBe("Tall");
+    expect(ws.getCell(1, 2).value).toBe("R1C2");
+  });
+});
+
 describe("buildXlsx – occupancy grid correctness", () => {
   it("does not overwrite a position already occupied by a rowspan from above", async () => {
     const html = `
