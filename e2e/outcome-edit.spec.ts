@@ -355,6 +355,59 @@ test.describe("Outcome edit flow", () => {
   });
 
   /**
+   * 500 bookmark path (re-enable check): after POST /api/outcomes returns 500,
+   * the bookmark button must re-enable so the user can retry without refreshing.
+   * isPending drops back to false on mutation settle; isSaved must NOT be set
+   * true when the save failed.
+   */
+  test("bookmark button re-enables after a failed 500 save so the user can retry", async ({
+    page,
+    context,
+  }) => {
+    const sub = `outcome-bookmark-retry-e2e-${uid()}`;
+    const email = `${sub}@bridgew.edu`;
+
+    await loginAs(context, sub, email);
+
+    await page.goto(`${BASE}/new-course`);
+
+    const browseBtn = page.getByTestId("button-browse-outcome-library");
+    await expect(browseBtn).toBeVisible({ timeout: 15_000 });
+    await browseBtn.click();
+
+    // Library tab is the default; wait for at least one curated outcome bookmark button.
+    const firstSaveBtn = page.getByTestId(/^button-save-outcome-/).first();
+    await expect(firstSaveBtn).toBeVisible({ timeout: 10_000 });
+
+    // Confirm the button is enabled before clicking.
+    await expect(firstSaveBtn).not.toBeDisabled();
+
+    // Intercept POST /api/outcomes to simulate a server-side failure.
+    await page.route("**/api/outcomes", async (route) => {
+      if (route.request().method() === "POST") {
+        await route.fulfill({
+          status: 500,
+          contentType: "application/json",
+          body: JSON.stringify({ message: "Internal server error" }),
+        });
+      } else {
+        await route.continue();
+      }
+    });
+
+    await firstSaveBtn.click();
+
+    // Error toast must appear.
+    await expect(
+      page.getByText("Could not save outcome").first(),
+    ).toBeVisible({ timeout: 10_000 });
+
+    // After the mutation settles with an error, isPending → false and isSaved
+    // must still be false, so the button must be enabled again for retry.
+    await expect(firstSaveBtn).not.toBeDisabled({ timeout: 5_000 });
+  });
+
+  /**
    * 404 delete path: when the DELETE endpoint returns 404 (item already removed
    * by another session), the UI shows the "Outcome was already removed" toast
    * and the item disappears from the My Outcomes list after the query is
