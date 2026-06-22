@@ -244,6 +244,7 @@ export function RichTextEditor({
   const [linkPopoverOpen, setLinkPopoverOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
   const [linkIsActive, setLinkIsActive] = useState(false);
+  const [prevLinkUrl, setPrevLinkUrl] = useState<string | null>(null);
   const linkInputRef = useRef<HTMLInputElement>(null);
 
   const editor = useEditor({
@@ -307,6 +308,7 @@ export function RichTextEditor({
     const prev = editor.getAttributes("link").href as string | undefined;
     setLinkIsActive(isActive);
     setLinkUrl(prev ?? "https://");
+    setPrevLinkUrl(prev ?? null);
     setLinkPopoverOpen(true);
     setTimeout(() => linkInputRef.current?.focus(), 0);
   }, [editor]);
@@ -474,6 +476,15 @@ export function RichTextEditor({
               }}
               className="mb-2 h-8 text-sm"
             />
+            {prevLinkUrl && (
+              <p
+                className="text-xs text-muted-foreground mb-2 truncate"
+                data-testid="rte-link-current-url"
+              >
+                <span className="font-medium">Current link:</span>{" "}
+                {prevLinkUrl}
+              </p>
+            )}
             <div className="flex items-center justify-between gap-1.5">
               {linkIsActive && (
                 <Button
