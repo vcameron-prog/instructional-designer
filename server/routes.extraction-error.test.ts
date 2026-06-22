@@ -41,6 +41,24 @@ const SUPPORTED_FORMAT_KEYS = [
   "google-slide",
 ] as const;
 
+const FORMAT_KEYWORDS: Record<string, RegExp> = {
+  pdf:            /pdf/i,
+  docx:           /word|docx/i,
+  xlsx:           /excel|spreadsheet/i,
+  pptx:           /powerpoint|presentation/i,
+  csv:            /csv/i,
+  rtf:            /rtf/i,
+  html:           /html/i,
+  odt:            /opendocument/i,
+  ods:            /opendocument|spreadsheet/i,
+  odp:            /opendocument|presentation/i,
+  epub:           /epub/i,
+  doc:            /\.doc/i,
+  "google-doc":   /google/i,
+  "google-sheet": /google/i,
+  "google-slide": /google/i,
+};
+
 describe("EXTRACTION_ERROR_MESSAGES constant", () => {
   it("contains a non-empty string entry for every supported format key", () => {
     for (const key of SUPPORTED_FORMAT_KEYS) {
@@ -93,24 +111,6 @@ describe("EXTRACTION_ERROR_MESSAGES constant", () => {
   });
 
   it("each per-format message contains a human-readable reference to its format", () => {
-    const FORMAT_KEYWORDS: Record<string, RegExp> = {
-      pdf:            /pdf/i,
-      docx:           /word|docx/i,
-      xlsx:           /excel|spreadsheet/i,
-      pptx:           /powerpoint|presentation/i,
-      csv:            /csv/i,
-      rtf:            /rtf/i,
-      html:           /html/i,
-      odt:            /opendocument/i,
-      ods:            /opendocument|spreadsheet/i,
-      odp:            /opendocument|presentation/i,
-      epub:           /epub/i,
-      doc:            /\.doc/i,
-      "google-doc":   /google/i,
-      "google-sheet": /google/i,
-      "google-slide": /google/i,
-    };
-
     for (const key of SUPPORTED_FORMAT_KEYS) {
       const msg = EXTRACTION_ERROR_MESSAGES[key];
       const pattern = FORMAT_KEYWORDS[key];
@@ -141,24 +141,6 @@ describe("EXTRACTION_ERROR_MESSAGES constant", () => {
   });
 
   it("EXTRACTION_ERROR_FALLBACK does not mention any specific format name", () => {
-    const FORMAT_KEYWORDS: Record<string, RegExp> = {
-      pdf:            /pdf/i,
-      docx:           /word|docx/i,
-      xlsx:           /excel|spreadsheet/i,
-      pptx:           /powerpoint|presentation/i,
-      csv:            /csv/i,
-      rtf:            /rtf/i,
-      html:           /html/i,
-      odt:            /opendocument/i,
-      ods:            /opendocument|spreadsheet/i,
-      odp:            /opendocument|presentation/i,
-      epub:           /epub/i,
-      doc:            /\.doc/i,
-      "google-doc":   /google/i,
-      "google-sheet": /google/i,
-      "google-slide": /google/i,
-    };
-
     for (const [key, pattern] of Object.entries(FORMAT_KEYWORDS)) {
       expect(
         pattern.test(EXTRACTION_ERROR_FALLBACK),
