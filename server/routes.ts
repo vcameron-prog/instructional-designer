@@ -373,7 +373,7 @@ export async function registerRoutes(
       const userId = getUserId(req);
       const id = parseInt(req.params.id as string);
       if (isNaN(id)) {
-        res.status(400).json({ error: "Invalid ID" });
+        res.status(400).json({ error: "Invalid id" });
         return;
       }
 
@@ -416,7 +416,7 @@ export async function registerRoutes(
       const userId = getUserId(req);
       const id = parseInt(req.params.id as string);
       if (isNaN(id)) {
-        res.status(400).json({ error: "Invalid ID" });
+        res.status(400).json({ error: "Invalid id" });
         return;
       }
       const [owned] = await db
@@ -439,7 +439,7 @@ export async function registerRoutes(
       const userId = getUserId(req);
       const id = parseInt(req.params.id as string);
       if (isNaN(id)) {
-        res.status(400).json({ error: "Invalid ID" });
+        res.status(400).json({ error: "Invalid id" });
         return;
       }
       const [owned] = await db
@@ -1326,7 +1326,7 @@ export async function registerRoutes(
       const userId = getUserId(req);
       const id = parseInt(req.params.id as string);
       if (isNaN(id)) {
-        res.status(400).json({ error: "Invalid ID" });
+        res.status(400).json({ error: "Invalid id" });
         return;
       }
 
@@ -1810,7 +1810,7 @@ export async function registerRoutes(
       const userId = getUserId(req);
       const id = parseInt(req.params.id as string);
       if (isNaN(id)) {
-        res.status(400).json({ error: "Invalid ID" });
+        res.status(400).json({ error: "Invalid id" });
         return;
       }
 
@@ -1830,7 +1830,7 @@ export async function registerRoutes(
       const userId = getUserId(req);
       const id = parseInt(req.params.id as string);
       if (isNaN(id)) {
-        res.status(400).json({ error: "Invalid ID" });
+        res.status(400).json({ error: "Invalid id" });
         return;
       }
 
@@ -1877,7 +1877,7 @@ export async function registerRoutes(
       const userId = getUserId(req);
       const id = parseInt(req.params.id as string);
       if (isNaN(id)) {
-        res.status(400).json({ error: "Invalid ID" });
+        res.status(400).json({ error: "Invalid id" });
         return;
       }
 
@@ -1939,7 +1939,7 @@ export async function registerRoutes(
       const userId = getUserId(req);
       const id = parseInt(req.params.id as string);
       if (isNaN(id)) {
-        res.status(400).json({ error: "Invalid ID" });
+        res.status(400).json({ error: "Invalid id" });
         return;
       }
 
@@ -2068,7 +2068,7 @@ export async function registerRoutes(
       const userId = getUserId(req);
       const id = parseInt(req.params.id as string);
       if (isNaN(id)) {
-        res.status(400).json({ error: "Invalid ID" });
+        res.status(400).json({ error: "Invalid id" });
         return;
       }
 
@@ -2201,7 +2201,7 @@ export async function registerRoutes(
       const userId = getUserId(req);
       const id = parseInt(req.params.id as string);
       if (isNaN(id)) {
-        res.status(400).json({ error: "Invalid ID" });
+        res.status(400).json({ error: "Invalid id" });
         return;
       }
 
@@ -2275,7 +2275,7 @@ export async function registerRoutes(
       const userId = getUserId(req);
       const id = parseInt(req.params.id as string);
       if (isNaN(id)) {
-        res.status(400).json({ error: "Invalid ID" });
+        res.status(400).json({ error: "Invalid id" });
         return;
       }
 
@@ -2345,7 +2345,7 @@ export async function registerRoutes(
       const userId = getUserId(req);
       const id = parseInt(req.params.id as string);
       if (isNaN(id)) {
-        res.status(400).json({ error: "Invalid ID" });
+        res.status(400).json({ error: "Invalid id" });
         return;
       }
 
@@ -2420,7 +2420,7 @@ export async function registerRoutes(
       const userId = getUserId(req);
       const id = parseInt(req.params.id as string);
       if (isNaN(id)) {
-        res.status(400).json({ error: "Invalid ID" });
+        res.status(400).json({ error: "Invalid id" });
         return;
       }
 
