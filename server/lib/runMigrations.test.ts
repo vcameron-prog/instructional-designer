@@ -252,4 +252,31 @@ describe("runMigrations – phantom journal guard", () => {
 
     expect(exitSpy).not.toHaveBeenCalled();
   });
+
+  it("names only the phantom entry in the error when the journal has a mix of valid and phantom entries", async () => {
+    const fakeJournal = JSON.stringify({
+      entries: [
+        { idx: 0, tag: "0000_initial" },
+        { idx: 1, tag: "0001_add_users" },
+        { idx: 2, tag: "0002_phantom_migration" },
+      ],
+    });
+
+    mockExistsSync.mockImplementation((p: string) => {
+      if (p === journalPath) return true;
+      if (p === path.join(migrationsFolder, "0000_initial.sql")) return true;
+      if (p === path.join(migrationsFolder, "0001_add_users.sql")) return true;
+      return false;
+    });
+    mockReadFileSync.mockReturnValue(fakeJournal);
+
+    await expect(runMigrations()).rejects.toThrow("process.exit(1)");
+
+    expect(exitSpy).toHaveBeenCalledWith(1);
+
+    const errorArg: string = errorSpy.mock.calls[0][0];
+    expect(errorArg).toContain("0002_phantom_migration.sql");
+    expect(errorArg).not.toContain("0000_initial");
+    expect(errorArg).not.toContain("0001_add_users");
+  });
 });
