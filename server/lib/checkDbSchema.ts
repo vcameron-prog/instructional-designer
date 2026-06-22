@@ -1,5 +1,9 @@
-import { pool } from "../db";
+import { getTableColumns, getTableName } from "drizzle-orm";
+import { PgTable } from "drizzle-orm/pg-core";
+import pg from "pg";
 import type { PoolClient } from "pg";
+import { pool } from "../db";
+import * as schema from "../../shared/schema";
 
 interface ColumnSpec {
   table: string;
@@ -7,24 +11,38 @@ interface ColumnSpec {
 }
 
 /**
- * Columns that are known to have been added after the initial schema and are
- * required for core functionality.  Extend this list whenever a new column is
- * added that could cause 500 errors if it is absent in production.
+ * Returns true when `val` is a Drizzle PgTable object.
+ * Drizzle marks every table with the well-known symbol
+ * `drizzle:IsDrizzleTable` so we can safely filter them
+ * out of a wildcard schema import without importing the
+ * concrete class.
  */
-const CRITICAL_COLUMNS: ColumnSpec[] = [
-  // conversions – added progressively as features were built
-  { table: "conversions", column: "source_type" },
-  { table: "conversions", column: "pdf_data" },
-  { table: "conversions", column: "manual_fix_items" },
-  { table: "conversions", column: "ocr_applied" },
-  { table: "conversions", column: "extraction_warnings" },
-  { table: "conversions", column: "selected_sheet" },
-  { table: "conversions", column: "processing_started_at" },
-  { table: "conversions", column: "original_compliance_report" },
-  { table: "conversions", column: "visitor_token" },
-  // users – preferences added after initial auth schema
-  { table: "users", column: "preferences" },
-];
+function isPgTable(val: unknown): val is PgTable {
+  return (
+    val !== null &&
+    typeof val === "object" &&
+    (val as Record<symbol, unknown>)[Symbol.for("drizzle:IsDrizzleTable")] === true
+  );
+}
+
+/**
+ * Derives the full list of expected `{table, column}` pairs directly from the
+ * Drizzle schema objects.  Any column added to `shared/schema.ts` (or the
+ * auth models it re-exports) is automatically included — no manual list to
+ * maintain.
+ */
+function schemaColumns(): ColumnSpec[] {
+  const specs: ColumnSpec[] = [];
+  for (const val of Object.values(schema)) {
+    if (!isPgTable(val)) continue;
+    const tableName = getTableName(val as PgTable);
+    const cols = getTableColumns(val as PgTable);
+    for (const col of Object.values(cols)) {
+      specs.push({ table: tableName, column: col.name });
+    }
+  }
+  return specs;
+}
 
 /**
  * Tables that must exist for the application to function.  A missing table
@@ -64,7 +82,10 @@ export async function checkDbSchema(log: LogFn = (msg) => console.log(msg)): Pro
       );
     }
 
-    // ── 2. Check critical columns ─────────────────────────────────────────
+    // ── 2. Check all schema-defined columns ───────────────────────────────
+    // The column list is derived at runtime from the Drizzle table objects in
+    // shared/schema.ts, so it stays in sync automatically whenever the schema
+    // changes.
     const columnResult = await client.query<{ table_name: string; column_name: string }>(
       `SELECT table_name, column_name
          FROM information_schema.columns
@@ -75,7 +96,8 @@ export async function checkDbSchema(log: LogFn = (msg) => console.log(msg)): Pro
       columnResult.rows.map((r) => `${r.table_name}.${r.column_name}`)
     );
 
-    const missingColumns = CRITICAL_COLUMNS.filter(
+    const expectedColumns = schemaColumns();
+    const missingColumns = expectedColumns.filter(
       ({ table, column }) =>
         existingTables.has(table) && // only check columns on tables that exist
         !existingColumns.has(`${table}.${column}`)
