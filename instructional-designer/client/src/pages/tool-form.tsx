@@ -786,17 +786,15 @@ export default function ToolForm() {
                 </p>
               )}
               <GenerationStepList steps={generationSteps} activeIndex={activeStepIndex} />
-              {activeStepIndex < generationSteps.length && (
-                <div className="flex justify-center gap-1" aria-hidden="true">
-                  {[0, 1, 2].map(i => (
-                    <div
-                      key={i}
-                      className="w-2 h-2 bg-primary rounded-full animate-bounce"
-                      style={{ animationDelay: `${i * 0.15}s` }}
-                    />
-                  ))}
-                </div>
-              )}
+              <div className="flex justify-center gap-1 h-2" aria-hidden="true">
+                {activeStepIndex < generationSteps.length && [0, 1, 2].map(i => (
+                  <div
+                    key={i}
+                    className="w-2 h-2 bg-primary rounded-full animate-bounce"
+                    style={{ animationDelay: `${i * 0.15}s` }}
+                  />
+                ))}
+              </div>
             </CardContent>
           </Card>
         </div>
