@@ -8,6 +8,7 @@ import { db } from "./db";
 import { eq } from "drizzle-orm";
 import { conversions } from "../shared/schema";
 import { runMigrations } from "./lib/runMigrations";
+import { checkDbSchema } from "./lib/checkDbSchema";
 
 const app = express();
 const httpServer = createServer(app);
@@ -123,6 +124,9 @@ async function resetStaleProcessingJobs() {
 
   // Apply any pending schema migrations before starting
   await runMigrations();
+
+  // Verify that all required tables and critical columns are present in the DB
+  await checkDbSchema(log);
 
   // Mark any conversions left in "processing" state (e.g. from a previous crash/deploy) as failed
   await resetStaleProcessingJobs();
