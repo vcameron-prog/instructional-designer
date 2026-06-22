@@ -456,8 +456,15 @@ export async function registerRoutes(
         return;
       }
       const parsed = (items as unknown[]).map((item) => {
-        const i = item as { title?: unknown; reason?: unknown };
-        return { title: String(i.title ?? ""), reason: String(i.reason ?? "") };
+        const i = item as { title?: unknown; reason?: unknown; criterion?: unknown };
+        const out: { title: string; reason: string; criterion?: string } = {
+          title: String(i.title ?? ""),
+          reason: String(i.reason ?? ""),
+        };
+        if (i.criterion !== undefined && i.criterion !== null) {
+          out.criterion = String(i.criterion);
+        }
+        return out;
       });
       await storage.setManualFixItems(id, parsed);
       res.json({ ok: true });

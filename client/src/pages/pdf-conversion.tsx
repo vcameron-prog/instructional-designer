@@ -656,7 +656,7 @@ export default function PdfConversion() {
       try {
         const stored = localStorage.getItem(`manualFixSummary_${numericId}`);
         if (stored) {
-          const parsed = JSON.parse(stored) as { title: string; reason: string }[];
+          const parsed = JSON.parse(stored) as { title: string; reason: string; criterion?: string }[];
           if (!cancelled && parsed.length > 0) {
             setManualFixSummary(parsed);
             apiRequest("PUT", `/api/conversions/${numericId}/manual-fixes`, { items: parsed }).catch(() => {
@@ -672,7 +672,7 @@ export default function PdfConversion() {
     };
     fetch(`/api/conversions/${numericId}/manual-fixes`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((data: { items: { title: string; reason: string }[] } | null) => {
+      .then((data: { items: { title: string; reason: string; criterion?: string }[] } | null) => {
         if (cancelled) return;
         loadedManualFixIdRef.current = numericId;
         if (data?.items && data.items.length > 0) {
@@ -749,7 +749,7 @@ export default function PdfConversion() {
     broadcastChannelRef.current = channel;
     channel.onmessage = (event: MessageEvent) => {
       if (event.data?.type === "manualFixUpdate") {
-        const items = event.data.items as { title: string; reason: string }[];
+        const items = event.data.items as { title: string; reason: string; criterion?: string }[];
         receivedFromBroadcastRef.current = true;
         setManualFixSummary(items ?? []);
       }
@@ -767,7 +767,7 @@ export default function PdfConversion() {
       if (document.visibilityState !== "visible") return;
       fetch(`/api/conversions/${numericId}/manual-fixes`)
         .then((r) => (r.ok ? r.json() : null))
-        .then((data: { items: { title: string; reason: string }[] } | null) => {
+        .then((data: { items: { title: string; reason: string; criterion?: string }[] } | null) => {
           if (data?.items) {
             receivedFromServerRef.current = true;
             setManualFixSummary(data.items);
@@ -789,7 +789,7 @@ export default function PdfConversion() {
       if (document.visibilityState === "hidden") return;
       fetch(`/api/conversions/${numericId}/manual-fixes`)
         .then((r) => (r.ok ? r.json() : null))
-        .then((data: { items: { title: string; reason: string }[] } | null) => {
+        .then((data: { items: { title: string; reason: string; criterion?: string }[] } | null) => {
           if (data?.items) {
             receivedFromServerRef.current = true;
             setManualFixSummary(data.items);
