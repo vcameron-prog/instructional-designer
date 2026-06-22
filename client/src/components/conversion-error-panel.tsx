@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { AlertTriangle, Check, ClipboardCopy } from "lucide-react";
 import { isExtractionError } from "@shared/extraction-error-messages";
+import { writeToClipboard } from "@/lib/clipboard";
 
 interface ConversionErrorPanelProps {
   errorMessage: string | null | undefined;
@@ -27,7 +28,7 @@ export function ConversionErrorPanel({ errorMessage }: ConversionErrorPanelProps
               aria-label={copiedError ? "Error message copied" : "Copy error message"}
               onClick={() => {
                 const msg = errorMessage || "An error occurred. Please try again.";
-                navigator.clipboard.writeText(msg).then(() => {
+                writeToClipboard(msg).then(() => {
                   setCopiedError(true);
                   setTimeout(() => setCopiedError(false), 2000);
                 }).catch(() => {

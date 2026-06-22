@@ -1,12 +1,18 @@
 // @vitest-environment jsdom
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import "@testing-library/jest-dom";
+
+vi.mock("@/lib/clipboard", () => ({
+  writeToClipboard: vi.fn().mockResolvedValue(undefined),
+}));
 import {
   EXTRACTION_ERROR_MESSAGES,
   EXTRACTION_ERROR_FALLBACK,
 } from "@shared/extraction-error-messages";
 import { ConversionErrorPanel } from "./conversion-error-panel";
+import { writeToClipboard } from "@/lib/clipboard";
 
 describe("ConversionErrorPanel heading", () => {
   describe("extraction errors → 'File Could Not Be Read'", () => {
@@ -148,5 +154,88 @@ describe("ConversionErrorPanel body text", () => {
         "An error occurred. Please try again.",
       );
     });
+  });
+});
+
+describe("ConversionErrorPanel copy button", () => {
+  const mockWrite = () => vi.mocked(writeToClipboard);
+
+  beforeEach(() => {
+    vi.mocked(writeToClipboard).mockClear();
+    vi.mocked(writeToClipboard).mockResolvedValue(undefined);
+  });
+
+  it("copies the PDF extraction error message exactly as stored", async () => {
+    const user = userEvent.setup();
+    const msg = EXTRACTION_ERROR_MESSAGES["pdf"];
+    render(<ConversionErrorPanel errorMessage={msg} />);
+    await user.click(screen.getByTestId("button-copy-error"));
+    expect(mockWrite()).toHaveBeenCalledOnce();
+    expect(mockWrite()).toHaveBeenCalledWith(msg);
+  });
+
+  it("copies the DOCX extraction error message exactly as stored", async () => {
+    const user = userEvent.setup();
+    const msg = EXTRACTION_ERROR_MESSAGES["docx"];
+    render(<ConversionErrorPanel errorMessage={msg} />);
+    await user.click(screen.getByTestId("button-copy-error"));
+    expect(mockWrite()).toHaveBeenCalledOnce();
+    expect(mockWrite()).toHaveBeenCalledWith(msg);
+  });
+
+  it("copies the PPTX extraction error message exactly as stored", async () => {
+    const user = userEvent.setup();
+    const msg = EXTRACTION_ERROR_MESSAGES["pptx"];
+    render(<ConversionErrorPanel errorMessage={msg} />);
+    await user.click(screen.getByTestId("button-copy-error"));
+    expect(mockWrite()).toHaveBeenCalledOnce();
+    expect(mockWrite()).toHaveBeenCalledWith(msg);
+  });
+
+  it("copies the EXTRACTION_ERROR_FALLBACK message exactly as stored", async () => {
+    const user = userEvent.setup();
+    render(<ConversionErrorPanel errorMessage={EXTRACTION_ERROR_FALLBACK} />);
+    await user.click(screen.getByTestId("button-copy-error"));
+    expect(mockWrite()).toHaveBeenCalledOnce();
+    expect(mockWrite()).toHaveBeenCalledWith(EXTRACTION_ERROR_FALLBACK);
+  });
+
+  it("copies every known extraction error message exactly as stored (exhaustive)", async () => {
+    for (const [, msg] of Object.entries(EXTRACTION_ERROR_MESSAGES)) {
+      vi.mocked(writeToClipboard).mockClear();
+      const user = userEvent.setup();
+      const { unmount } = render(<ConversionErrorPanel errorMessage={msg} />);
+      await user.click(screen.getByTestId("button-copy-error"));
+      expect(mockWrite()).toHaveBeenCalledOnce();
+      expect(mockWrite()).toHaveBeenCalledWith(msg);
+      unmount();
+    }
+  });
+
+  it("copies the generic fallback text when errorMessage is null", async () => {
+    const user = userEvent.setup();
+    render(<ConversionErrorPanel errorMessage={null} />);
+    await user.click(screen.getByTestId("button-copy-error"));
+    expect(mockWrite()).toHaveBeenCalledOnce();
+    expect(mockWrite()).toHaveBeenCalledWith("An error occurred. Please try again.");
+  });
+
+  it("copies the generic fallback text when errorMessage is undefined", async () => {
+    const user = userEvent.setup();
+    render(<ConversionErrorPanel errorMessage={undefined} />);
+    await user.click(screen.getByTestId("button-copy-error"));
+    expect(mockWrite()).toHaveBeenCalledOnce();
+    expect(mockWrite()).toHaveBeenCalledWith("An error occurred. Please try again.");
+  });
+
+  it("does not truncate or reformat the stored message before writing to clipboard", async () => {
+    const user = userEvent.setup();
+    const msg = EXTRACTION_ERROR_MESSAGES["pdf"];
+    render(<ConversionErrorPanel errorMessage={msg} />);
+    await user.click(screen.getByTestId("button-copy-error"));
+    expect(mockWrite()).toHaveBeenCalledOnce();
+    const written = vi.mocked(writeToClipboard).mock.calls[0][0];
+    expect(written).toBe(msg);
+    expect(written.length).toBe(msg.length);
   });
 });
