@@ -192,6 +192,19 @@ const FAQ_SECTIONS: FAQSection[] = [
         answer:
           "The AI can fix most common accessibility issues, like missing image descriptions, improper heading levels, and missing table headers. Some complex issues may require manual review.",
       },
+      {
+        question: "How does the remediation process work?",
+        answer:
+          "When you upload a document, the app sends it to an AI service (Anthropic's Claude) that has been given detailed instructions based on accessibility best practices. The AI scans the file for common barriers — things like missing image descriptions (alt text), unlabeled or out-of-order headings, tables without proper headers, and untagged content that screen readers depend on. It then rewrites or restructures those elements so assistive technology can interpret the document more easily, and returns a new version of your file with those improvements applied. The guidance the AI follows is built around the Web Content Accessibility Guidelines (WCAG) 2.1, the standard most institutions use to measure digital accessibility.",
+      },
+      {
+        question: "What this tool can and can't do",
+        answer: [
+          "This tool is designed to improve the accessibility of your documents, not to certify compliance. It applies automated remediation aimed at meeting WCAG 2.1 standards, and in most cases it will meaningfully improve a file's accessibility.",
+          "However, automated tools — including this one — cannot guarantee that a document is fully accessible or fully WCAG 2.1 compliant. Only a human reviewer can confirm that a document is genuinely usable by people with disabilities.",
+          "We strongly recommend that you review remediated files, test them with assistive technology where possible, and treat the output as a draft rather than a final sign-off. Each institution remains responsible for verifying the accessibility of its own content.",
+        ],
+      },
     ],
   },
   {
