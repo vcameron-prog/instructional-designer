@@ -4,13 +4,10 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import { scheduleDailySummary } from "./lib/daily-summary";
 import { clearRateLimiterIntervals, initRateLimitCleanupMetrics } from "./lib/rateLimiters.js";
-import { db, pool } from "./db";
+import { db } from "./db";
 import { eq } from "drizzle-orm";
 import { conversions } from "../shared/schema";
-import { migrate } from "drizzle-orm/node-postgres/migrator";
-import { checkMigrationDrift } from "./lib/migrationCheck";
-import path from "path";
-import fs from "fs";
+import { runMigrations } from "./lib/runMigrations";
 
 const app = express();
 const httpServer = createServer(app);
@@ -65,90 +62,6 @@ app.use((req, res, next) => {
 
   next();
 });
-
-async function runMigrations() {
-  const migrationsFolder = path.resolve(process.cwd(), "migrations");
-  const isProduction = process.env.NODE_ENV === "production";
-
-  // ── Migration drift check ────────────────────────────────────────────────
-  // Before applying, compare the journal against the DB so we can surface
-  // unapplied migrations with a clear, actionable message rather than letting
-  // the first bad query blow up with a cryptic column-not-found error.
-  let driftResult;
-  try {
-    driftResult = await checkMigrationDrift(pool);
-  } catch (err) {
-    log(
-      "[migration] WARNING: could not check migration drift — " +
-        "proceeding to apply (check DB connectivity if this repeats)",
-      "startup",
-    );
-    console.error(err);
-  }
-
-  if (driftResult && driftResult.pending.length > 0) {
-    const list = driftResult.pending.map((t) => `  • ${t}`).join("\n");
-    const summary =
-      `[migration] ${driftResult.pending.length} unapplied migration(s) detected ` +
-      `(${driftResult.applied} of ${driftResult.expected.length} applied):\n${list}`;
-
-    if (isProduction) {
-      console.error(
-        `\n[migration] FATAL: ${summary}\n\n` +
-          `Production startup aborted. Run migrations before deploying:\n` +
-          `  npm run db:migrate\n`,
-      );
-      process.exit(1);
-    }
-
-    log(
-      "[migration] WARNING: " +
-        summary +
-        " — auto-applying now (dev only)",
-      "startup",
-    );
-  } else if (driftResult) {
-    log(
-      `[migration] All ${driftResult.expected.length} migration(s) are up to date`,
-      "startup",
-    );
-  }
-  // ── End drift check ──────────────────────────────────────────────────────
-
-  // ── Pre-flight: verify every journal entry has a matching SQL file ────────
-  // Drizzle throws a cryptic file-not-found error if a journal entry has no
-  // corresponding .sql file (e.g. a placeholder entry was added without the
-  // actual migration file).  We detect this before calling migrate() so the
-  // error message is clear and actionable.
-  const journalPath = path.join(migrationsFolder, "meta", "_journal.json");
-  if (fs.existsSync(journalPath)) {
-    const journal = JSON.parse(fs.readFileSync(journalPath, "utf-8")) as {
-      entries: Array<{ idx: number; tag: string }>;
-    };
-    const phantomEntries = journal.entries.filter(
-      (entry) => !fs.existsSync(path.join(migrationsFolder, `${entry.tag}.sql`)),
-    );
-    if (phantomEntries.length > 0) {
-      const list = phantomEntries.map((e) => `  • ${e.tag}.sql (idx ${e.idx})`).join("\n");
-      const message =
-        `[migration] FATAL: the following journal entries have no matching SQL file on disk:\n${list}\n\n` +
-        `This means the journal is out of sync with the migrations/ directory.\n` +
-        `To fix: either create the missing SQL file(s) or remove the phantom entry/entries\n` +
-        `from migrations/meta/_journal.json and re-run the migration generator.`;
-      console.error("\n" + message + "\n");
-      process.exit(1);
-    }
-  }
-  // ── End pre-flight ────────────────────────────────────────────────────────
-
-  try {
-    await migrate(db, { migrationsFolder });
-    log("Database migrations applied successfully", "startup");
-  } catch (err) {
-    console.error("Database migration failed:", err);
-    throw err;
-  }
-}
 
 function validateThresholdEnvVar(key: string, parser: (v: string) => number, defaultVal: number, label: string): number {
   const raw = process.env[key];
