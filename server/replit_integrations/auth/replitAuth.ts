@@ -8,6 +8,13 @@ import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
 import { authStorage } from "./storage";
 
+let sessionSaveFailCount = 0;
+let sessionSaveFailLastAt: string | null = null;
+
+export function getSessionSaveFailMetrics(): { count: number; lastAt: string | null } {
+  return { count: sessionSaveFailCount, lastAt: sessionSaveFailLastAt };
+}
+
 const getOidcConfig = memoize(
   async () => {
     return await client.discovery(
@@ -59,8 +66,10 @@ async function persistSession(req: Parameters<RequestHandler>[0], user: any): Pr
       req.session.save((err) => (err ? reject(err) : resolve()))
     );
   } catch (err) {
+    sessionSaveFailCount += 1;
+    sessionSaveFailLastAt = new Date().toISOString();
     console.warn(
-      "[auth] session.save() failed after token refresh — continuing with in-memory session:",
+      `[auth] session.save() failed after token refresh — continuing with in-memory session (sessionSaveFailCount=${sessionSaveFailCount}):`,
       err
     );
   }

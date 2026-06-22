@@ -9,6 +9,7 @@ import {
   registerAuthRoutes,
   isAuthenticated,
   optionalAuth,
+  getSessionSaveFailMetrics,
 } from "./replit_integrations/auth";
 import Anthropic from "@anthropic-ai/sdk";
 import multer from "multer";
@@ -248,6 +249,7 @@ export async function registerRoutes(
 
 
     const cleanupMetrics = getRateLimitCleanupMetrics();
+    const sessionSaveFail = getSessionSaveFailMetrics();
 
     res.json({
       aiFixRetry: {
@@ -255,6 +257,10 @@ export async function registerRoutes(
         lastAt: lastRetryAt,
         lifetimeCount: dbStats.lifetimeCount,
         thisMonthCount: dbStats.thisMonthCount,
+      },
+      sessionSaveFail: {
+        count: sessionSaveFail.count,
+        lastAt: sessionSaveFail.lastAt,
       },
       rateLimitCleanup: {
         lastRunAt: cleanupMetrics.lastRunAt,
