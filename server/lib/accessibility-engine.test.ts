@@ -7330,6 +7330,42 @@ describe("AI_FIX_RETRY_METRIC_KEY", () => {
     expect(result.lastRetryAt).toBe(now.toISOString());
   });
 
+  it("persistAiFixRetry emits console.warn when db.insert rejects", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    mockDbInsert.mockReturnValue({
+      values: vi.fn().mockReturnValue({
+        onConflictDoUpdate: vi.fn().mockRejectedValue(new Error("DB write failure")),
+      }),
+    });
+
+    const validHtml =
+      '<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><main><p>ok</p></main></body></html>';
+
+    mockCreate
+      .mockResolvedValueOnce({ content: [{ type: "text", text: "not valid — no doctype" }] })
+      .mockResolvedValueOnce({ content: [{ type: "text", text: validHtml }] });
+
+    const aiIssue: ComplianceIssue = {
+      criterion: "1.4.3",
+      title: "Insufficient Color Contrast",
+      level: "AA",
+      status: "fail",
+      description: "Text does not meet contrast ratio requirements.",
+      details: "Element has contrast ratio below the 4.5:1 minimum.",
+    };
+    const report = makeReport([aiIssue]);
+
+    await fixComplianceIssue(validHtml, aiIssue, 0, report);
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("Failed to persist ai_fix_retry metric to DB:"),
+      expect.any(Error),
+    );
+
+    warnSpy.mockRestore();
+  });
+
   it("persistAiFixRetry writes AI_FIX_RETRY_METRIC_KEY as the DB row key when the retry path is triggered", async () => {
     let capturedValues: unknown;
     const mockOnConflictDoUpdate = vi.fn().mockResolvedValue({});

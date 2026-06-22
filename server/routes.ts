@@ -18,7 +18,7 @@ import { z } from "zod";
 import { db } from "./db";
 import { eq, and, isNull, sql, desc, inArray } from "drizzle-orm";
 import { fixHtmlTableCaption, fixHtmlTableThead, editHtmlTableCaption } from "./lib/table-fixers.js";
-import { getDeterministicFixerKeys, getAiFixRetryMetrics } from "./lib/accessibility-engine";
+import { getDeterministicFixerKeys, getAiFixRetryMetrics, getPersistAiFixRetryLastFailed } from "./lib/accessibility-engine";
 import {
   SHARED_ANON_UPLOAD_RATE_LIMIT,
   SHARED_HEAVY_OP_RATE_LIMIT,
@@ -258,6 +258,7 @@ export async function registerRoutes(
         lastAt: lastRetryAt,
         lifetimeCount: dbStats.lifetimeCount,
         thisMonthCount: dbStats.thisMonthCount,
+        persistLastFailed: getPersistAiFixRetryLastFailed(),
       },
       sessionSaveFail: {
         count: sessionSaveFail.count,

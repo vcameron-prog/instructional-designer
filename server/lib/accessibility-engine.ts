@@ -56,11 +56,17 @@ const anthropic = new Anthropic({
 
 let aiFixRetryCount = 0;
 let aiFixRetryLastAt: string | null = null;
+let persistAiFixRetryLastFailed = false;
 
 // DB row key used in the app_metrics table.
 // Exported so tests can reference the canonical value instead of repeating
 // the string literal — a rename in source will cause a compile-time mismatch.
 export const AI_FIX_RETRY_METRIC_KEY = "ai_fix_retry";
+
+/** Returns whether the most recent call to persistAiFixRetry failed to write to the DB. */
+export function getPersistAiFixRetryLastFailed(): boolean {
+  return persistAiFixRetryLastFailed;
+}
 
 export async function getAiFixRetryMetrics(): Promise<{ retryCount: number; lastRetryAt: string | null }> {
   try {
@@ -89,7 +95,9 @@ async function persistAiFixRetry(timestamp: string): Promise<void> {
           lastAt: new Date(timestamp),
         },
       });
+    persistAiFixRetryLastFailed = false;
   } catch (err) {
+    persistAiFixRetryLastFailed = true;
     console.warn("[accessibility-engine] Failed to persist ai_fix_retry metric to DB:", err);
   }
 }
