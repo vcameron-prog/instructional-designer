@@ -63,7 +63,7 @@ const COMPLEXITY_TEXT_FIELDS = [
 
 const COMPLEXITY_TEXT_CEILING = 800;
 
-function computeComplexityScore(formData: Record<string, any>): number {
+function computeComplexityScore(formData: Record<string, any>, outputDetail?: string): number {
   const durationIdx = DURATION_COMPLEXITY_OPTIONS.indexOf(formData.duration ?? "");
   const durationScore =
     durationIdx >= 0 ? durationIdx / (DURATION_COMPLEXITY_OPTIONS.length - 1) : 0;
@@ -80,7 +80,12 @@ function computeComplexityScore(formData: Record<string, any>): number {
   );
   const textScore = Math.min(totalChars / COMPLEXITY_TEXT_CEILING, 1);
 
-  return durationScore * 0.4 + frameworkScore * 0.3 + textScore * 0.3;
+  const baseScore = durationScore * 0.4 + frameworkScore * 0.3 + textScore * 0.3;
+
+  const detailOffset =
+    outputDetail === "concise" ? -0.1 : outputDetail === "standard" ? 0.1 : 0;
+
+  return Math.max(0, Math.min(1, baseScore + detailOffset));
 }
 
 const getFormFields = (toolId: string): ToolFormField[] => {
@@ -601,7 +606,7 @@ export default function ToolForm() {
     let current = 0;
     const steps = isBatchTool ? BATCH_GENERATION_STEPS : GENERATION_STEPS;
     const outputDetail = outputDetailRef.current;
-    const complexityScore = computeComplexityScore(formData);
+    const complexityScore = computeComplexityScore(formData, outputDetail);
     const effectiveDurations = steps.map(step =>
       computeAiStepDuration(step, outputDetail, isBatchTool, complexityScore)
     );
