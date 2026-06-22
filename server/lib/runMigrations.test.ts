@@ -3,9 +3,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 // ---------------------------------------------------------------------------
 // Hoisted mocks – vi.mock factories are hoisted to the top of the file.
 // ---------------------------------------------------------------------------
-const { mockCheckMigrationDrift, mockMigrate } = vi.hoisted(() => ({
+const { mockCheckMigrationDrift, mockMigrate, mockExistsSync, mockReadFileSync } = vi.hoisted(() => ({
   mockCheckMigrationDrift: vi.fn(),
   mockMigrate: vi.fn(),
+  mockExistsSync: vi.fn(() => false),
+  mockReadFileSync: vi.fn(),
 }));
 
 vi.mock("../db", () => ({
@@ -23,12 +25,19 @@ vi.mock("drizzle-orm/node-postgres/migrator", () => ({
 
 // Stub fs so the journal pre-flight check is skipped in all tests that don't
 // need it (journalPath does not exist → pre-flight exits early).
+// NOTE: runMigrations.ts uses `import fs from "fs"` (CJS default), so we must
+// override `default` as well as the named exports.
 vi.mock("fs", async (importOriginal) => {
   const actual = await importOriginal<typeof import("fs")>();
+  const mockedDefault = Object.assign(Object.create(null), actual.default, {
+    existsSync: mockExistsSync,
+    readFileSync: mockReadFileSync,
+  });
   return {
     ...actual,
-    existsSync: vi.fn(() => false),
-    readFileSync: actual.readFileSync,
+    default: mockedDefault,
+    existsSync: mockExistsSync,
+    readFileSync: mockReadFileSync,
   };
 });
 
@@ -36,6 +45,7 @@ vi.mock("fs", async (importOriginal) => {
 // Import the module under test AFTER mocks are registered.
 // ---------------------------------------------------------------------------
 import { runMigrations } from "./runMigrations";
+import path from "path";
 
 describe("runMigrations – production guard", () => {
   let originalNodeEnv: string | undefined;
@@ -175,5 +185,71 @@ describe("runMigrations – production guard", () => {
     expect(errorArg).toContain("FATAL");
     expect(errorArg).toContain("deleted after being applied");
     expect(errorArg).toContain("Startup aborted");
+  });
+});
+
+describe("runMigrations – phantom journal guard", () => {
+  let exitSpy: ReturnType<typeof vi.spyOn>;
+  let errorSpy: ReturnType<typeof vi.spyOn>;
+
+  const migrationsFolder = path.resolve(process.cwd(), "migrations");
+  const journalPath = path.join(migrationsFolder, "meta", "_journal.json");
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    exitSpy = vi.spyOn(process, "exit").mockImplementation((_code?: number) => {
+      throw new Error(`process.exit(${_code})`);
+    });
+    errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    mockMigrate.mockResolvedValue(undefined);
+    mockCheckMigrationDrift.mockResolvedValue({ expected: [], applied: 0, pending: [] });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("calls process.exit(1) when a journal entry has no matching SQL file on disk", async () => {
+    const fakeJournal = JSON.stringify({
+      entries: [{ idx: 0, tag: "0000_phantom_migration" }],
+    });
+
+    mockExistsSync.mockImplementation((p: string) => p === journalPath);
+    mockReadFileSync.mockReturnValue(fakeJournal);
+
+    await expect(runMigrations()).rejects.toThrow("process.exit(1)");
+
+    expect(exitSpy).toHaveBeenCalledWith(1);
+  });
+
+  it("logs an actionable error message naming the phantom entry and the journal file", async () => {
+    const fakeJournal = JSON.stringify({
+      entries: [{ idx: 3, tag: "0003_orphaned_entry" }],
+    });
+
+    mockExistsSync.mockImplementation((p: string) => p === journalPath);
+    mockReadFileSync.mockReturnValue(fakeJournal);
+
+    await expect(runMigrations()).rejects.toThrow("process.exit(1)");
+
+    const errorArg: string = errorSpy.mock.calls[0][0];
+    expect(errorArg).toContain("FATAL");
+    expect(errorArg).toContain("0003_orphaned_entry.sql");
+    expect(errorArg).toContain("journal");
+    expect(exitSpy).toHaveBeenCalledWith(1);
+  });
+
+  it("does NOT exit when every journal entry has a matching SQL file", async () => {
+    const fakeJournal = JSON.stringify({
+      entries: [{ idx: 0, tag: "0000_initial" }],
+    });
+
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockReturnValue(fakeJournal);
+
+    await expect(runMigrations()).resolves.not.toThrow();
+
+    expect(exitSpy).not.toHaveBeenCalled();
   });
 });
