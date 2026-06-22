@@ -13,7 +13,6 @@ import {
   Shield,
   Image,
   AlignLeft,
-  LogIn,
   Info,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
@@ -372,24 +371,6 @@ export default function PdfUpload() {
           </div>
         </div>
 
-        {!isAuthenticated && !uploadMutation.isPending && !googleDocMutation.isPending && !googleSheetMutation.isPending && !googleSlideMutation.isPending && fileQueue.every((f) => f.status === "done" || f.status === "error") && (
-          <div
-            className="w-full max-w-2xl mx-auto mb-6 flex items-center justify-between gap-3 px-4 py-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl text-sm"
-            data-testid="banner-sign-in-nudge"
-          >
-            <p className="text-blue-700 dark:text-blue-300">
-              BSU employees: sign in with your BSU account to automatically save your conversions to your history.
-            </p>
-            <a
-              href="/api/login"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700 transition-colors whitespace-nowrap"
-              data-testid="link-sign-in"
-            >
-              <LogIn className="w-3.5 h-3.5" aria-hidden="true" />
-              Sign in
-            </a>
-          </div>
-        )}
 
         {uploadError && (
           <div
