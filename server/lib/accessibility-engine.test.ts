@@ -7329,4 +7329,38 @@ describe("AI_FIX_RETRY_METRIC_KEY", () => {
     expect(result.retryCount).toBe(42);
     expect(result.lastRetryAt).toBe(now.toISOString());
   });
+
+  it("persistAiFixRetry writes AI_FIX_RETRY_METRIC_KEY as the DB row key when the retry path is triggered", async () => {
+    let capturedValues: unknown;
+    const mockOnConflictDoUpdate = vi.fn().mockResolvedValue({});
+    const mockValues = vi.fn().mockImplementation((v: unknown) => {
+      capturedValues = v;
+      return { onConflictDoUpdate: mockOnConflictDoUpdate };
+    });
+    mockDbInsert.mockReturnValue({ values: mockValues });
+
+    const validHtml =
+      '<!DOCTYPE html><html lang="en"><head><title>T</title></head><body><main><p>ok</p></main></body></html>';
+
+    mockCreate
+      .mockResolvedValueOnce({ content: [{ type: "text", text: "not valid — no doctype" }] })
+      .mockResolvedValueOnce({ content: [{ type: "text", text: validHtml }] });
+
+    const aiIssue: ComplianceIssue = {
+      criterion: "1.4.3",
+      title: "Insufficient Color Contrast",
+      level: "AA",
+      status: "fail",
+      description: "Text does not meet contrast ratio requirements.",
+      details: "Element has contrast ratio below the 4.5:1 minimum.",
+    };
+    const report = makeReport([aiIssue]);
+
+    await fixComplianceIssue(validHtml, aiIssue, 0, report);
+
+    // persistAiFixRetry is called first (before storage.logAiFixRetryEvent), so the
+    // first values() call must carry AI_FIX_RETRY_METRIC_KEY as the row key.
+    expect(mockValues).toHaveBeenCalled();
+    expect((mockValues.mock.calls[0][0] as { key: string }).key).toBe(AI_FIX_RETRY_METRIC_KEY);
+  });
 });
