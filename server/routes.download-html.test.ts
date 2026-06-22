@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { INVALID_ID_ERROR } from "./routes";
 import express from "express";
 import { createServer } from "http";
 import request from "supertest";
@@ -174,7 +175,7 @@ describe("GET /api/conversions/:id/download — invalid ID guard", () => {
     const res = await request(app).get("/api/conversions/abc/download");
 
     expect(res.status).toBe(400);
-    expect(res.body.error).toBe("Invalid id");
+    expect(res.body.error).toBe(INVALID_ID_ERROR);
     expect(mockDbSelectWhere).not.toHaveBeenCalled();
   });
 });

@@ -132,6 +132,11 @@ let activeXlsxExports = 0;
 export const MAX_CONCURRENT_XLSX_EXPORTS = parseInt(process.env.MAX_CONCURRENT_XLSX_EXPORTS ?? "3", 10) || 3;
 const activeXlsxExportKeys = new Set<string>();
 
+// Shared error message for non-numeric or out-of-range route :id parameters.
+// Centralised here so every conversion route returns the identical string and
+// test assertions can import it rather than duplicating the literal.
+export const INVALID_ID_ERROR = "Invalid id";
+
 
 async function fixVagueLinkTextAI(text: string): Promise<string> {
   const message = await anthropic.messages.create({
@@ -383,7 +388,7 @@ export async function registerRoutes(
       const userId = getUserId(req);
       const id = parseInt(req.params.id as string);
       if (isNaN(id)) {
-        res.status(400).json({ error: "Invalid id" });
+        res.status(400).json({ error: INVALID_ID_ERROR });
         return;
       }
 
@@ -426,7 +431,7 @@ export async function registerRoutes(
       const userId = getUserId(req);
       const id = parseInt(req.params.id as string);
       if (isNaN(id)) {
-        res.status(400).json({ error: "Invalid id" });
+        res.status(400).json({ error: INVALID_ID_ERROR });
         return;
       }
       const [owned] = await db
@@ -449,7 +454,7 @@ export async function registerRoutes(
       const userId = getUserId(req);
       const id = parseInt(req.params.id as string);
       if (isNaN(id)) {
-        res.status(400).json({ error: "Invalid id" });
+        res.status(400).json({ error: INVALID_ID_ERROR });
         return;
       }
       const [owned] = await db
@@ -1336,7 +1341,7 @@ export async function registerRoutes(
       const userId = getUserId(req);
       const id = parseInt(req.params.id as string);
       if (isNaN(id)) {
-        res.status(400).json({ error: "Invalid id" });
+        res.status(400).json({ error: INVALID_ID_ERROR });
         return;
       }
 
@@ -1820,7 +1825,7 @@ export async function registerRoutes(
       const userId = getUserId(req);
       const id = parseInt(req.params.id as string);
       if (isNaN(id)) {
-        res.status(400).json({ error: "Invalid id" });
+        res.status(400).json({ error: INVALID_ID_ERROR });
         return;
       }
 
@@ -1840,7 +1845,7 @@ export async function registerRoutes(
       const userId = getUserId(req);
       const id = parseInt(req.params.id as string);
       if (isNaN(id)) {
-        res.status(400).json({ error: "Invalid id" });
+        res.status(400).json({ error: INVALID_ID_ERROR });
         return;
       }
 
@@ -1887,7 +1892,7 @@ export async function registerRoutes(
       const userId = getUserId(req);
       const id = parseInt(req.params.id as string);
       if (isNaN(id)) {
-        res.status(400).json({ error: "Invalid id" });
+        res.status(400).json({ error: INVALID_ID_ERROR });
         return;
       }
 
@@ -1949,7 +1954,7 @@ export async function registerRoutes(
       const userId = getUserId(req);
       const id = parseInt(req.params.id as string);
       if (isNaN(id)) {
-        res.status(400).json({ error: "Invalid id" });
+        res.status(400).json({ error: INVALID_ID_ERROR });
         return;
       }
 
@@ -2078,7 +2083,7 @@ export async function registerRoutes(
       const userId = getUserId(req);
       const id = parseInt(req.params.id as string);
       if (isNaN(id)) {
-        res.status(400).json({ error: "Invalid id" });
+        res.status(400).json({ error: INVALID_ID_ERROR });
         return;
       }
 
@@ -2211,7 +2216,7 @@ export async function registerRoutes(
       const userId = getUserId(req);
       const id = parseInt(req.params.id as string);
       if (isNaN(id)) {
-        res.status(400).json({ error: "Invalid id" });
+        res.status(400).json({ error: INVALID_ID_ERROR });
         return;
       }
 
@@ -2285,7 +2290,7 @@ export async function registerRoutes(
       const userId = getUserId(req);
       const id = parseInt(req.params.id as string);
       if (isNaN(id)) {
-        res.status(400).json({ error: "Invalid id" });
+        res.status(400).json({ error: INVALID_ID_ERROR });
         return;
       }
 
@@ -2355,7 +2360,7 @@ export async function registerRoutes(
       const userId = getUserId(req);
       const id = parseInt(req.params.id as string);
       if (isNaN(id)) {
-        res.status(400).json({ error: "Invalid id" });
+        res.status(400).json({ error: INVALID_ID_ERROR });
         return;
       }
 
@@ -2430,7 +2435,7 @@ export async function registerRoutes(
       const userId = getUserId(req);
       const id = parseInt(req.params.id as string);
       if (isNaN(id)) {
-        res.status(400).json({ error: "Invalid id" });
+        res.status(400).json({ error: INVALID_ID_ERROR });
         return;
       }
 
@@ -2485,7 +2490,7 @@ export async function registerRoutes(
       const userId = getUserId(req);
       const id = parseInt(req.params.id as string);
       if (isNaN(id)) {
-        res.status(400).json({ error: "Invalid id" });
+        res.status(400).json({ error: INVALID_ID_ERROR });
         return;
       }
 
@@ -2559,7 +2564,7 @@ export async function registerRoutes(
       const userId = getUserId(req);
       const id = parseInt(req.params.id as string);
       if (isNaN(id)) {
-        res.status(400).json({ error: "Invalid id" });
+        res.status(400).json({ error: INVALID_ID_ERROR });
         return;
       }
 
@@ -2698,7 +2703,7 @@ export async function registerRoutes(
       const userId = getUserId(req);
       const id = parseInt(req.params.id as string);
       if (isNaN(id)) {
-        res.status(400).json({ error: "Invalid id" });
+        res.status(400).json({ error: INVALID_ID_ERROR });
         return;
       }
 
@@ -2802,7 +2807,7 @@ export async function registerRoutes(
       const userId = getUserId(req);
       const id = parseInt(req.params.id as string);
       if (isNaN(id)) {
-        res.status(400).json({ error: "Invalid id" });
+        res.status(400).json({ error: INVALID_ID_ERROR });
         return;
       }
 
@@ -2965,7 +2970,7 @@ export async function registerRoutes(
       const userId = getUserId(req)!;
       const id = parseInt(req.params.id as string);
       if (isNaN(id)) {
-        res.status(400).json({ error: "Invalid ID" });
+        res.status(400).json({ error: INVALID_ID_ERROR });
         return;
       }
 

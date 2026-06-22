@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest";
 import express from "express";
 import { createServer } from "http";
 import request from "supertest";
-import { MAX_CONCURRENT_XLSX_EXPORTS } from "./routes";
+import { MAX_CONCURRENT_XLSX_EXPORTS, INVALID_ID_ERROR } from "./routes";
 
 // ---------------------------------------------------------------------------
 // Hoisted mocks
@@ -204,7 +204,7 @@ describe("GET /api/conversions/:id/download-xlsx — error cases", () => {
     const res = await request(app).get("/api/conversions/abc/download-xlsx");
 
     expect(res.status).toBe(400);
-    expect(res.body.error).toBe("Invalid id");
+    expect(res.body.error).toBe(INVALID_ID_ERROR);
     expect(mockDbSelectWhere).not.toHaveBeenCalled();
     expect(mockBuildXlsx).not.toHaveBeenCalled();
   });
