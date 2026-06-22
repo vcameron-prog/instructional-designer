@@ -1,8 +1,10 @@
 import { db } from "./db";
-import { eq, count, gte, sql } from "drizzle-orm";
+import { eq, count, gte, and, not } from "drizzle-orm";
 import {
   conversions,
   aiFixRetryEvents,
+  courses,
+  generatedContent,
 } from "@shared/schema";
 
 export interface GeneratedContentOwnership {
@@ -70,52 +72,40 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Content approval — queries the generatedContent and courses tables.
-  // Returns null when the row is not found or the tables do not exist,
-  // so callers degrade to 404 rather than throwing.
   async getGeneratedContent(id: number): Promise<GeneratedContentOwnership | null> {
-    try {
-      const result = await db.execute(
-        sql`SELECT id, "userId", "courseId" FROM "generatedContent" WHERE id = ${id} LIMIT 1`,
-      );
-      const row = (result as any).rows?.[0] as Record<string, unknown> | undefined;
-      if (!row) return null;
-      return {
-        id: Number(row.id),
-        userId: (row.userId as string | null) ?? null,
-        courseId: row.courseId != null ? Number(row.courseId) : null,
-      };
-    } catch {
-      return null;
-    }
+    const [row] = await db
+      .select({
+        id: generatedContent.id,
+        userId: generatedContent.userId,
+        courseId: generatedContent.courseId,
+      })
+      .from(generatedContent)
+      .where(eq(generatedContent.id, id));
+    if (!row) return null;
+    return {
+      id: row.id,
+      userId: row.userId ?? null,
+      courseId: row.courseId ?? null,
+    };
   }
 
   async getCourseByOwner(courseId: number, userId: string): Promise<CourseOwnership | null> {
-    try {
-      const result = await db.execute(
-        sql`SELECT id FROM courses WHERE id = ${courseId} AND "userId" = ${userId} LIMIT 1`,
-      );
-      const row = (result as any).rows?.[0] as Record<string, unknown> | undefined;
-      if (!row) return null;
-      return { id: Number(row.id) };
-    } catch {
-      return null;
-    }
+    const [row] = await db
+      .select({ id: courses.id })
+      .from(courses)
+      .where(and(eq(courses.id, courseId), eq(courses.userId, userId)));
+    if (!row) return null;
+    return { id: row.id };
   }
 
   async toggleContentApproval(id: number): Promise<ContentApprovalResult | null> {
-    try {
-      const result = await db.execute(
-        sql`UPDATE "generatedContent"
-            SET "isApproved" = NOT "isApproved"
-            WHERE id = ${id}
-            RETURNING id, "isApproved"`,
-      );
-      const row = (result as any).rows?.[0] as Record<string, unknown> | undefined;
-      if (!row) return null;
-      return { id: Number(row.id), isApproved: Boolean(row.isApproved) };
-    } catch {
-      return null;
-    }
+    const [updated] = await db
+      .update(generatedContent)
+      .set({ isApproved: not(generatedContent.isApproved) })
+      .where(eq(generatedContent.id, id))
+      .returning({ id: generatedContent.id, isApproved: generatedContent.isApproved });
+    if (!updated) return null;
+    return { id: updated.id, isApproved: updated.isApproved };
   }
 }
 

@@ -15,6 +15,55 @@ import { z } from "zod";
 // Re-export auth models (required for Replit Auth)
 export * from "./models/auth";
 
+// Courses table (shared with instructional-designer; DO NOT rename columns)
+export const courses = pgTable("courses", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull(),
+  courseName: text("course_name").notNull(),
+  courseNumber: text("course_number").notNull(),
+  sectionNumber: text("section_number"),
+  courseLevel: text("course_level").notNull(),
+  credits: text("credits").notNull(),
+  semester: text("semester").notNull(),
+  instructor: text("instructor").notNull(),
+  department: text("department").notNull(),
+  courseDescription: text("course_description").notNull(),
+  learningOutcomes: text("learning_outcomes").notNull(),
+  prerequisites: text("prerequisites"),
+  existingSyllabus: text("existing_syllabus"),
+  additionalContext: text("additional_context"),
+  syllabusUploadedAt: timestamp("syllabus_uploaded_at"),
+  rolledOverFromId: integer("rolled_over_from_id"),
+  createdAt: timestamp("created_at")
+    .default(sql`CURRENT_TIMESTAMP`)
+    .notNull(),
+  updatedAt: timestamp("updated_at")
+    .default(sql`CURRENT_TIMESTAMP`)
+    .notNull(),
+});
+
+export type Course = typeof courses.$inferSelect;
+
+// Generated content table (shared with instructional-designer; DO NOT rename columns)
+export const generatedContent = pgTable("generated_content", {
+  id: serial("id").primaryKey(),
+  courseId: integer("course_id").references(() => courses.id, {
+    onDelete: "cascade",
+  }),
+  userId: text("user_id"),
+  visitorToken: varchar("visitor_token"),
+  toolType: text("tool_type").notNull(),
+  toolName: text("tool_name").notNull(),
+  formData: jsonb("form_data").notNull(),
+  content: text("content").notNull(),
+  isApproved: boolean("is_approved").default(false).notNull(),
+  createdAt: timestamp("created_at")
+    .default(sql`CURRENT_TIMESTAMP`)
+    .notNull(),
+});
+
+export type GeneratedContent = typeof generatedContent.$inferSelect;
+
 // Document Accessibility Conversions table
 export const conversions = pgTable("conversions", {
   id: serial("id").primaryKey(),
