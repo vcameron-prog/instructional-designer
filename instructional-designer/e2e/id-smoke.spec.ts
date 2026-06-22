@@ -142,6 +142,13 @@ test.describe("Library page — no conversions card", () => {
 // Test 3 — Converter link uses VITE_CONVERTER_APP_URL
 // ===========================================================================
 
+// Single source of truth for the production converter URL.
+// This value MUST match VITE_CONVERTER_APP_URL in both:
+//   - instructional-designer/.replit  (standalone deploy)
+//   - .replit (monorepo dev run)
+// If either drifts from this constant, this test will fail CI.
+const EXPECTED_CONVERTER_URL = "https://bsu-accessibility-tool.replit.app";
+
 test.describe("Landing page — Accessibility Converter link", () => {
   test("card-pdf-accessibility is visible and configured with a real URL", async ({ page }) => {
     await page.goto("/");
@@ -183,6 +190,17 @@ test.describe("Landing page — Accessibility Converter link", () => {
     // The URL must not be the fallback "#"
     expect(openedUrl, "window.open must receive a real URL, not '#'").not.toBe("#");
     expect(openedUrl, "window.open URL must not be empty").toBeTruthy();
+
+    // The URL must match the exact production URL defined in both .replit files.
+    // If either instructional-designer/.replit or the root .replit drifts from
+    // EXPECTED_CONVERTER_URL, this assertion will fail and surface the mismatch.
+    expect(
+      openedUrl,
+      `window.open URL must equal the production converter URL.\n` +
+      `Expected: ${EXPECTED_CONVERTER_URL}\n` +
+      `Received: ${openedUrl}\n` +
+      `Update EXPECTED_CONVERTER_URL here AND sync both .replit files.`,
+    ).toBe(EXPECTED_CONVERTER_URL);
   });
 });
 
