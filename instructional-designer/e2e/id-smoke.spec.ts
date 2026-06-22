@@ -11,6 +11,9 @@ import { test, expect } from "@playwright/test";
  *  2. Library page loads without errors and has no conversions card.
  *  3. VITE_CONVERTER_APP_URL is set and the landing-page converter link
  *     renders with the correct URL (not "#").
+ *  4. Course creation form submits successfully and lands on the tools page.
+ *  5. Quick-tool (assignment) form fills required fields, generates content
+ *     (API mocked), and the result page renders without errors.
  *
  * Authentication (where required) is injected via dev-only endpoints so
  * no real OIDC flow is needed.
@@ -138,6 +141,7 @@ test.describe("Library page — no conversions card", () => {
 // ===========================================================================
 // Test 3 — Converter link uses VITE_CONVERTER_APP_URL
 // ===========================================================================
+
 test.describe("Landing page — Accessibility Converter link", () => {
   test("card-pdf-accessibility is visible and configured with a real URL", async ({ page }) => {
     await page.goto("/");
@@ -179,5 +183,154 @@ test.describe("Landing page — Accessibility Converter link", () => {
     // The URL must not be the fallback "#"
     expect(openedUrl, "window.open must receive a real URL, not '#'").not.toBe("#");
     expect(openedUrl, "window.open URL must not be empty").toBeTruthy();
+  });
+});
+
+// ===========================================================================
+// Test 4 — Course creation lands on the tools page
+// ===========================================================================
+test.describe("Course creation — form submits and lands on tools page", () => {
+  test.beforeEach(async ({ page }) => {
+    await loginAsUser(page);
+  });
+
+  test("fills course form and navigates to the course tools page", async ({ page }) => {
+    await page.goto("/new-course");
+    await expect(page).toHaveURL(/\/new-course/, { timeout: 10_000 });
+
+    // Fill all required fields
+    await page.getByTestId("input-course-name").fill("E2E Test Course");
+    await page.getByTestId("input-course-number").fill("TEST 101");
+
+    // Course level select
+    await page.getByTestId("select-course-level").click();
+    await page.getByRole("option", { name: "Undergraduate - 100 level" }).click();
+
+    // Credits select
+    await page.getByTestId("select-credits").click();
+    await page.getByRole("option", { name: "3" }).click();
+
+    // Semester type select
+    await page.getByTestId("select-semester-type").click();
+    await page.getByRole("option", { name: "Fall" }).click();
+
+    // Semester year select — pick the first available year
+    await page.getByTestId("select-semester-year").click();
+    await page.getByRole("option").first().click();
+
+    await page.getByTestId("input-instructor").fill("E2E Instructor");
+    await page.getByTestId("input-department").fill("E2E Department");
+
+    await page.getByTestId("textarea-description").fill(
+      "This is a smoke-test course created by the E2E suite to verify the creation flow.",
+    );
+    await page.getByTestId("textarea-outcomes").fill(
+      "Students will demonstrate understanding of the course material.",
+    );
+
+    // Submit the form
+    await page.getByTestId("button-submit").click();
+
+    // After a successful create the app navigates to /course/:id/tools
+    await expect(page, "should land on the course tools page").toHaveURL(
+      /\/course\/\d+\/tools/,
+      { timeout: 15_000 },
+    );
+
+    // The tools page shows a back-home button as its persistent chrome
+    await expect(
+      page.getByTestId("button-back-home"),
+      "tools page back-home button is visible",
+    ).toBeVisible({ timeout: 10_000 });
+  });
+});
+
+// ===========================================================================
+// Test 5 — Quick-tool form generates content and result page renders
+// ===========================================================================
+test.describe("Quick-tool — assignment form generates content", () => {
+  test.beforeEach(async ({ page }) => {
+    await loginAsUser(page);
+  });
+
+  test("fills assignment form, mocks generation, and result page renders content", async ({
+    page,
+  }) => {
+    // ---------------------------------------------------------------------------
+    // Mock the AI generation endpoint so the test is fast and deterministic.
+    // The route handler returns a minimal GeneratedContent object; a second mock
+    // covers the subsequent fetch for that same record on the result page.
+    // ---------------------------------------------------------------------------
+    const MOCK_ID = 88888;
+    const mockContent = {
+      id: MOCK_ID,
+      courseId: null,
+      userId: "e2e-user-001",
+      visitorToken: null,
+      toolType: "assignment",
+      toolName: "Assignment",
+      formData: {},
+      content:
+        "## Overview\n\nThis is a smoke-test assignment generated by the E2E suite.\n\n## Learning Objectives\n\nStudents will understand the core concepts.",
+      isApproved: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    await page.route("**/api/generate-standalone", async (route) => {
+      await route.fulfill({
+        status: 201,
+        contentType: "application/json",
+        body: JSON.stringify(mockContent),
+      });
+    });
+
+    await page.route(`**/api/standalone-content/${MOCK_ID}`, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(mockContent),
+      });
+    });
+
+    // Navigate to quick tools and pick the assignment card
+    await page.goto("/quick-tools");
+    await expect(
+      page.getByTestId("card-quick-tool-assignment"),
+      "assignment quick-tool card is visible",
+    ).toBeVisible({ timeout: 10_000 });
+    await page.getByTestId("card-quick-tool-assignment").click();
+
+    await expect(page, "navigates to assignment tool form").toHaveURL(
+      /\/quick-tools\/assignment/,
+      { timeout: 10_000 },
+    );
+
+    // Fill required fields
+    await page.getByTestId("select-assignmentType").click();
+    await page.getByRole("option", { name: "Essay/Paper" }).click();
+
+    await page.getByTestId("textarea-learningObjectives").fill(
+      "Students will analyze and synthesize primary source materials.",
+    );
+
+    await page.getByTestId("select-duration").click();
+    await page.getByRole("option", { name: "1 week" }).click();
+
+    // Submit — the mocked endpoint responds immediately
+    await page.getByTestId("button-generate").click();
+
+    // Should navigate to the result page for the mocked content id
+    await expect(page, "lands on result page for mocked content").toHaveURL(
+      new RegExp(`/quick-tools/result/${MOCK_ID}`),
+      { timeout: 15_000 },
+    );
+
+    // The copy button is rendered only once content has loaded — its presence
+    // confirms the result page rendered successfully without errors.
+    await expect(
+      page.getByTestId("button-copy"),
+      "copy button is visible on result page — content loaded without errors",
+    ).toBeVisible({ timeout: 10_000 });
   });
 });
