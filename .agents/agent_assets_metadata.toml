@@ -12,3 +12,9 @@ id = "z4WAbtsUWYJXQqCevoMzO"
 uri = "file://accessibility-converter-code.tar.gz"
 type = "unspecified"
 title = "Accessibility Converter - All Code Files"
+
+[[outputs]]
+id = "ZgMHAeznr5rEdxaYbFy4n"
+uri = "file://id-app.tar.gz"
+type = "unspecified"
+title = "Instructional Designer App (id-app.tar.gz)"
