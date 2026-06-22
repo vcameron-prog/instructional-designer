@@ -385,6 +385,10 @@ export default function LandingPage() {
           )}
         </div>
 
+        <p className="text-xs text-muted-foreground text-center max-w-2xl mx-auto mt-6">
+          This tool improves document accessibility but does not guarantee full WCAG 2.1 compliance. Automated remediation is a starting point. Only a human reviewer can confirm that a document is genuinely accessible. Each institution is responsible for verifying its own content.
+        </p>
+
       </div>
       <PoweredByFooter />
     </main>
