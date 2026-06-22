@@ -258,6 +258,56 @@ test.describe("Outcome edit flow", () => {
   });
 
   /**
+   * 500 save path: when POST /api/outcomes returns a server error, the UI shows
+   * the "Could not save outcome" destructive toast.
+   */
+  test("saving a custom outcome that returns 500 shows 'Could not save outcome' toast", async ({
+    page,
+    context,
+  }) => {
+    const sub = `outcome-save-500-e2e-${uid()}`;
+    const email = `${sub}@bridgew.edu`;
+
+    await loginAs(context, sub, email);
+
+    await page.goto(`${BASE}/new-course`);
+
+    const browseBtn = page.getByTestId("button-browse-outcome-library");
+    await expect(browseBtn).toBeVisible({ timeout: 15_000 });
+    await browseBtn.click();
+
+    const myOutcomesTab = page.getByTestId("tab-my-outcomes");
+    await expect(myOutcomesTab).toBeVisible({ timeout: 5_000 });
+    await myOutcomesTab.click();
+
+    // Intercept POST /api/outcomes to simulate a server-side failure.
+    await page.route("**/api/outcomes", async (route) => {
+      if (route.request().method() === "POST") {
+        await route.fulfill({
+          status: 500,
+          contentType: "application/json",
+          body: JSON.stringify({ message: "Internal server error" }),
+        });
+      } else {
+        await route.continue();
+      }
+    });
+
+    const customInput = page.getByTestId("input-custom-outcome");
+    await expect(customInput).toBeVisible({ timeout: 5_000 });
+    await customInput.fill("Outcome that will fail to save");
+
+    const saveBtn = page.getByTestId("button-save-custom-outcome");
+    await expect(saveBtn).toBeVisible();
+    await saveBtn.click();
+
+    // The error toast must appear.
+    await expect(
+      page.getByText("Could not save outcome").first(),
+    ).toBeVisible({ timeout: 10_000 });
+  });
+
+  /**
    * 404 delete path: when the DELETE endpoint returns 404 (item already removed
    * by another session), the UI shows the "Outcome was already removed" toast
    * and the item disappears from the My Outcomes list after the query is
