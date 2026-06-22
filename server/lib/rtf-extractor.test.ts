@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "fs";
 import { join } from "path";
 import iconv from "iconv-lite";
-import { extractRtfContent, stripRtfFallback, detectCodepage } from "./rtf-extractor.js";
+import { extractRtfContent, stripRtfFallback, detectCodepage, buildFontEncodingMap } from "./rtf-extractor.js";
 
 const fixturesDir = join(import.meta.dirname, "fixtures");
 
@@ -480,6 +480,193 @@ describe("stripRtfFallback — regex fallback path", () => {
 
     it("returns an empty string for completely empty input", () => {
       expect(stripRtfFallback("")).toBe("");
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildFontEncodingMap — direct unit tests (no rtf-parser overhead)
+// ---------------------------------------------------------------------------
+
+describe("buildFontEncodingMap — direct unit tests", () => {
+  describe("single-charset entry", () => {
+    it("maps font 0 with fcharset0 to windows-1252", () => {
+      const rtf = `{\\rtf1\\ansi\\ansicpg1252\\deff0{\\fonttbl{\\f0\\froman\\fcharset0 Times New Roman;}}}`;
+      const map = buildFontEncodingMap(rtf);
+      expect(map.get(0)).toBe("windows-1252");
+    });
+
+    it("maps font 0 with fcharset128 to Shift_JIS", () => {
+      const rtf = `{\\rtf1{\\fonttbl{\\f0\\fnil\\fcharset128 MS Mincho;}}}`;
+      const map = buildFontEncodingMap(rtf);
+      expect(map.get(0)).toBe("Shift_JIS");
+    });
+
+    it("maps font 1 with fcharset129 to EUC-KR", () => {
+      const rtf = `{\\rtf1{\\fonttbl{\\f1\\fnil\\fcharset129 Batang;}}}`;
+      const map = buildFontEncodingMap(rtf);
+      expect(map.get(1)).toBe("EUC-KR");
+    });
+
+    it("maps font 2 with fcharset134 to GBK", () => {
+      const rtf = `{\\rtf1{\\fonttbl{\\f2\\fnil\\fcharset134 SimSun;}}}`;
+      const map = buildFontEncodingMap(rtf);
+      expect(map.get(2)).toBe("GBK");
+    });
+
+    it("maps font 3 with fcharset136 to Big5", () => {
+      const rtf = `{\\rtf1{\\fonttbl{\\f3\\fnil\\fcharset136 MingLiU;}}}`;
+      const map = buildFontEncodingMap(rtf);
+      expect(map.get(3)).toBe("Big5");
+    });
+
+    it("maps font 0 with fcharset204 to windows-1251 (Cyrillic)", () => {
+      const rtf = `{\\rtf1{\\fonttbl{\\f0\\fnil\\fcharset204 Arial;}}}`;
+      const map = buildFontEncodingMap(rtf);
+      expect(map.get(0)).toBe("windows-1251");
+    });
+
+    it("maps font 0 with fcharset238 to windows-1250 (Eastern European)", () => {
+      const rtf = `{\\rtf1{\\fonttbl{\\f0\\fnil\\fcharset238 Arial;}}}`;
+      const map = buildFontEncodingMap(rtf);
+      expect(map.get(0)).toBe("windows-1250");
+    });
+
+    it("maps font 0 with fcharset255 to windows-1252 (OEM alias)", () => {
+      const rtf = `{\\rtf1{\\fonttbl{\\f0\\fnil\\fcharset255 Arial;}}}`;
+      const map = buildFontEncodingMap(rtf);
+      expect(map.get(0)).toBe("windows-1252");
+    });
+
+    it("returns a map with exactly one entry for a single-font RTF", () => {
+      const rtf = `{\\rtf1{\\fonttbl{\\f0\\fnil\\fcharset128 MS Mincho;}}}`;
+      const map = buildFontEncodingMap(rtf);
+      expect(map.size).toBe(1);
+    });
+  });
+
+  describe("multiple entries", () => {
+    it("maps all fonts when fonttbl has multiple entries with different charsets", () => {
+      const rtf =
+        `{\\rtf1\\ansi\\ansicpg932\\deff0\n` +
+        `{\\fonttbl\n` +
+        `{\\f0\\froman\\fcharset0 Times New Roman;}\n` +
+        `{\\f1\\fnil\\fcharset128 MS Mincho;}\n` +
+        `{\\f2\\fnil\\fcharset129 Batang;}\n` +
+        `}}`;
+      const map = buildFontEncodingMap(rtf);
+      expect(map.get(0)).toBe("windows-1252");
+      expect(map.get(1)).toBe("Shift_JIS");
+      expect(map.get(2)).toBe("EUC-KR");
+      expect(map.size).toBe(3);
+    });
+
+    it("maps CJK and non-CJK fonts together in the same fonttbl", () => {
+      const rtf =
+        `{\\rtf1{\\fonttbl` +
+        `{\\f0\\fnil\\fcharset134 SimSun;}` +
+        `{\\f1\\fnil\\fcharset136 MingLiU;}` +
+        `{\\f2\\froman\\fcharset0 Times New Roman;}` +
+        `}}`;
+      const map = buildFontEncodingMap(rtf);
+      expect(map.get(0)).toBe("GBK");
+      expect(map.get(1)).toBe("Big5");
+      expect(map.get(2)).toBe("windows-1252");
+      expect(map.size).toBe(3);
+    });
+
+    it("handles large font numbers correctly", () => {
+      const rtf =
+        `{\\rtf1{\\fonttbl` +
+        `{\\f10\\fnil\\fcharset128 MS Mincho;}` +
+        `{\\f99\\fnil\\fcharset129 Batang;}` +
+        `}}`;
+      const map = buildFontEncodingMap(rtf);
+      expect(map.get(10)).toBe("Shift_JIS");
+      expect(map.get(99)).toBe("EUC-KR");
+      expect(map.size).toBe(2);
+    });
+  });
+
+  describe("unknown charset", () => {
+    it("skips entries whose charset value is not in the fcharset lookup table", () => {
+      const rtf = `{\\rtf1{\\fonttbl{\\f0\\fnil\\fcharset200 Unknown;}}}`;
+      const map = buildFontEncodingMap(rtf);
+      expect(map.has(0)).toBe(false);
+      expect(map.size).toBe(0);
+    });
+
+    it("skips charset 130 whose codepage (1361 Johab) has no iconv-lite mapping", () => {
+      const rtf = `{\\rtf1{\\fonttbl{\\f0\\fnil\\fcharset130 Johab;}}}`;
+      const map = buildFontEncodingMap(rtf);
+      expect(map.has(0)).toBe(false);
+    });
+
+    it("skips charset 222 whose codepage (874 Thai) has no iconv-lite mapping", () => {
+      const rtf = `{\\rtf1{\\fonttbl{\\f0\\fnil\\fcharset222 Tahoma;}}}`;
+      const map = buildFontEncodingMap(rtf);
+      expect(map.has(0)).toBe(false);
+    });
+
+    it("returns an empty map when the RTF has no fonttbl", () => {
+      const rtf = `{\\rtf1\\ansi\\ansicpg1252\\deff0 Hello World}`;
+      const map = buildFontEncodingMap(rtf);
+      expect(map.size).toBe(0);
+    });
+
+    it("returns an empty map for an empty string", () => {
+      const map = buildFontEncodingMap("");
+      expect(map.size).toBe(0);
+    });
+  });
+
+  describe("mixed known/unknown entries", () => {
+    it("includes known entries and skips unknown ones in the same fonttbl", () => {
+      const rtf =
+        `{\\rtf1{\\fonttbl` +
+        `{\\f0\\fnil\\fcharset128 MS Mincho;}` +
+        `{\\f1\\fnil\\fcharset200 Unknown;}` +
+        `{\\f2\\fnil\\fcharset129 Batang;}` +
+        `{\\f3\\fnil\\fcharset130 Johab;}` +
+        `}}`;
+      const map = buildFontEncodingMap(rtf);
+      expect(map.get(0)).toBe("Shift_JIS");
+      expect(map.has(1)).toBe(false);
+      expect(map.get(2)).toBe("EUC-KR");
+      expect(map.has(3)).toBe(false);
+      expect(map.size).toBe(2);
+    });
+
+    it("handles a fonttbl where all entries have unknown charsets, returning an empty map", () => {
+      const rtf =
+        `{\\rtf1{\\fonttbl` +
+        `{\\f0\\fnil\\fcharset200 A;}` +
+        `{\\f1\\fnil\\fcharset201 B;}` +
+        `{\\f2\\fnil\\fcharset202 C;}` +
+        `}}`;
+      const map = buildFontEncodingMap(rtf);
+      expect(map.size).toBe(0);
+    });
+
+    it("uses the last matched entry for a repeated font number when both are known", () => {
+      const rtf =
+        `{\\rtf1{\\fonttbl` +
+        `{\\f0\\fnil\\fcharset128 First;}` +
+        `{\\f0\\fnil\\fcharset129 Second;}` +
+        `}}`;
+      const map = buildFontEncodingMap(rtf);
+      expect(map.get(0)).toBe("EUC-KR");
+    });
+
+    it("does not populate the map with a charset not in FCHARSET_TO_CODEPAGE even when other entries succeed", () => {
+      const rtf =
+        `{\\rtf1{\\fonttbl` +
+        `{\\f0\\fnil\\fcharset0 Arial;}` +
+        `{\\f1\\fnil\\fcharset999 FakeFont;}` +
+        `}}`;
+      const map = buildFontEncodingMap(rtf);
+      expect(map.get(0)).toBe("windows-1252");
+      expect(map.has(1)).toBe(false);
     });
   });
 });

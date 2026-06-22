@@ -108,7 +108,7 @@ export function detectCodepage(rtf: string): CodepageDetection {
  *
  * We extract every \fN ... \fcharsetM pairing within the same brace group.
  */
-function buildFontEncodingMap(rtf: string): Map<number, string> {
+export function buildFontEncodingMap(rtf: string): Map<number, string> {
   const map = new Map<number, string>();
   // Match \fN followed by optional RTF keywords, then \fcharsetM — all within
   // the same font entry (no braces or semicolons in between).
