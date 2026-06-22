@@ -2950,8 +2950,8 @@ export default function PdfConversion() {
                                 <button
                                   onClick={() => {
                                     const copyText = issue.title
-                                      ? `${issue.title}: ${noFixReasons[i]}`
-                                      : noFixReasons[i];
+                                      ? `Manual fix needed — ${issue.title}: ${noFixReasons[i]}`
+                                      : `Manual fix needed: ${noFixReasons[i]}`;
                                     navigator.clipboard.writeText(copyText).then(() => {
                                       setCopiedNoFixKeys((prev) => {
                                         const next = new Set(prev);
