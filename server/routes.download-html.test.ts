@@ -174,7 +174,7 @@ describe("GET /api/conversions/:id/download — invalid ID guard", () => {
     const res = await request(app).get("/api/conversions/abc/download");
 
     expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/invalid id/i);
+    expect(res.body.error).toBe("Invalid id");
     expect(mockDbSelectWhere).not.toHaveBeenCalled();
   });
 });

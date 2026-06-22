@@ -204,7 +204,7 @@ describe("GET /api/conversions/:id/download-xlsx — error cases", () => {
     const res = await request(app).get("/api/conversions/abc/download-xlsx");
 
     expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/invalid id/i);
+    expect(res.body.error).toBe("Invalid id");
     expect(mockDbSelectWhere).not.toHaveBeenCalled();
     expect(mockBuildXlsx).not.toHaveBeenCalled();
   });
