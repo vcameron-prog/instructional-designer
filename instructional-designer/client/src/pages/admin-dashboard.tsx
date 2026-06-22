@@ -127,6 +127,12 @@ interface Metrics {
     lifetimeCount: number;
     thisMonthCount: number;
   };
+  sessionSaveFail: {
+    count: number;
+    lastAt: string | null;
+    lifetimeCount: number;
+    thisMonthCount: number;
+  };
   rateLimitCleanup: {
     lastRunAt: string | null;
     lastErrorAt: string | null;
@@ -873,6 +879,87 @@ export default function AdminDashboard() {
                           : "—"}
                       </p>
                       <p className="text-sm text-muted-foreground">Most recent retry</p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })()}
+
+        {(() => {
+          const failCount = metrics?.sessionSaveFail?.count ?? 0;
+          const hasFailures = failCount > 0;
+
+          return (
+            <Card
+              className={`mb-8 ${hasFailures ? "border-amber-400 dark:border-amber-600" : ""}`}
+              data-testid="card-session-save-fail"
+            >
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Shield className={`w-5 h-5 ${hasFailures ? "text-amber-500" : ""}`} />
+                  Session Save Failures
+                  {hasFailures && (
+                    <span
+                      className="ml-1 inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-950 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300"
+                      data-testid="badge-session-save-warning"
+                    >
+                      Warning
+                    </span>
+                  )}
+                </CardTitle>
+                <CardDescription>
+                  Times <code className="font-mono text-xs">session.save()</code> failed after a token refresh. A non-zero or rising count indicates the PostgreSQL session store may be degraded.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {hasFailures && (
+                  <div
+                    className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-300 px-4 py-3 mb-4 text-sm"
+                    role="alert"
+                    data-testid="alert-session-save-fail"
+                  >
+                    <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <span>
+                      Session save failures detected ({failCount} since last restart). Users may be receiving in-memory-only sessions. Check that the PostgreSQL session store is healthy and check server logs for details.
+                    </span>
+                  </div>
+                )}
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="flex items-start gap-3" data-testid="stat-session-save-lifetime">
+                    <div className="w-9 h-9 rounded-lg bg-violet-100 dark:bg-violet-950 flex items-center justify-center flex-shrink-0">
+                      <Shield className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-foreground">
+                        {metrics?.sessionSaveFail?.lifetimeCount ?? "—"}
+                      </p>
+                      <p className="text-sm text-muted-foreground">Lifetime failures</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3" data-testid="stat-session-save-month">
+                    <div className="w-9 h-9 rounded-lg bg-blue-100 dark:bg-blue-950 flex items-center justify-center flex-shrink-0">
+                      <TrendingUp className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-foreground">
+                        {metrics?.sessionSaveFail?.thisMonthCount ?? "—"}
+                      </p>
+                      <p className="text-sm text-muted-foreground">This month</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3" data-testid="stat-session-save-last">
+                    <div className="w-9 h-9 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center flex-shrink-0">
+                      <Clock className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">
+                        {metrics?.sessionSaveFail?.lastAt
+                          ? format(new Date(metrics.sessionSaveFail.lastAt), "MMM d, h:mm a")
+                          : "Never"}
+                      </p>
+                      <p className="text-sm text-muted-foreground">Most recent failure</p>
                     </div>
                   </div>
                 </div>
