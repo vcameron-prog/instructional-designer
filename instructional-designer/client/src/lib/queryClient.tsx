@@ -90,3 +90,7 @@ export const queryClient = new QueryClient({
     },
   },
 });
+
+if (typeof window !== "undefined" && import.meta.env.DEV) {
+  (window as any).__rqClient = queryClient;
+}

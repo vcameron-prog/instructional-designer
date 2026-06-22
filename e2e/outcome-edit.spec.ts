@@ -444,6 +444,73 @@ test.describe("Outcome edit flow", () => {
   });
 
   /**
+   * Stale-edit guard: when an outcome is removed server-side while the user has
+   * its inline-edit field open, the edit field must close and the
+   * "Outcome was already removed" toast must appear.
+   *
+   * Mechanism: the useEffect in OutcomeLibraryModal watches `savedOutcomes` and
+   * `editingId`; when the refetched list no longer contains `editingId` it
+   * clears the edit state and fires the toast.  We trigger the refetch by
+   * calling queryClient.invalidateQueries({ queryKey: ["/api/outcomes"] }) via
+   * window.__rqClient (exposed in dev mode by queryClient.tsx).  A window-focus
+   * event is not sufficient because the app has refetchOnWindowFocus:false and
+   * staleTime:Infinity.
+   */
+  test("outcome removed mid-edit: edit field closes and 'Outcome was already removed' toast appears", async ({
+    page,
+    context,
+  }) => {
+    const sub = `outcome-stale-edit-e2e-${uid()}`;
+    const email = `${sub}@bridgew.edu`;
+
+    await loginAs(context, sub, email);
+
+    const outcomeText = `Stale edit test outcome ${uid()}`;
+    const outcomeId = await createOutcome(context, outcomeText);
+
+    await page.goto(`${BASE}/new-course`);
+
+    const browseBtn = page.getByTestId("button-browse-outcome-library");
+    await expect(browseBtn).toBeVisible({ timeout: 15_000 });
+    await browseBtn.click();
+
+    const myOutcomesTab = page.getByTestId("tab-my-outcomes");
+    await expect(myOutcomesTab).toBeVisible({ timeout: 5_000 });
+    await myOutcomesTab.click();
+
+    const outcomeRow = page.getByTestId(`my-outcome-row-${outcomeId}`);
+    await expect(outcomeRow).toBeVisible({ timeout: 10_000 });
+
+    // Enter inline-edit mode.
+    const editBtn = page.getByTestId(`button-edit-outcome-${outcomeId}`);
+    await expect(editBtn).toBeVisible();
+    await editBtn.click();
+
+    const editInput = page.getByTestId(`input-edit-outcome-${outcomeId}`);
+    await expect(editInput).toBeVisible({ timeout: 5_000 });
+
+    // While the edit field is open, delete the outcome from a "parallel session"
+    // by calling the API directly — the browser page is unaware of this yet.
+    await context.request.delete(`${BASE}/api/outcomes/${outcomeId}`);
+
+    // Force React Query to re-fetch /api/outcomes by calling invalidateQueries
+    // through the queryClient exposed on window.__rqClient.  The app has
+    // staleTime:Infinity and refetchOnWindowFocus:false so a focus event is not
+    // sufficient; explicit invalidation is the reliable trigger.
+    await page.evaluate(() =>
+      (window as any).__rqClient?.invalidateQueries({ queryKey: ["/api/outcomes"] })
+    );
+
+    // The edit input must disappear because the guard clears editingId.
+    await expect(editInput).not.toBeVisible({ timeout: 10_000 });
+
+    // The toast must appear to inform the user their in-progress edit was discarded.
+    await expect(
+      page.getByText("Outcome was already removed"),
+    ).toBeVisible({ timeout: 10_000 });
+  });
+
+  /**
    * 404 delete path: when the DELETE endpoint returns 404 (item already removed
    * by another session), the UI shows the "Outcome was already removed" toast
    * and the item disappears from the My Outcomes list after the query is
