@@ -340,7 +340,7 @@ export default function PdfUpload() {
               FAQ
             </button>
             <HeaderControls
-              showHome={true}
+              showHome={false}
               showLibrary={false}
               showHelp={false}
             />
