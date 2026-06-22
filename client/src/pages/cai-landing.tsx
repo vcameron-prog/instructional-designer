@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Shield, ArrowRight, Globe, Building2, GraduationCap, Accessibility } from "lucide-react";
+import { Shield, ArrowRight, Globe, Building2, GraduationCap, Accessibility, Sparkles } from "lucide-react";
 import { HeaderControls } from "@/components/header-controls";
 import { usePageTitle } from "@/hooks/use-page-title";
 import caiLogoWhite from "@assets/Center_for_AI_Apparel_&_Promotional_Items-WHITE_(1)_1775653892158.png";
@@ -11,6 +11,9 @@ export default function CaiLandingPage() {
   const [, navigate] = useLocation();
   useEffect(() => { window.scrollTo(0, 0); }, []);
   usePageTitle("Massachusetts Accessibility Converter");
+
+  const idAppUrl = import.meta.env.VITE_ID_APP_URL;
+  const hasIdAppLink = !!idAppUrl && idAppUrl !== "#";
 
   return (
     <main id="main-content" tabIndex={-1} className="min-h-screen bg-background">
@@ -131,6 +134,44 @@ export default function CaiLandingPage() {
           </p>
         </div>
       </section>
+
+      {/* Link to Instructional Designer — only shown when the URL is configured and not a placeholder */}
+      {hasIdAppLink && (
+        <section aria-labelledby="id-app-heading" className="py-12 px-4 bg-background">
+          <div className="container mx-auto max-w-4xl">
+            <Card
+              className="group cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl bg-card border border-primary/20"
+              onClick={() => window.open(idAppUrl, "_blank", "noopener noreferrer")}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); window.open(idAppUrl, "_blank", "noopener noreferrer"); } }}
+              tabIndex={0}
+              role="button"
+              aria-label="BSU Instructional Designer — AI-powered course material creation"
+              data-testid="card-id-app-link"
+            >
+              <CardContent className="p-8 flex flex-col sm:flex-row items-center sm:items-start gap-6">
+                <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
+                  <Sparkles className="w-10 h-10 text-white" />
+                </div>
+                <div className="text-center sm:text-left flex-1">
+                  <div className="flex justify-center sm:justify-start mb-2">
+                    <div className="inline-flex items-center gap-1.5 bg-primary/10 text-primary border border-primary/20 rounded-full px-3 py-1 text-xs font-semibold">
+                      <GraduationCap className="w-3.5 h-3.5" aria-hidden="true" />
+                      Also from BSU Center for AI
+                    </div>
+                  </div>
+                  <h2 id="id-app-heading" className="text-2xl font-bold text-foreground mb-2">BSU Instructional Designer</h2>
+                  <p className="text-base text-muted-foreground mb-4" style={{ textWrap: "balance" }}>
+                    AI-powered tool for BSU faculty to create UDL-aligned assignments, rubrics, syllabi, and complete course materials.
+                  </p>
+                  <Button variant="outline" className="gap-2" data-testid="button-id-app-link">
+                    Visit Instructional Designer <ArrowRight className="w-4 h-4" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </section>
+      )}
 
       <footer className="py-10 px-4 bg-background border-t border-border" data-testid="footer-cai">
         <div className="container mx-auto max-w-2xl text-center">
