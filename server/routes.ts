@@ -250,7 +250,7 @@ export async function registerRoutes(
 
 
     const cleanupMetrics = getRateLimitCleanupMetrics();
-    const sessionSaveFail = getSessionSaveFailMetrics();
+    const sessionSaveFail = await getSessionSaveFailMetrics();
 
     res.json({
       aiFixRetry: {
@@ -263,6 +263,8 @@ export async function registerRoutes(
       sessionSaveFail: {
         count: sessionSaveFail.count,
         lastAt: sessionSaveFail.lastAt,
+        lifetimeCount: sessionSaveFail.lifetimeCount,
+        thisMonthCount: sessionSaveFail.thisMonthCount,
       },
       rateLimitCleanup: {
         lastRunAt: cleanupMetrics.lastRunAt,

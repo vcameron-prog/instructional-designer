@@ -7,12 +7,84 @@ import type { Express, RequestHandler } from "express";
 import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
 import { authStorage } from "./storage";
+import { db } from "../../db";
+import { appMetrics } from "@shared/schema";
+import { sql } from "drizzle-orm";
 
 let sessionSaveFailCount = 0;
 let sessionSaveFailLastAt: string | null = null;
 
-export function getSessionSaveFailMetrics(): { count: number; lastAt: string | null } {
-  return { count: sessionSaveFailCount, lastAt: sessionSaveFailLastAt };
+// DB row keys used in the app_metrics table.
+// Exported so tests can reference the canonical value instead of repeating
+// the string literal — a rename in source will cause a compile-time mismatch.
+export const SESSION_SAVE_FAIL_METRIC_KEY = "session_save_fail";
+
+/** Returns the app_metrics monthly key for a given Date (YYYY-MM, UTC). */
+function monthKeyFor(date: Date): string {
+  const yyyy = date.getUTCFullYear();
+  const mm = String(date.getUTCMonth() + 1).padStart(2, "0");
+  return `${SESSION_SAVE_FAIL_METRIC_KEY}.month.${yyyy}-${mm}`;
+}
+
+export async function getSessionSaveFailMetrics(): Promise<{
+  count: number;
+  lastAt: string | null;
+  lifetimeCount: number;
+  thisMonthCount: number;
+}> {
+  const currentMonthKey = monthKeyFor(new Date());
+  try {
+    const rows = await db
+      .select()
+      .from(appMetrics)
+      .where(
+        sql`${appMetrics.key} IN (${SESSION_SAVE_FAIL_METRIC_KEY}, ${currentMonthKey})`
+      );
+    const lifetimeRow = rows.find((r) => r.key === SESSION_SAVE_FAIL_METRIC_KEY);
+    const monthRow = rows.find((r) => r.key === currentMonthKey);
+    return {
+      count: sessionSaveFailCount,
+      lastAt: sessionSaveFailLastAt,
+      lifetimeCount: lifetimeRow?.count ?? 0,
+      thisMonthCount: monthRow?.count ?? 0,
+    };
+  } catch {
+    return {
+      count: sessionSaveFailCount,
+      lastAt: sessionSaveFailLastAt,
+      lifetimeCount: sessionSaveFailCount,
+      thisMonthCount: 0,
+    };
+  }
+}
+
+async function persistSessionSaveFail(timestamp: string): Promise<void> {
+  const ts = new Date(timestamp);
+  const mk = monthKeyFor(ts);
+  try {
+    await db
+      .insert(appMetrics)
+      .values({ key: SESSION_SAVE_FAIL_METRIC_KEY, count: 1, lastAt: ts })
+      .onConflictDoUpdate({
+        target: appMetrics.key,
+        set: {
+          count: sql`${appMetrics.count} + 1`,
+          lastAt: ts,
+        },
+      });
+    await db
+      .insert(appMetrics)
+      .values({ key: mk, count: 1, lastAt: ts })
+      .onConflictDoUpdate({
+        target: appMetrics.key,
+        set: {
+          count: sql`${appMetrics.count} + 1`,
+          lastAt: ts,
+        },
+      });
+  } catch (err) {
+    console.warn("[auth] Failed to persist session_save_fail metric to DB:", err);
+  }
 }
 
 const getOidcConfig = memoize(
@@ -68,6 +140,7 @@ async function persistSession(req: Parameters<RequestHandler>[0], user: any): Pr
   } catch (err) {
     sessionSaveFailCount += 1;
     sessionSaveFailLastAt = new Date().toISOString();
+    void persistSessionSaveFail(sessionSaveFailLastAt);
     console.warn(
       `[auth] session.save() failed after token refresh — continuing with in-memory session (sessionSaveFailCount=${sessionSaveFailCount}):`,
       err
