@@ -308,6 +308,42 @@ test.describe("Outcome edit flow", () => {
   });
 
   /**
+   * Happy path: after a successful POST the bookmark button switches to
+   * BookmarkCheck (filled), becomes disabled, and its aria-label changes to
+   * "Already saved to My Outcomes".
+   */
+  test("bookmark button shows saved state (disabled + BookmarkCheck label) after a successful save", async ({
+    page,
+    context,
+  }) => {
+    const sub = `outcome-bookmark-success-e2e-${uid()}`;
+    const email = `${sub}@bridgew.edu`;
+
+    await loginAs(context, sub, email);
+
+    await page.goto(`${BASE}/new-course`);
+
+    const browseBtn = page.getByTestId("button-browse-outcome-library");
+    await expect(browseBtn).toBeVisible({ timeout: 15_000 });
+    await browseBtn.click();
+
+    // Library tab is the default; wait for at least one curated outcome bookmark button.
+    const firstSaveBtn = page.getByTestId(/^button-save-outcome-/).first();
+    await expect(firstSaveBtn).toBeVisible({ timeout: 10_000 });
+
+    // Confirm the button starts enabled with the unsaved aria-label.
+    await expect(firstSaveBtn).not.toBeDisabled();
+    await expect(firstSaveBtn).toHaveAttribute("aria-label", "Save to My Outcomes");
+
+    // Click without any route intercept — the real POST must succeed.
+    await firstSaveBtn.click();
+
+    // After a successful save the button must be disabled and carry the saved label.
+    await expect(firstSaveBtn).toBeDisabled({ timeout: 10_000 });
+    await expect(firstSaveBtn).toHaveAttribute("aria-label", "Already saved to My Outcomes");
+  });
+
+  /**
    * 500 save path (curated library): when POST /api/outcomes returns a server
    * error after clicking the bookmark button on a curated-library outcome, the
    * UI shows the "Could not save outcome" destructive toast.
