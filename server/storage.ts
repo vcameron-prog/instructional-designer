@@ -24,8 +24,8 @@ export interface ContentApprovalResult {
 
 export interface IStorage {
   // Manual Fix Items (per conversion)
-  getManualFixItems(id: number): Promise<{ title: string; reason: string }[] | null>;
-  setManualFixItems(id: number, items: { title: string; reason: string }[]): Promise<void>;
+  getManualFixItems(id: number): Promise<{ title: string; reason: string; criterion?: string }[] | null>;
+  setManualFixItems(id: number, items: { title: string; reason: string; criterion?: string }[]): Promise<void>;
 
   // AI Fix Retry Events
   logAiFixRetryEvent(criterion?: string, title?: string): Promise<void>;
@@ -44,10 +44,10 @@ export class DatabaseStorage implements IStorage {
     if (!row) return null;
     const items = row.manualFixItems;
     if (!Array.isArray(items)) return null;
-    return items as { title: string; reason: string }[];
+    return items as { title: string; reason: string; criterion?: string }[];
   }
 
-  async setManualFixItems(id: number, items: { title: string; reason: string }[]): Promise<void> {
+  async setManualFixItems(id: number, items: { title: string; reason: string; criterion?: string }[]): Promise<void> {
     await db.update(conversions).set({ manualFixItems: items.length > 0 ? items : null }).where(eq(conversions.id, id));
   }
 
