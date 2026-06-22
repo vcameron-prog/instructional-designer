@@ -68,6 +68,7 @@ export function OutcomeLibraryModal({ open, onClose, onAddOutcomes }: OutcomeLib
     if (!stillExists) {
       setEditingId(null);
       setEditingText("");
+      toast({ title: "Outcome was already removed", description: "It has been removed from your list." });
     }
   }, [savedOutcomes, editingId]);
 
