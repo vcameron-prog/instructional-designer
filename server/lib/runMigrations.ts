@@ -34,10 +34,21 @@ export async function runMigrations(): Promise<void> {
       `\n[migration] FATAL: the database reports ${driftResult.extra} more applied migration(s) ` +
         `than the journal tracks (${driftResult.applied} applied, ` +
         `${driftResult.expected.length} in journal).\n\n` +
-        `This means at least one migration file was deleted after being applied to the database.\n` +
+        `This means at least one migration file was deleted after it was applied to the database.\n` +
         `The schema may be in an unknown state. Startup aborted.\n\n` +
-        `To fix: restore the missing migration file(s) or manually reconcile the\n` +
-        `drizzle.__drizzle_migrations table with the current migrations/meta/_journal.json.\n`,
+        `Recovery steps:\n` +
+        `  1. Find the deleted file — run: git log --diff-filter=D --name-only -- "migrations/*.sql"\n` +
+        `     to identify which migration(s) were removed.\n` +
+        `  2. Restore and re-migrate — check out the deleted file from git history\n` +
+        `     (git show <commit>:migrations/<name>.sql > migrations/<name>.sql),\n` +
+        `     restore its entry in migrations/meta/_journal.json, then run:\n` +
+        `       npm run db:migrate\n` +
+        `  3. If the schema change was already rolled back manually — delete the\n` +
+        `     orphaned row from the tracking table instead:\n` +
+        `       DELETE FROM drizzle.__drizzle_migrations\n` +
+        `       WHERE hash = '<hash of the deleted migration>';\n` +
+        `     Verify the hash by comparing the DB table against _journal.json.\n\n` +
+        `Drizzle migration docs: https://orm.drizzle.team/docs/migrations\n`,
     );
     process.exit(1);
   }

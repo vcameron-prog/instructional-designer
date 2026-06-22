@@ -183,8 +183,12 @@ describe("runMigrations – production guard", () => {
 
     const errorArg: string = errorSpy.mock.calls[0][0];
     expect(errorArg).toContain("FATAL");
-    expect(errorArg).toContain("deleted after being applied");
+    expect(errorArg).toContain("deleted after it was applied");
     expect(errorArg).toContain("Startup aborted");
+    expect(errorArg).toContain("Recovery steps");
+    expect(errorArg).toContain("git log --diff-filter=D");
+    expect(errorArg).toContain("drizzle.__drizzle_migrations");
+    expect(errorArg).toContain("https://orm.drizzle.team/docs/migrations");
   });
 });
 
