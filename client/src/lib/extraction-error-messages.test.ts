@@ -5,6 +5,48 @@ import {
   EXTRACTION_ERROR_FALLBACK,
 } from "@shared/extraction-error-messages";
 
+// ---------------------------------------------------------------------------
+// Snapshot tests — pin exact wording so any change causes an explicit failure.
+//
+// WHY: isExtractionError uses a Set built from these strings at module load
+// time. If a message is reworded without updating every consumer the Set will
+// no longer match and the UI will silently show "Remediation Failed" instead
+// of "File Could Not Be Read". These snapshots make that class of regression
+// immediately visible.
+// ---------------------------------------------------------------------------
+
+describe("EXTRACTION_ERROR_MESSAGES snapshot", () => {
+  it("matches the full set of known file-type messages exactly", () => {
+    expect(EXTRACTION_ERROR_MESSAGES).toMatchInlineSnapshot(`
+      {
+        "csv": "This CSV file could not be parsed. Check that it is a valid, well-formed CSV file.",
+        "doc": "This file could not be read. It may be corrupted or in an unsupported variant of the .doc format.",
+        "docx": "This Word document could not be read. It may be corrupted, password-protected, or in an unsupported format.",
+        "epub": "This EPUB file could not be opened. It may be corrupted or not a valid EPUB.",
+        "google-doc": "This Google Doc could not be extracted. It may be in an unsupported format or corrupted.",
+        "google-sheet": "This Google Sheet could not be read. It may be in an unsupported format or corrupted.",
+        "google-slide": "This Google Slides file could not be read. It may be in an unsupported format or corrupted.",
+        "html": "This HTML file could not be parsed. Check that it is a valid HTML document.",
+        "odp": "This OpenDocument Presentation could not be read. It may be corrupted or in an unsupported format.",
+        "ods": "This OpenDocument Spreadsheet could not be read. It may be corrupted or in an unsupported format.",
+        "odt": "This OpenDocument Text file could not be read. It may be corrupted or in an unsupported format.",
+        "pdf": "This PDF could not be read. It may be corrupted, password-protected, or not a valid PDF.",
+        "pptx": "This PowerPoint file could not be read. It may be corrupted, password-protected, or in an unsupported format.",
+        "rtf": "This RTF file could not be read. It may be corrupted or in an unsupported format.",
+        "xlsx": "This Excel spreadsheet could not be read. It may be corrupted, password-protected, or in an unsupported format.",
+      }
+    `);
+  });
+});
+
+describe("EXTRACTION_ERROR_FALLBACK snapshot", () => {
+  it("matches the exact fallback message", () => {
+    expect(EXTRACTION_ERROR_FALLBACK).toMatchInlineSnapshot(
+      `"This file could not be read. It may be corrupted or in an unsupported format."`,
+    );
+  });
+});
+
 describe("isExtractionError", () => {
   describe("known extraction error messages → 'File Could Not Be Read' heading", () => {
     it("returns true for the PDF extraction error message", () => {
