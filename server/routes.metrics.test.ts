@@ -33,7 +33,7 @@ const {
   mockGetAiFixRetryMetrics,
   mockDbSelectWhere,
 } = vi.hoisted(() => ({
-  mockGetSessionSaveFailMetrics: vi.fn().mockReturnValue({ count: 0, lastAt: null }),
+  mockGetSessionSaveFailMetrics: vi.fn().mockResolvedValue({ count: 0, lastAt: null, lifetimeCount: 0, thisMonthCount: 0 }),
   mockRefreshTokenGrant: vi.fn(),
   mockDiscovery: vi.fn(),
   mockUpsertUser: vi.fn(),
@@ -105,7 +105,7 @@ vi.mock("./db", () => ({
       }),
     }),
     delete: (_table: any) => ({ where: () => Promise.resolve(undefined) }),
-    insert: (_table: any) => ({ values: () => Promise.resolve(undefined) }),
+    insert: (_table: any) => ({ values: (_data: any) => ({ onConflictDoUpdate: () => Promise.resolve(undefined) }) }),
   },
 }));
 
@@ -130,6 +130,7 @@ vi.mock("./storage", () => ({
 vi.mock("./lib/accessibility-engine", () => ({
   getDeterministicFixerKeys: () => [],
   getAiFixRetryMetrics: mockGetAiFixRetryMetrics,
+  getPersistAiFixRetryLastFailed: vi.fn().mockReturnValue(null),
   fixComplianceIssue: vi.fn(),
   fixAllAriaRoleMisuse: vi.fn(),
 }));
@@ -282,16 +283,16 @@ describe("GET /api/metrics – sessionSaveFail field", () => {
   });
 
   it("includes sessionSaveFail with count 0 and null lastAt when no failures have occurred", async () => {
-    mockGetSessionSaveFailMetrics.mockReturnValue({ count: 0, lastAt: null });
+    mockGetSessionSaveFailMetrics.mockResolvedValue({ count: 0, lastAt: null, lifetimeCount: 0, thisMonthCount: 0 });
 
     const response = await request(app).get("/api/metrics").expect(200);
 
-    expect(response.body.sessionSaveFail).toEqual({ count: 0, lastAt: null });
+    expect(response.body.sessionSaveFail).toMatchObject({ count: 0, lastAt: null });
   });
 
   it("reports sessionSaveFail.count > 0 and a non-null lastAt when failures have occurred", async () => {
     const failureTimestamp = "2026-06-22T12:00:00.000Z";
-    mockGetSessionSaveFailMetrics.mockReturnValue({ count: 2, lastAt: failureTimestamp });
+    mockGetSessionSaveFailMetrics.mockResolvedValue({ count: 2, lastAt: failureTimestamp, lifetimeCount: 2, thisMonthCount: 2 });
 
     const response = await request(app).get("/api/metrics").expect(200);
 
@@ -300,7 +301,7 @@ describe("GET /api/metrics – sessionSaveFail field", () => {
   });
 
   it("propagates the exact count value returned by getSessionSaveFailMetrics", async () => {
-    mockGetSessionSaveFailMetrics.mockReturnValue({ count: 5, lastAt: "2026-06-01T00:00:00.000Z" });
+    mockGetSessionSaveFailMetrics.mockResolvedValue({ count: 5, lastAt: "2026-06-01T00:00:00.000Z", lifetimeCount: 5, thisMonthCount: 3 });
 
     const response = await request(app).get("/api/metrics").expect(200);
 
@@ -308,7 +309,7 @@ describe("GET /api/metrics – sessionSaveFail field", () => {
   });
 
   it("sessionSaveFail is present alongside the other top-level metrics keys", async () => {
-    mockGetSessionSaveFailMetrics.mockReturnValue({ count: 0, lastAt: null });
+    mockGetSessionSaveFailMetrics.mockResolvedValue({ count: 0, lastAt: null, lifetimeCount: 0, thisMonthCount: 0 });
 
     const response = await request(app).get("/api/metrics").expect(200);
 
@@ -341,11 +342,11 @@ describe("persistSession failure path – sessionSaveFail counter", () => {
     const res = makeRes();
     const next = vi.fn();
 
-    const countBefore = getSessionSaveFailMetrics().count;
+    const countBefore = (await getSessionSaveFailMetrics()).count;
 
     await realIsAuthenticated(req as any, res as any, next);
 
-    const { count, lastAt } = getSessionSaveFailMetrics();
+    const { count, lastAt } = await getSessionSaveFailMetrics();
     expect(count).toBe(countBefore + 1);
     expect(lastAt).not.toBeNull();
   });
@@ -374,11 +375,11 @@ describe("persistSession failure path – sessionSaveFail counter", () => {
     const res = makeRes();
     const next = vi.fn();
 
-    const countBefore = getSessionSaveFailMetrics().count;
+    const countBefore = (await getSessionSaveFailMetrics()).count;
 
     await realIsAuthenticated(req as any, res as any, next);
 
-    expect(getSessionSaveFailMetrics().count).toBe(countBefore);
+    expect((await getSessionSaveFailMetrics()).count).toBe(countBefore);
   });
 
   it("sets lastAt to a recent ISO timestamp after a session.save() failure", async () => {
@@ -391,7 +392,7 @@ describe("persistSession failure path – sessionSaveFail counter", () => {
     );
     await realIsAuthenticated(req as any, makeRes() as any, vi.fn());
 
-    const { lastAt } = getSessionSaveFailMetrics();
+    const { lastAt } = await getSessionSaveFailMetrics();
     expect(lastAt).not.toBeNull();
     const recorded = new Date(lastAt!);
     const after = new Date();
@@ -424,8 +425,8 @@ describe("End-to-end: real persistSession failure appears in GET /api/metrics", 
 
     // Step 2: sync the route's mock spy to reflect the real counter so the
     // metrics endpoint sees the incremented value in the same test flow.
-    const realMetrics = getSessionSaveFailMetrics();
-    mockGetSessionSaveFailMetrics.mockReturnValue(realMetrics);
+    const realMetrics = await getSessionSaveFailMetrics();
+    mockGetSessionSaveFailMetrics.mockResolvedValue(realMetrics);
 
     // Step 3: call GET /api/metrics and verify the counter is exposed
     const app = await buildApp();
