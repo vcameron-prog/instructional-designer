@@ -14,7 +14,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import multer from "multer";
 import { z } from "zod";
 import { db } from "./db";
-import { eq, and, isNull, sql } from "drizzle-orm";
+import { eq, and, isNull, sql, desc, inArray } from "drizzle-orm";
 import { fixHtmlTableCaption, fixHtmlTableThead, editHtmlTableCaption } from "./lib/table-fixers.js";
 import { getDeterministicFixerKeys, getAiFixRetryMetrics } from "./lib/accessibility-engine";
 import {

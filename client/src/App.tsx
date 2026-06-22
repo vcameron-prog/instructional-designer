@@ -35,7 +35,7 @@ function FocusManager() {
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={CaiLandingPage} />
+      <Route path="/" component={PdfUpload} />
       <Route path="/accessibility" component={PdfUpload} />
       <Route path="/pdf-accessibility" component={PdfUpload} />
       <Route path="/pdf-accessibility/history" component={PdfHistory} />
