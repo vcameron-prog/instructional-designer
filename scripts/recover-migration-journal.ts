@@ -2,16 +2,19 @@
 /**
  * recover-migration-journal.ts
  *
- * Ensures every migration in the journal has a tracking record in
- * drizzle.__drizzle_migrations. For any migration whose hash is absent from
- * the tracking table, the script runs the SQL (all migrations in this project
- * use IF NOT EXISTS / IF EXISTS guards, making them idempotent) and inserts
- * the corresponding hash record.
+ * Brings the drizzle.__drizzle_migrations tracking table into a consistent
+ * state relative to the migrations/ journal in two directions:
  *
- * This resolves a production state where some migrations were applied
- * out-of-band (e.g. via drizzle-kit push or the runtime migrator) without
- * their hashes being recorded, causing drizzle-kit migrate to detect an
- * inconsistent ordering and silently refuse to apply the remaining migrations.
+ * 1. FORWARD RECOVERY — for any journal entry whose hash is absent from the
+ *    tracking table, runs the SQL (all migrations in this project use
+ *    IF NOT EXISTS / IF EXISTS guards, making them idempotent) and inserts
+ *    the corresponding hash record.
+ *
+ * 2. ORPHAN CLEANUP — deletes any tracking rows whose hash does NOT match
+ *    any current journal entry.  Orphan rows accumulate when a migration file
+ *    is removed from the repo after being applied (e.g. a no-op placeholder
+ *    that was cleaned up), causing the server's extra-row check to abort
+ *    startup with a false-positive FATAL.
  *
  * Run this BEFORE drizzle-kit migrate so drizzle-kit sees a complete,
  * consistent applied-hash set and can correctly determine which migrations
@@ -43,6 +46,21 @@ const journal = JSON.parse(fs.readFileSync(journalPath, "utf-8")) as {
   entries: Array<{ idx: number; tag: string; when: number }>;
 };
 
+/** Compute SHA-256 of each SQL file that exists on disk. */
+function buildKnownHashes(): Map<string, string> {
+  const map = new Map<string, string>(); // hash → tag
+  for (const entry of journal.entries) {
+    const sqlPath = path.join(migrationsDir, `${entry.tag}.sql`);
+    if (!fs.existsSync(sqlPath)) continue;
+    const content = fs.readFileSync(sqlPath, "utf-8");
+    const hash = crypto.createHash("sha256").update(content).digest("hex");
+    map.set(hash, entry.tag);
+  }
+  return map;
+}
+
+const knownHashes = buildKnownHashes();
+
 const client = await pool.connect();
 try {
   await client.query(`CREATE SCHEMA IF NOT EXISTS drizzle`);
@@ -54,11 +72,34 @@ try {
     )
   `);
 
-  const { rows } = await client.query<{ hash: string }>(
-    `SELECT hash FROM drizzle.__drizzle_migrations`,
+  const { rows: dbRows } = await client.query<{ id: number; hash: string }>(
+    `SELECT id, hash FROM drizzle.__drizzle_migrations`,
   );
-  const appliedHashes = new Set(rows.map((r) => r.hash));
 
+  // ── 1. ORPHAN CLEANUP ────────────────────────────────────────────────────
+  const orphanIds: number[] = [];
+  for (const row of dbRows) {
+    if (!knownHashes.has(row.hash)) {
+      orphanIds.push(row.id);
+    }
+  }
+  if (orphanIds.length > 0) {
+    await client.query(
+      `DELETE FROM drizzle.__drizzle_migrations WHERE id = ANY($1::int[])`,
+      [orphanIds],
+    );
+    console.log(
+      `[recover-journal] Removed ${orphanIds.length} orphan tracking row(s) ` +
+        `(hash not found in any current migration file).`,
+    );
+  }
+
+  // Rebuild the set of applied hashes after cleanup.
+  const appliedHashes = new Set(
+    dbRows.filter((r) => !orphanIds.includes(r.id)).map((r) => r.hash),
+  );
+
+  // ── 2. FORWARD RECOVERY ──────────────────────────────────────────────────
   let recovered = 0;
 
   for (const entry of journal.entries) {
@@ -103,13 +144,17 @@ try {
     console.log(`[recover-journal] ✓ Recorded: ${entry.tag}`);
   }
 
-  if (recovered > 0) {
-    console.log(
-      `[recover-journal] Recovered ${recovered} migration(s). Journal is now consistent.`,
-    );
-  } else {
+  // ── Summary ──────────────────────────────────────────────────────────────
+  if (orphanIds.length === 0 && recovered === 0) {
     console.log(
       `[recover-journal] All migrations already tracked — no recovery needed.`,
+    );
+  } else {
+    const parts: string[] = [];
+    if (orphanIds.length > 0) parts.push(`removed ${orphanIds.length} orphan(s)`);
+    if (recovered > 0) parts.push(`recovered ${recovered} missing migration(s)`);
+    console.log(
+      `[recover-journal] Done: ${parts.join(", ")}. Journal is now consistent.`,
     );
   }
 } finally {
