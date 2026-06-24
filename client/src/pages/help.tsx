@@ -13,6 +13,12 @@ import { PoweredByFooter } from "@/components/powered-by-footer";
 import { HeaderControls } from "@/components/header-controls";
 import { SIGN_IN_REQUIREMENT_TEXT } from "@/lib/sign-in-requirement";
 import {
+  FILE_SIZE_FAQ_ANSWER,
+  HOW_BUILT_ANSWER,
+  PRIVACY_ANSWER,
+  SUPPORTED_FORMATS,
+} from "@/lib/faq-shared";
+import {
   ArrowLeft,
   HelpCircle,
   Upload,
@@ -49,21 +55,12 @@ const steps = [
   },
 ];
 
-const formats = [
-  { name: "PDF (.pdf)", notes: "Text-based and scanned (OCR applied automatically)" },
-  { name: "Word (.docx)", notes: "All versions; tables, lists, and images supported" },
-  { name: "Excel (.xlsx)", notes: "Spreadsheets; select a specific sheet to convert" },
-  { name: "PowerPoint (.pptx)", notes: "Slides converted to structured HTML" },
-  { name: "Google Docs", notes: "Paste a sharing link (document must be publicly shared)" },
-  { name: "Google Sheets", notes: "Paste a sharing link; choose which sheet to convert" },
-  { name: "Google Slides", notes: "Paste a sharing link" },
-  { name: "RTF, ODT, EPUB", notes: "Additional document formats" },
-];
+const formats = SUPPORTED_FORMATS;
 
 const faqs = [
   {
     question: "What file size limit applies?",
-    answer: "Files up to 20 MB are accepted. For larger files, consider splitting the document into smaller sections before uploading.",
+    answer: FILE_SIZE_FAQ_ANSWER,
   },
   {
     question: "What accessibility standard does the converter check against?",
@@ -87,7 +84,7 @@ const faqs = [
   },
   {
     question: "Is my document stored securely?",
-    answer: (<>Uploaded content is stored in a private database scoped to your session or account. It is not shared with other users. AI processing uses Anthropic's Claude API — see <a href="https://www.anthropic.com/privacy" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80">Anthropic's privacy policy</a> for details.</>),
+    answer: PRIVACY_ANSWER,
   },
   {
     question: "What download formats are available?",
@@ -95,7 +92,7 @@ const faqs = [
   },
   {
     question: "How was this tool built?",
-    answer: "This tool was developed using Replit's AI-assisted development platform, combining Node.js/Express on the backend with a React frontend, and Anthropic's Claude for AI-powered content analysis and remediation.",
+    answer: HOW_BUILT_ANSWER,
   },
 ];
 

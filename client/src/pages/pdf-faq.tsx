@@ -14,6 +14,11 @@ import { usePageTitle } from "@/hooks/use-page-title";
 import { cn } from "@/lib/utils";
 import { PoweredByFooter } from "@/components/powered-by-footer";
 import { SIGN_IN_REQUIREMENT_LINES } from "@/lib/sign-in-requirement";
+import {
+  HOW_BUILT_ANSWER,
+  PRIVACY_ANSWER,
+  SUPPORTED_FORMATS_LINES,
+} from "@/lib/faq-shared";
 
 interface FAQItem {
   question: string;
@@ -50,22 +55,11 @@ const FAQ_SECTIONS: FAQSection[] = [
       },
       {
         question: "How was this tool built?",
-        answer:
-          "This tool was developed through experimentation with Replit's vibe-coding platform, which makes it possible to build and deploy a full web application through a conversational AI interface — no traditional development environment required. It's been an interesting way to explore what's possible with AI-assisted development in a higher education context.",
+        answer: HOW_BUILT_ANSWER,
       },
       {
         question: "What file types can I upload?",
-        answer: [
-          "The tool accepts the following formats:",
-          "• PDF files (.pdf)",
-          "• Word documents (.docx)",
-          "• Excel spreadsheets (.xlsx)",
-          "• PowerPoint presentations (.pptx)",
-          "• Google Docs — Paste your Google Docs link in the Import section.",
-          "• Google Sheets — Paste your Google Sheets link in the Import section.",
-          "• Google Slides — Paste your Google Slides link in the Import section.",
-          'Google documents must be shared as "Anyone with the link" before importing.',
-        ],
+        answer: SUPPORTED_FORMATS_LINES,
       },
     ],
   },
@@ -205,7 +199,7 @@ const FAQ_SECTIONS: FAQSection[] = [
     items: [
       {
         question: "Is my document data secure?",
-        answer: (<>Your documents are sent to Anthropic's Claude API for AI processing. Anthropic handles the data according to their privacy policy. For full details on how Anthropic uses API data, see <a href="https://www.anthropic.com/privacy" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80">Anthropic's privacy policy</a>.</>),
+        answer: PRIVACY_ANSWER,
       },
       {
         question: "Who can see my uploaded documents?",
