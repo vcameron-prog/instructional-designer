@@ -43,7 +43,7 @@ const FAQ_SECTIONS: FAQSection[] = [
       {
         question: "Who is this tool for?",
         answer:
-          "This tool is designed for anyone who needs to make documents accessible to people with disabilities, including those who use screen readers or other assistive technologies. It is particularly useful for educators, administrators, and content creators who publish materials online.",
+          "This tool helps you make documents that work for everyone, including people who rely on screen readers and other assistive technologies. It's especially valuable for educators, administrators, and content creators who publish materials online.",
       },
       {
         question: "Do I need to sign in?",
