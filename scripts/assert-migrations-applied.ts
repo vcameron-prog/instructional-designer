@@ -12,12 +12,42 @@
  * journal.ts step that runs earlier in pre-start.sh. This check is a safety
  * net in case something goes wrong.
  *
+ * Also performs a fast, pure-filesystem snapshot check before the DB round
+ * trip: if any journal entry is missing its migrations/meta/<idx>_snapshot.json
+ * file, drizzle-kit will silently skip that migration, so we abort early.
+ *
  * Usage:
  *   npx tsx scripts/assert-migrations-applied.ts
  */
 
 import pg from "pg";
 import { checkMigrationDrift } from "../server/lib/migrationCheck.js";
+import { checkMigrationSnapshots } from "./check-migration-snapshots.js";
+
+// --- 1. Fast snapshot check (pure filesystem, no DB needed) ------------------
+// Drizzle-kit silently skips migrations whose snapshot files are absent.
+// Catch this early before spending time on a DB connection.
+
+const snapshotResult = checkMigrationSnapshots();
+if (snapshotResult.missing.length > 0) {
+  const list = snapshotResult.missing
+    .map((m) => `  • migrations/meta/${m.expectedFile}  (idx ${m.idx} — ${m.tag})`)
+    .join("\n");
+  console.error(
+    `\n[assert-migrations] FATAL: ${snapshotResult.missing.length} migration snapshot file(s) are missing.\n` +
+      `Drizzle-kit silently skips migrations without snapshot files, so the\n` +
+      `database schema may be incomplete even after db:migrate succeeds.\n\n` +
+      `Missing snapshot files:\n${list}\n\n` +
+      `Restore the files from git or re-run: npx drizzle-kit generate\n`,
+  );
+  process.exit(1);
+}
+
+console.log(
+  `[assert-migrations] Snapshot check OK — all ${snapshotResult.checked} migration(s) have snapshot files.`,
+);
+
+// --- 2. DB check: verify every migration has been applied --------------------
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {

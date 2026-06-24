@@ -3,10 +3,11 @@
 #
 # Smoke-test for the pre-start migration gate.  Verifies that the gate script
 # (scripts/assert-migrations-applied.ts) exits non-zero and emits a clear error
-# before the server would be launched in two simulated failure scenarios:
+# before the server would be launched in three simulated failure scenarios:
 #
 #   Test 1 — DATABASE_URL missing: assert must exit 1 immediately.
 #   Test 2 — DATABASE_URL invalid: assert must exit 1 (cannot connect to DB).
+#   Test 3 — Snapshot file missing: assert must exit 1 before the DB check.
 #
 # Running this in CI or before a deploy provides evidence that the gate will
 # abort a deploy cleanly rather than letting a misconfigured server start.
@@ -46,6 +47,27 @@ run_test "Test 1: DATABASE_URL missing → gate must abort" \
 run_test "Test 2: Invalid DATABASE_URL → gate must abort" \
   env DATABASE_URL="postgresql://nobody:bad@localhost:1/nodb" \
   npx tsx scripts/assert-migrations-applied.ts
+
+# Test 3: A snapshot file is missing — the gate must abort before it ever
+# tries to connect to the database (snapshot check is a pure filesystem check).
+# We temporarily rename one snapshot file to simulate the missing-file condition,
+# then restore it regardless of the test outcome.
+SNAPSHOT_FILE="migrations/meta/0008_snapshot.json"
+SNAPSHOT_BACKUP="${SNAPSHOT_FILE}.bak_gate_test"
+echo ""
+echo "[gate-test] Test 3: Missing snapshot file → gate must abort (no DB call)"
+mv "$SNAPSHOT_FILE" "$SNAPSHOT_BACKUP"
+restore_snapshot() { mv "$SNAPSHOT_BACKUP" "$SNAPSHOT_FILE" 2>/dev/null || true; }
+trap restore_snapshot EXIT
+if env -u DATABASE_URL npx tsx scripts/assert-migrations-applied.ts 2>&1; then
+  echo "[gate-test] FAIL — expected non-zero exit but got 0"
+  FAIL=$((FAIL + 1))
+else
+  echo "[gate-test] PASS — exited non-zero as expected"
+  PASS=$((PASS + 1))
+fi
+restore_snapshot
+trap - EXIT
 
 echo ""
 echo "============================================================"
