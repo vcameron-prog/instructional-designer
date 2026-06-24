@@ -367,7 +367,7 @@ export default function PdfUpload() {
           <div className="rounded-lg border bg-card p-5 flex flex-col items-center text-center gap-2">
             <Shield className="w-7 h-7 text-primary flex-shrink-0" />
             <h3 className="font-semibold text-foreground">Title II Compliant</h3>
-            <p className="text-sm text-muted-foreground">Ensures your documents meet the rigorous standards required for state and local governments.</p>
+            <p className="text-sm text-muted-foreground">Prepares your documents to meet the rigorous standards required of state and local governments.</p>
           </div>
           <div className="rounded-lg border bg-card p-5 flex flex-col items-center text-center gap-2">
             <Image className="w-7 h-7 text-primary flex-shrink-0" />
