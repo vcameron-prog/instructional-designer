@@ -8,7 +8,8 @@ Production assumptions for this threat model:
 - The mockup sandbox is never deployed to production.
 - In production, `NODE_ENV` is `production`.
 - TLS between clients and the deployed app is handled by the platform.
-- The current deployment under review is public and autoscaled, so any rate limit or concurrency guard that lives only in process memory should be treated as instance-local rather than global.
+- The current deployment under review is **private** and autoscaled. Replit infrastructure is assumed to block public internet access to the app's endpoints, so unauthenticated internet-wide abuse paths are not production-reachable on this deployment.
+- Autoscaling still matters for any authenticated or deployment-reachable traffic: process-local counters are instance-local unless backed by the database.
 
 ## Assets
 
@@ -31,17 +32,28 @@ Production assumptions for this threat model:
 ## Scan Anchors
 
 - **Production entry points**: `server/index.ts`, `server/routes.ts`, `server/replit_integrations/auth/`, `client/src/main.tsx`.
-- **Highest-risk code areas**: authentication/session setup, object ownership checks in `server/routes.ts` and `server/storage.ts`, document conversion flows, file upload handlers, HTML editing/export, and admin stats routes.
-- **Public vs authenticated vs admin surfaces**:
-  - Public/anonymous: `/api/generate-standalone`, `/api/upload-syllabus`, parts of `/api/conversions/*`, optionally `/api/stats/public`
-  - Authenticated: `/api/courses/*`, `/api/content/*`, `/api/library`, `/api/conversions`
-  - Admin: `/api/admin/check`, `/api/admin/stats`
-- **Current confirmed June 2026 risk concentration**: public conversion upload/import/process/export endpoints remain the highest-priority DoS area. On the public autoscaled deployment, throttles and concurrency caps in `server/routes.ts` are still process-local, Google Docs/Sheets imports still lack the pre-buffer concurrency guard used by direct uploads, and `/api/conversions/:id/process` still has a non-atomic state transition that can launch duplicate expensive jobs for the same file.
-- **Current auth/session calibration**: the current `server/replit_integrations/auth/replitAuth.ts` code uses milliseconds for `cookie.maxAge` and correctly converts the PostgreSQL session-store TTL to seconds, so the earlier unit-mismatch concern should not be treated as a live issue unless this file changes again.
-- **Current production auth assumption from code**: "authenticated user" currently means any Replit OIDC user. The code does not enforce a faculty-only allowlist or email-domain restriction.
-- **Currently unreachable unless route registration changes**: `server/replit_integrations/chat/*` is present in the repo but is not wired into `registerRoutes()` or startup.
+- **Highest-risk code areas**: authentication/session setup, object ownership checks in `server/routes.ts` and `server/storage.ts`, document conversion flows, file upload handlers, HTML editing/export, and the course-content approval route.
+- **Primary production surfaces in the built root app**:
+  - Anonymous or optionally authenticated conversion flows under `/api/conversions/*`
+  - Authenticated profile endpoint `/api/auth/user`
+  - BSU-restricted content approval route `/api/content/:id/approval`
+- **Current deployment-scope calibration (June 2026)**: because the deployed app is private, prior public-internet DoS hypotheses should not be reported as production findings unless a reachable attacker path is demonstrated from within the deployment's allowed audience.
+- **Current conversion-control calibration**:
+  - `server/routes.ts` now applies shared DB-backed rate limits to upload/process/fix/export flows.
+  - Google Docs/Sheets/Slides imports now use the same pre-buffer upload concurrency guard concept as direct uploads.
+  - `/api/conversions/:id/process` now uses an atomic conditional status transition to avoid duplicate cross-instance processing starts.
+  - Conversion ownership checks consistently use `conversionOwnerFilter(...)`, which scopes authenticated access by `userId` and anonymous access by server-side `visitorToken`.
+  - PDF export in `server/lib/pdf-builder.ts` disables JavaScript and aborts non-`data:` network requests, so edited HTML should not be treated as a live server-side fetch primitive unless this file changes.
+- **Current auth/session calibration**:
+  - `server/replit_integrations/auth/replitAuth.ts` uses milliseconds for `cookie.maxAge` and correctly converts the PostgreSQL session-store TTL to seconds.
+  - `sameSite: "lax"` and production `secure` cookies are in place.
+  - `isBsuAuthenticated` enforces the `@bridgew.edu` email-domain gate for the BSU-only route(s) in the built app.
+- **Current production auth assumption from code**: the conversion system allows anonymous usage and treats any valid Replit OIDC user as authenticated; only BSU-gated routes require a `@bridgew.edu` email suffix.
+- **Currently unreachable unless route registration changes**:
+  - `server/replit_integrations/chat/*` is present in the repo but is not wired into `registerRoutes()` or startup.
+  - `instructional-designer/` is a separate dormant app in the repository and is not part of the current root production build artifact.
 - **Usually dev-only**: `attached_assets/`, `server/vite.ts`, test files, build/test scripts.
-- **Exported artifact scope**: downloaded HTML/DOCX/PDF files are treated as user-authored outputs once they leave the app. Do not report arbitrary active content inside exported artifacts as an in-app vulnerability unless the application later re-renders that artifact to other users or serves it inline under an application-controlled origin.
+- **Exported artifact scope**: downloaded HTML/DOCX/PDF/XLSX files are treated as user-authored outputs once they leave the app. Do not report arbitrary active content inside exported artifacts as an in-app vulnerability unless the application later re-renders that artifact to other users or serves it inline under an application-controlled origin.
 
 ## Threat Categories
 
@@ -59,7 +71,7 @@ This application stores high-value document text, accessible HTML, course materi
 
 ### Denial of Service
 
-Several public or low-friction endpoints perform expensive work: file uploads, PDF/DOCX extraction, OCR, AI generation, and conversion/export steps. These routes need size limits, sensible rate limiting, and bounded processing so unauthenticated or low-privilege users cannot exhaust memory, CPU, model quotas, or Chromium/processing capacity.
+The application still contains expensive paths: file uploads, PDF/DOCX extraction, OCR, AI generation, and conversion/export steps. For this private deployment, report DoS issues only when they remain reachable to the deployment's allowed audience and materially bypass the DB-backed rate limits, concurrency caps, or request-size bounds already present in `server/routes.ts`.
 
 ### Elevation of Privilege
 
