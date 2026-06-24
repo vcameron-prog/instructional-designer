@@ -38,7 +38,7 @@ const FAQ_SECTIONS: FAQSection[] = [
       {
         question: "What does this tool do?",
         answer:
-          "This tool converts PDF, Word (.docx), and Google Docs documents into accessible HTML files that meet ADA Title II and WCAG 2.1 Level AA requirements. It uses AI to analyze your document's structure, add proper headings, image descriptions, reading order, and other accessibility features.",
+          "This tool converts PDF, Word (.docx), and Google Docs documents into more accessible HTML files, applying the structural and descriptive features that ADA Title II and WCAG 2.1 Level AA call for. It uses AI to analyze your document's structure and add proper headings, image descriptions, reading order, and other accessibility features.",
       },
       {
         question: "Who is this tool for?",
