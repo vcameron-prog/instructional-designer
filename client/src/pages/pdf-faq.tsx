@@ -9,7 +9,7 @@ import {
   FileText,
   HelpCircle,
 } from "lucide-react";
-import { HeaderControls } from "@/components/header-controls";
+import { ConverterHeader } from "@/components/header-controls";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { cn } from "@/lib/utils";
 import { PoweredByFooter } from "@/components/powered-by-footer";
@@ -328,10 +328,9 @@ export default function PdfFaq() {
               </p>
             </div>
           </div>
-          <HeaderControls
+          <ConverterHeader
             showLibrary={false}
             showHelp={false}
-            showLogin={false}
           />
         </div>
       </header>

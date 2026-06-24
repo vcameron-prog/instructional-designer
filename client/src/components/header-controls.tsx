@@ -17,6 +17,10 @@ interface HeaderControlsProps {
   showLogin?: boolean;
 }
 
+export function ConverterHeader(props: Omit<HeaderControlsProps, "showLogin">) {
+  return <HeaderControls {...props} showLogin={false} />;
+}
+
 export function HeaderControls({
   variant = "light",
   homePath = "/",

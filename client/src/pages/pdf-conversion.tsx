@@ -55,7 +55,7 @@ import {
 } from "@/components/ui/select";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { HeaderControls } from "@/components/header-controls";
+import { ConverterHeader } from "@/components/header-controls";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
@@ -1400,10 +1400,9 @@ export default function PdfConversion() {
               </p>
             </div>
           </div>
-          <HeaderControls
+          <ConverterHeader
             showLibrary={false}
             showHelp={false}
-            showLogin={false}
           />
         </div>
       </header>

@@ -17,7 +17,7 @@ import {
   Info,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
-import { HeaderControls } from "@/components/header-controls";
+import { ConverterHeader } from "@/components/header-controls";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { cn } from "@/lib/utils";
 import { PoweredByFooter } from "@/components/powered-by-footer";
@@ -320,10 +320,9 @@ export default function PdfUpload() {
               <HelpCircle className="w-4 h-4" />
               FAQ
             </button>
-            <HeaderControls
+            <ConverterHeader
               showLibrary={false}
               showHelp={false}
-              showLogin={false}
             />
           </div>
         </div>
