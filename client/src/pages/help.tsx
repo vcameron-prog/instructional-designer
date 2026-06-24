@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/accordion";
 import { PoweredByFooter } from "@/components/powered-by-footer";
 import { HeaderControls } from "@/components/header-controls";
+import { SIGN_IN_REQUIREMENT_TEXT } from "@/lib/sign-in-requirement";
 import {
   ArrowLeft,
   HelpCircle,
@@ -82,7 +83,7 @@ const faqs = [
   },
   {
     question: "Do I need an account?",
-    answer: "No account is required to use the accessibility converter. Anyone can upload a document, run the audit, and download the remediated file. Signing in saves your conversion history so you can return to previous documents. Course creation and the instructional design tools (assignment builders, rubrics, syllabi, etc.) are only available to signed-in users.",
+    answer: SIGN_IN_REQUIREMENT_TEXT,
   },
   {
     question: "Is my document stored securely?",

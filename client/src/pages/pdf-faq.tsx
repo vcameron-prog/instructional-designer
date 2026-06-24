@@ -13,6 +13,7 @@ import { HeaderControls } from "@/components/header-controls";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { cn } from "@/lib/utils";
 import { PoweredByFooter } from "@/components/powered-by-footer";
+import { SIGN_IN_REQUIREMENT_LINES } from "@/lib/sign-in-requirement";
 
 interface FAQItem {
   question: string;
@@ -40,10 +41,7 @@ const FAQ_SECTIONS: FAQSection[] = [
       },
       {
         question: "Do I need to sign in?",
-        answer: [
-          "No. You can upload and convert documents without an account.",
-          "If you do sign in, your conversion history is saved to your account so you can return to previous documents.",
-        ],
+        answer: SIGN_IN_REQUIREMENT_LINES,
       },
       {
         question: "Do I need any technical skills to use this?",
