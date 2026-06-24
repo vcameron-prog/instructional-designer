@@ -143,7 +143,7 @@ export default function CaiLandingPage() {
                 Accessibility Converter
               </h2>
               <p className="text-muted-foreground mb-6 max-w-lg">
-                Upload a PDF, Word, PowerPoint, or Excel file — or import directly from Google Docs, Sheets, or Slides — and get back a fully accessible document in seconds. No login required.
+                Upload a PDF, Word, PowerPoint, or Excel file—or import directly from Google Docs, Sheets, or Slides—and get back a document with accessibility improvements applied in seconds. No login required.
               </p>
               <Button
                 size="lg"
