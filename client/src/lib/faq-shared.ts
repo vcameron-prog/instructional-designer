@@ -71,16 +71,25 @@ export const HOW_BUILT_ANSWER =
 export const PRIVACY_ANSWER: React.ReactNode = React.createElement(
   React.Fragment,
   null,
-  "Uploaded content is stored in a private database scoped to your session or account and is not shared with other users. AI processing uses Anthropic's Claude API — see ",
   React.createElement(
-    "a",
-    {
-      href: "https://www.anthropic.com/privacy",
-      target: "_blank",
-      rel: "noopener noreferrer",
-      className: "underline hover:opacity-80",
-    },
-    "Anthropic's privacy policy",
+    "p",
+    null,
+    "Uploaded content is stored in a private database scoped to your session or account and is not shared with other users. AI processing uses Anthropic's Claude API\u2014see ",
+    React.createElement(
+      "a",
+      {
+        href: "https://www.anthropic.com/privacy",
+        target: "_blank",
+        rel: "noopener noreferrer",
+        className: "underline hover:opacity-80",
+      },
+      "Anthropic's privacy policy",
+    ),
+    " for details on how API data is handled.",
   ),
-  " for details on how API data is handled.",
+  React.createElement(
+    "p",
+    { className: "mt-2" },
+    "To protect privacy and maintain FERPA compliance, do not upload documents containing sensitive or personally identifiable information, including student records or other protected data.",
+  ),
 );
