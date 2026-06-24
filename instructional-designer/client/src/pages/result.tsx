@@ -3,7 +3,8 @@ import { diffLines } from "diff";
 import { isSessionExpiredMessage } from "@/lib/upload-error-utils";
 import { checkAccessibility, type AccessibilityIssue } from "@/lib/accessibility-checks";
 import { useLocation, useParams } from "wouter";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
+import { useDebouncedMutation } from "@/hooks/use-debounced-mutation";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
@@ -340,7 +341,7 @@ export default function ResultPage() {
 
   usePageTitle(content ? content.toolName + " Result" : "Result");
 
-  const refineMutation = useMutation({
+  const refineMutation = useDebouncedMutation({
     mutationFn: async () => {
       const response = await apiRequest("POST", `/api/content/${contentId}/refine`, {
         refinementRequest,
@@ -363,7 +364,7 @@ export default function ResultPage() {
     },
   });
 
-  const saveToLibraryMutation = useMutation({
+  const saveToLibraryMutation = useDebouncedMutation({
     mutationFn: async () => {
       const response = await apiRequest("POST", "/api/library", {
         title: libraryTitle || content?.toolName,
@@ -388,16 +389,7 @@ export default function ResultPage() {
     },
   });
 
-  const [approvalCooldown, setApprovalCooldown] = useState(false);
-
-  const handleToggleApproval = () => {
-    if (approvalCooldown || toggleApprovalMutation.isPending) return;
-    setApprovalCooldown(true);
-    setTimeout(() => setApprovalCooldown(false), 500);
-    toggleApprovalMutation.mutate();
-  };
-
-  const toggleApprovalMutation = useMutation({
+  const toggleApprovalMutation = useDebouncedMutation({
     mutationFn: async () => {
       const response = await apiRequest("PATCH", `/api/content/${contentId}/approval`, {
         isApproved: !content?.isApproved,
@@ -421,7 +413,7 @@ export default function ResultPage() {
     },
   });
 
-  const undoFixMutation = useMutation({
+  const undoFixMutation = useDebouncedMutation({
     mutationFn: async (versionId: number) => {
       const response = await apiRequest("POST", `/api/content/${contentId}/restore-version`, { versionId });
       return response.json();
@@ -443,7 +435,7 @@ export default function ResultPage() {
     },
   });
 
-  const restoreVersionMutation = useMutation({
+  const restoreVersionMutation = useDebouncedMutation({
     mutationFn: async (versionId: number) => {
       const response = await apiRequest("POST", `/api/content/${contentId}/restore-version`, { versionId });
       return response.json();
@@ -462,7 +454,7 @@ export default function ResultPage() {
     },
   });
 
-  const applyFixMutation = useMutation({
+  const applyFixMutation = useDebouncedMutation({
     mutationFn: async ({ fixType, captionTexts, captionText, captionIndex }: { fixType: string; captionTexts?: string[]; captionText?: string; captionIndex?: number }) => {
       const body: Record<string, unknown> = { fixType };
       if (captionTexts !== undefined) body.captionTexts = captionTexts;
@@ -593,7 +585,7 @@ export default function ResultPage() {
     }
   };
 
-  const previewFixMutation = useMutation({
+  const previewFixMutation = useDebouncedMutation({
     mutationFn: async (fixType: string) => {
       const response = await apiRequest("POST", `/api/content/${contentId}/preview-fix`, { fixType });
       return response.json() as Promise<{ before: string; after: string }>;
@@ -923,8 +915,8 @@ export default function ResultPage() {
               <Button
                 variant={content.isApproved ? "default" : "outline"}
                 size="sm"
-                onClick={handleToggleApproval}
-                disabled={toggleApprovalMutation.isPending || approvalCooldown}
+                onClick={() => toggleApprovalMutation.mutate()}
+                disabled={toggleApprovalMutation.isPending}
                 aria-pressed={content.isApproved}
                 aria-label={content.isApproved ? "Connected to course. Click to disconnect." : "Not connected. Click to connect to course."}
                 data-testid="button-toggle-approval"
