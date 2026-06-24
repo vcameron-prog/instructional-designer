@@ -579,8 +579,8 @@ export default function PdfUpload() {
               </div>
             </div>
             <div className="p-4 flex flex-col flex-1" data-testid="google-doc-import-section">
-              <div className="flex gap-2">
-                <div className="relative flex-1">
+              <div className="flex flex-col gap-2">
+                <div className="relative">
                   <label htmlFor="google-doc-url" className="sr-only">
                     Google Workspace URL (Docs, Sheets, or Slides)
                   </label>
@@ -604,7 +604,7 @@ export default function PdfUpload() {
                 <button
                   onClick={handleGoogleDocDownload}
                   disabled={!googleDocUrl.trim() || googleDocMutation.isPending || googleSheetMutation.isPending || googleSlideMutation.isPending}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl text-sm font-semibold shadow-sm hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:transform-none"
+                  className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl text-sm font-semibold shadow-sm hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:transform-none"
                   data-testid="button-google-doc-import"
                 >
                   {(googleDocMutation.isPending || googleSheetMutation.isPending || googleSlideMutation.isPending) ? (
@@ -643,8 +643,8 @@ export default function PdfUpload() {
               </div>
             </div>
             <div className="p-4 flex flex-col flex-1" data-testid="google-sheet-import-section">
-              <div className="flex gap-2">
-                <div className="relative flex-1">
+              <div className="flex flex-col gap-2">
+                <div className="relative">
                   <label htmlFor="google-sheet-url" className="sr-only">
                     Google Sheets URL
                   </label>
@@ -669,7 +669,7 @@ export default function PdfUpload() {
                 <button
                   onClick={handleGoogleSheetImport}
                   disabled={!googleSheetUrl.trim() || googleSheetMutation.isPending}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl text-sm font-semibold shadow-sm hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:transform-none"
+                  className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl text-sm font-semibold shadow-sm hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:transform-none"
                   data-testid="button-google-sheet-import"
                 >
                   {googleSheetMutation.isPending ? (
@@ -726,8 +726,8 @@ export default function PdfUpload() {
               </div>
             </div>
             <div className="p-4 flex flex-col flex-1" data-testid="google-slide-import-section">
-              <div className="flex gap-2">
-                <div className="relative flex-1">
+              <div className="flex flex-col gap-2">
+                <div className="relative">
                   <label htmlFor="google-slide-url" className="sr-only">
                     Google Slides URL
                   </label>
@@ -752,7 +752,7 @@ export default function PdfUpload() {
                 <button
                   onClick={handleGoogleSlideImport}
                   disabled={!googleSlideUrl.trim() || googleSlideMutation.isPending}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl text-sm font-semibold shadow-sm hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:transform-none"
+                  className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl text-sm font-semibold shadow-sm hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:transform-none"
                   data-testid="button-google-slide-import"
                 >
                   {googleSlideMutation.isPending ? (
