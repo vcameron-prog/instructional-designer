@@ -99,6 +99,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async toggleContentApproval(id: number): Promise<ContentApprovalResult | null> {
+    // Concurrency safety: the `NOT(isApproved)` expression is evaluated by
+    // PostgreSQL inside a single atomic UPDATE statement.  PostgreSQL acquires
+    // a row-level lock on the target row before reading its current value, so
+    // two concurrent callers on the same row are serialised: the second UPDATE
+    // blocks until the first transaction commits, then it reads the *already-
+    // flipped* value.  There is therefore no read-then-write race: neither
+    // caller can see a stale base value that the other has already changed.
+    // The net effect of two rapid concurrent flips is that both complete
+    // successfully, the final value is the doubly-toggled (original) value,
+    // and no update is silently discarded.
     const [updated] = await db
       .update(generatedContent)
       .set({ isApproved: not(generatedContent.isApproved) })

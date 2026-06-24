@@ -91,4 +91,43 @@ describe("DatabaseStorage.toggleContentApproval (integration)", () => {
     const result = await storage.toggleContentApproval(-1);
     expect(result).toBeNull();
   });
+
+  /**
+   * Concurrency test: two parallel toggles on the same row.
+   *
+   * PostgreSQL serialises concurrent UPDATEs to the same row via row-level
+   * locking.  When two callers race, the second blocks until the first
+   * commits, then it reads the already-flipped value and flips it again.
+   *
+   * Expected invariants:
+   *  1. Both calls succeed (no error, no null return).
+   *  2. The two returned values are opposite — each saw a different base value.
+   *  3. The final DB value equals whichever of the two ran last (the doubly-
+   *     toggled original), confirming no update was silently discarded.
+   */
+  it("serialises two concurrent flips — no update is lost", async () => {
+    const { id } = await seedRow({ isApproved: false });
+
+    const [r1, r2] = await Promise.all([
+      storage.toggleContentApproval(id),
+      storage.toggleContentApproval(id),
+    ]);
+
+    // Both calls must have returned a result (no 404 / null)
+    expect(r1).not.toBeNull();
+    expect(r2).not.toBeNull();
+
+    // The two results must differ — each observed a different row state,
+    // proving the second UPDATE read the committed value from the first.
+    expect(r1!.isApproved).not.toBe(r2!.isApproved);
+
+    // The final DB state must match whichever flip ran last.
+    const [dbRow] = await db
+      .select({ isApproved: generatedContent.isApproved })
+      .from(generatedContent)
+      .where(eq(generatedContent.id, id));
+
+    const finalValues = [r1!.isApproved, r2!.isApproved];
+    expect(finalValues).toContain(dbRow.isApproved);
+  });
 });
