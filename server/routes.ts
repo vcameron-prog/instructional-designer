@@ -2,7 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import type { Server } from "http";
 import { randomUUID } from "crypto";
 import { storage } from "./storage";
-import { conversions } from "@shared/schema";
+import { conversions, courses, generatedContent } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import {
   setupAuth,
@@ -143,6 +143,38 @@ export const ISSUE_NOT_FOUND_ERROR = "Issue not found";
 export const ISSUE_INDEX_REQUIRED_ERROR = "issueIndex required";
 export const CONVERSION_MUST_BE_COMPLETED_ERROR = "Conversion must be completed";
 
+
+// ─── Admin helpers ────────────────────────────────────────────────────────────
+
+function getAdminIds(): string[] {
+  const raw = process.env.ADMIN_USER_IDS ?? "";
+  return raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function checkIsAdmin(req: Request): boolean {
+  const claims = (req.user as any)?.claims;
+  if (!claims) return false;
+  const adminIds = getAdminIds();
+  if (adminIds.length === 0) return false;
+  const id: string = claims.sub ?? "";
+  const email: string = (claims.email ?? "").toLowerCase();
+  return adminIds.some(
+    (entry) =>
+      entry === id || entry.toLowerCase() === email,
+  );
+}
+
+const isAdmin = (req: Request, res: Response, next: NextFunction) => {
+  if (!checkIsAdmin(req)) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+  next();
+};
+
+// ─── End admin helpers ────────────────────────────────────────────────────────
 
 export async function registerRoutes(
   httpServer: Server,
@@ -3036,6 +3068,175 @@ export async function registerRoutes(
       }
     });
   }
+
+  // ─── Admin routes ──────────────────────────────────────────────────────────
+
+  app.get("/api/admin/check", isAuthenticated, isAdmin, (_req: Request, res: Response) => {
+    res.json({ isAdmin: true });
+  });
+
+  app.get("/api/admin/stats", isAuthenticated, isAdmin, async (_req: Request, res: Response) => {
+    try {
+      const now = new Date();
+      const sixMonthsAgo = new Date(now);
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+      sixMonthsAgo.setDate(1);
+      sixMonthsAgo.setHours(0, 0, 0, 0);
+
+      // Totals
+      const [totalCoursesRow] = await db.select({ count: sql<number>`count(*)::int` }).from(courses);
+      const [totalContentRow] = await db.select({ count: sql<number>`count(*)::int` }).from(generatedContent);
+      const [totalConversionsRow] = await db.select({ count: sql<number>`count(*)::int` }).from(conversions);
+      const [totalUsersRow] = await db.select({ count: sql<number>`count(*)::int` }).from(users);
+
+      // Monthly activity: courses and content by month (last 6 months)
+      const coursesByMonth = await db
+        .select({
+          month: sql<string>`to_char(date_trunc('month', ${courses.createdAt}), 'YYYY-MM')`,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(courses)
+        .where(sql`${courses.createdAt} >= ${sixMonthsAgo}`)
+        .groupBy(sql`date_trunc('month', ${courses.createdAt})`)
+        .orderBy(sql`date_trunc('month', ${courses.createdAt})`);
+
+      const contentByMonth = await db
+        .select({
+          month: sql<string>`to_char(date_trunc('month', ${generatedContent.createdAt}), 'YYYY-MM')`,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(generatedContent)
+        .where(sql`${generatedContent.createdAt} >= ${sixMonthsAgo}`)
+        .groupBy(sql`date_trunc('month', ${generatedContent.createdAt})`)
+        .orderBy(sql`date_trunc('month', ${generatedContent.createdAt})`);
+
+      const conversionsByMonth = await db
+        .select({
+          month: sql<string>`to_char(date_trunc('month', ${conversions.createdAt}), 'YYYY-MM')`,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(conversions)
+        .where(sql`${conversions.createdAt} >= ${sixMonthsAgo}`)
+        .groupBy(sql`date_trunc('month', ${conversions.createdAt})`)
+        .orderBy(sql`date_trunc('month', ${conversions.createdAt})`);
+
+      // Build unified monthly trend with all 6 months present
+      const months: string[] = [];
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(now);
+        d.setMonth(d.getMonth() - i);
+        months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+      }
+      const courseMap = Object.fromEntries(coursesByMonth.map((r) => [r.month, r.count]));
+      const contentMap = Object.fromEntries(contentByMonth.map((r) => [r.month, r.count]));
+      const conversionsMap = Object.fromEntries(conversionsByMonth.map((r) => [r.month, r.count]));
+      const monthlyActivity = months.map((month) => ({
+        month,
+        courses: courseMap[month] ?? 0,
+        content: contentMap[month] ?? 0,
+        conversions: conversionsMap[month] ?? 0,
+      }));
+
+      // Tool popularity
+      const toolPopularity = await db
+        .select({
+          toolName: generatedContent.toolName,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(generatedContent)
+        .groupBy(generatedContent.toolName)
+        .orderBy(desc(sql`count(*)`))
+        .limit(10);
+
+      // Document conversion stats by status and source type
+      const conversionsByStatus = await db
+        .select({
+          status: conversions.status,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(conversions)
+        .groupBy(conversions.status)
+        .orderBy(desc(sql`count(*)`));
+
+      const conversionsBySource = await db
+        .select({
+          sourceType: conversions.sourceType,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(conversions)
+        .groupBy(conversions.sourceType)
+        .orderBy(desc(sql`count(*)`));
+
+      // Recent activity (latest 10 content items)
+      const recentContent = await db
+        .select({
+          id: generatedContent.id,
+          toolName: generatedContent.toolName,
+          toolType: generatedContent.toolType,
+          createdAt: generatedContent.createdAt,
+          userId: generatedContent.userId,
+        })
+        .from(generatedContent)
+        .orderBy(desc(generatedContent.createdAt))
+        .limit(10);
+
+      // User activity: users ranked by total content generated
+      const userActivity = await db
+        .select({
+          userId: generatedContent.userId,
+          contentCount: sql<number>`count(*)::int`,
+        })
+        .from(generatedContent)
+        .where(sql`${generatedContent.userId} is not null`)
+        .groupBy(generatedContent.userId)
+        .orderBy(desc(sql`count(*)`))
+        .limit(20);
+
+      // Enrich user activity with user info
+      const userIds = userActivity
+        .map((r) => r.userId)
+        .filter(Boolean) as string[];
+
+      let userInfoMap: Record<string, { email: string | null; firstName: string | null; lastName: string | null }> = {};
+      if (userIds.length > 0) {
+        const userRows = await db
+          .select({ id: users.id, email: users.email, firstName: users.firstName, lastName: users.lastName })
+          .from(users)
+          .where(inArray(users.id, userIds));
+        userInfoMap = Object.fromEntries(
+          userRows.map((u) => [u.id, { email: u.email ?? null, firstName: u.firstName ?? null, lastName: u.lastName ?? null }]),
+        );
+      }
+
+      const enrichedUserActivity = userActivity.map((r) => ({
+        userId: r.userId,
+        contentCount: r.contentCount,
+        email: r.userId ? (userInfoMap[r.userId]?.email ?? null) : null,
+        firstName: r.userId ? (userInfoMap[r.userId]?.firstName ?? null) : null,
+        lastName: r.userId ? (userInfoMap[r.userId]?.lastName ?? null) : null,
+      }));
+
+      res.json({
+        totals: {
+          courses: totalCoursesRow?.count ?? 0,
+          content: totalContentRow?.count ?? 0,
+          conversions: totalConversionsRow?.count ?? 0,
+          users: totalUsersRow?.count ?? 0,
+        },
+        monthlyActivity,
+        toolPopularity,
+        conversionsByStatus,
+        conversionsBySource,
+        recentActivity: recentContent,
+        userActivity: enrichedUserActivity,
+      });
+    } catch (err) {
+      console.error("[admin/stats] failed:", err);
+      res.status(500).json({ error: "Failed to load admin stats" });
+    }
+  });
+
+  // ─── End admin routes ───────────────────────────────────────────────────────
 
   return httpServer;
 }

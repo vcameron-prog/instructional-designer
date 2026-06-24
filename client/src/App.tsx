@@ -12,6 +12,7 @@ import PdfConversion from "@/pages/pdf-conversion";
 import PdfFaq from "@/pages/pdf-faq";
 import SettingsPage from "@/pages/settings";
 import HelpPage from "@/pages/help";
+import AdminDashboard from "@/pages/admin-dashboard";
 import { ThemeProvider } from "@/components/theme-provider";
 import { FontSizeProvider } from "@/components/font-size-provider";
 
@@ -43,6 +44,7 @@ function Router() {
       <Route path="/pdf-accessibility/:id" component={PdfConversion} />
       <Route path="/settings" component={SettingsPage} />
       <Route path="/help" component={HelpPage} />
+      <Route path="/admin" component={AdminDashboard} />
       <Route component={NotFound} />
     </Switch>
   );

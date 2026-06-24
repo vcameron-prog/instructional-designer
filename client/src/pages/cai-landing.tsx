@@ -1,8 +1,9 @@
 import { useEffect } from "react";
 import { useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { BookOpen, ArrowRight, Users, GraduationCap, FileText, Shield, Zap } from "lucide-react";
+import { BookOpen, ArrowRight, Users, GraduationCap, FileText, Shield, Zap, LayoutDashboard } from "lucide-react";
 import { HeaderControls } from "@/components/header-controls";
 import { usePageTitle } from "@/hooks/use-page-title";
 import caiLogoWhite from "@assets/Center_for_AI_Apparel_&_Promotional_Items-WHITE_(1)_1775653892158.png";
@@ -23,6 +24,15 @@ export default function CaiLandingPage() {
   useEffect(() => { window.scrollTo(0, 0); }, []);
   usePageTitle("CAI Tools — Bridgewater State University");
   const [, navigate] = useLocation();
+
+  const { data: isAdmin } = useQuery<boolean>({
+    queryKey: ["/api/admin/check"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/check", { credentials: "include" });
+      return res.status === 200;
+    },
+    retry: false,
+  });
 
   return (
     <main id="main-content" tabIndex={-1} className="min-h-screen bg-background">
@@ -205,6 +215,18 @@ export default function CaiLandingPage() {
               Open the Accessibility Converter
             </button>
           </p>
+          {isAdmin && (
+            <p className="text-xs text-muted-foreground">
+              <button
+                onClick={() => navigate("/admin")}
+                className="inline-flex items-center gap-1 underline underline-offset-2 hover:text-foreground transition-colors"
+                data-testid="link-footer-admin-dashboard"
+              >
+                <LayoutDashboard className="w-3 h-3" />
+                Admin Dashboard
+              </button>
+            </p>
+          )}
         </div>
       </footer>
     </main>
