@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { PoweredByFooter } from "@/components/powered-by-footer";
 import { SIGN_IN_REQUIREMENT_LINES } from "@/lib/sign-in-requirement";
 import {
+  FILE_SIZE_FAQ_ANSWER,
   HOW_BUILT_ANSWER,
   PRIVACY_ANSWER,
   SUPPORTED_FORMATS_LINES,
@@ -60,6 +61,10 @@ const FAQ_SECTIONS: FAQSection[] = [
       {
         question: "What file types can I upload?",
         answer: SUPPORTED_FORMATS_LINES,
+      },
+      {
+        question: "What file size limit applies?",
+        answer: FILE_SIZE_FAQ_ANSWER,
       },
     ],
   },
