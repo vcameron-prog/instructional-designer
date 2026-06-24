@@ -40,9 +40,8 @@ const FAQ_SECTIONS: FAQSection[] = [
       {
         question: "Do I need to sign in?",
         answer: [
-          "Signing in is optional. Here's the difference:",
-          "• Without signing in — You can upload documents and convert them, but your conversion history won't be saved.",
-          "• With signing in — Your conversions are saved to your account so you can return to them later, and you get access to course creation and other features.",
+          "No. You can upload and convert documents without an account.",
+          "If you do sign in, your conversion history is saved to your account so you can return to previous documents, and you get access to course creation and other instructional design tools.",
         ],
       },
       {
