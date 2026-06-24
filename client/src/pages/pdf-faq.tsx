@@ -258,7 +258,7 @@ function FAQAccordionItem({ item, index }: { item: FAQItem; index: number }) {
         >
           <div className="text-sm text-muted-foreground space-y-2">
             {isNode ? (
-              <p>{item.answer as React.ReactNode}</p>
+              <div>{item.answer as React.ReactNode}</div>
             ) : (
               content.map((line, i) => (
                 <p

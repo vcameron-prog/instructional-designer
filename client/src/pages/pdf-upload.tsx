@@ -349,6 +349,7 @@ export default function PdfUpload() {
             <HeaderControls
               showLibrary={false}
               showHelp={false}
+              showHome={false}
             />
           </div>
         </div>

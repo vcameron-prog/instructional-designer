@@ -19,11 +19,15 @@ echo "  BSU Accessibility Tool — production pre-start"
 echo "============================================================"
 
 echo ""
-echo "[pre-start] Step 1: Applying database migrations..."
+echo "[pre-start] Step 1: Recovering any out-of-band migration journal gaps..."
+npx tsx scripts/recover-migration-journal.ts
+
+echo ""
+echo "[pre-start] Step 2: Applying database migrations..."
 npm run db:migrate
 
 echo ""
-echo "[pre-start] Step 2: Asserting zero pending migrations..."
+echo "[pre-start] Step 3: Asserting zero pending migrations..."
 npx tsx scripts/assert-migrations-applied.ts
 
 echo ""
