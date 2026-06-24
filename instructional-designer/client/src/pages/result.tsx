@@ -388,6 +388,15 @@ export default function ResultPage() {
     },
   });
 
+  const [approvalCooldown, setApprovalCooldown] = useState(false);
+
+  const handleToggleApproval = () => {
+    if (approvalCooldown || toggleApprovalMutation.isPending) return;
+    setApprovalCooldown(true);
+    setTimeout(() => setApprovalCooldown(false), 500);
+    toggleApprovalMutation.mutate();
+  };
+
   const toggleApprovalMutation = useMutation({
     mutationFn: async () => {
       const response = await apiRequest("PATCH", `/api/content/${contentId}/approval`, {
@@ -914,8 +923,8 @@ export default function ResultPage() {
               <Button
                 variant={content.isApproved ? "default" : "outline"}
                 size="sm"
-                onClick={() => toggleApprovalMutation.mutate()}
-                disabled={toggleApprovalMutation.isPending}
+                onClick={handleToggleApproval}
+                disabled={toggleApprovalMutation.isPending || approvalCooldown}
                 aria-pressed={content.isApproved}
                 aria-label={content.isApproved ? "Connected to course. Click to disconnect." : "Not connected. Click to connect to course."}
                 data-testid="button-toggle-approval"
