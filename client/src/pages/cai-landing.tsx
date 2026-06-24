@@ -1,16 +1,26 @@
 import { useEffect } from "react";
-import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Shield, ArrowRight, Globe, Building2, Accessibility } from "lucide-react";
+import { BookOpen, ArrowRight, Users, GraduationCap } from "lucide-react";
 import { HeaderControls } from "@/components/header-controls";
 import { usePageTitle } from "@/hooks/use-page-title";
 import caiLogoWhite from "@assets/Center_for_AI_Apparel_&_Promotional_Items-WHITE_(1)_1775653892158.png";
 
+const ID_APP_URL = import.meta.env.VITE_ID_APP_URL as string | undefined;
+
+function openIdApp() {
+  if (!ID_APP_URL) return;
+  const isExternal = /^https?:\/\//i.test(ID_APP_URL);
+  if (isExternal) {
+    window.open(ID_APP_URL, "_blank", "noopener,noreferrer");
+  } else {
+    window.location.href = ID_APP_URL;
+  }
+}
+
 export default function CaiLandingPage() {
-  const [, navigate] = useLocation();
   useEffect(() => { window.scrollTo(0, 0); }, []);
-  usePageTitle("Massachusetts Accessibility Converter");
+  usePageTitle("BSU Instructional Designer");
 
   return (
     <main id="main-content" tabIndex={-1} className="min-h-screen bg-background">
@@ -22,11 +32,11 @@ export default function CaiLandingPage() {
 
       {/* Hero section with CAI branding */}
       <section
-        aria-labelledby="cai-hero-heading"
+        aria-labelledby="id-hero-heading"
         className="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white py-20 px-4"
       >
         <div className="container mx-auto max-w-4xl text-center">
-          {/* CAI logo — replace attached_assets/Center_for_AI_Apparel_&_Promotional_Items-WHITE_(1)_1775653892158.png to update */}
+          {/* CAI logo */}
           <div className="flex justify-center mb-8" data-testid="cai-logo-area">
             <img
               src={caiLogoWhite}
@@ -37,36 +47,32 @@ export default function CaiLandingPage() {
           </div>
 
           <h1
-            id="cai-hero-heading"
+            id="id-hero-heading"
             className="text-3xl md:text-5xl font-bold mb-4 tracking-tight"
-            data-testid="heading-cai-main"
+            data-testid="heading-id-main"
           >
-            Accessible Documents for All Massachusetts Colleges
+            AI-Powered Course Design for BSU Faculty
           </h1>
           <p
             className="text-lg md:text-xl text-gray-300 max-w-2xl mx-auto mb-10"
             style={{ textWrap: "balance" }}
-            data-testid="text-cai-subtitle"
+            data-testid="text-id-subtitle"
           >
-            A free, shared accessibility resource from the BSU Center for Artificial Intelligence — helping
-            Massachusetts state universities and community colleges meet ADA Title II &amp; WCAG 2.1 AA standards.
+            Create assignments, rubrics, syllabi, and UDL-aligned course materials in minutes —
+            powered by AI and built specifically for Bridgewater State University instructors.
           </p>
 
           <Button
             size="lg"
             className="gap-2 bg-white text-gray-900 hover:bg-gray-100 text-base px-8 py-6 rounded-xl font-semibold shadow-lg"
-            onClick={() => navigate("/accessibility")}
-            data-testid="button-open-converter"
+            onClick={openIdApp}
+            disabled={!ID_APP_URL}
+            data-testid="button-open-id-app"
           >
-            <Accessibility className="w-5 h-5" />
-            Open Accessibility Converter
+            <GraduationCap className="w-5 h-5" />
+            Open Instructional Designer
             <ArrowRight className="w-5 h-5" />
           </Button>
-
-          <p className="mt-4 text-sm text-gray-400 flex items-center justify-center gap-1.5" data-testid="text-no-login">
-            <Globe className="w-3.5 h-3.5" />
-            No account required — open to everyone
-          </p>
         </div>
       </section>
 
@@ -74,61 +80,47 @@ export default function CaiLandingPage() {
       <section aria-labelledby="features-heading" className="py-16 px-4 bg-background">
         <div className="container mx-auto max-w-4xl">
           <h2 id="features-heading" className="text-2xl md:text-3xl font-bold text-center text-foreground mb-10" data-testid="heading-features">
-            What the Converter Does
+            What the Instructional Designer Does
           </h2>
 
           <div className="grid gap-6 md:grid-cols-3">
-            <Card className="border border-border" data-testid="card-feature-convert">
+            <Card className="border border-border" data-testid="card-feature-course-materials">
               <CardContent className="p-6 text-center">
                 <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center mx-auto mb-4">
-                  <Shield className="w-7 h-7 text-white" />
+                  <BookOpen className="w-7 h-7 text-white" />
                 </div>
-                <h3 className="font-semibold text-foreground mb-2">PDF &amp; Word Documents</h3>
+                <h3 className="font-semibold text-foreground mb-2">AI-Generated Course Materials</h3>
                 <p className="text-sm text-muted-foreground">
-                  Upload PDFs and DOCX files and receive fully accessible HTML output that screen readers can navigate.
+                  Generate complete assignments, rubrics, syllabi, and learning modules from a simple course description — ready to drop into your LMS.
                 </p>
               </CardContent>
             </Card>
 
-            <Card className="border border-border" data-testid="card-feature-google">
+            <Card className="border border-border" data-testid="card-feature-udl">
               <CardContent className="p-6 text-center">
                 <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center mx-auto mb-4">
-                  <Globe className="w-7 h-7 text-white" />
+                  <Users className="w-7 h-7 text-white" />
                 </div>
-                <h3 className="font-semibold text-foreground mb-2">Google Docs</h3>
+                <h3 className="font-semibold text-foreground mb-2">UDL &amp; Inclusive Design</h3>
                 <p className="text-sm text-muted-foreground">
-                  Paste a publicly shared Google Doc URL and get a WCAG-compliant version instantly.
+                  Every output automatically incorporates Universal Design for Learning, Cultural Relevance, and Social-Emotional Learning frameworks.
                 </p>
               </CardContent>
             </Card>
 
-            <Card className="border border-border" data-testid="card-feature-wcag">
+            <Card className="border border-border" data-testid="card-feature-bsu">
               <CardContent className="p-6 text-center">
                 <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center mx-auto mb-4">
-                  <Accessibility className="w-7 h-7 text-white" />
+                  <GraduationCap className="w-7 h-7 text-white" />
                 </div>
-                <h3 className="font-semibold text-foreground mb-2">WCAG 2.1 AA Compliance</h3>
+                <h3 className="font-semibold text-foreground mb-2">Built for BSU Faculty</h3>
                 <p className="text-sm text-muted-foreground">
-                  AI-powered checks and fixes for headings, color contrast, alt text, and more — with a detailed compliance report.
+                  Uses BSU's official syllabus template and AI policy framework, with professional DOCX export for seamless upload to Blackboard Ultra.
                 </p>
               </CardContent>
             </Card>
           </div>
 
-        </div>
-      </section>
-
-      {/* Institution callout */}
-      <section aria-labelledby="statewide-heading" className="py-12 px-4 bg-muted/40 border-y border-border">
-        <div className="container mx-auto max-w-3xl text-center">
-          <Building2 className="w-8 h-8 text-muted-foreground mx-auto mb-3" aria-hidden="true" />
-          <h2 id="statewide-heading" className="text-lg font-semibold text-foreground mb-2" data-testid="heading-statewide">
-            A Shared Resource for the Massachusetts State University System
-          </h2>
-          <p className="text-sm text-muted-foreground max-w-xl mx-auto" style={{ textWrap: "balance" }} data-testid="text-statewide">
-            Built by Bridgewater State University's Center for Artificial Intelligence and offered freely to all
-            Massachusetts state and community colleges to help meet ADA Title II accessibility mandates.
-          </p>
         </div>
       </section>
 
