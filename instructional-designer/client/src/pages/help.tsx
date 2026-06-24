@@ -286,7 +286,7 @@ export default function HelpPage() {
                 </div>
               </div>
             </div>
-            <HeaderControls variant="light" showHelp={false} showHome={true} />
+            <HeaderControls variant="light" showHelp={false} />
           </div>
         </div>
       </div>

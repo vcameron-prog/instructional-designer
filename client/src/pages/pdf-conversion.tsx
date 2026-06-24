@@ -1386,7 +1386,7 @@ export default function PdfConversion() {
             </div>
           </div>
           <HeaderControls
-            showHome={true}
+           
             showLibrary={false}
             showHelp={false}
           />

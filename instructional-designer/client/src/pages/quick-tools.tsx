@@ -110,7 +110,7 @@ export default function QuickTools() {
                 </div>
               </div>
             </div>
-            <HeaderControls variant="light" showHome={true} />
+            <HeaderControls variant="light" />
           </div>
         </div>
       </div>

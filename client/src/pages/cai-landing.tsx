@@ -27,7 +27,7 @@ export default function CaiLandingPage() {
 
       {/* Top-right controls (theme toggle, font size only — no login) */}
       <nav aria-label="Display preferences" className="absolute top-4 right-4 z-20">
-        <HeaderControls showHome={false} showLibrary={false} showHelp={false} showSettings={false} showLogout={false} showLogin={false} />
+        <HeaderControls showLibrary={false} showHelp={false} showSettings={false} showLogout={false} showLogin={false} />
       </nav>
 
       {/* Hero section with CAI branding */}

@@ -323,7 +323,7 @@ export default function PdfFaq() {
             </div>
           </div>
           <HeaderControls
-            showHome={true}
+           
             showLibrary={false}
             showHelp={false}
           />

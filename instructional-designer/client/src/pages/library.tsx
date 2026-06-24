@@ -184,7 +184,7 @@ export default function LibraryPage() {
                 </div>
               </div>
             </div>
-            <HeaderControls variant="light" showLibrary={false} showHome={true} />
+            <HeaderControls variant="light" showLibrary={false} />
           </div>
         </div>
       </div>

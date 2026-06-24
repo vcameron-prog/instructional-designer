@@ -255,7 +255,7 @@ export default function PdfHistory() {
               New Conversion
             </button>
             <HeaderControls
-              showHome={true}
+             
               showLibrary={false}
               showHelp={false}
             />

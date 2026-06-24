@@ -152,7 +152,7 @@ export default function SettingsPage() {
             <ArrowLeft className="w-4 h-4" />
             Home
           </Button>
-          <HeaderControls showHome={false} showSettings={false} />
+          <HeaderControls showSettings={false} />
         </div>
       </header>
 

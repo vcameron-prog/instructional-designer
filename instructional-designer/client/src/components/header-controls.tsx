@@ -8,7 +8,6 @@ import { useAuth } from "@/hooks/use-auth";
 
 interface HeaderControlsProps {
   variant?: "light" | "dark";
-  showHome?: boolean;
   homePath?: string;
   showLibrary?: boolean;
   showHelp?: boolean;
@@ -19,8 +18,7 @@ interface HeaderControlsProps {
 
 export function HeaderControls({
   variant = "light",
-  showHome = false,
-  homePath = "/faculty",
+  homePath = "/",
   showLibrary = true,
   showHelp = true,
   showSettings = true,
@@ -30,7 +28,8 @@ export function HeaderControls({
   const { isAuthenticated } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { fontSize, increaseFontSize, decreaseFontSize } = useFontSize();
-  const [, navigate] = useLocation();
+  const [location, navigate] = useLocation();
+  const showHome = location !== homePath;
 
   const isDark = variant === "dark";
   const btnVariant = isDark ? "ghost" : "outline";

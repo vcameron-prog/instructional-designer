@@ -235,7 +235,7 @@ export default function ToolSelection() {
                     : "Choose which materials to download as a ZIP of .docx files"}
                 </TooltipContent>
               </Tooltip>
-              <HeaderControls variant="light" showHome={true} />
+              <HeaderControls variant="light" />
             </div>
           </div>
         </div>

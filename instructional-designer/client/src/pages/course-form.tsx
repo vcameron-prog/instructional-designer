@@ -314,7 +314,7 @@ export default function CourseForm({ courseId }: { courseId?: number }) {
                 </div>
               </div>
             </div>
-            <HeaderControls variant="light" showHome={true} />
+            <HeaderControls variant="light" />
           </div>
         </div>
       </div>
