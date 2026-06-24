@@ -374,17 +374,23 @@ export default function PdfUpload() {
       <div className="container mx-auto px-4 py-12 max-w-4xl">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10 max-w-3xl mx-auto">
           <div className="rounded-lg border bg-card p-5 flex flex-col items-center text-center gap-2">
-            <Shield className="w-7 h-7 text-primary flex-shrink-0" />
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0">
+              <Shield className="w-6 h-6 text-white" />
+            </div>
             <h3 className="font-semibold text-foreground">Title II Compliant</h3>
             <p className="text-sm text-muted-foreground">Prepares your documents to meet the rigorous standards required of state and local governments.</p>
           </div>
           <div className="rounded-lg border bg-card p-5 flex flex-col items-center text-center gap-2">
-            <Image className="w-7 h-7 text-primary flex-shrink-0" />
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center flex-shrink-0">
+              <Image className="w-6 h-6 text-white" />
+            </div>
             <h3 className="font-semibold text-foreground">AI Alt Text</h3>
             <p className="text-sm text-muted-foreground">Automatically detects images and charts, generating accurate semantic alternative text descriptions.</p>
           </div>
           <div className="rounded-lg border bg-card p-5 flex flex-col items-center text-center gap-2">
-            <AlignLeft className="w-7 h-7 text-primary flex-shrink-0" />
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center flex-shrink-0">
+              <AlignLeft className="w-6 h-6 text-white" />
+            </div>
             <h3 className="font-semibold text-foreground">Reading Order</h3>
             <p className="text-sm text-muted-foreground">Restructures complex multi-column layouts into a linear, logical reading order for screen readers.</p>
           </div>
@@ -557,7 +563,7 @@ export default function PdfUpload() {
           {/* Google Workspace (Docs / Sheets / Slides) */}
           <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden flex flex-col">
             <div className="px-4 py-3 bg-secondary/50 border-b border-border flex items-center gap-2">
-              <div className="p-1.5 rounded-lg bg-primary text-primary-foreground">
+              <div className="p-1.5 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 text-white">
                 <SiGoogledrive className="w-4 h-4" aria-hidden="true" />
               </div>
               <div>
@@ -621,7 +627,7 @@ export default function PdfUpload() {
           {/* Google Sheets */}
           <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden flex flex-col">
             <div className="px-4 py-3 bg-secondary/50 border-b border-border flex items-center gap-2">
-              <div className="p-1.5 rounded-lg bg-primary text-primary-foreground">
+              <div className="p-1.5 rounded-lg bg-gradient-to-br from-emerald-500 to-green-600 text-white">
                 <SiGooglesheets className="w-4 h-4" aria-hidden="true" />
               </div>
               <div>
@@ -704,7 +710,7 @@ export default function PdfUpload() {
           {/* Google Slides */}
           <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden flex flex-col">
             <div className="px-4 py-3 bg-secondary/50 border-b border-border flex items-center gap-2">
-              <div className="p-1.5 rounded-lg bg-primary text-primary-foreground">
+              <div className="p-1.5 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 text-white">
                 <SiGoogleslides className="w-4 h-4" aria-hidden="true" />
               </div>
               <div>
