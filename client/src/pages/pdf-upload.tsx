@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useLocation } from "wouter";
-import caiLogoWhite from "@assets/bsu-cai-logo.png";
+import caiLogoWhite from "@assets/Center_for_AI_Apparel_&_Promotional_Items-WHITE_(1)_1775653892158.png";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   Loader2,
@@ -300,33 +300,7 @@ export default function PdfUpload() {
       className="min-h-screen bg-background"
     >
       <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate("/")}
-              aria-label="Home — CAI Tools"
-              data-testid="button-home-logo"
-              className="flex-shrink-0"
-            >
-              <img
-                src={caiLogoWhite}
-                alt="Center for Artificial Intelligence"
-                className="h-8 w-auto"
-              />
-            </button>
-            <div className="w-px h-6 bg-border" aria-hidden="true" />
-            <div>
-              <h1
-                className="font-bold text-foreground text-lg"
-                data-testid="text-page-title"
-              >
-                Accessibility Converter
-              </h1>
-              <p className="text-xs text-muted-foreground">
-                ADA Title II &amp; WCAG 2.1 AA Compliance
-              </p>
-            </div>
-          </div>
+        <div className="container mx-auto px-4 py-3 flex items-center justify-end">
           <div className="flex items-center gap-2">
             {isAuthenticated && (
               <button
@@ -355,15 +329,49 @@ export default function PdfUpload() {
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-12 max-w-4xl">
-        <div className="text-center mb-10">
-          <h2 className="text-3xl font-bold text-foreground mb-3">
-            Convert Documents to Accessible Formats
-          </h2>
-          <p className="text-muted-foreground max-w-xl mx-auto">
+      <section
+        aria-labelledby="id-converter-heading"
+        className="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white py-16 px-4"
+      >
+        <div className="container mx-auto max-w-4xl text-center">
+          <div className="flex justify-center mb-6" data-testid="cai-logo-area">
+            <button
+              onClick={() => navigate("/")}
+              aria-label="Home — CAI Tools"
+              data-testid="button-home-logo"
+              className="flex-shrink-0"
+            >
+              <img
+                src={caiLogoWhite}
+                alt="Center for Artificial Intelligence"
+                className="h-20 md:h-24 w-auto"
+                data-testid="img-cai-logo"
+              />
+            </button>
+          </div>
+          <p className="text-sm font-medium text-gray-400 uppercase tracking-widest mb-1">
+            Bridgewater State University
+          </p>
+          <p className="text-base text-gray-300 mb-6">
+            Center for Artificial Intelligence
+          </p>
+          <h1
+            id="id-converter-heading"
+            className="text-3xl md:text-4xl font-bold mb-3 tracking-tight"
+            data-testid="text-page-title"
+          >
+            Accessibility Converter
+          </h1>
+          <span className="inline-block text-xs font-semibold bg-white/10 border border-white/20 text-gray-200 px-3 py-1 rounded-full mb-6">
+            ADA Title II · WCAG 2.1 AA
+          </span>
+          <p className="text-gray-300 max-w-2xl mx-auto text-base">
             Instantly remediate PDF, Word, PowerPoint, and Excel documents—or import directly from Google Docs, Sheets, and Slides—and prepare them to meet ADA Title II and WCAG 2.1 AA requirements using advanced AI structural analysis and description generation.
           </p>
         </div>
+      </section>
+
+      <div className="container mx-auto px-4 py-12 max-w-4xl">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10 max-w-3xl mx-auto">
           <div className="rounded-lg border bg-card p-5 flex flex-col items-center text-center gap-2">
             <Shield className="w-7 h-7 text-primary flex-shrink-0" />
