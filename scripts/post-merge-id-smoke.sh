@@ -15,17 +15,42 @@
 # run the id-smoke validation step manually.  The self-contained cold-start
 # path (smoke-test.sh) remains available in the validation runner.
 #
+# Timeout safety: if the post-merge hook is killed (SIGTERM) while Playwright
+# is still running, the TERM/EXIT trap below fires and prints a warning so the
+# developer knows test results were not captured and should re-run manually.
+#
 # A non-zero exit code is surfaced in the log but does NOT abort post-merge.sh
 # (the caller uses "|| true" so schema/migration gates still pass).
 
 PORT="${ID_PORT:-3001}"
 
+# Tracks whether Playwright was launched but had not yet finished.
+# Set to "running" just before npx playwright is called; set to "done" only
+# after capturing Playwright's exit code.  The EXIT/TERM trap uses this to
+# detect an interrupted run (e.g. the post-merge timeout firing mid-test).
+_smoke_status="not_started"
+
+_on_interrupt() {
+  if [ "$_smoke_status" = "running" ]; then
+    echo ""
+    echo "[id-smoke] WARNING: Smoke tests were still running when this process was interrupted."
+    echo "[id-smoke] The post-merge timeout may have fired before Playwright finished."
+    echo "[id-smoke] No test results were captured — regressions could be hidden."
+    echo "[id-smoke] *** Run the 'id-smoke' validation step manually to get full results. ***"
+  fi
+}
+trap _on_interrupt EXIT TERM
+
 run_if_server_up() {
   if curl -sf "http://127.0.0.1:${PORT}" >/dev/null 2>&1; then
     echo "[id-smoke] Server already up on port ${PORT} — running Playwright directly."
     cd instructional-designer
+    _smoke_status="running"
     PLAYWRIGHT_BASE_URL="http://127.0.0.1:${PORT}" \
       npx playwright test e2e/id-smoke.spec.ts --config playwright.config.ts
+    rc=$?
+    _smoke_status="done"
+    return "$rc"
   else
     echo "[id-smoke] Instructional Designer server is not running on port ${PORT}."
     echo "[id-smoke] Skipping automated run to stay within the post-merge time budget."
