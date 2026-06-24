@@ -81,8 +81,8 @@ const faqs = [
     answer: "Yes. The built-in editor lets you view and edit the accessible HTML directly. You can fix headings, update alt text, edit table captions, and more before exporting.",
   },
   {
-    question: "Do I need an account to use the converter?",
-    answer: "No account is required to upload and convert documents. If you sign in with your Replit account, your conversion history is saved so you can return to previous documents.",
+    question: "Do I need an account?",
+    answer: "No account is required to use the accessibility converter. Anyone can upload a document, run the audit, and download the remediated file. Signing in saves your conversion history so you can return to previous documents. Course creation and the instructional design tools (assignment builders, rubrics, syllabi, etc.) are only available to signed-in users.",
   },
   {
     question: "Is my document stored securely?",
