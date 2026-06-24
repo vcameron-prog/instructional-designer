@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { useLocation } from "wouter";
+import caiLogoWhite from "@assets/bsu-cai-logo.png";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   FileText,
@@ -227,9 +228,23 @@ export default function PdfHistory() {
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
+              onClick={() => navigate("/")}
+              aria-label="Home — CAI Tools"
+              data-testid="button-home-logo"
+              className="flex-shrink-0"
+            >
+              <img
+                src={caiLogoWhite}
+                alt="Center for Artificial Intelligence"
+                className="h-8 w-auto"
+              />
+            </button>
+            <div className="w-px h-6 bg-border" aria-hidden="true" />
+            <button
               onClick={() => navigate("/pdf-accessibility")}
               className="text-muted-foreground hover:text-foreground transition-colors"
               data-testid="button-back"
+              aria-label="Back to Accessibility Converter"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>

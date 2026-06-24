@@ -1,10 +1,11 @@
 import { useEffect } from "react";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { BookOpen, ArrowRight, Users, GraduationCap } from "lucide-react";
+import { BookOpen, ArrowRight, Users, GraduationCap, FileText, Shield, Zap } from "lucide-react";
 import { HeaderControls } from "@/components/header-controls";
 import { usePageTitle } from "@/hooks/use-page-title";
-import caiLogoWhite from "@assets/Center_for_AI_Apparel_&_Promotional_Items-WHITE_(1)_1775653892158.png";
+import caiLogoWhite from "@assets/bsu-cai-logo.png";
 
 const ID_APP_URL = import.meta.env.VITE_ID_APP_URL as string | undefined;
 
@@ -20,7 +21,8 @@ function openIdApp() {
 
 export default function CaiLandingPage() {
   useEffect(() => { window.scrollTo(0, 0); }, []);
-  usePageTitle("BSU Instructional Designer");
+  usePageTitle("CAI Tools — Bridgewater State University");
+  const [, navigate] = useLocation();
 
   return (
     <main id="main-content" tabIndex={-1} className="min-h-screen bg-background">
@@ -121,6 +123,69 @@ export default function CaiLandingPage() {
             </Card>
           </div>
 
+        </div>
+      </section>
+
+      {/* Accessibility Converter section */}
+      <section aria-labelledby="converter-heading" className="py-16 px-4 bg-secondary/30 border-t border-border">
+        <div className="container mx-auto max-w-4xl">
+          <div className="flex flex-col md:flex-row items-center gap-10">
+            <div className="flex-1">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold mb-4">
+                <Shield className="w-3.5 h-3.5" />
+                ADA Title II · WCAG 2.1 AA
+              </div>
+              <h2
+                id="converter-heading"
+                className="text-2xl md:text-3xl font-bold text-foreground mb-3"
+                data-testid="heading-converter"
+              >
+                Accessibility Converter
+              </h2>
+              <p className="text-muted-foreground mb-6 max-w-lg">
+                Upload a PDF, Word, PowerPoint, or Excel file — or import directly from Google Docs, Sheets, or Slides — and get back a fully accessible document in seconds. No login required.
+              </p>
+              <Button
+                size="lg"
+                onClick={() => navigate("/accessibility")}
+                className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90 text-base px-8 py-6 rounded-xl font-semibold shadow-lg"
+                data-testid="button-open-converter"
+              >
+                <FileText className="w-5 h-5" />
+                Open Accessibility Converter
+                <ArrowRight className="w-5 h-5" />
+              </Button>
+            </div>
+            <div className="flex-shrink-0 grid grid-cols-1 gap-3 w-full md:w-72">
+              <div className="flex items-start gap-3 p-4 bg-card border border-border rounded-xl">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0">
+                  <FileText className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <p className="font-semibold text-foreground text-sm">PDF, Word, PowerPoint &amp; Excel</p>
+                  <p className="text-xs text-muted-foreground">Upload any common document format</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 p-4 bg-card border border-border rounded-xl">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center flex-shrink-0">
+                  <Zap className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <p className="font-semibold text-foreground text-sm">AI-Powered Remediation</p>
+                  <p className="text-xs text-muted-foreground">Alt text, heading structure, reading order</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 p-4 bg-card border border-border rounded-xl">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center flex-shrink-0">
+                  <Shield className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <p className="font-semibold text-foreground text-sm">No Login Needed</p>
+                  <p className="text-xs text-muted-foreground">Public tool — free to use instantly</p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 

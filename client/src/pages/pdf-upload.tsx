@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useLocation } from "wouter";
+import caiLogoWhite from "@assets/bsu-cai-logo.png";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   Loader2,
@@ -301,9 +302,19 @@ export default function PdfUpload() {
       <header className="border-b bg-card">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="bg-primary/10 text-primary p-2 rounded-xl">
-              <FileText className="w-6 h-6" />
-            </div>
+            <button
+              onClick={() => navigate("/")}
+              aria-label="Home — CAI Tools"
+              data-testid="button-home-logo"
+              className="flex-shrink-0"
+            >
+              <img
+                src={caiLogoWhite}
+                alt="Center for Artificial Intelligence"
+                className="h-8 w-auto"
+              />
+            </button>
+            <div className="w-px h-6 bg-border" aria-hidden="true" />
             <div>
               <h1
                 className="font-bold text-foreground text-lg"
@@ -312,7 +323,7 @@ export default function PdfUpload() {
                 Accessibility Converter
               </h1>
               <p className="text-xs text-muted-foreground">
-                ADA Title II & WCAG 2.1 AA Compliance
+                ADA Title II &amp; WCAG 2.1 AA Compliance
               </p>
             </div>
           </div>
