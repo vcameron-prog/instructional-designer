@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { BookOpen, ArrowRight, Users, GraduationCap, FileText, Shield, Zap } from "lucide-react";
 import { HeaderControls } from "@/components/header-controls";
 import { usePageTitle } from "@/hooks/use-page-title";
-import caiLogoWhite from "@assets/bsu-cai-logo.png";
+import caiLogoWhite from "@assets/Center_for_AI_Apparel_&_Promotional_Items-WHITE_(1)_1775653892158.png";
 
 const ID_APP_URL = import.meta.env.VITE_ID_APP_URL as string | undefined;
 
