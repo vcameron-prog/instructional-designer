@@ -1,6 +1,5 @@
 import { getTableColumns, getTableName } from "drizzle-orm";
 import { PgTable } from "drizzle-orm/pg-core";
-import pg from "pg";
 import type { PoolClient } from "pg";
 import { pool } from "../db";
 import * as schema from "../../shared/schema";

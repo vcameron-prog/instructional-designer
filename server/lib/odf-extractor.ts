@@ -5,7 +5,6 @@ import type { PdfExtraction, ExtractedTable } from "./pdf-processor";
 const NS_TEXT = "urn:oasis:names:tc:opendocument:xmlns:text:1.0";
 const NS_TABLE = "urn:oasis:names:tc:opendocument:xmlns:table:1.0";
 const NS_DC = "http://purl.org/dc/elements/1.1/";
-const NS_META = "urn:oasis:names:tc:opendocument:xmlns:meta:1.0";
 
 function getNodesByNS(
   parent: Element | Document,

@@ -531,7 +531,7 @@ export function runDeterministicChecks(html: string): ComplianceIssue[] {
   } else if (imgsWithoutAlt.length === 0) {
     altDetails = `All ${imgTags.length} image(s) have text descriptions.`;
   } else {
-    const failingImageDescriptions = imgsWithoutAlt.map(({ tag, originalIndex }, idx) => {
+    const failingImageDescriptions = imgsWithoutAlt.map(({ tag, originalIndex: _originalIndex }, idx) => {
       const srcMatch = tag.match(/\ssrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i);
       const src = srcMatch ? (srcMatch[1] ?? srcMatch[2] ?? srcMatch[3] ?? "") : "";
       if (src && !src.startsWith("data:")) {
@@ -2359,7 +2359,7 @@ function ensureMissingTables(html: string, tables: ExtractedTable[]): string {
   if (missingTables.length === 0) return html;
 
   const tableSections = missingTables
-    .map((t, i) => {
+    .map((t, _i) => {
       const headerRow = t.rows[0] || [];
       const bodyRows = t.rows.slice(1);
       const thead = `<thead><tr>${headerRow.map((c) => `<th scope="col">${escapeHtmlText(c)}</th>`).join("")}</tr></thead>`;
@@ -2403,7 +2403,7 @@ function extractHeadingOutline(html: string): string {
  */
 async function generateVisionAltText(
   html: string,
-  images: ExtractedImage[],
+  _images: ExtractedImage[],
   signal?: AbortSignal
 ): Promise<string> {
   const weakAltPattern = /^(document image|image[\s:\-]*\S{0,30}|photo|picture|img|icon|graphic|figure|untitled|\s*)$/i;
@@ -2529,7 +2529,7 @@ export async function generateAccessibleDocument(
   metadata: { title?: string; author?: string; subject?: string },
   images: ExtractedImage[] = [],
   tables: ExtractedTable[] = [],
-  pageCount?: number,
+  _pageCount?: number,
   onProgress?: ProgressCallback,
   signal?: AbortSignal
 ): Promise<AccessibilityResult> {

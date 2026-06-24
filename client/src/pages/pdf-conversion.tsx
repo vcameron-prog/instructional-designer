@@ -29,7 +29,6 @@ import {
   GraduationCap,
   Share2,
   Globe,
-  ExternalLink,
   Layers,
   BookmarkCheck,
 } from "lucide-react";

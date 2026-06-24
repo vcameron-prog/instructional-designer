@@ -8,6 +8,8 @@
     "module": "ESNext",
     "target": "ES2017",
     "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
     "lib": ["esnext", "dom", "dom.iterable"],
     "jsx": "preserve",
     "esModuleInterop": true,

@@ -33,7 +33,6 @@ const HEADING_MAP: Record<
   h6: HeadingLevel.HEADING_6,
 };
 
-const LIST_TAGS = new Set(["ul", "ol"]);
 const SKIP_IN_TEXT_EXTRACTION = new Set(["ul", "ol", "table", "img", "figure"]);
 
 function sanitizeXmlText(text: string): string {

@@ -80,7 +80,7 @@ const HEADER_FILL: ExcelJS.FillPattern = {
 
 export async function buildXlsx(
   html: string,
-  docTitle: string = "Accessible Spreadsheet",
+  _docTitle: string = "Accessible Spreadsheet",
 ): Promise<Buffer> {
   const root = parse(html);
   const tables = findAllTables(root as unknown as HTMLElement);

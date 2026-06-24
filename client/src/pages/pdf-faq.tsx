@@ -6,8 +6,6 @@ import {
   ChevronDown,
   ChevronRight,
   ArrowLeft,
-  FileText,
-  HelpCircle,
 } from "lucide-react";
 import { ConverterHeader } from "@/components/header-controls";
 import { usePageTitle } from "@/hooks/use-page-title";

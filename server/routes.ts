@@ -1,5 +1,5 @@
 import type { Express, Request, Response, NextFunction } from "express";
-import { createServer, type Server } from "http";
+import type { Server } from "http";
 import { randomUUID } from "crypto";
 import { storage } from "./storage";
 import { conversions } from "@shared/schema";
@@ -14,10 +14,8 @@ import {
 } from "./replit_integrations/auth";
 import Anthropic from "@anthropic-ai/sdk";
 import multer from "multer";
-import { z } from "zod";
 import { db } from "./db";
 import { eq, and, isNull, sql, desc, inArray } from "drizzle-orm";
-import { fixHtmlTableCaption, fixHtmlTableThead, editHtmlTableCaption } from "./lib/table-fixers.js";
 import { getDeterministicFixerKeys, getAiFixRetryMetrics, getPersistAiFixRetryLastFailed } from "./lib/accessibility-engine";
 import {
   SHARED_ANON_UPLOAD_RATE_LIMIT,
@@ -29,7 +27,6 @@ import {
   getRateLimitCleanupMetrics,
   UPLOAD_RATE_LIMIT,
   UPLOAD_RATE_WINDOW_MS,
-  ANON_RATE_LIMIT,
   ANON_RATE_WINDOW_MS,
   HEAVY_OP_RATE_WINDOW_MS,
 } from "./lib/rateLimiters.js";
@@ -43,11 +40,6 @@ const anthropic = new Anthropic({
   baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL,
   timeout: 5 * 60 * 1000,
   maxRetries: 2,
-});
-
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024, files: 1 },
 });
 
 /**
@@ -152,83 +144,6 @@ export const ISSUE_INDEX_REQUIRED_ERROR = "issueIndex required";
 export const CONVERSION_MUST_BE_COMPLETED_ERROR = "Conversion must be completed";
 
 
-async function fixVagueLinkTextAI(text: string): Promise<string> {
-  const message = await anthropic.messages.create({
-    model: "claude-sonnet-4-5",
-    max_tokens: 8192,
-    messages: [
-      {
-        role: "user",
-        content: `You are an accessibility editor. Your task is to fix vague link text in the following markdown content.
-
-Vague link text includes phrases like "click here", "here", "link", "read more", "learn more", "go here", "this page", "more info", "more", "click", "this link", "this article", "this resource", "view here", "find out more", "see here", "details", "info", or similar non-descriptive labels.
-
-Rules:
-1. For each vague link that has a URL, replace ONLY the link label with a short, descriptive phrase that accurately reflects the link destination based on surrounding context. Preserve the URL exactly as-is.
-   - Example: \`[click here](https://bsu.edu/calendar)\` → \`[BSU Academic Calendar](https://bsu.edu/calendar)\`
-2. For vague links with NO URL (bare links like \`[click here]\` or \`[here]\`), replace the entire link with the editorial placeholder: \`[** Describe link destination **]\`
-3. Do NOT change any other content — only fix the vague link labels.
-4. Return the complete updated markdown with no additional commentary, explanations, or code fences.
-
-Here is the markdown content to fix:
-
-${text}`,
-      },
-    ],
-  });
-
-  const result = message.content
-    .filter((item): item is Anthropic.TextBlock => item.type === "text")
-    .map((item) => item.text)
-    .join("");
-
-  const trimmed = result.trim();
-  if (!trimmed) {
-    throw new Error("AI returned an empty response for vague link fix; original content preserved.");
-  }
-  return trimmed;
-}
-
-function fixAllCaps(text: string): string {
-  return text.replace(/\b[A-Z]{10,}\b/g, (match) => {
-    return match.charAt(0).toUpperCase() + match.slice(1).toLowerCase();
-  });
-}
-
-/**
- * Finds the first heading level skip in the content and inserts a placeholder
- * heading at the missing level to maintain a logical hierarchy.
- */
-function fixHeadingSkip(text: string): string {
-  const lines = text.split("\n");
-  const headings: Array<{ lineIdx: number; level: number }> = [];
-  let insideCodeFence = false;
-
-  lines.forEach((line, lineIdx) => {
-    if (/^```/.test(line.trim())) insideCodeFence = !insideCodeFence;
-    if (!insideCodeFence) {
-      const match = line.match(/^(#{1,6})\s/);
-      if (match) headings.push({ lineIdx, level: match[1].length });
-    }
-  });
-
-  if (headings.length <= 1) return text;
-
-  let prevLevel = headings[0].level;
-  for (let h = 1; h < headings.length; h++) {
-    const { level, lineIdx } = headings[h];
-    if (level > prevLevel + 1) {
-      const missingLevel = prevLevel + 1;
-      const hashes = "#".repeat(missingLevel);
-      lines.splice(lineIdx, 0, `${hashes} Section`);
-      break;
-    }
-    prevLevel = level;
-  }
-
-  return lines.join("\n");
-}
-
 export async function registerRoutes(
   httpServer: Server,
   app: Express,
@@ -236,23 +151,6 @@ export async function registerRoutes(
   // Setup authentication (before other routes)
   await setupAuth(app);
   registerAuthRoutes(app);
-
-  const getAdminIds = () => (process.env.ADMIN_USER_IDS || "").split(",").map(id => id.trim()).filter(Boolean);
-
-  const checkIsAdmin = (req: Request): boolean => {
-    const userId = getUserId(req);
-    const userEmail = (req.user as any)?.claims?.email as string | undefined;
-    const adminIds = getAdminIds();
-    return !!(userId && adminIds.some(entry => entry === userId || entry === userEmail));
-  };
-
-  const isAdmin = (req: Request, res: Response, next: Function) => {
-    if (!checkIsAdmin(req)) {
-      return res.status(403).json({ error: "Forbidden" });
-    }
-    next();
-  };
-
 
   app.get("/api/deterministic-fixers", (_req: Request, res: Response) => {
     res.json({ keys: getDeterministicFixerKeys().sort() });
@@ -522,7 +420,7 @@ export async function registerRoutes(
   const anonDbUploadRateLimitGuard = async (req: Request, res: Response, next: NextFunction) => {
     const userId = getUserId(req);
     if (!userId) {
-      const vToken = ensureVisitorToken(req);
+      ensureVisitorToken(req);
       const ip = req.ip || req.socket.remoteAddress || "unknown";
       // Key by IP so token-rotation attacks (deleting/rotating the visitor
       // cookie to obtain a fresh token) cannot bypass the shared limit.
@@ -544,7 +442,7 @@ export async function registerRoutes(
   // late to prevent memory exhaustion from many simultaneous large uploads.
   // Acquiring the slot here (and releasing it on response close/finish) means
   // excess connections are rejected before any file data is buffered.
-  const uploadConcurrencyGuard = (req: Request, res: Response, next: NextFunction) => {
+  const uploadConcurrencyGuard = (_req: Request, res: Response, next: NextFunction) => {
     if (activeUploadJobs >= MAX_CONCURRENT_UPLOADS) {
       res.status(503).json({ error: "Server is busy. Please try again shortly." });
       return;
@@ -656,7 +554,7 @@ export async function registerRoutes(
       // ensureVisitorToken (not getVisitorToken) is used so a sticky token is
       // always assigned — preventing bypass via fresh/missing cookies.
       if (!userId) {
-        const vToken = ensureVisitorToken(req);
+        ensureVisitorToken(req);
         const ip = req.ip || req.socket.remoteAddress || "unknown";
         // Key by IP so token-rotation attacks cannot bypass the shared limit.
         if (!await checkSharedRateLimit(
@@ -897,7 +795,7 @@ export async function registerRoutes(
       // ensureVisitorToken (not getVisitorToken) so that a sticky token is
       // always assigned — preventing bypass via fresh/missing cookies.
       if (!userId) {
-        const vToken = ensureVisitorToken(req);
+        ensureVisitorToken(req);
         const ip = req.ip || req.socket.remoteAddress || "unknown";
         // Key by IP so token-rotation attacks cannot bypass the shared limit.
         if (!await checkSharedRateLimit(
@@ -1135,7 +1033,7 @@ export async function registerRoutes(
       // ensureVisitorToken (not getVisitorToken) so that a sticky token is
       // always assigned — preventing bypass via fresh/missing cookies.
       if (!userId) {
-        const vToken = ensureVisitorToken(req);
+        ensureVisitorToken(req);
         const ip = req.ip || req.socket.remoteAddress || "unknown";
         // Key by IP so token-rotation attacks cannot bypass the shared limit.
         if (!await checkSharedRateLimit(
@@ -2605,7 +2503,7 @@ export async function registerRoutes(
       // the shared cross-instance DB-backed limit so the quota is globally
       // enforced across all autoscaled instances.
       if (!userId) {
-        const vToken = ensureVisitorToken(req);
+        ensureVisitorToken(req);
         const ip = req.ip || req.socket.remoteAddress || "unknown";
         // Key by IP so token-rotation attacks cannot bypass the shared limit.
         if (!await checkSharedRateLimit(
@@ -2848,7 +2746,7 @@ export async function registerRoutes(
       // the shared cross-instance DB-backed limit so the quota is globally
       // enforced across all autoscaled instances.
       if (!userId) {
-        const vToken = ensureVisitorToken(req);
+        ensureVisitorToken(req);
         const ip = req.ip || req.socket.remoteAddress || "unknown";
         // Key by IP so token-rotation attacks cannot bypass the shared limit.
         if (!await checkSharedRateLimit(

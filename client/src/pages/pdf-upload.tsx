@@ -41,7 +41,7 @@ export default function PdfUpload() {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
-  const { user, isLoading: authLoading, isAuthenticated } = useAuth();
+  const { isLoading: authLoading, isAuthenticated } = useAuth();
   const [, navigate] = useLocation();
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [copiedUploadError, setCopiedUploadError] = useState(false);
