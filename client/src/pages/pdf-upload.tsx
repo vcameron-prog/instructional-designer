@@ -552,216 +552,220 @@ export default function PdfUpload() {
           </div>
         )}
 
-        <div className="w-full max-w-2xl mx-auto mb-4 bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
-          <div className="px-4 py-3 bg-secondary/50 border-b border-border flex items-center gap-2">
-            <div className="p-1.5 rounded-lg bg-primary text-primary-foreground">
-              <SiGoogledrive className="w-4 h-4" aria-hidden="true" />
-            </div>
-            <div>
-              <h3
-                className="font-bold text-foreground text-sm"
-                data-testid="heading-google-section"
-              >
-                Import from Google Workspace
-              </h3>
-              <p className="text-xs text-muted-foreground">
-                Google Docs, Sheets, or Slides → accessible format
-              </p>
-            </div>
-          </div>
-          <div className="p-4" data-testid="google-doc-import-section">
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <label htmlFor="google-doc-url" className="sr-only">
-                  Google Workspace URL (Docs, Sheets, or Slides)
-                </label>
-                <SiGoogledrive
-                  className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"
-                  aria-hidden="true"
-                />
-                <input
-                  id="google-doc-url"
-                  type="url"
-                  value={googleDocUrl}
-                  onChange={(e) => setGoogleDocUrl(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleGoogleDocDownload();
-                  }}
-                  placeholder="Paste a Google Docs, Sheets, or Slides URL"
-                  className="w-full pl-10 pr-3 py-2 border border-border rounded-xl bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all"
-                  data-testid="input-google-doc-url"
-                />
-              </div>
-              <button
-                onClick={handleGoogleDocDownload}
-                disabled={!googleDocUrl.trim() || googleDocMutation.isPending || googleSheetMutation.isPending || googleSlideMutation.isPending}
-                className="inline-flex items-center gap-1.5 px-3 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl text-sm font-semibold shadow-sm hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:transform-none"
-                data-testid="button-google-doc-import"
-              >
-                {(googleDocMutation.isPending || googleSheetMutation.isPending || googleSlideMutation.isPending) ? (
-                  <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
-                ) : (
-                  <ArrowRight className="w-4 h-4" aria-hidden="true" />
-                )}
-                Import
-              </button>
-            </div>
-            <p
-              className="mt-2 text-xs text-muted-foreground"
-              data-testid="text-google-doc-hint"
-            >
-              The document must be shared as "Anyone with the link" for the
-              import to work.
-            </p>
-          </div>
-        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 w-full max-w-2xl mx-auto mb-4">
 
-        <div className="w-full max-w-2xl mx-auto mb-4 bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
-          <div className="px-4 py-3 bg-secondary/50 border-b border-border flex items-center gap-2">
-            <div className="p-1.5 rounded-lg bg-primary text-primary-foreground">
-              <SiGooglesheets className="w-4 h-4" aria-hidden="true" />
+          {/* Google Workspace (Docs / Sheets / Slides) */}
+          <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden flex flex-col">
+            <div className="px-4 py-3 bg-secondary/50 border-b border-border flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-primary text-primary-foreground">
+                <SiGoogledrive className="w-4 h-4" aria-hidden="true" />
+              </div>
+              <div>
+                <h3
+                  className="font-bold text-foreground text-sm"
+                  data-testid="heading-google-section"
+                >
+                  Google Workspace
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Docs, Sheets, or Slides
+                </p>
+              </div>
             </div>
-            <div>
-              <h3
-                className="font-bold text-foreground text-sm"
-                data-testid="heading-google-sheet-section"
+            <div className="p-4 flex flex-col flex-1" data-testid="google-doc-import-section">
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <label htmlFor="google-doc-url" className="sr-only">
+                    Google Workspace URL (Docs, Sheets, or Slides)
+                  </label>
+                  <SiGoogledrive
+                    className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"
+                    aria-hidden="true"
+                  />
+                  <input
+                    id="google-doc-url"
+                    type="url"
+                    value={googleDocUrl}
+                    onChange={(e) => setGoogleDocUrl(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleGoogleDocDownload();
+                    }}
+                    placeholder="Paste a Docs, Sheets, or Slides URL"
+                    className="w-full pl-10 pr-3 py-2 border border-border rounded-xl bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all"
+                    data-testid="input-google-doc-url"
+                  />
+                </div>
+                <button
+                  onClick={handleGoogleDocDownload}
+                  disabled={!googleDocUrl.trim() || googleDocMutation.isPending || googleSheetMutation.isPending || googleSlideMutation.isPending}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl text-sm font-semibold shadow-sm hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:transform-none"
+                  data-testid="button-google-doc-import"
+                >
+                  {(googleDocMutation.isPending || googleSheetMutation.isPending || googleSlideMutation.isPending) ? (
+                    <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                  )}
+                  Import
+                </button>
+              </div>
+              <p
+                className="mt-2 text-xs text-muted-foreground"
+                data-testid="text-google-doc-hint"
               >
-                Import from Google Sheets
-              </h3>
-              <p className="text-xs text-muted-foreground">
-                Shared spreadsheet → accessible format
+                Share the document as "Anyone with the link" before importing.
               </p>
             </div>
           </div>
-          <div className="p-4" data-testid="google-sheet-import-section">
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <label htmlFor="google-sheet-url" className="sr-only">
-                  Google Sheets URL
+
+          {/* Google Sheets */}
+          <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden flex flex-col">
+            <div className="px-4 py-3 bg-secondary/50 border-b border-border flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-primary text-primary-foreground">
+                <SiGooglesheets className="w-4 h-4" aria-hidden="true" />
+              </div>
+              <div>
+                <h3
+                  className="font-bold text-foreground text-sm"
+                  data-testid="heading-google-sheet-section"
+                >
+                  Google Sheets
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Shared spreadsheet
+                </p>
+              </div>
+            </div>
+            <div className="p-4 flex flex-col flex-1" data-testid="google-sheet-import-section">
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <label htmlFor="google-sheet-url" className="sr-only">
+                    Google Sheets URL
+                  </label>
+                  <SiGooglesheets
+                    className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"
+                    aria-hidden="true"
+                  />
+                  <input
+                    id="google-sheet-url"
+                    type="url"
+                    value={googleSheetUrl}
+                    onChange={(e) => setGoogleSheetUrl(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleGoogleSheetImport();
+                    }}
+                    placeholder="https://docs.google.com/spreadsheets/d/..."
+                    className="w-full pl-10 pr-3 py-2 border border-border rounded-xl bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all"
+                    data-testid="input-google-sheet-url"
+                    disabled={googleSheetMutation.isPending}
+                  />
+                </div>
+                <button
+                  onClick={handleGoogleSheetImport}
+                  disabled={!googleSheetUrl.trim() || googleSheetMutation.isPending}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl text-sm font-semibold shadow-sm hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:transform-none"
+                  data-testid="button-google-sheet-import"
+                >
+                  {googleSheetMutation.isPending ? (
+                    <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                  )}
+                  {googleSheetMutation.isPending ? "Importing…" : "Import"}
+                </button>
+              </div>
+              <div className="mt-2">
+                <label htmlFor="google-sheet-tab" className="block text-xs font-medium text-muted-foreground mb-1">
+                  Tab <span className="font-normal">(optional)</span>
                 </label>
-                <SiGooglesheets
-                  className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"
-                  aria-hidden="true"
-                />
                 <input
-                  id="google-sheet-url"
-                  type="url"
-                  value={googleSheetUrl}
-                  onChange={(e) => setGoogleSheetUrl(e.target.value)}
+                  id="google-sheet-tab"
+                  type="text"
+                  value={googleSheetTab}
+                  onChange={(e) => setGoogleSheetTab(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") handleGoogleSheetImport();
                   }}
-                  placeholder="https://docs.google.com/spreadsheets/d/..."
-                  className="w-full pl-10 pr-3 py-2 border border-border rounded-xl bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all"
-                  data-testid="input-google-sheet-url"
+                  placeholder='e.g. "Sheet2" or 3'
+                  className="w-full px-3 py-2 border border-border rounded-xl bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all"
+                  data-testid="input-google-sheet-tab"
                   disabled={googleSheetMutation.isPending}
                 />
               </div>
-              <button
-                onClick={handleGoogleSheetImport}
-                disabled={!googleSheetUrl.trim() || googleSheetMutation.isPending}
-                className="inline-flex items-center gap-1.5 px-3 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl text-sm font-semibold shadow-sm hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:transform-none"
-                data-testid="button-google-sheet-import"
+              <p
+                className="mt-2 text-xs text-muted-foreground"
+                data-testid="text-google-sheet-hint"
               >
-                {googleSheetMutation.isPending ? (
-                  <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
-                ) : (
-                  <ArrowRight className="w-4 h-4" aria-hidden="true" />
-                )}
-                {googleSheetMutation.isPending ? "Importing…" : "Import"}
-              </button>
-            </div>
-            <div className="mt-2">
-              <label htmlFor="google-sheet-tab" className="block text-xs font-medium text-muted-foreground mb-1">
-                Tab name or number <span className="font-normal">(optional — leave blank to import the first tab)</span>
-              </label>
-              <input
-                id="google-sheet-tab"
-                type="text"
-                value={googleSheetTab}
-                onChange={(e) => setGoogleSheetTab(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleGoogleSheetImport();
-                }}
-                placeholder='e.g. "Sheet2" or 3'
-                className="w-full px-3 py-2 border border-border rounded-xl bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all"
-                data-testid="input-google-sheet-tab"
-                disabled={googleSheetMutation.isPending}
-              />
-            </div>
-            <p
-              className="mt-2 text-xs text-muted-foreground"
-              data-testid="text-google-sheet-hint"
-            >
-              The spreadsheet must be shared as "Anyone with the link" in Google
-              Sheets.
-            </p>
-          </div>
-        </div>
-
-        <div className="w-full max-w-2xl mx-auto mb-8 bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
-          <div className="px-4 py-3 bg-secondary/50 border-b border-border flex items-center gap-2">
-            <div className="p-1.5 rounded-lg bg-primary text-primary-foreground">
-              <SiGoogleslides className="w-4 h-4" aria-hidden="true" />
-            </div>
-            <div>
-              <h3
-                className="font-bold text-foreground text-sm"
-                data-testid="heading-google-slide-section"
-              >
-                Import from Google Slides
-              </h3>
-              <p className="text-xs text-muted-foreground">
-                Shared presentation → accessible format
+                Share as "Anyone with the link" in Google Sheets.
               </p>
             </div>
           </div>
-          <div className="p-4" data-testid="google-slide-import-section">
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <label htmlFor="google-slide-url" className="sr-only">
-                  Google Slides URL
-                </label>
-                <SiGoogleslides
-                  className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"
-                  aria-hidden="true"
-                />
-                <input
-                  id="google-slide-url"
-                  type="url"
-                  value={googleSlideUrl}
-                  onChange={(e) => setGoogleSlideUrl(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleGoogleSlideImport();
-                  }}
-                  placeholder="https://docs.google.com/presentation/d/..."
-                  className="w-full pl-10 pr-3 py-2 border border-border rounded-xl bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all"
-                  data-testid="input-google-slide-url"
-                  disabled={googleSlideMutation.isPending}
-                />
+
+          {/* Google Slides */}
+          <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden flex flex-col">
+            <div className="px-4 py-3 bg-secondary/50 border-b border-border flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-primary text-primary-foreground">
+                <SiGoogleslides className="w-4 h-4" aria-hidden="true" />
               </div>
-              <button
-                onClick={handleGoogleSlideImport}
-                disabled={!googleSlideUrl.trim() || googleSlideMutation.isPending}
-                className="inline-flex items-center gap-1.5 px-3 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl text-sm font-semibold shadow-sm hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:transform-none"
-                data-testid="button-google-slide-import"
-              >
-                {googleSlideMutation.isPending ? (
-                  <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
-                ) : (
-                  <ArrowRight className="w-4 h-4" aria-hidden="true" />
-                )}
-                {googleSlideMutation.isPending ? "Importing…" : "Import"}
-              </button>
+              <div>
+                <h3
+                  className="font-bold text-foreground text-sm"
+                  data-testid="heading-google-slide-section"
+                >
+                  Google Slides
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Shared presentation
+                </p>
+              </div>
             </div>
-            <p
-              className="mt-2 text-xs text-muted-foreground"
-              data-testid="text-google-slide-hint"
-            >
-              The presentation must be shared as "Anyone with the link" in Google
-              Slides.
-            </p>
+            <div className="p-4 flex flex-col flex-1" data-testid="google-slide-import-section">
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <label htmlFor="google-slide-url" className="sr-only">
+                    Google Slides URL
+                  </label>
+                  <SiGoogleslides
+                    className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"
+                    aria-hidden="true"
+                  />
+                  <input
+                    id="google-slide-url"
+                    type="url"
+                    value={googleSlideUrl}
+                    onChange={(e) => setGoogleSlideUrl(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleGoogleSlideImport();
+                    }}
+                    placeholder="https://docs.google.com/presentation/d/..."
+                    className="w-full pl-10 pr-3 py-2 border border-border rounded-xl bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all"
+                    data-testid="input-google-slide-url"
+                    disabled={googleSlideMutation.isPending}
+                  />
+                </div>
+                <button
+                  onClick={handleGoogleSlideImport}
+                  disabled={!googleSlideUrl.trim() || googleSlideMutation.isPending}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl text-sm font-semibold shadow-sm hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:transform-none"
+                  data-testid="button-google-slide-import"
+                >
+                  {googleSlideMutation.isPending ? (
+                    <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                  )}
+                  {googleSlideMutation.isPending ? "Importing…" : "Import"}
+                </button>
+              </div>
+              <p
+                className="mt-2 text-xs text-muted-foreground"
+                data-testid="text-google-slide-hint"
+              >
+                Share as "Anyone with the link" in Google Slides.
+              </p>
+            </div>
           </div>
+
         </div>
 
         {recent.length > 0 && (
