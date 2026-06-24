@@ -1401,9 +1401,9 @@ export default function PdfConversion() {
             </div>
           </div>
           <HeaderControls
-           
             showLibrary={false}
             showHelp={false}
+            showLogin={false}
           />
         </div>
       </header>

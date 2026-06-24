@@ -323,7 +323,7 @@ export default function PdfUpload() {
             <HeaderControls
               showLibrary={false}
               showHelp={false}
-              showHome={false}
+              showLogin={false}
             />
           </div>
         </div>

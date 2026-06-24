@@ -329,9 +329,9 @@ export default function PdfFaq() {
             </div>
           </div>
           <HeaderControls
-           
             showLibrary={false}
             showHelp={false}
+            showLogin={false}
           />
         </div>
       </header>

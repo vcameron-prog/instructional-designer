@@ -270,9 +270,9 @@ export default function PdfHistory() {
               New Conversion
             </button>
             <HeaderControls
-             
               showLibrary={false}
               showHelp={false}
+              showLogin={false}
             />
           </div>
         </div>
