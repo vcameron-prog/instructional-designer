@@ -3236,6 +3236,166 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/admin/stats/export", isAuthenticated, isAdmin, async (_req: Request, res: Response) => {
+    try {
+      const now = new Date();
+      const sixMonthsAgo = new Date(now);
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+      sixMonthsAgo.setDate(1);
+      sixMonthsAgo.setHours(0, 0, 0, 0);
+
+      // Totals
+      const [totalCoursesRow] = await db.select({ count: sql<number>`count(*)::int` }).from(courses);
+      const [totalContentRow] = await db.select({ count: sql<number>`count(*)::int` }).from(generatedContent);
+      const [totalConversionsRow] = await db.select({ count: sql<number>`count(*)::int` }).from(conversions);
+      const [totalUsersRow] = await db.select({ count: sql<number>`count(*)::int` }).from(users);
+
+      // Monthly activity (last 6 months)
+      const months: string[] = [];
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(now);
+        d.setMonth(d.getMonth() - i);
+        months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+      }
+
+      const coursesByMonth = await db
+        .select({
+          month: sql<string>`to_char(date_trunc('month', ${courses.createdAt}), 'YYYY-MM')`,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(courses)
+        .where(sql`${courses.createdAt} >= ${sixMonthsAgo}`)
+        .groupBy(sql`date_trunc('month', ${courses.createdAt})`)
+        .orderBy(sql`date_trunc('month', ${courses.createdAt})`);
+
+      const contentByMonth = await db
+        .select({
+          month: sql<string>`to_char(date_trunc('month', ${generatedContent.createdAt}), 'YYYY-MM')`,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(generatedContent)
+        .where(sql`${generatedContent.createdAt} >= ${sixMonthsAgo}`)
+        .groupBy(sql`date_trunc('month', ${generatedContent.createdAt})`)
+        .orderBy(sql`date_trunc('month', ${generatedContent.createdAt})`);
+
+      const conversionsByMonth = await db
+        .select({
+          month: sql<string>`to_char(date_trunc('month', ${conversions.createdAt}), 'YYYY-MM')`,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(conversions)
+        .where(sql`${conversions.createdAt} >= ${sixMonthsAgo}`)
+        .groupBy(sql`date_trunc('month', ${conversions.createdAt})`)
+        .orderBy(sql`date_trunc('month', ${conversions.createdAt})`);
+
+      const courseMap = Object.fromEntries(coursesByMonth.map((r) => [r.month, r.count]));
+      const contentMap = Object.fromEntries(contentByMonth.map((r) => [r.month, r.count]));
+      const conversionsMap = Object.fromEntries(conversionsByMonth.map((r) => [r.month, r.count]));
+      const monthlyActivity = months.map((month) => ({
+        month,
+        courses: courseMap[month] ?? 0,
+        content: contentMap[month] ?? 0,
+        conversions: conversionsMap[month] ?? 0,
+      }));
+
+      // Tool popularity
+      const toolPopularity = await db
+        .select({
+          toolName: generatedContent.toolName,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(generatedContent)
+        .groupBy(generatedContent.toolName)
+        .orderBy(desc(sql`count(*)`))
+        .limit(10);
+
+      // User activity
+      const userActivity = await db
+        .select({
+          userId: generatedContent.userId,
+          contentCount: sql<number>`count(*)::int`,
+        })
+        .from(generatedContent)
+        .where(sql`${generatedContent.userId} is not null`)
+        .groupBy(generatedContent.userId)
+        .orderBy(desc(sql`count(*)`))
+        .limit(20);
+
+      const userIds = userActivity.map((r) => r.userId).filter(Boolean) as string[];
+      let userInfoMap: Record<string, { email: string | null; firstName: string | null; lastName: string | null }> = {};
+      if (userIds.length > 0) {
+        const userRows = await db
+          .select({ id: users.id, email: users.email, firstName: users.firstName, lastName: users.lastName })
+          .from(users)
+          .where(inArray(users.id, userIds));
+        userInfoMap = Object.fromEntries(
+          userRows.map((u) => [u.id, { email: u.email ?? null, firstName: u.firstName ?? null, lastName: u.lastName ?? null }]),
+        );
+      }
+
+      function csvEscape(value: string | number | null | undefined): string {
+        if (value === null || value === undefined) return "";
+        const str = String(value);
+        if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+          return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+      }
+
+      const rows: string[] = [];
+
+      // Section 1: Summary metrics
+      rows.push("Section,Metric,Value");
+      rows.push(`Summary,Total Courses,${totalCoursesRow?.count ?? 0}`);
+      rows.push(`Summary,Total Content Generated,${totalContentRow?.count ?? 0}`);
+      rows.push(`Summary,Total Conversions,${totalConversionsRow?.count ?? 0}`);
+      rows.push(`Summary,Total Users,${totalUsersRow?.count ?? 0}`);
+      rows.push("");
+
+      // Section 2: Monthly activity
+      rows.push("Month,Courses,Content Generated,Conversions");
+      for (const row of monthlyActivity) {
+        rows.push(`${csvEscape(row.month)},${row.courses},${row.content},${row.conversions}`);
+      }
+      rows.push("");
+
+      // Section 3: Tool popularity
+      rows.push("Tool Name,Usage Count");
+      for (const row of toolPopularity) {
+        rows.push(`${csvEscape(row.toolName)},${row.count}`);
+      }
+      rows.push("");
+
+      // Section 4: Per-user content counts
+      rows.push("User ID,Name,Email,Content Generated");
+      for (const row of userActivity) {
+        const info = row.userId ? (userInfoMap[row.userId] ?? {}) : {};
+        const name = [
+          (info as { firstName?: string | null }).firstName,
+          (info as { lastName?: string | null }).lastName,
+        ].filter(Boolean).join(" ");
+        rows.push(
+          [
+            csvEscape(row.userId),
+            csvEscape(name || null),
+            csvEscape((info as { email?: string | null }).email),
+            csvEscape(row.contentCount),
+          ].join(","),
+        );
+      }
+
+      const exportDate = now.toISOString().slice(0, 10);
+      const csvContent = rows.join("\r\n");
+
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="bsu-admin-stats-${exportDate}.csv"`);
+      res.send(csvContent);
+    } catch (err) {
+      console.error("[admin/stats/export] failed:", err);
+      res.status(500).json({ error: "Failed to export admin stats" });
+    }
+  });
+
   // ─── End admin routes ───────────────────────────────────────────────────────
 
   return httpServer;
