@@ -363,7 +363,7 @@ export default function PdfUpload() {
             ADA Title II · WCAG 2.1 AA
           </span>
           <p className="text-gray-300 max-w-2xl mx-auto text-base mb-10">
-            AI-powered tools to make your documents, content, and courses accessible. Remediate files instantly or use standalone checkers — all in one place.
+            AI-powered tools to make your documents, content, and courses more accessible. Remediate files instantly or use standalone checkers — all in one place.
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl mx-auto">
