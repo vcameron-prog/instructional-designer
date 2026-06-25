@@ -48,7 +48,8 @@ export default function CaiLandingPage() {
 
           <h1
             id="id-hero-heading"
-            className="text-3xl md:text-5xl font-bold mb-4 tracking-tight"
+            className="text-2xl md:text-4xl font-bold mb-4 tracking-tight"
+            style={{ textWrap: "balance" }}
             data-testid="heading-id-main"
           >
             AI-Powered Course Design for BSU Faculty
