@@ -37,7 +37,7 @@ export default function CaiLandingPage() {
       >
         <div className="container mx-auto max-w-4xl text-center">
           {/* CAI logo */}
-          <div className="flex justify-center mb-8" data-testid="cai-logo-area">
+          <div className="flex justify-center mb-4" data-testid="cai-logo-area">
             <img
               src={caiLogoWhite}
               alt="Center for Artificial Intelligence"
@@ -45,6 +45,10 @@ export default function CaiLandingPage() {
               data-testid="img-cai-logo"
             />
           </div>
+
+          <p className="text-sm text-gray-300 mb-8 max-w-2xl mx-auto leading-relaxed" data-testid="text-hero-tagline">
+            A free, shared accessibility resource from the Bridgewater State University Center for Artificial Intelligence. Built to help Massachusetts state universities and community colleges work toward ADA Title II and WCAG 2.1 AA accessibility standards.
+          </p>
 
           <h1
             id="id-hero-heading"
