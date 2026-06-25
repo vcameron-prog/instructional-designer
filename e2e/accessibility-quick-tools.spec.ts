@@ -237,6 +237,52 @@ test.describe("Alt Text Generator (/accessibility-tools/alt-text)", () => {
   test("back button is present", async ({ page }) => {
     await expect(page.getByTestId("button-back")).toBeVisible();
   });
+
+  test("copy button resets to 'Copy alt text' after the 2-second timeout", async ({
+    page,
+  }) => {
+    await page.route("/api/tools/alt-text", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          altText: "A sample image for testing purposes",
+          isDecorative: false,
+          characterCount: 37,
+        }),
+      });
+    });
+
+    await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+
+    const minimalPng = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+      "base64",
+    );
+
+    await page.getByTestId("input-image-file").setInputFiles({
+      name: "test.png",
+      mimeType: "image/png",
+      buffer: minimalPng,
+    });
+
+    await page.getByTestId("button-generate-alt").click();
+
+    const copyBtn = page.getByTestId("button-copy-alt");
+    await expect(copyBtn).toBeVisible({ timeout: 10_000 });
+
+    await expect(copyBtn).toHaveAttribute("aria-label", "Copy alt text");
+
+    await copyBtn.click();
+
+    await expect(copyBtn).toHaveAttribute("aria-label", "Copied", {
+      timeout: 2_000,
+    });
+
+    await expect(copyBtn).toHaveAttribute("aria-label", "Copy alt text", {
+      timeout: 4_000,
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -295,5 +341,52 @@ test.describe("Math OCR (/accessibility-tools/math-ocr)", () => {
 
   test("back button is present", async ({ page }) => {
     await expect(page.getByTestId("button-back")).toBeVisible();
+  });
+
+  test("copy button resets to 'Copy LaTeX' after the 2-second timeout", async ({
+    page,
+  }) => {
+    await page.route("/api/tools/math-ocr", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          plainText: "x squared plus y squared equals r squared",
+          latex: "x^2 + y^2 = r^2",
+          mathml: "<math><mrow><msup><mi>x</mi><mn>2</mn></msup></mrow></math>",
+          description: "Pythagorean theorem",
+        }),
+      });
+    });
+
+    await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+
+    const minimalPng = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+      "base64",
+    );
+
+    await page.getByTestId("input-math-file").setInputFiles({
+      name: "math.png",
+      mimeType: "image/png",
+      buffer: minimalPng,
+    });
+
+    await page.getByTestId("button-extract-math").click();
+
+    const copyLatexBtn = page.getByTestId("button-copy-latex");
+    await expect(copyLatexBtn).toBeVisible({ timeout: 10_000 });
+
+    await expect(copyLatexBtn).toHaveAttribute("aria-label", "Copy LaTeX");
+
+    await copyLatexBtn.click();
+
+    await expect(copyLatexBtn).toHaveAttribute("aria-label", "LaTeX copied", {
+      timeout: 2_000,
+    });
+
+    await expect(copyLatexBtn).toHaveAttribute("aria-label", "Copy LaTeX", {
+      timeout: 4_000,
+    });
   });
 });
