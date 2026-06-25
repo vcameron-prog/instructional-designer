@@ -293,18 +293,12 @@ export default function PdfFaq() {
       <header className="border-b bg-card">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate("/")}
-              aria-label="Home — CAI Tools"
-              data-testid="button-home-logo"
-              className="flex-shrink-0"
-            >
-              <img
-                src={caiLogoWhite}
-                alt="Center for Artificial Intelligence"
-                className="h-8 w-auto"
-              />
-            </button>
+            <img
+              src={caiLogoWhite}
+              alt="Center for Artificial Intelligence"
+              className="h-8 w-auto flex-shrink-0"
+              data-testid="img-cai-logo"
+            />
             <div className="w-px h-6 bg-border" aria-hidden="true" />
             <button
               onClick={() => navigate("/pdf-accessibility")}
