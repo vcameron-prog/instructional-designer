@@ -182,7 +182,6 @@ ADMIN_USER_IDS = "53962781,vcameron@bridgew.edu"
 SUMMARY_EMAIL_TO = "vcameron@bridgew.edu"
 SUMMARY_CRON = "0 7 * * *"
 VITE_CONVERTER_APP_URL = "https://bsu-accessibility-tool.replit.app"
-VITE_ID_APP_URL = "https://bsu-instructional-designer.replit.app"
 ID_APP_URL = "https://bsu-instructional-designer.replit.app"
 
 [userenv.development]
