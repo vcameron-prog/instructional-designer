@@ -12,7 +12,7 @@ const WELCOME_KEY = "bsu_id_welcome_shown";
 
 const STEPS = [
   {
-    title: "Welcome to Accessibility Tool",
+    title: "Welcome to Instructional Designer",
     description:
       "This tool helps BSU faculty create inclusive, UDL-aligned course materials with AI assistance.",
   },
