@@ -3824,7 +3824,12 @@ Limit to the 10 most impactful issues. Be precise and technical.`;
 
   app.post(
     "/api/tools/alt-text",
-    altTextUploadTools.single("image"),
+    (req: Request, res: Response, next: NextFunction) => {
+      altTextUploadTools.single("image")(req, res, (err) => {
+        if (err) return res.status(400).json({ error: err.message });
+        next();
+      });
+    },
     async (req: Request, res: Response) => {
       if (!req.file) return res.status(400).json({ error: "No image file provided" });
       const { context } = req.body as { context?: string };
@@ -3891,7 +3896,12 @@ Respond with ONLY the alt text — no explanation, no quotes.`,
 
   app.post(
     "/api/tools/math-ocr",
-    mathOcrUploadTools.single("image"),
+    (req: Request, res: Response, next: NextFunction) => {
+      mathOcrUploadTools.single("image")(req, res, (err) => {
+        if (err) return res.status(400).json({ error: err.message });
+        next();
+      });
+    },
     async (req: Request, res: Response) => {
       if (!req.file) return res.status(400).json({ error: "No image file provided" });
 
