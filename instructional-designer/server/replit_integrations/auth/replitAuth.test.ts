@@ -60,7 +60,10 @@ vi.mock("passport", () => ({
 // ---------------------------------------------------------------------------
 // Module under test – imported AFTER all vi.mock() calls.
 // ---------------------------------------------------------------------------
-import { isAuthenticated, isBsuAuthenticated, optionalAuth } from "./replitAuth.js";
+import { isAuthenticated, isBsuAuthenticated, optionalAuth, signReturnToState, verifyReturnToState } from "./replitAuth.js";
+
+// Set SESSION_SECRET before any sign/verify calls.
+process.env.SESSION_SECRET = "test-secret-for-unit-tests";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -470,5 +473,50 @@ describe("optionalAuth", () => {
     expect(req.session.save).not.toHaveBeenCalled();
     // Still calls next even though refresh was skipped.
     expect(next).toHaveBeenCalledOnce();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// signReturnToState / verifyReturnToState — callback redirect logic
+// ---------------------------------------------------------------------------
+describe("signReturnToState / verifyReturnToState", () => {
+  it("round-trips a valid path and returns it unexpired", () => {
+    const token = signReturnToState("/faculty/courses/42");
+    const result = verifyReturnToState(token);
+
+    expect(result).not.toBeNull();
+    expect(result!.path).toBe("/faculty/courses/42");
+    expect(result!.expired).toBe(false);
+  });
+
+  it("returns null for a tampered token", () => {
+    const token = signReturnToState("/faculty/courses/1");
+    const tampered = token.slice(0, -4) + "XXXX";
+    expect(verifyReturnToState(tampered)).toBeNull();
+  });
+
+  it("returns null for a token with no dot separator", () => {
+    expect(verifyReturnToState("nodothere")).toBeNull();
+  });
+
+  it("returns null for a token encoding a path that starts with //", () => {
+    // Craft a raw payload that passes HMAC but encodes an unsafe path
+    // — verifyReturnToState must reject it at the path-safety check.
+    const { createHmac } = require("crypto");
+    const payload = Buffer.from(JSON.stringify({ v: "v1", r: "//evil.com", t: Math.floor(Date.now() / 1000) })).toString("base64url");
+    const sig = createHmac("sha256", process.env.SESSION_SECRET!).update(payload).digest("base64url");
+    expect(verifyReturnToState(`${payload}.${sig}`)).toBeNull();
+  });
+
+  it("returns expired:true for a token signed in the past beyond the TTL", () => {
+    const { createHmac } = require("crypto");
+    const oldTimestamp = Math.floor(Date.now() / 1000) - 15 * 60; // 15 minutes ago
+    const payload = Buffer.from(JSON.stringify({ v: "v1", r: "/faculty/old-page", t: oldTimestamp })).toString("base64url");
+    const sig = createHmac("sha256", process.env.SESSION_SECRET!).update(payload).digest("base64url");
+    const result = verifyReturnToState(`${payload}.${sig}`);
+
+    expect(result).not.toBeNull();
+    expect(result!.path).toBe("/faculty/old-page");
+    expect(result!.expired).toBe(true);
   });
 });

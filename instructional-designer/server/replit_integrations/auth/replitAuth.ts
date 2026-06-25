@@ -336,10 +336,53 @@ export async function setupAuth(app: Express) {
       return;
     }
 
-    passport.authenticate(`replitauth:${req.hostname}`, {
-      successReturnToOrRedirect: "/faculty",
-      failureRedirect: "/api/login",
-    })(req, res, next);
+    passport.authenticate(
+      `replitauth:${req.hostname}`,
+      { failureRedirect: "/api/login" },
+      (err: any, user: Express.User | false, _info: any) => {
+        if (err || !user) {
+          return res.redirect("/api/login");
+        }
+        req.logIn(user, (loginErr: any) => {
+          if (loginErr) return next(loginErr);
+
+          // Capture and clear session.returnTo now so stale values never
+          // affect a future login flow, regardless of which path we use.
+          const sessionReturnTo = (req.session as any).returnTo as string | undefined;
+          if (sessionReturnTo) {
+            delete (req.session as any).returnTo;
+          }
+
+          // Primary: extract returnTo from the signed state parameter.
+          // This survives cookie loss because the OIDC provider echoes the
+          // state value back through the redirect URL query string.
+          //
+          // If the token is expired (user took > 10 min to complete SSO) we
+          // still use its path — the valid HMAC proves the path came from our
+          // server and was set for this user, so dropping them to /faculty
+          // would only cause confusion.  We log a warning for observability.
+          let redirectTo = "/faculty";
+          const rawState =
+            typeof req.query.state === "string" ? req.query.state : null;
+          const stateResult = rawState ? verifyReturnToState(rawState) : null;
+          if (stateResult) {
+            if (stateResult.expired) {
+              console.warn(
+                "[auth] Signed state token expired — still honouring returnTo path for user-friendly redirect:",
+                stateResult.path
+              );
+            }
+            redirectTo = stateResult.path;
+          } else if (sessionReturnTo) {
+            // Fallback: session-based returnTo (works when state was not set,
+            // e.g. the user navigated to /api/login without a returnTo param).
+            redirectTo = sessionReturnTo;
+          }
+
+          res.redirect(redirectTo);
+        });
+      }
+    )(req, res, next);
   });
 
   app.post("/api/logout", (req, res) => {
