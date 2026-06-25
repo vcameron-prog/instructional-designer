@@ -352,22 +352,6 @@ export default function PdfFaq() {
             </section>
           ))}
         </div>
-
-        <div className="mt-10 p-6 bg-secondary/50 border rounded-2xl text-center">
-          <h2 className="font-bold text-foreground mb-2">
-            Still have questions?
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            Contact the <strong>Center for Artificial Intelligence</strong> at{" "}
-            <a
-              href="mailto:CAI@bridgew.edu"
-              className="underline text-primary hover:text-primary/80 font-medium"
-            >
-              CAI@bridgew.edu
-            </a>
-            .
-          </p>
-        </div>
       </div>
       <PoweredByFooter />
     </main>
