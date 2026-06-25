@@ -16,13 +16,14 @@ export default defineConfig({
     include: [
       "server/**/*.test.ts",
       "scripts/**/*.test.ts",
-      "client/src/lib/**/*.test.ts",
+      "client/src/lib/**/*.test.{ts,tsx}",
       "client/src/components/**/*.test.tsx",
       "instructional-designer/client/src/lib/**/*.test.ts",
       "instructional-designer/server/replit_integrations/auth/*.test.ts",
     ],
     environmentMatchGlobs: [
       ["client/src/components/**", "jsdom"],
+      ["client/src/lib/**/*.test.tsx", "jsdom"],
     ],
     environment: "node",
   },
