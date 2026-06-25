@@ -41,4 +41,4 @@ done
 
 # Run the smoke tests. Server is already running, so Playwright
 # will reuse it (reuseExistingServer: true in playwright.config.ts).
-npx playwright test e2e/id-smoke.spec.ts --config playwright.config.ts
+npx playwright test e2e/id-smoke.spec.ts e2e/oidc-state-roundtrip.spec.ts --config playwright.config.ts

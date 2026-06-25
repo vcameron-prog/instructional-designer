@@ -145,12 +145,12 @@ isValidation = true
 name = "oidc-state-smoke"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "CI=1 npx playwright test e2e/oidc-state-roundtrip.spec.ts"
-
 [workflows.workflow.metadata]
 isValidation = true
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd instructional-designer && sh script/oidc-smoke-test.sh"
 
 [[workflows.workflow]]
 name = "playwright-auth"
