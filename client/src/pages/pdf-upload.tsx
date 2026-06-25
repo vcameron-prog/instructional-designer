@@ -395,7 +395,7 @@ export default function PdfUpload() {
 
       <div className="container mx-auto px-4 py-12 max-w-4xl">
 
-        {/* Additional accessibility tools from BSU Accessibility Tool */}
+        {/* Additional accessibility tools — now hosted on the Instructional Designer */}
         <div className="max-w-3xl mx-auto mb-6">
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
             More Accessibility Tools
@@ -403,7 +403,7 @@ export default function PdfUpload() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {[
               {
-                href: "https://bsu-accessibility-tool.replit.app/",
+                path: "/accessibility-tools/url-scanner",
                 icon: <Globe className="w-5 h-5 text-white" />,
                 gradient: "from-sky-500 to-cyan-600",
                 label: "URL Scanner",
@@ -411,7 +411,7 @@ export default function PdfUpload() {
                 testid: "link-tool-url-scanner",
               },
               {
-                href: "https://bsu-accessibility-tool.replit.app/color-contrast",
+                path: "/accessibility-tools/color-contrast",
                 icon: <Eye className="w-5 h-5 text-white" />,
                 gradient: "from-amber-500 to-orange-600",
                 label: "Color Contrast",
@@ -419,7 +419,7 @@ export default function PdfUpload() {
                 testid: "link-tool-color-contrast",
               },
               {
-                href: "https://bsu-accessibility-tool.replit.app/alt-text",
+                path: "/accessibility-tools/alt-text",
                 icon: <Image className="w-5 h-5 text-white" />,
                 gradient: "from-fuchsia-500 to-pink-600",
                 label: "Alt Text",
@@ -427,32 +427,36 @@ export default function PdfUpload() {
                 testid: "link-tool-alt-text",
               },
               {
-                href: "https://bsu-accessibility-tool.replit.app/math-ocr",
+                path: "/accessibility-tools/math-ocr",
                 icon: <Calculator className="w-5 h-5 text-white" />,
                 gradient: "from-rose-500 to-red-600",
                 label: "Math OCR",
                 description: "Extract and convert mathematical expressions into accessible formats.",
                 testid: "link-tool-math-ocr",
               },
-            ].map((tool) => (
-              <a
-                key={tool.testid}
-                href={tool.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-4 rounded-lg border bg-card p-4 hover:bg-secondary/50 transition-colors group"
-                data-testid={tool.testid}
-              >
-                <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${tool.gradient} flex items-center justify-center flex-shrink-0`}>
-                  {tool.icon}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-foreground text-sm group-hover:underline">{tool.label}</p>
-                  <p className="text-xs text-muted-foreground">{tool.description}</p>
-                </div>
-                <ExternalLink className="w-4 h-4 text-muted-foreground flex-shrink-0 opacity-60" />
-              </a>
-            ))}
+            ].map((tool) => {
+              const idAppBase = (import.meta.env.VITE_ID_APP_URL as string | undefined)?.replace(/\/$/, "") ?? "";
+              const href = idAppBase ? `${idAppBase}${tool.path}` : tool.path;
+              return (
+                <a
+                  key={tool.testid}
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-4 rounded-lg border bg-card p-4 hover:bg-secondary/50 transition-colors group"
+                  data-testid={tool.testid}
+                >
+                  <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${tool.gradient} flex items-center justify-center flex-shrink-0`}>
+                    {tool.icon}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-foreground text-sm group-hover:underline">{tool.label}</p>
+                    <p className="text-xs text-muted-foreground">{tool.description}</p>
+                  </div>
+                  <ExternalLink className="w-4 h-4 text-muted-foreground flex-shrink-0 opacity-60" />
+                </a>
+              );
+            })}
           </div>
         </div>
 

@@ -17,6 +17,11 @@ import LibraryPage from "@/pages/library";
 import QuickToolsPage from "@/pages/quick-tools";
 import AdminDashboard from "@/pages/admin-dashboard";
 import SettingsPage from "@/pages/settings";
+import AccessibilityToolsPage from "@/pages/accessibility-tools";
+import UrlScannerPage from "@/pages/url-scanner";
+import ColorContrastPage from "@/pages/color-contrast";
+import AltTextGeneratorPage from "@/pages/alt-text-generator";
+import MathOcrPage from "@/pages/math-ocr";
 import { ThemeProvider } from "@/components/theme-provider";
 import { FontSizeProvider } from "@/components/font-size-provider";
 
@@ -67,6 +72,11 @@ function Router() {
       <Route path="/help" component={HelpPage} />
       <Route path="/research" component={ResearchPage} />
       <Route path="/library" component={LibraryPage} />
+      <Route path="/accessibility-tools" component={AccessibilityToolsPage} />
+      <Route path="/accessibility-tools/url-scanner" component={UrlScannerPage} />
+      <Route path="/accessibility-tools/color-contrast" component={ColorContrastPage} />
+      <Route path="/accessibility-tools/alt-text" component={AltTextGeneratorPage} />
+      <Route path="/accessibility-tools/math-ocr" component={MathOcrPage} />
       <Route component={NotFound} />
     </Switch>
   );

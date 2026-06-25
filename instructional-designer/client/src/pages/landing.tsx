@@ -17,6 +17,9 @@ import {
   Lock,
   Globe,
   Settings,
+  Eye,
+  Image,
+  FileText,
 } from "lucide-react";
 import { SiGoogle } from "react-icons/si";
 import { useAuth } from "@/hooks/use-auth";
@@ -367,6 +370,48 @@ export default function LandingPage() {
             )}
           </section>
         </div>
+
+        {/* Accessibility Tools section */}
+        <section aria-labelledby="a11y-tools-heading" className="mt-10">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 id="a11y-tools-heading" className="text-lg font-semibold text-foreground">
+                Accessibility Tools
+              </h2>
+              <p className="text-sm text-muted-foreground">Free tools for everyone — no sign-in required</p>
+            </div>
+            <button
+              onClick={() => navigate("/accessibility-tools")}
+              className="text-sm text-primary hover:underline flex items-center gap-1"
+              data-testid="link-view-all-a11y-tools"
+            >
+              View all <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
+            </button>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              { route: null, href: getConverterUrl(), label: "Document Converter", icon: <FileText className="w-4 h-4 text-white" />, gradient: "from-blue-500 to-indigo-600", testid: "card-a11y-doc-converter", external: true },
+              { route: "/accessibility-tools/url-scanner", label: "URL Scanner", icon: <Globe className="w-4 h-4 text-white" />, gradient: "from-sky-500 to-cyan-600", testid: "card-a11y-url-scanner", external: false },
+              { route: "/accessibility-tools/color-contrast", label: "Color Contrast", icon: <Eye className="w-4 h-4 text-white" />, gradient: "from-amber-500 to-orange-600", testid: "card-a11y-color-contrast", external: false },
+              { route: "/accessibility-tools/alt-text", label: "Alt Text", icon: <Image className="w-4 h-4 text-white" />, gradient: "from-fuchsia-500 to-pink-600", testid: "card-a11y-alt-text", external: false },
+            ].map((tool) => (
+              <button
+                key={tool.testid}
+                onClick={() => {
+                  if (tool.external && tool.href) window.open(tool.href, "_blank", "noopener noreferrer");
+                  else if (tool.route) navigate(tool.route);
+                }}
+                className="flex flex-col items-center gap-2 p-4 rounded-xl border border-border bg-card hover:bg-secondary/50 transition-colors text-center group"
+                data-testid={tool.testid}
+              >
+                <div className={`w-9 h-9 rounded-lg bg-gradient-to-br ${tool.gradient} flex items-center justify-center group-hover:scale-105 transition-transform`}>
+                  {tool.icon}
+                </div>
+                <span className="text-xs font-medium text-foreground leading-tight">{tool.label}</span>
+              </button>
+            ))}
+          </div>
+        </section>
 
         {/* Footer links */}
         <div className="mt-12 flex flex-wrap justify-center gap-3">

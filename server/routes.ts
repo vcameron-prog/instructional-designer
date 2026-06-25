@@ -177,6 +177,21 @@ const isAdmin = (req: Request, res: Response, next: NextFunction) => {
 
 // ─── End admin helpers ────────────────────────────────────────────────────────
 
+// ─── Toolkit retirement redirects ────────────────────────────────────────────
+// These paths were part of the former BSU Accessibility Toolkit. They now
+// redirect to the Instructional Designer (Converter site). The destination
+// is read from the ID_APP_URL env var; if unset, a relative path is used.
+function getIdAppBase(): string {
+  return (process.env.ID_APP_URL ?? "").replace(/\/$/, "");
+}
+
+const TOOLKIT_REDIRECTS: Record<string, string> = {
+  "/url-scanner":    "/accessibility-tools/url-scanner",
+  "/color-contrast": "/accessibility-tools/color-contrast",
+  "/alt-text":       "/accessibility-tools/alt-text",
+  "/math-ocr":       "/accessibility-tools/math-ocr",
+};
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express,
@@ -184,6 +199,15 @@ export async function registerRoutes(
   // Setup authentication (before other routes)
   await setupAuth(app);
   registerAuthRoutes(app);
+
+  // Redirect retired Toolkit tool paths to the Instructional Designer
+  for (const [oldPath, idPath] of Object.entries(TOOLKIT_REDIRECTS)) {
+    app.get(oldPath, (_req: Request, res: Response) => {
+      const base = getIdAppBase();
+      const destination = base ? `${base}${idPath}` : idPath;
+      res.redirect(301, destination);
+    });
+  }
 
   app.get("/api/deterministic-fixers", (_req: Request, res: Response) => {
     res.json({ keys: getDeterministicFixerKeys().sort() });
