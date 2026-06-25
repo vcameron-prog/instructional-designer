@@ -495,7 +495,10 @@ export default function PdfUpload() {
               </div>
               {isSessionExpiredMessage(uploadError) && (
                 <button
-                  onClick={() => { window.location.href = "/api/login"; }}
+                  onClick={() => {
+                    const returnTo = window.location.pathname + window.location.search;
+                    window.location.href = `/api/login?returnTo=${encodeURIComponent(returnTo)}`;
+                  }}
                   className="self-start text-sm font-semibold underline underline-offset-2 hover:opacity-80 transition-opacity"
                   data-testid="button-sign-in-again"
                 >
@@ -585,7 +588,10 @@ export default function PdfUpload() {
                           <p className="text-xs text-destructive">{item.error}</p>
                           {isSessionExpiredMessage(item.error || "") && (
                             <button
-                              onClick={() => { window.location.href = "/api/login"; }}
+                              onClick={() => {
+                                const returnTo = window.location.pathname + window.location.search;
+                                window.location.href = `/api/login?returnTo=${encodeURIComponent(returnTo)}`;
+                              }}
                               className="text-xs text-destructive font-semibold underline underline-offset-2 hover:opacity-80 transition-opacity"
                               data-testid={`button-sign-in-again-queue-${item.id}`}
                             >

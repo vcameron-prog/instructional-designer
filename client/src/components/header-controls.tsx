@@ -199,7 +199,10 @@ export function HeaderControls({
               variant={btnVariant}
               size="sm"
               className={`${btnClass} gap-1.5`}
-              onClick={() => window.location.href = "/api/login"}
+              onClick={() => {
+                const returnTo = window.location.pathname + window.location.search;
+                window.location.href = `/api/login?returnTo=${encodeURIComponent(returnTo)}`;
+              }}
               data-testid="button-header-login"
               aria-label="Sign in"
             >

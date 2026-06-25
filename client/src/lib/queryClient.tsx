@@ -56,7 +56,10 @@ function showSessionExpiredToast() {
     action: (
       <ToastAction
         altText="Sign in again"
-        onClick={() => { window.location.href = "/api/login"; }}
+        onClick={() => {
+          const returnTo = window.location.pathname + window.location.search;
+          window.location.href = `/api/login?returnTo=${encodeURIComponent(returnTo)}`;
+        }}
       >
         Sign in again
       </ToastAction>
