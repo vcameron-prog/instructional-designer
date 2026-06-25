@@ -193,7 +193,7 @@ export default function LandingPage() {
                       <CardDescription className="text-base mb-4" style={{ textWrap: "balance" }}>
                         Convert PDFs, Word documents, and Google Docs into WCAG 2.1 AA compliant accessible documents.
                       </CardDescription>
-                      <Button variant="outline" className="mt-auto gap-2" data-testid="button-pdf-accessibility">
+                      <Button className="mt-auto gap-2" data-testid="button-pdf-accessibility">
                         Convert a Document <ArrowRight className="w-4 h-4" />
                       </Button>
                     </CardContent>
@@ -216,7 +216,7 @@ export default function LandingPage() {
                       <CardDescription className="text-base" style={{ textWrap: "balance" }}>
                         Create a one-off assignment, rubric, or other material without setting up a full course
                       </CardDescription>
-                      <Button variant="outline" className="mt-auto gap-2" data-testid="button-quick-tools">
+                      <Button className="mt-auto gap-2" data-testid="button-quick-tools">
                         Browse Tools <ArrowRight className="w-4 h-4" />
                       </Button>
                     </CardContent>
@@ -312,7 +312,7 @@ export default function LandingPage() {
                       <CardDescription className="text-base mb-4" style={{ textWrap: "balance" }}>
                         Convert PDFs, Word documents, and Google Docs into WCAG 2.1 AA compliant accessible documents.
                       </CardDescription>
-                      <Button variant="outline" className="mt-auto gap-2" data-testid="button-pdf-accessibility">
+                      <Button className="mt-auto gap-2" data-testid="button-pdf-accessibility">
                         Convert a Document <ArrowRight className="w-4 h-4" />
                       </Button>
                     </CardContent>
