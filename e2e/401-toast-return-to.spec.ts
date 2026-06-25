@@ -62,6 +62,50 @@ async function loginAndLandOn(
   await page.waitForURL(`**${landingPath}`, { timeout: 15_000 });
 }
 
+test.describe("403 toast 'Sign in again' returnTo capture (GET / query cache)", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.context().clearCookies();
+  });
+
+  test("403 on a GET query shows the session-expired toast with correct returnTo", async ({
+    page,
+  }) => {
+    const targetPath = "/pdf-accessibility/history";
+
+    await loginAndLandOn(page, "/settings");
+
+    // Stub /api/conversions to return 403 — same session-expiry scenario but
+    // with a Forbidden status, which throwIfResNotOk also maps to
+    // SESSION_EXPIRED_MESSAGE (see queryClient.tsx line 10).
+    await page.route("**/api/conversions**", (route) => {
+      route.fulfill({
+        status: 403,
+        body: "Forbidden",
+        contentType: "text/plain",
+      });
+    });
+
+    await page.goto(targetPath);
+
+    await expect(page.getByText("Session expired")).toBeVisible({
+      timeout: 15_000,
+    });
+    const signInButton = page.getByRole("button", { name: "Sign in again" });
+    await expect(signInButton).toBeVisible({ timeout: 5_000 });
+
+    const loginRequestPromise = page.waitForRequest("**/api/login*");
+    await page.route("**/api/login*", (route) => route.abort());
+
+    await signInButton.click();
+
+    const loginRequest = await loginRequestPromise;
+    const loginUrl = new URL(loginRequest.url());
+    const returnTo = loginUrl.searchParams.get("returnTo");
+
+    expect(returnTo).toBe(targetPath);
+  });
+});
+
 test.describe("401 toast 'Sign in again' returnTo capture", () => {
   test.beforeEach(async ({ page }) => {
     await page.context().clearCookies();
