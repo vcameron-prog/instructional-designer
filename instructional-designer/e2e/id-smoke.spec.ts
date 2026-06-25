@@ -708,6 +708,13 @@ test.describe("Accessibility Tools — Alt Text Generator page", () => {
       page.getByTestId("alt-result").getByText("Decorative Image"),
       "result card shows the 'Decorative Image' label",
     ).toBeVisible({ timeout: 10_000 });
+
+    // The character count badge must not be rendered for decorative images
+    // (characterCount: 0 means the element is hidden entirely, not shown as "0 characters")
+    await expect(
+      page.getByTestId("text-alt-char-count"),
+      "character count element is not rendered for decorative images",
+    ).toHaveCount(0);
   });
 });
 
