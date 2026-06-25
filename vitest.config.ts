@@ -18,8 +18,6 @@ export default defineConfig({
       "scripts/**/*.test.ts",
       "client/src/lib/**/*.test.{ts,tsx}",
       "client/src/components/**/*.test.tsx",
-      "instructional-designer/client/src/lib/**/*.test.ts",
-      "instructional-designer/server/replit_integrations/auth/*.test.ts",
     ],
     environmentMatchGlobs: [
       ["client/src/components/**", "jsdom"],

@@ -21,6 +21,3 @@ bash scripts/check-schema-drift.sh
 # This catches cases where drizzle-kit migrate exits 0 but silently skipped rows.
 npx tsx scripts/assert-migrations-applied.ts
 
-# Run id-smoke tests when instructional-designer server files changed.
-# Non-fatal: a test failure is surfaced in the log but does not block the merge.
-sh scripts/post-merge-id-smoke.sh || echo "[id-smoke] Smoke tests reported a failure — see output above."

@@ -51,22 +51,6 @@ args = "schema-drift"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Instructional Designer"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "id-smoke"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "migration-journal"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "oidc-state-smoke"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
 args = "playwright-auth"
 
 [[workflows.workflow]]
@@ -110,51 +94,6 @@ args = "bash scripts/check-schema-drift.sh"
 
 [workflows.workflow.metadata]
 isValidation = true
-
-[[workflows.workflow]]
-name = "Instructional Designer"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "cd instructional-designer && PORT=3001 npm run dev"
-waitForPort = 3001
-
-[workflows.workflow.metadata]
-outputType = "console"
-
-[[workflows.workflow]]
-name = "id-smoke"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "cd instructional-designer && sh script/smoke-test.sh"
-
-[workflows.workflow.metadata]
-isValidation = true
-
-[[workflows.workflow]]
-name = "migration-journal"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx scripts/check-migration-journal.ts && npx tsx scripts/check-migration-snapshots.ts"
-
-[workflows.workflow.metadata]
-isValidation = true
-
-[[workflows.workflow]]
-name = "oidc-state-smoke"
-author = "agent"
-
-[workflows.workflow.metadata]
-isValidation = true
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "cd instructional-designer && sh script/oidc-smoke-test.sh"
 
 [[workflows.workflow]]
 name = "playwright-auth"

@@ -51,7 +51,6 @@ Production assumptions for this threat model:
 - **Current production auth assumption from code**: the conversion system allows anonymous usage and treats any valid Replit OIDC user as authenticated; only BSU-gated routes require a `@bridgew.edu` email suffix.
 - **Currently unreachable unless route registration changes**:
   - `server/replit_integrations/chat/*` is present in the repo but is not wired into `registerRoutes()` or startup.
-  - `instructional-designer/` is a separate dormant app in the repository and is not part of the current root production build artifact.
 - **Usually dev-only**: `attached_assets/`, `server/vite.ts`, test files, build/test scripts.
 - **Exported artifact scope**: downloaded HTML/DOCX/PDF/XLSX files are treated as user-authored outputs once they leave the app. Do not report arbitrary active content inside exported artifacts as an in-app vulnerability unless the application later re-renders that artifact to other users or serves it inline under an application-controlled origin.
 

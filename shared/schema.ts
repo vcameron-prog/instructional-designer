@@ -15,7 +15,7 @@ import { z } from "zod";
 // Re-export auth models (required for Replit Auth)
 export * from "./models/auth";
 
-// Courses table (shared with instructional-designer; DO NOT rename columns)
+// Courses table
 export const courses = pgTable("courses", {
   id: serial("id").primaryKey(),
   userId: varchar("user_id").notNull(),
@@ -44,7 +44,7 @@ export const courses = pgTable("courses", {
 
 export type Course = typeof courses.$inferSelect;
 
-// Generated content table (shared with instructional-designer; DO NOT rename columns)
+// Generated content table
 export const generatedContent = pgTable("generated_content", {
   id: serial("id").primaryKey(),
   courseId: integer("course_id").references(() => courses.id, {
