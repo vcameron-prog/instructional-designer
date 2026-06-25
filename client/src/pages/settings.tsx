@@ -7,7 +7,7 @@ import { PoweredByFooter } from "@/components/powered-by-footer";
 import { HeaderControls } from "@/components/header-controls";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useAuth } from "@/hooks/use-auth";
-import { ArrowLeft, Settings, Wand2, Globe, LayoutList, Zap, Cloud, CloudOff, AlertCircle, RotateCcw } from "lucide-react";
+import { ArrowLeft, Settings, Wand2, Globe, LayoutList, Zap, Cloud, CloudOff, AlertCircle, RotateCcw, X } from "lucide-react";
 import { TOOLS } from "@/lib/constants";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -210,6 +210,15 @@ export default function SettingsPage() {
                   >
                     <RotateCcw className="w-3 h-3" />
                     Retry
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setSaveError(false); setLastFailedPatch(null); }}
+                    data-testid="button-dismiss-save-error"
+                    className="flex items-center text-destructive hover:text-destructive/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-destructive"
+                    aria-label="Dismiss save error"
+                  >
+                    <X className="w-3 h-3" />
                   </button>
                 </>
               ) : (
