@@ -13,9 +13,11 @@ import { PoweredByFooter } from "@/components/powered-by-footer";
 import { HeaderControls } from "@/components/header-controls";
 import { SIGN_IN_REQUIREMENT_TEXT } from "@/lib/sign-in-requirement";
 import {
+  FAQAnswer,
   FILE_SIZE_FAQ_ANSWER,
   HOW_BUILT_ANSWER,
   PRIVACY_ANSWER,
+  renderFAQAnswer,
   SUPPORTED_FORMATS,
 } from "@/lib/faq-shared";
 import {
@@ -57,7 +59,7 @@ const steps = [
 
 const formats = SUPPORTED_FORMATS;
 
-const faqs = [
+const faqs: { question: string; answer: FAQAnswer }[] = [
   {
     question: "What file size limit applies?",
     answer: FILE_SIZE_FAQ_ANSWER,
@@ -254,7 +256,7 @@ export default function HelpPage() {
                   {faq.question}
                 </AccordionTrigger>
                 <AccordionContent className="text-muted-foreground">
-                  {typeof faq.answer === "function" ? faq.answer() : faq.answer}
+                  {renderFAQAnswer(faq.answer)}
                 </AccordionContent>
               </AccordionItem>
             ))}

@@ -5,7 +5,61 @@
  * Edit here to update both pages at once.
  */
 
-import React from "react";
+import React, { isValidElement } from "react";
+
+// ---------------------------------------------------------------------------
+// FAQ answer types
+// ---------------------------------------------------------------------------
+
+/**
+ * Union of all valid FAQ answer shapes.
+ *
+ * - `string`               — plain text, rendered as a single paragraph.
+ * - `string[]`             — list of lines, each rendered as its own paragraph.
+ * - `React.ReactNode`      — pre-composed JSX (e.g. a Fragment with links).
+ * - `() => React.ReactNode`— render function, called inside the component cycle.
+ *                            Use this instead of a module-level ReactNode when
+ *                            the answer contains JSX (avoids React hook-rule
+ *                            warnings and invalid-DOM-nesting edge-cases).
+ */
+export type FAQAnswer = string | string[] | React.ReactNode | (() => React.ReactNode);
+
+/**
+ * Render any `FAQAnswer` value to `React.ReactNode`.
+ *
+ * Centralises the `typeof === "function"` guard and the ReactNode/string[]
+ * branching so call-sites don't have to repeat the pattern.
+ *
+ * - Render functions are called and their result is returned directly.
+ * - ReactNode values (elements, Fragments, etc.) are returned as-is.
+ * - `string[]` is rendered as a series of `<p>` elements.
+ * - Plain `string` is returned as-is (React renders it as a text node).
+ */
+export function renderFAQAnswer(answer: FAQAnswer): React.ReactNode {
+  if (typeof answer === "function") {
+    return answer();
+  }
+  if (isValidElement(answer) || (answer !== null && typeof answer === "object" && !Array.isArray(answer))) {
+    return answer as React.ReactNode;
+  }
+  if (Array.isArray(answer)) {
+    return (
+      <>
+        {(answer as string[]).map((line, i) => (
+          <p
+            key={i}
+            className={
+              line.startsWith("•") || /^\d+\./.test(line) ? "ml-2" : undefined
+            }
+          >
+            {line}
+          </p>
+        ))}
+      </>
+    );
+  }
+  return answer as string;
+}
 
 // ---------------------------------------------------------------------------
 // File size limit

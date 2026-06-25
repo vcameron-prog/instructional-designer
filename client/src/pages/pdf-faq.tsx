@@ -1,4 +1,4 @@
-import { useState, useEffect, isValidElement } from "react";
+import { useState, useEffect } from "react";
 import React from "react";
 import { useLocation } from "wouter";
 import caiLogoWhite from "@assets/bsu-cai-logo.png";
@@ -13,15 +13,17 @@ import { cn } from "@/lib/utils";
 import { PoweredByFooter } from "@/components/powered-by-footer";
 import { SIGN_IN_REQUIREMENT_LINES } from "@/lib/sign-in-requirement";
 import {
+  FAQAnswer,
   FILE_SIZE_FAQ_ANSWER,
   HOW_BUILT_ANSWER,
   PRIVACY_ANSWER,
+  renderFAQAnswer,
   SUPPORTED_FORMATS_LINES,
 } from "@/lib/faq-shared";
 
 interface FAQItem {
   question: string;
-  answer: string | string[] | React.ReactNode | (() => React.ReactNode);
+  answer: FAQAnswer;
 }
 
 interface FAQSection {
@@ -218,9 +220,6 @@ const FAQ_SECTIONS: FAQSection[] = [
 
 function FAQAccordionItem({ item, index }: { item: FAQItem; index: number }) {
   const [isOpen, setIsOpen] = useState(false);
-  const resolvedAnswer = typeof item.answer === "function" ? item.answer() : item.answer;
-  const isNode = isValidElement(resolvedAnswer) || (resolvedAnswer !== null && typeof resolvedAnswer === "object" && !Array.isArray(resolvedAnswer));
-  const content = isNode ? [] : (Array.isArray(resolvedAnswer) ? resolvedAnswer as string[] : [resolvedAnswer as string]);
   const panelId = `faq-panel-${index}`;
   const buttonId = `faq-button-${index}`;
 
@@ -256,21 +255,7 @@ function FAQAccordionItem({ item, index }: { item: FAQItem; index: number }) {
           className="px-4 pb-4 pl-11"
         >
           <div className="text-sm text-muted-foreground space-y-2">
-            {isNode ? (
-              <div>{resolvedAnswer as React.ReactNode}</div>
-            ) : (
-              content.map((line, i) => (
-                <p
-                  key={i}
-                  className={cn(
-                    line.startsWith("•") ? "ml-2" : "",
-                    /^\d+\./.test(line) ? "ml-2" : "",
-                  )}
-                >
-                  {line}
-                </p>
-              ))
-            )}
+            {renderFAQAnswer(item.answer)}
           </div>
         </div>
       )}
