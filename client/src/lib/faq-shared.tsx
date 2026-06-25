@@ -64,32 +64,34 @@ export const HOW_BUILT_ANSWER =
 // ---------------------------------------------------------------------------
 
 /**
- * JSX answer for the "Is my document stored / data secure?" FAQ question.
+ * Render function for the "Is my document stored / data secure?" FAQ answer.
  * Covers both server-side storage isolation and the Anthropic API.
- * Rendered the same way on both pages.
+ * Defined as a function (not a module-level ReactNode) so it is only evaluated
+ * inside a component render cycle, avoiding React hook-rules warnings and
+ * invalid DOM nesting issues caused by Fragment detection edge-cases.
  */
-export const PRIVACY_ANSWER: React.ReactNode = React.createElement(
-  React.Fragment,
-  null,
-  React.createElement(
-    "p",
-    null,
-    "Uploaded content is stored in a private database scoped to your session or account and is not shared with other users. AI processing uses Anthropic's Claude API\u2014see ",
-    React.createElement(
-      "a",
-      {
-        href: "https://www.anthropic.com/privacy",
-        target: "_blank",
-        rel: "noopener noreferrer",
-        className: "underline hover:opacity-80",
-      },
-      "Anthropic's privacy policy",
-    ),
-    " for details on how API data is handled.",
-  ),
-  React.createElement(
-    "p",
-    { className: "mt-2" },
-    "To protect privacy and maintain FERPA compliance, do not upload documents containing sensitive or personally identifiable information, including student records or other protected data.",
-  ),
-);
+export function PRIVACY_ANSWER(): React.ReactNode {
+  return (
+    <>
+      <p>
+        Uploaded content is stored in a private database scoped to your session
+        or account and is not shared with other users. AI processing uses
+        Anthropic&#39;s Claude API&#8212;see{" "}
+        <a
+          href="https://www.anthropic.com/privacy"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline hover:opacity-80"
+        >
+          Anthropic&#39;s privacy policy
+        </a>{" "}
+        for details on how API data is handled.
+      </p>
+      <p className="mt-2">
+        To protect privacy and maintain FERPA compliance, do not upload
+        documents containing sensitive or personally identifiable information,
+        including student records or other protected data.
+      </p>
+    </>
+  );
+}

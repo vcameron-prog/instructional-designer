@@ -254,7 +254,7 @@ export default function HelpPage() {
                   {faq.question}
                 </AccordionTrigger>
                 <AccordionContent className="text-muted-foreground">
-                  {faq.answer}
+                  {typeof faq.answer === "function" ? faq.answer() : faq.answer}
                 </AccordionContent>
               </AccordionItem>
             ))}

@@ -21,7 +21,7 @@ import {
 
 interface FAQItem {
   question: string;
-  answer: string | string[] | React.ReactNode;
+  answer: string | string[] | React.ReactNode | (() => React.ReactNode);
 }
 
 interface FAQSection {
@@ -218,8 +218,9 @@ const FAQ_SECTIONS: FAQSection[] = [
 
 function FAQAccordionItem({ item, index }: { item: FAQItem; index: number }) {
   const [isOpen, setIsOpen] = useState(false);
-  const isNode = isValidElement(item.answer);
-  const content = isNode ? [] : (Array.isArray(item.answer) ? item.answer as string[] : [item.answer as string]);
+  const resolvedAnswer = typeof item.answer === "function" ? item.answer() : item.answer;
+  const isNode = isValidElement(resolvedAnswer) || (resolvedAnswer !== null && typeof resolvedAnswer === "object" && !Array.isArray(resolvedAnswer));
+  const content = isNode ? [] : (Array.isArray(resolvedAnswer) ? resolvedAnswer as string[] : [resolvedAnswer as string]);
   const panelId = `faq-panel-${index}`;
   const buttonId = `faq-button-${index}`;
 
@@ -256,7 +257,7 @@ function FAQAccordionItem({ item, index }: { item: FAQItem; index: number }) {
         >
           <div className="text-sm text-muted-foreground space-y-2">
             {isNode ? (
-              <div>{item.answer as React.ReactNode}</div>
+              <div>{resolvedAnswer as React.ReactNode}</div>
             ) : (
               content.map((line, i) => (
                 <p
