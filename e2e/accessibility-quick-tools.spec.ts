@@ -386,6 +386,45 @@ test.describe("Alt Text Generator (/accessibility-tools/alt-text)", () => {
       timeout: 4_000,
     });
   });
+
+  test("decorative image branch shows the alt=\"\" code snippet and no copy button", async ({
+    page,
+  }) => {
+    await page.route("/api/tools/alt-text", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          altText: "",
+          isDecorative: true,
+          characterCount: 0,
+        }),
+      });
+    });
+
+    const minimalPng = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+      "base64",
+    );
+
+    await page.getByTestId("input-image-file").setInputFiles({
+      name: "decorative.png",
+      mimeType: "image/png",
+      buffer: minimalPng,
+    });
+
+    await page.getByTestId("button-generate-alt").click();
+
+    // The result card should appear
+    await expect(page.getByTestId("alt-result")).toBeVisible({ timeout: 10_000 });
+
+    // The decorative HTML snippet must be visible
+    const snippet = page.locator('code', { hasText: 'alt=""' });
+    await expect(snippet).toBeVisible();
+
+    // No copy button should exist in the decorative branch
+    await expect(page.getByTestId("button-copy-alt")).toHaveCount(0);
+  });
 });
 
 // ---------------------------------------------------------------------------
