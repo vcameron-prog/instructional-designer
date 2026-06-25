@@ -211,6 +211,7 @@ describe("isAuthenticated", () => {
 
     expect(res.status).toHaveBeenCalledWith(401);
     expect(next).not.toHaveBeenCalled();
+    // No originalUrl/url set on this mock req, so saveReturnTo skips save
     expect(req.session.save).not.toHaveBeenCalled();
   });
 
@@ -322,6 +323,7 @@ describe("isBsuAuthenticated", () => {
 
     expect(res.status).toHaveBeenCalledWith(401);
     expect(next).not.toHaveBeenCalled();
+    // No originalUrl/url set on this mock req, so saveReturnTo skips save
     expect(req.session.save).not.toHaveBeenCalled();
   });
 
@@ -457,6 +459,74 @@ describe("optionalAuth", () => {
     // session.save() was attempted but failed — optionalAuth must still call next().
     expect(req.session.save).toHaveBeenCalledOnce();
     expect(next).toHaveBeenCalledOnce();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// saveReturnTo — session persistence for post-login redirect
+// ---------------------------------------------------------------------------
+describe("saveReturnTo (via isAuthenticated 401 paths)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockDiscovery.mockResolvedValue(FAKE_OIDC_CONFIG);
+    mockUpsertUser.mockResolvedValue(undefined);
+  });
+
+  it("writes returnTo to the session and calls session.save() when the store is healthy", async () => {
+    const req = makeReq({}, false) as any;
+    req.originalUrl = "/courses/123";
+    const res = makeRes();
+    const next = vi.fn();
+
+    await isAuthenticated(req, res, next);
+
+    expect(req.session.returnTo).toBe("/courses/123");
+    expect(req.session.save).toHaveBeenCalledOnce();
+  });
+
+  it("still writes returnTo in memory and does not throw when session.save() fails (degraded store)", async () => {
+    const req = makeReq({}, false) as any;
+    req.originalUrl = "/dashboard";
+    req.session.save = vi.fn((cb: (err?: Error | null) => void) =>
+      cb(new Error("PostgreSQL session store unavailable"))
+    );
+    const res = makeRes();
+    const next = vi.fn();
+
+    await isAuthenticated(req, res, next);
+
+    // returnTo is still set in memory even though the store failed
+    expect(req.session.returnTo).toBe("/dashboard");
+    // save was attempted (and failed), but no error propagated — 401 was still returned cleanly
+    expect(req.session.save).toHaveBeenCalledOnce();
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it("does not call session.save() when the URL is missing (no url to save)", async () => {
+    const req = makeReq({}, false) as any;
+    req.originalUrl = "";
+    req.url = "";
+    const res = makeRes();
+    const next = vi.fn();
+
+    await isAuthenticated(req, res, next);
+
+    // No valid URL — returnTo is not set and session.save is not called
+    expect(req.session.returnTo).toBeUndefined();
+    expect(req.session.save).not.toHaveBeenCalled();
+  });
+
+  it("does not save returnTo for protocol-relative URLs (// prefix)", async () => {
+    const req = makeReq({}, false) as any;
+    req.originalUrl = "//evil.com/phish";
+    const res = makeRes();
+    const next = vi.fn();
+
+    await isAuthenticated(req, res, next);
+
+    expect(req.session.returnTo).toBeUndefined();
+    expect(req.session.save).not.toHaveBeenCalled();
   });
 });
 
