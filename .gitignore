@@ -7,3 +7,4 @@ vite.config.ts.*
 instructional-designer/test-results/
 instructional-designer/test-results/.last-run.json
 instructional-designer/test-results/
+test-results/.last-run.json
