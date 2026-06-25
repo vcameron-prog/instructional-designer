@@ -2041,12 +2041,41 @@ export async function registerRoutes(
     },
   );
 
+  // Get recent quick-tool results for the current user (last 10, with truncated preview)
+  // NOTE: this must be registered before /api/content/:id to prevent Express matching
+  // "recent-quick-tools" as the :id param.
+  app.get(
+    "/api/content/recent-quick-tools",
+    isBsuAuthenticated,
+    async (req: Request, res: Response) => {
+      try {
+        const userId = getUserId(req) as string;
+        const items = await storage.getRecentStandaloneContent(userId, 10);
+        const results = items.map((item) => ({
+          id: item.id,
+          toolType: item.toolType,
+          toolName: item.toolName,
+          createdAt: item.createdAt,
+          formData: item.formData,
+          contentPreview: item.content.replace(/^#+\s.*$/gm, "").replace(/\*\*/g, "").replace(/\n+/g, " ").trim().slice(0, 120),
+        }));
+        res.json(results);
+      } catch (error) {
+        console.error("Error fetching recent quick tools:", error);
+        res.status(500).json({ error: "Failed to fetch recent results" });
+      }
+    },
+  );
+
   app.get(
     "/api/content/:id",
     optionalAuth,
     async (req: Request, res: Response) => {
       try {
         const id = parseInt(req.params.id as string);
+        if (isNaN(id)) {
+          return res.status(404).json({ error: "Content not found" });
+        }
         const content = await storage.getContent(id);
         if (!content) {
           return res.status(404).json({ error: "Content not found" });
@@ -2380,30 +2409,6 @@ export async function registerRoutes(
       } catch (error) {
         console.error("Error fetching standalone content:", error);
         res.status(500).json({ error: "Failed to fetch content" });
-      }
-    },
-  );
-
-  // Get recent quick-tool results for the current user (last 10, with truncated preview)
-  app.get(
-    "/api/content/recent-quick-tools",
-    isBsuAuthenticated,
-    async (req: Request, res: Response) => {
-      try {
-        const userId = getUserId(req) as string;
-        const items = await storage.getRecentStandaloneContent(userId, 10);
-        const results = items.map((item) => ({
-          id: item.id,
-          toolType: item.toolType,
-          toolName: item.toolName,
-          createdAt: item.createdAt,
-          formData: item.formData,
-          contentPreview: item.content.replace(/^#+\s.*$/gm, "").replace(/\*\*/g, "").replace(/\n+/g, " ").trim().slice(0, 120),
-        }));
-        res.json(results);
-      } catch (error) {
-        console.error("Error fetching recent quick tools:", error);
-        res.status(500).json({ error: "Failed to fetch recent results" });
       }
     },
   );
