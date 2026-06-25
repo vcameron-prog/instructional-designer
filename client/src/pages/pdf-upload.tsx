@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import caiLogoWhite from "@assets/Center_for_AI_Apparel_&_Promotional_Items-WHITE_(1)_1775653892158.png";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
@@ -14,7 +14,6 @@ import {
   Shield,
   Image,
   AlignLeft,
-  ExternalLink,
   Globe,
   Eye,
   Calculator,
@@ -395,7 +394,7 @@ export default function PdfUpload() {
 
       <div className="container mx-auto px-4 py-12 max-w-4xl">
 
-        {/* Additional accessibility tools — now hosted on the Instructional Designer */}
+        {/* Additional accessibility tools */}
         <div className="max-w-3xl mx-auto mb-6">
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
             More Accessibility Tools
@@ -434,15 +433,10 @@ export default function PdfUpload() {
                 description: "Extract and convert mathematical expressions into accessible formats.",
                 testid: "link-tool-math-ocr",
               },
-            ].map((tool) => {
-              const idAppBase = (import.meta.env.VITE_ID_APP_URL as string | undefined)?.replace(/\/$/, "") ?? "";
-              const href = idAppBase ? `${idAppBase}${tool.path}` : tool.path;
-              return (
-                <a
+            ].map((tool) => (
+                <Link
                   key={tool.testid}
-                  href={href}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  href={tool.path}
                   className="flex items-center gap-4 rounded-lg border bg-card p-4 hover:bg-secondary/50 transition-colors group"
                   data-testid={tool.testid}
                 >
@@ -453,10 +447,8 @@ export default function PdfUpload() {
                     <p className="font-semibold text-foreground text-sm group-hover:underline">{tool.label}</p>
                     <p className="text-xs text-muted-foreground">{tool.description}</p>
                   </div>
-                  <ExternalLink className="w-4 h-4 text-muted-foreground flex-shrink-0 opacity-60" />
-                </a>
-              );
-            })}
+                </Link>
+            ))}
           </div>
         </div>
 
