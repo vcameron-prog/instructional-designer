@@ -349,9 +349,7 @@ export default function PdfUpload() {
               />
             </button>
           </div>
-          <p className="text-sm font-medium text-gray-400 uppercase tracking-widest mb-1">
-            Bridgewater State University
-          </p>
+
           <p className="text-base text-gray-300 mb-6">
             Center for Artificial Intelligence
           </p>
