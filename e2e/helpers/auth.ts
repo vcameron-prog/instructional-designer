@@ -70,5 +70,18 @@ export async function loginAndRedirect(
     },
   );
 
-  await page.waitForURL(`**${returnTo}`, { timeout });
+  try {
+    await page.waitForURL(`**${returnTo}`, { timeout });
+  } catch (err: unknown) {
+    const isTimeout =
+      err instanceof Error &&
+      (err.message.includes("Timeout") || err.constructor.name === "TimeoutError");
+    if (isTimeout) {
+      throw new Error(
+        `loginAndRedirect timed out waiting for "${returnTo}" — ` +
+          `is the server running with PLAYWRIGHT_TEST=1?`,
+      );
+    }
+    throw err;
+  }
 }
