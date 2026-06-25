@@ -3387,22 +3387,23 @@ export async function registerRoutes(
       const exportDate = now.toISOString().slice(0, 10);
       const csvContent = rows.join("\r\n");
 
-      // Log this export for the audit trail (fire-and-forget; don't block the response).
+      // Log this export only after the response is fully flushed so interrupted
+      // transfers do not produce a false "successful export" audit row.
       const exportingUserId = getUserId(_req);
       if (exportingUserId) {
-        db.insert(adminExports)
-          .values({
-            userId: exportingUserId,
-            rowCounts: {
-              courses: totalCoursesRow?.count ?? 0,
-              content: totalContentRow?.count ?? 0,
-              conversions: totalConversionsRow?.count ?? 0,
-              users: totalUsersRow?.count ?? 0,
-            },
-          })
-          .catch((logErr: unknown) => {
-            console.error("[admin/stats/export] failed to log export:", logErr);
-          });
+        const rowCountsSnapshot = {
+          courses: totalCoursesRow?.count ?? 0,
+          content: totalContentRow?.count ?? 0,
+          conversions: totalConversionsRow?.count ?? 0,
+          users: totalUsersRow?.count ?? 0,
+        };
+        res.once("finish", () => {
+          db.insert(adminExports)
+            .values({ userId: exportingUserId, rowCounts: rowCountsSnapshot })
+            .catch((logErr: unknown) => {
+              console.error("[admin/stats/export] failed to log export:", logErr);
+            });
+        });
       }
 
       res.setHeader("Content-Type", "text/csv; charset=utf-8");
