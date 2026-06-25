@@ -373,6 +373,214 @@ test.describe("Quick-tool — assignment form generates content", () => {
 });
 
 // ===========================================================================
+// Test 7 — Accessibility Tools hub renders all 4 tool tiles
+// ===========================================================================
+test.describe("Accessibility Tools hub — all 4 tool tiles visible", () => {
+  test("renders url-scanner, color-contrast, alt-text, and math-ocr cards", async ({ page }) => {
+    await page.goto("/accessibility-tools");
+    await expect(page).toHaveURL(/\/accessibility-tools/, { timeout: 10_000 });
+
+    await expect(
+      page.getByRole("heading", { name: "Accessibility Tools", exact: true }),
+      "'Accessibility Tools' heading is visible",
+    ).toBeVisible({ timeout: 10_000 });
+
+    await expect(
+      page.getByTestId("card-tool-url-scanner"),
+      "URL Scanner tile is visible",
+    ).toBeVisible({ timeout: 10_000 });
+
+    await expect(
+      page.getByTestId("card-tool-color-contrast"),
+      "Color Contrast tile is visible",
+    ).toBeVisible({ timeout: 10_000 });
+
+    await expect(
+      page.getByTestId("card-tool-alt-text"),
+      "Alt Text Generator tile is visible",
+    ).toBeVisible({ timeout: 10_000 });
+
+    await expect(
+      page.getByTestId("card-tool-math-ocr"),
+      "Math OCR tile is visible",
+    ).toBeVisible({ timeout: 10_000 });
+  });
+});
+
+// ===========================================================================
+// Test 8 — Color Contrast page: inputs, submit, and mocked result
+// ===========================================================================
+test.describe("Accessibility Tools — Color Contrast page", () => {
+  test("foreground/background inputs and submit button visible; result renders on API response", async ({
+    page,
+  }) => {
+    // Mock the contrast API so the test is fast and avoids hitting Anthropic
+    const mockContrastResult = {
+      ratio: 21,
+      aa_normal: true,
+      aa_large: true,
+      aaa_normal: true,
+      aaa_large: true,
+      foreground: "#000000",
+      background: "#ffffff",
+    };
+
+    await page.route("**/api/tools/color-contrast", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(mockContrastResult),
+      });
+    });
+
+    await page.goto("/accessibility-tools/color-contrast");
+    await expect(page).toHaveURL(/\/accessibility-tools\/color-contrast/, { timeout: 10_000 });
+
+    await expect(
+      page.getByRole("heading", { name: "Color Contrast Checker", exact: true }),
+      "Color Contrast Checker heading is visible",
+    ).toBeVisible({ timeout: 10_000 });
+
+    const fgInput = page.getByTestId("input-foreground");
+    await expect(fgInput, "foreground input is visible").toBeVisible({ timeout: 10_000 });
+
+    const bgInput = page.getByTestId("input-background");
+    await expect(bgInput, "background input is visible").toBeVisible({ timeout: 10_000 });
+
+    const checkButton = page.getByTestId("button-check-contrast");
+    await expect(checkButton, "Check Contrast button is visible").toBeVisible({ timeout: 10_000 });
+
+    // Fill in colors and submit
+    await fgInput.fill("#000000");
+    await bgInput.fill("#ffffff");
+    await checkButton.click();
+
+    // Result panel must appear
+    await expect(
+      page.getByTestId("contrast-result"),
+      "contrast result panel appears after submission",
+    ).toBeVisible({ timeout: 10_000 });
+
+    await expect(
+      page.getByTestId("text-contrast-ratio"),
+      "contrast ratio value is displayed",
+    ).toBeVisible({ timeout: 10_000 });
+  });
+});
+
+// ===========================================================================
+// Test 9 — URL Scanner page: URL input, submit button, mocked result area
+// ===========================================================================
+test.describe("Accessibility Tools — URL Scanner page", () => {
+  test("URL input and scan button visible; result area renders on API response", async ({
+    page,
+  }) => {
+    const mockScanResult = {
+      url: "https://example.com",
+      score: 90,
+      summary: "Page is mostly accessible with a few minor issues.",
+      issues: [],
+      passed: ["Images have alt text", "Headings are properly structured"],
+    };
+
+    await page.route("**/api/tools/url-scanner", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(mockScanResult),
+      });
+    });
+
+    await page.goto("/accessibility-tools/url-scanner");
+    await expect(page).toHaveURL(/\/accessibility-tools\/url-scanner/, { timeout: 10_000 });
+
+    await expect(
+      page.getByRole("heading", { name: "URL Accessibility Scanner", exact: true }),
+      "URL Accessibility Scanner heading is visible",
+    ).toBeVisible({ timeout: 10_000 });
+
+    const urlInput = page.getByTestId("input-scan-url");
+    await expect(urlInput, "URL input is visible").toBeVisible({ timeout: 10_000 });
+
+    const scanButton = page.getByTestId("button-scan");
+    await expect(scanButton, "Scan button is visible").toBeVisible({ timeout: 10_000 });
+
+    // Fill in a URL and trigger a scan
+    await urlInput.fill("https://example.com");
+    await scanButton.click();
+
+    // Result area must appear after the mocked response
+    await expect(
+      page.getByTestId("scan-results"),
+      "scan results area appears after submission",
+    ).toBeVisible({ timeout: 10_000 });
+
+    await expect(
+      page.getByTestId("text-scan-score"),
+      "scan score is displayed",
+    ).toBeVisible({ timeout: 10_000 });
+  });
+});
+
+// ===========================================================================
+// Test 10 — Alt Text Generator page: file upload input visible
+// ===========================================================================
+test.describe("Accessibility Tools — Alt Text Generator page", () => {
+  test("file upload dropzone and hidden file input are present", async ({ page }) => {
+    await page.goto("/accessibility-tools/alt-text");
+    await expect(page).toHaveURL(/\/accessibility-tools\/alt-text/, { timeout: 10_000 });
+
+    await expect(
+      page.getByRole("heading", { name: "Alt Text Generator", exact: true }),
+      "Alt Text Generator heading is visible",
+    ).toBeVisible({ timeout: 10_000 });
+
+    await expect(
+      page.getByTestId("dropzone-image"),
+      "image upload dropzone is visible",
+    ).toBeVisible({ timeout: 10_000 });
+
+    // The file input is visually hidden (sr-only) but must exist in the DOM
+    const fileInput = page.getByTestId("input-image-file");
+    await expect(fileInput, "hidden file input is present in DOM").toBeAttached();
+
+    await expect(
+      page.getByTestId("button-generate-alt"),
+      "Generate Alt Text button is visible",
+    ).toBeVisible({ timeout: 10_000 });
+  });
+});
+
+// ===========================================================================
+// Test 11 — Math OCR page: file upload input visible
+// ===========================================================================
+test.describe("Accessibility Tools — Math OCR page", () => {
+  test("file upload dropzone and hidden file input are present", async ({ page }) => {
+    await page.goto("/accessibility-tools/math-ocr");
+    await expect(page).toHaveURL(/\/accessibility-tools\/math-ocr/, { timeout: 10_000 });
+
+    await expect(
+      page.getByRole("heading", { name: "Math OCR", exact: true }),
+      "Math OCR heading is visible",
+    ).toBeVisible({ timeout: 10_000 });
+
+    await expect(
+      page.getByTestId("dropzone-math-image"),
+      "math image upload dropzone is visible",
+    ).toBeVisible({ timeout: 10_000 });
+
+    // The file input is visually hidden (sr-only) but must exist in the DOM
+    const fileInput = page.getByTestId("input-math-file");
+    await expect(fileInput, "hidden file input is present in DOM").toBeAttached();
+
+    await expect(
+      page.getByTestId("button-extract-math"),
+      "Extract Math Content button is visible",
+    ).toBeVisible({ timeout: 10_000 });
+  });
+});
+
+// ===========================================================================
 // Test 6 — Batch assignment+rubric form generates both and result-batch renders
 // ===========================================================================
 test.describe("Quick-tool — batch assignment+rubric form generates both items", () => {
