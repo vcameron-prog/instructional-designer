@@ -15,6 +15,7 @@ export default defineConfig({
     globals: true,
     include: [
       "server/**/*.test.ts",
+      "scripts/**/*.test.ts",
       "client/src/lib/**/*.test.ts",
       "client/src/components/**/*.test.tsx",
       "instructional-designer/client/src/lib/**/*.test.ts",
