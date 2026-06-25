@@ -151,6 +151,31 @@ test.describe("URL Accessibility Scanner (/accessibility-tools/url-scanner)", ()
   test("back button is present", async ({ page }) => {
     await expect(page.getByTestId("button-back")).toBeVisible();
   });
+
+  test(
+    "full round-trip scan of example.com returns a score and results panel",
+    async ({ page }) => {
+      test.skip(
+        !!process.env.SKIP_NETWORK_TESTS,
+        "Skipped in offline / fast CI runs (set SKIP_NETWORK_TESTS=1 to skip)",
+      );
+
+      await page.getByTestId("input-scan-url").fill("https://example.com");
+      await page.getByTestId("button-scan").click();
+
+      const scanResults = page.getByTestId("scan-results");
+      await expect(scanResults).toBeVisible({ timeout: 60_000 });
+
+      const scanScore = page.getByTestId("text-scan-score");
+      await expect(scanScore).toBeVisible({ timeout: 5_000 });
+
+      const scoreText = await scanScore.textContent();
+      const score = Number(scoreText?.trim());
+      expect(score).toBeGreaterThanOrEqual(0);
+      expect(score).toBeLessThanOrEqual(100);
+    },
+    { timeout: 75_000 },
+  );
 });
 
 // ---------------------------------------------------------------------------
