@@ -363,36 +363,37 @@ export default function PdfUpload() {
           <span className="inline-block text-xs font-semibold bg-white/10 border border-white/20 text-gray-200 px-3 py-1 rounded-full mb-6">
             ADA Title II · WCAG 2.1 AA
           </span>
-          <p className="text-gray-300 max-w-2xl mx-auto text-base">
+          <p className="text-gray-300 max-w-2xl mx-auto text-base mb-10">
             AI-powered tools to make your documents, content, and courses accessible. Remediate files instantly or use standalone checkers — all in one place.
           </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl mx-auto">
+            <div className="flex flex-col items-center text-center gap-2 px-4">
+              <div className="w-12 h-12 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center flex-shrink-0">
+                <Shield className="w-6 h-6 text-white" />
+              </div>
+              <h3 className="font-semibold text-white text-sm">Title II Compliant</h3>
+              <p className="text-xs text-gray-400">Prepares your documents to meet the rigorous standards required of state and local governments.</p>
+            </div>
+            <div className="flex flex-col items-center text-center gap-2 px-4">
+              <div className="w-12 h-12 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center flex-shrink-0">
+                <Image className="w-6 h-6 text-white" />
+              </div>
+              <h3 className="font-semibold text-white text-sm">AI Alt Text</h3>
+              <p className="text-xs text-gray-400">Automatically detects images and charts, generating accurate semantic alternative text descriptions.</p>
+            </div>
+            <div className="flex flex-col items-center text-center gap-2 px-4">
+              <div className="w-12 h-12 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center flex-shrink-0">
+                <AlignLeft className="w-6 h-6 text-white" />
+              </div>
+              <h3 className="font-semibold text-white text-sm">Reading Order</h3>
+              <p className="text-xs text-gray-400">Restructures complex multi-column layouts into a linear, logical reading order for screen readers.</p>
+            </div>
+          </div>
         </div>
       </section>
 
       <div className="container mx-auto px-4 py-12 max-w-4xl">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10 max-w-3xl mx-auto">
-          <div className="rounded-lg border bg-card p-5 flex flex-col items-center text-center gap-2">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0">
-              <Shield className="w-6 h-6 text-white" />
-            </div>
-            <h3 className="font-semibold text-foreground">Title II Compliant</h3>
-            <p className="text-sm text-muted-foreground">Prepares your documents to meet the rigorous standards required of state and local governments.</p>
-          </div>
-          <div className="rounded-lg border bg-card p-5 flex flex-col items-center text-center gap-2">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center flex-shrink-0">
-              <Image className="w-6 h-6 text-white" />
-            </div>
-            <h3 className="font-semibold text-foreground">AI Alt Text</h3>
-            <p className="text-sm text-muted-foreground">Automatically detects images and charts, generating accurate semantic alternative text descriptions.</p>
-          </div>
-          <div className="rounded-lg border bg-card p-5 flex flex-col items-center text-center gap-2">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center flex-shrink-0">
-              <AlignLeft className="w-6 h-6 text-white" />
-            </div>
-            <h3 className="font-semibold text-foreground">Reading Order</h3>
-            <p className="text-sm text-muted-foreground">Restructures complex multi-column layouts into a linear, logical reading order for screen readers.</p>
-          </div>
-        </div>
 
         {/* Additional accessibility tools from BSU Accessibility Tool */}
         <div className="max-w-3xl mx-auto mb-6">
