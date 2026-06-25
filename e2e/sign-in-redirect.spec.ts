@@ -24,9 +24,11 @@
  */
 
 import { test, expect } from "@playwright/test";
+import { loginAndRedirect, DEFAULT_TEST_USER } from "./helpers/auth";
 
 /** Synthetic user used throughout the spec. */
 const TEST_USER = {
+  ...DEFAULT_TEST_USER,
   sub: "pw-return-to-test-user",
   email: "pwreturnto@bridgew.edu",
   firstName: "Playwright",
@@ -93,40 +95,11 @@ test.describe("Sign-in returnTo redirect flow", () => {
     );
     expect(capturedReturnTo).toBe(protectedPath);
 
-    // Step 3: Simulate the post-OIDC callback by submitting a form POST to
-    // /api/test/login with returnTo in the body.  The endpoint creates a real
-    // session and issues a 302 redirect — the browser follows that redirect
-    // naturally without any manual page.goto() call driving the final destination.
-    // This mirrors the real OIDC callback's req.session.returnTo redirect flow.
-    await page.evaluate(
-      ({ fields }) => {
-        const form = document.createElement("form");
-        form.method = "POST";
-        form.action = "/api/test/login";
-        for (const [name, value] of Object.entries(fields)) {
-          const input = document.createElement("input");
-          input.type = "hidden";
-          input.name = name;
-          input.value = value as string;
-          form.appendChild(input);
-        }
-        document.body.appendChild(form);
-        form.submit();
-      },
-      {
-        fields: {
-          sub: TEST_USER.sub,
-          email: TEST_USER.email,
-          firstName: TEST_USER.firstName,
-          lastName: TEST_USER.lastName,
-          returnTo: capturedReturnTo,
-        },
-      },
-    );
-
-    // The form POST triggers a 302 redirect; wait for the browser to land on
-    // the originally requested path without any manual navigation.
-    await page.waitForURL(`**${protectedPath}`, { timeout: 15_000 });
+    // Step 3: Simulate the post-OIDC callback using the shared loginAndRedirect
+    // helper, which POSTs to /api/test/login with returnTo in the body.
+    // The endpoint creates a real session and issues a 302 redirect — the
+    // browser follows that redirect naturally.
+    await loginAndRedirect(page, capturedReturnTo, TEST_USER);
 
     // Step 4: Assert the browser is on the correct URL — not just "/".
     expect(new URL(page.url()).pathname).toBe(protectedPath);
