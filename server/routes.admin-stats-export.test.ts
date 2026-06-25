@@ -353,6 +353,47 @@ describe("GET /api/admin/stats/export — audit log accuracy", () => {
     expect(response.body).toHaveProperty("error");
   });
 
+  // ─── Dropped-connection path ──────────────────────────────────────────────
+
+  it("does NOT insert any audit row when close fires without finish (dropped TCP connection mid-stream)", async () => {
+    // Build a fresh app with an intercepting middleware inserted before the
+    // route.  The middleware overrides res.once so the "finish" listener is
+    // captured but never forwarded to the real EventEmitter — this simulates
+    // a TCP drop after the response headers have been sent but before the body
+    // is fully flushed (Node emits "close", not "finish", in that case).
+    const closedApp = express();
+    closedApp.use(express.json());
+
+    let capturedFinishListener: ((...args: any[]) => void) | null = null;
+
+    closedApp.use((_req: any, res: any, next: () => void) => {
+      const originalOnce = res.once.bind(res) as typeof res.once;
+      res.once = (event: string, listener: (...args: any[]) => void) => {
+        if (event === "finish") {
+          // Capture the listener but do NOT register it — finish will never fire.
+          capturedFinishListener = listener;
+          return res;
+        }
+        return originalOnce(event, listener);
+      };
+      next();
+    });
+
+    const httpServer = createServer(closedApp);
+    await registerRoutes(httpServer, closedApp);
+
+    // The handler still returns a 200 CSV response (headers are sent), but the
+    // finish listener was silently dropped — as would happen if the socket closed
+    // before the write buffer was flushed.
+    await request(closedApp).get("/api/admin/stats/export").expect(200);
+
+    // Sanity-check: the handler did try to register a finish listener.
+    expect(capturedFinishListener).not.toBeNull();
+
+    // The close event alone must NOT trigger the audit insert.
+    expect(mockInsertValues).not.toHaveBeenCalled();
+  });
+
   // ─── 403 guard — isAdmin middleware ───────────────────────────────────────
 
   it("returns 403 when ADMIN_USER_IDS is not set (non-admin request)", async () => {
