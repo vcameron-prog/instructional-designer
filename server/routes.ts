@@ -1,6 +1,6 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import type { Server } from "http";
-import { randomUUID } from "crypto";
+import { randomUUID, createHmac } from "crypto";
 import { storage } from "./storage";
 import { conversions, courses, generatedContent, adminExports } from "@shared/schema";
 import { users } from "@shared/models/auth";
@@ -3082,6 +3082,32 @@ export async function registerRoutes(
           res.json({ ok: true, sub, email, sessionId: req.sessionID });
         }
       });
+    });
+
+    // GET /api/test/expired-signed-state
+    // Returns a signed-state token whose embedded timestamp is 15 minutes in
+    // the past — beyond the 10-minute TTL — so verifyReturnToState() returns
+    // { expired: true }.  Used by Playwright e2e tests to trigger the
+    // slow-sign-in notice without waiting 10+ minutes for a real token to age.
+    // Disabled in production AND requires PLAYWRIGHT_TEST=1.
+    if (process.env.PLAYWRIGHT_TEST === "1") app.get("/api/test/expired-signed-state", (req: Request, res: Response) => {
+      const { returnTo } = req.query as { returnTo?: string };
+      const safePath =
+        typeof returnTo === "string" &&
+        returnTo.startsWith("/") &&
+        !returnTo.startsWith("//")
+          ? returnTo
+          : "/";
+      const payload = JSON.stringify({
+        v: "v1",
+        r: safePath,
+        t: Math.floor(Date.now() / 1000) - 15 * 60,
+      });
+      const data = Buffer.from(payload).toString("base64url");
+      const sig = createHmac("sha256", process.env.SESSION_SECRET!)
+        .update(data)
+        .digest("base64url");
+      res.json({ state: `${data}.${sig}` });
     });
 
     // POST /api/test/seed-conversion
