@@ -10,14 +10,18 @@ import caiLogoWhite from "@assets/Center_for_AI_Apparel_&_Promotional_Items-WHIT
 
 const ID_APP_URL = import.meta.env.VITE_ID_APP_URL as string | undefined;
 
-function openIdApp() {
-  if (!ID_APP_URL) return;
-  const isExternal = /^https?:\/\//i.test(ID_APP_URL);
-  if (isExternal) {
-    window.open(ID_APP_URL, "_blank", "noopener,noreferrer");
-  } else {
-    window.location.href = ID_APP_URL;
+function getIdAppUrl(): string | undefined {
+  if (import.meta.env.DEV) {
+    const { protocol, hostname } = window.location;
+    return `${protocol}//${hostname}:3001`;
   }
+  return ID_APP_URL;
+}
+
+function openIdApp() {
+  const url = getIdAppUrl();
+  if (!url) return;
+  window.open(url, "_blank", "noopener,noreferrer");
 }
 
 export default function CaiLandingPage() {
@@ -78,7 +82,7 @@ export default function CaiLandingPage() {
             size="lg"
             className="gap-2 bg-white text-gray-900 hover:bg-gray-100 text-base px-8 py-6 rounded-xl font-semibold shadow-lg"
             onClick={openIdApp}
-            disabled={!ID_APP_URL}
+            disabled={!getIdAppUrl()}
             data-testid="button-open-id-app"
           >
             <GraduationCap className="w-5 h-5" />
