@@ -363,7 +363,7 @@ export default function PdfUpload() {
             ADA Title II · WCAG 2.1 AA
           </span>
           <p className="text-gray-300 max-w-2xl mx-auto text-base mb-10 leading-relaxed" data-testid="text-accessibility-tagline">
-            AI-powered tools to make your documents, content, and courses more accessible. Remediate files instantly or use standalone checkers — all in one place. A free, shared accessibility resource from the Bridgewater State University Center for Artificial Intelligence. Built to help Massachusetts state universities and community colleges work toward ADA Title II and WCAG 2.1 AA accessibility standards.
+            A free, shared accessibility resource from the Bridgewater State University Center for Artificial Intelligence. Built to help Massachusetts state universities and community colleges work toward ADA Title II and WCAG 2.1 AA accessibility standards.
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl mx-auto">
