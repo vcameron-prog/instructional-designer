@@ -2966,6 +2966,63 @@ export async function registerRoutes(
   // without going through the real Replit OIDC flow or file-upload pipeline.
   // =========================================================================
   if (process.env.NODE_ENV !== "production") {
+    // GET /api/test/login
+    // Browser-redirect variant of the test login used by Playwright E2E tests
+    // that need to prove the full returnTo redirect chain without going through
+    // real OIDC.  Accepts the same user fields as the POST variant but reads
+    // them from query parameters.  On success it issues a 302 redirect to the
+    // `returnTo` query param (must start with "/" and not "//"), falling back
+    // to "/" when returnTo is absent or invalid.
+    app.get("/api/test/login", async (req: Request, res: Response) => {
+      const { sub, email, firstName, lastName, returnTo } = req.query as {
+        sub?: string;
+        email?: string;
+        firstName?: string;
+        lastName?: string;
+        returnTo?: string;
+      };
+      if (!sub || !email) {
+        res.status(400).json({ error: "sub and email are required" });
+        return;
+      }
+      const safeReturnTo =
+        typeof returnTo === "string" &&
+        returnTo.startsWith("/") &&
+        !returnTo.startsWith("//")
+          ? returnTo
+          : "/";
+      try {
+        await db
+          .insert(users)
+          .values({ id: sub, email, firstName: firstName ?? null, lastName: lastName ?? null })
+          .onConflictDoUpdate({
+            target: users.id,
+            set: { email, firstName: firstName ?? null, lastName: lastName ?? null },
+          });
+      } catch {
+        // users table may not exist in all test environments; ignore.
+      }
+      const sessionUser = {
+        claims: {
+          sub,
+          email,
+          first_name: firstName ?? "",
+          last_name: lastName ?? "",
+        },
+        access_token: "playwright-test-token",
+        refresh_token: "playwright-test-refresh",
+        expires_at: Math.floor(Date.now() / 1000) + 7200,
+      };
+      (req.session as any).passport = { user: sessionUser };
+      req.session.save((err) => {
+        if (err) {
+          res.status(500).json({ error: String(err) });
+          return;
+        }
+        res.redirect(safeReturnTo);
+      });
+    });
+
     // POST /api/test/login
     // Creates a server-side session for a synthetic user without going through
     // the real Replit OIDC flow. Used by Playwright E2E tests.
