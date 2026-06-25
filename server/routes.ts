@@ -3110,6 +3110,33 @@ export async function registerRoutes(
       res.json({ state: `${data}.${sig}` });
     });
 
+    // GET /api/test/sign-state
+    // Returns a freshly-signed state token for the given returnTo path, using
+    // the same signing logic as signReturnToState() in replitAuth.ts.  Tests
+    // can use this to construct a valid state token without knowing SESSION_SECRET
+    // and without going through a live OIDC authorization flow.
+    // Used by the third-party-cookie-redirect Playwright test.
+    // Disabled in production AND requires PLAYWRIGHT_TEST=1.
+    if (process.env.PLAYWRIGHT_TEST === "1") app.get("/api/test/sign-state", (req: Request, res: Response) => {
+      const { returnTo } = req.query as { returnTo?: string };
+      const safePath =
+        typeof returnTo === "string" &&
+        returnTo.startsWith("/") &&
+        !returnTo.startsWith("//")
+          ? returnTo
+          : "/";
+      const payload = JSON.stringify({
+        v: "v1",
+        r: safePath,
+        t: Math.floor(Date.now() / 1000),
+      });
+      const data = Buffer.from(payload).toString("base64url");
+      const sig = createHmac("sha256", process.env.SESSION_SECRET!)
+        .update(data)
+        .digest("base64url");
+      res.json({ state: `${data}.${sig}` });
+    });
+
     // POST /api/test/seed-conversion
     // Directly inserts a conversion row into the database with the provided
     // fields, bypassing the upload and AI-processing pipeline.  Returns the
