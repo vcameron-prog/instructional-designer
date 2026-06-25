@@ -151,43 +151,35 @@ describe("App.tsx ROUTES registry exhaustiveness (AST)", () => {
     ).toHaveLength(0);
   });
 
-  it("every entry in the ROUTES array has requiresAuth explicitly defined", () => {
-    const src = readFileSync(APP_TSX, "utf8");
-    const routesStart = src.indexOf("const ROUTES:");
-    const routesEnd = src.indexOf("];\n", routesStart);
-    const routesBlock = src.slice(routesStart, routesEnd + 2);
+  it("every entry in the ROUTES array has requiresAuth explicitly defined", async () => {
+    // ROUTES is now derived from ROUTE_VISIBILITY via .map(), so object
+    // literals with requiresAuth live in route-visibility.ts, not inline in
+    // App.tsx.  Import and verify the canonical registry directly.
+    const { ROUTE_VISIBILITY } = await import("./route-visibility");
 
-    // Each object literal must declare requiresAuth.
-    const objectEntries = routesBlock.match(/\{[^}]+\}/g) ?? [];
-    expect(objectEntries.length).toBeGreaterThan(0);
+    expect(ROUTE_VISIBILITY.length).toBeGreaterThan(0);
 
-    for (const entry of objectEntries) {
+    for (const entry of ROUTE_VISIBILITY) {
       expect(
-        entry,
-        `Route entry is missing requiresAuth: ${entry.trim()}`
-      ).toMatch(/requiresAuth\s*:/);
+        typeof entry.requiresAuth,
+        `Route "${entry.path}" is missing a boolean requiresAuth field`
+      ).toBe("boolean");
     }
   });
 
-  it("every path in the ROUTES array is unique (no duplicate registrations)", () => {
-    const src = readFileSync(APP_TSX, "utf8");
-    const routesStart = src.indexOf("const ROUTES:");
-    const routesEnd = src.indexOf("];\n", routesStart);
-    const routesBlock = src.slice(routesStart, routesEnd + 2);
+  it("every path in the ROUTES array is unique (no duplicate registrations)", async () => {
+    // Paths live in the ROUTE_VISIBILITY registry — check uniqueness there.
+    const { ROUTE_VISIBILITY } = await import("./route-visibility");
 
-    const paths: string[] = [];
-    const pathRegex = /path\s*:\s*["']([^"']+)["']/g;
-    let m: RegExpExecArray | null;
-    while ((m = pathRegex.exec(routesBlock)) !== null) {
-      paths.push(m[1]);
-    }
-
+    const paths = ROUTE_VISIBILITY.map((r) => r.path);
     expect(paths.length).toBeGreaterThan(0);
 
     const uniquePaths = new Set(paths);
     expect(
       uniquePaths.size,
-      `Duplicate path(s) in ROUTES: ${paths.filter((p, i) => paths.indexOf(p) !== i).join(", ")}`
+      `Duplicate path(s) in ROUTE_VISIBILITY: ${paths
+        .filter((p, i) => paths.indexOf(p) !== i)
+        .join(", ")}`
     ).toBe(paths.length);
   });
 });

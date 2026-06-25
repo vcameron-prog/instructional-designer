@@ -17,29 +17,28 @@ import AdminDashboard from "@/pages/admin-dashboard";
 import { ThemeProvider } from "@/components/theme-provider";
 import { FontSizeProvider } from "@/components/font-size-provider";
 import { ProtectedRoute } from "@/components/protected-route";
+import { ROUTE_VISIBILITY } from "@/lib/route-visibility";
 
 // ---------------------------------------------------------------------------
 // Route registry
 //
-// Add every new page here. Setting `requiresAuth: true` automatically wraps
-// the page in <ProtectedRoute> so unauthenticated users are redirected before
-// any data fetches fire.  Setting `requiresAuth: false` explicitly marks a
-// route as intentionally public — reviewers can audit this list at a glance
-// without scanning the whole Router tree.
-//
-// PUBLIC routes (no sign-in required)
-//   /                        Landing page
-//   /accessibility           PDF upload (also reachable as /pdf-accessibility)
-//   /pdf-accessibility       PDF upload alias
-//   /pdf-accessibility/faq   FAQ – no user data
-//   /pdf-accessibility/:id   Conversion view – anonymous token guards ownership
-//   /help                    Static help content
-//
-// PROTECTED routes (sign-in required)
-//   /pdf-accessibility/history   User's conversion history
-//   /settings                    User account settings
-//   /admin                       Admin dashboard (also gated by ADMIN_USER_IDS)
+// Path metadata (requiresAuth, showSignIn) lives in
+// client/src/lib/route-visibility.ts — the single source of truth shared with
+// the Playwright sign-in button visibility spec.  Add every new page there
+// first, then add its component to ROUTE_COMPONENTS below.
 // ---------------------------------------------------------------------------
+
+const ROUTE_COMPONENTS: Record<string, React.ComponentType> = {
+  "/":                          CaiLandingPage,
+  "/accessibility":             PdfUpload,
+  "/pdf-accessibility":         PdfUpload,
+  "/pdf-accessibility/history": PdfHistory,
+  "/pdf-accessibility/faq":     PdfFaq,
+  "/pdf-accessibility/:id":     PdfConversion,
+  "/settings":                  SettingsPage,
+  "/help":                      HelpPage,
+  "/admin":                     AdminDashboard,
+};
 
 interface RouteConfig {
   path: string;
@@ -47,17 +46,11 @@ interface RouteConfig {
   requiresAuth: boolean;
 }
 
-const ROUTES: RouteConfig[] = [
-  { path: "/",                          component: CaiLandingPage,  requiresAuth: false },
-  { path: "/accessibility",             component: PdfUpload,       requiresAuth: false },
-  { path: "/pdf-accessibility",         component: PdfUpload,       requiresAuth: false },
-  { path: "/pdf-accessibility/history", component: PdfHistory,      requiresAuth: true  },
-  { path: "/pdf-accessibility/faq",     component: PdfFaq,          requiresAuth: false },
-  { path: "/pdf-accessibility/:id",     component: PdfConversion,   requiresAuth: false },
-  { path: "/settings",                  component: SettingsPage,    requiresAuth: true  },
-  { path: "/help",                      component: HelpPage,        requiresAuth: false },
-  { path: "/admin",                     component: AdminDashboard,  requiresAuth: true  },
-];
+const ROUTES: RouteConfig[] = ROUTE_VISIBILITY.map(({ path, requiresAuth }) => ({
+  path,
+  requiresAuth,
+  component: ROUTE_COMPONENTS[path],
+}));
 
 function FocusManager() {
   const [location] = useLocation();

@@ -1,71 +1,42 @@
 /**
  * Parameterized sign-in button visibility matrix.
  *
- * This spec complements sign-in-redirect.spec.ts by checking every public
- * page and verifying whether `button-header-login` is visible or deliberately
- * absent to unauthenticated visitors.
+ * This spec reads the route registry from client/src/lib/route-visibility.ts
+ * and generates the test matrix at runtime.  New routes annotated there are
+ * automatically covered — no manual spec edits needed.
  *
- * Two categories of page are covered:
+ * Two categories are tested:
  *
- * SHOWS Sign In — pages that use HeaderControls with showLogin defaulting to
- * true.  A regression that accidentally removes the button (e.g. swapping to
- * ConverterHeader or passing showLogin={false}) will be caught here.
+ *   showSignIn: true  — the Sign-In button MUST be visible to unauthenticated
+ *                        visitors (HeaderControls without suppression).
+ *   showSignIn: false — the Sign-In button MUST NOT appear (ConverterHeader or
+ *                        showLogin={false} explicitly passed).
  *
- * HIDES Sign In — pages that intentionally suppress the button, either by
- * passing showLogin={false} explicitly (CaiLandingPage) or by rendering
- * ConverterHeader instead of HeaderControls (pdf-upload, pdf-faq, etc.).  A
- * regression that accidentally adds the button to these pages would also be
- * caught.
+ * Routes where showSignIn is undefined are excluded: they either require auth
+ * (redirect before render) or contain dynamic path segments that need a real
+ * database record (e.g. /pdf-accessibility/:id).
  *
  * Run with:
  *   PLAYWRIGHT_TEST=1 npx playwright test e2e/sign-in-button-visibility.spec.ts
  */
 
 import { test, expect } from "@playwright/test";
+import { ROUTE_VISIBILITY } from "../client/src/lib/route-visibility";
 
-/** Pages where the Sign In button MUST be visible to unauthenticated visitors. */
-const PAGES_WITH_SIGN_IN: Array<{ path: string; label: string }> = [
-  {
-    path: "/help",
-    label: "/help (HeaderControls, showLogin defaults to true)",
-  },
-];
+const testableRoutes = ROUTE_VISIBILITY.filter(
+  (r) => r.showSignIn !== undefined,
+);
 
-/**
- * Pages where the Sign In button MUST NOT appear for unauthenticated visitors.
- *
- * - "/"   → CaiLandingPage passes showLogin={false} explicitly.
- * - "/accessibility" and "/pdf-accessibility" → PdfUpload uses ConverterHeader
- *   which hard-codes showLogin={false}.
- * - "/pdf-accessibility/faq" → PdfFaq also uses ConverterHeader.
- */
-const PAGES_WITHOUT_SIGN_IN: Array<{ path: string; label: string }> = [
-  {
-    path: "/",
-    label: "/ (CaiLandingPage, showLogin={false})",
-  },
-  {
-    path: "/accessibility",
-    label: "/accessibility (ConverterHeader, showLogin={false})",
-  },
-  {
-    path: "/pdf-accessibility",
-    label: "/pdf-accessibility (ConverterHeader, showLogin={false})",
-  },
-  {
-    path: "/pdf-accessibility/faq",
-    label: "/pdf-accessibility/faq (ConverterHeader, showLogin={false})",
-  },
-];
+const withSignIn    = testableRoutes.filter((r) => r.showSignIn === true);
+const withoutSignIn = testableRoutes.filter((r) => r.showSignIn === false);
 
 test.describe("Sign In button visibility — unauthenticated visitors", () => {
   test.beforeEach(async ({ page }) => {
-    // Ensure no active session for each test.
     await page.context().clearCookies();
   });
 
-  for (const { path, label } of PAGES_WITH_SIGN_IN) {
-    test(`Sign In button IS visible on ${label}`, async ({ page }) => {
+  for (const { path } of withSignIn) {
+    test(`Sign In button IS visible on ${path}`, async ({ page }) => {
       await page.goto(path);
 
       const loginBtn = page.getByTestId("button-header-login");
@@ -73,7 +44,7 @@ test.describe("Sign In button visibility — unauthenticated visitors", () => {
       await expect(loginBtn).toContainText("Sign In");
     });
 
-    test(`Sign In button on ${label} encodes path as returnTo`, async ({
+    test(`Sign In button on ${path} encodes path as returnTo`, async ({
       page,
     }) => {
       await page.goto(path);
@@ -81,7 +52,6 @@ test.describe("Sign In button visibility — unauthenticated visitors", () => {
       const loginBtn = page.getByTestId("button-header-login");
       await expect(loginBtn).toBeVisible({ timeout: 15_000 });
 
-      // Intercept the /api/login navigation to inspect the URL it builds.
       const loginRequestPromise = page.waitForRequest("**/api/login*");
       await page.route("**/api/login*", (route) => route.abort());
 
@@ -91,22 +61,19 @@ test.describe("Sign In button visibility — unauthenticated visitors", () => {
       const loginUrl = new URL(loginRequest.url());
       const returnTo = loginUrl.searchParams.get("returnTo");
 
-      // returnTo must match the path that was loaded when Sign In was clicked.
       expect(returnTo).toBe(path);
     });
   }
 
-  for (const { path, label } of PAGES_WITHOUT_SIGN_IN) {
-    test(`Sign In button is NOT shown on ${label}`, async ({ page }) => {
+  for (const { path } of withoutSignIn) {
+    test(`Sign In button is NOT shown on ${path}`, async ({ page }) => {
       await page.goto(path);
 
-      // Wait for the page to settle so we're not checking before React renders.
       await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => {
-        // networkidle can time-out on pages with polling; falling through is fine
-        // because the DOM assertion below still waits its own timeout.
+        // networkidle can time-out on pages with polling; the DOM assertion
+        // below still applies its own timeout so this is safe to swallow.
       });
 
-      // The button must not be in the DOM at all (or at least not visible).
       await expect(page.getByTestId("button-header-login")).not.toBeVisible({
         timeout: 10_000,
       });
