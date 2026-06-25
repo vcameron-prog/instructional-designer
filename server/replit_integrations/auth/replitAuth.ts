@@ -450,7 +450,21 @@ export async function setupAuth(app: Express) {
           return res.redirect("/api/login");
         }
         req.logIn(user, (loginErr: any) => {
-          if (loginErr) return next(loginErr);
+          if (loginErr) {
+            // req.logIn internally calls session.save(). When the PostgreSQL
+            // session store is offline, session.save() fails and passport
+            // propagates the error here as loginErr. The OIDC token exchange
+            // already succeeded, so we know the user is authenticated. Log the
+            // degraded-store event and still redirect — the signed state gives
+            // us the correct destination without touching the session at all.
+            // The user may need to re-authenticate on their next protected
+            // request if the store is still down, but they'll land on the right
+            // page rather than seeing an unhandled 500.
+            console.warn(
+              "[auth] req.logIn failed (session store may be degraded) — redirecting to returnTo via signed state:",
+              loginErr
+            );
+          }
 
           // Capture and clear session.returnTo now so stale values never
           // affect a future login flow, regardless of which path we use.

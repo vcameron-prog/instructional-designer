@@ -893,3 +893,123 @@ describe("Strict state propagation: login emits → callback consumes (no indepe
     expect(leg3.headers["location"]).toBe(returnToPath);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Session-store offline: callback redirects via signed state even when
+// req.logIn() fails because session.save() throws.
+//
+// This covers the failure mode complementary to the Playwright signed-state
+// test: while that test proves the happy path with real signed tokens, these
+// tests verify that /api/callback still issues the correct redirect when the
+// PostgreSQL session store is unreachable (req.session.save throws).
+//
+// In practice req.logIn() calls session.save() internally; a store outage
+// surfaces as loginErr in the passport.authenticate done-callback.  The
+// signed state encodes the returnTo destination in the query string, so the
+// redirect destination is available without any session read.
+// ---------------------------------------------------------------------------
+
+describe("Session-store offline: callback still redirects via signed state", () => {
+  let offlineApp: express.Express;
+  const FAKE_USER = { claims: { sub: "u3" }, expires_at: VALID_AT };
+
+  // Simulate req.logIn() failing due to session.save() throwing (the
+  // behaviour of passport when the PostgreSQL session store is unreachable).
+  function makeOfflineLoginMock() {
+    return mockPassportAuthenticate.mockImplementation(
+      (_strategyName: string, _opts: any, doneCb?: Function) =>
+        (req: any, res: any, _next: any) => {
+          if (typeof doneCb === "function") {
+            // Attach a req.logIn that always calls back with a store error.
+            req.logIn = (_user: any, cb: (err?: any) => void) => {
+              cb(new Error("connect ECONNREFUSED - PostgreSQL session store is offline"));
+            };
+            doneCb(null, FAKE_USER, {});
+          } else {
+            res.status(302).setHeader("Location", "/oauth/authorize").end();
+          }
+        }
+    );
+  }
+
+  beforeAll(async () => {
+    vi.clearAllMocks();
+    mockDiscovery.mockResolvedValue(FAKE_OIDC_CONFIG);
+    makeOfflineLoginMock();
+
+    offlineApp = express();
+    await setupAuth(offlineApp);
+  });
+
+  beforeEach(() => {
+    // Re-apply the offline mock before each test (clearAllMocks in individual
+    // tests may reset it).
+    makeOfflineLoginMock();
+  });
+
+  it("redirects to the signed-state returnTo path even when req.logIn fails", async () => {
+    const server = createServer(offlineApp);
+    const agent = request.agent(server);
+
+    const signedState = signReturnToState("/courses/42");
+    const res = await agent
+      .get(`/api/callback?state=${encodeURIComponent(signedState)}`)
+      .set("Host", "localhost");
+
+    expect(res.status).toBe(302);
+    expect(res.headers["location"]).toBe("/courses/42");
+  });
+
+  it("redirects to a signed-state path with a query string when the store is offline", async () => {
+    const server = createServer(offlineApp);
+    const agent = request.agent(server);
+
+    const returnTo = "/assignments/new?course=101&week=4";
+    const signedState = signReturnToState(returnTo);
+    const res = await agent
+      .get(`/api/callback?state=${encodeURIComponent(signedState)}`)
+      .set("Host", "localhost");
+
+    expect(res.status).toBe(302);
+    expect(res.headers["location"]).toBe(returnTo);
+  });
+
+  it("falls back to '/' when both req.logIn fails and no state is present", async () => {
+    const server = createServer(offlineApp);
+    const agent = request.agent(server);
+
+    // No state param, no session (store is offline so session is empty).
+    const res = await agent
+      .get("/api/callback")
+      .set("Host", "localhost");
+
+    expect(res.status).toBe(302);
+    expect(res.headers["location"]).toBe("/");
+  });
+
+  it("honours an expired (valid-HMAC) signed state even when req.logIn fails", async () => {
+    const { createHmac } = require("crypto");
+    const path = "/syllabi/7/edit";
+    const payload = JSON.stringify({
+      v: "v1",
+      r: path,
+      t: Math.floor(Date.now() / 1000) - 15 * 60, // 15 min ago
+    });
+    const data = Buffer.from(payload).toString("base64url");
+    const sig = createHmac("sha256", process.env.SESSION_SECRET!)
+      .update(data)
+      .digest("base64url");
+    const expiredState = `${data}.${sig}`;
+
+    const server = createServer(offlineApp);
+    const agent = request.agent(server);
+
+    const res = await agent
+      .get(`/api/callback?state=${encodeURIComponent(expiredState)}`)
+      .set("Host", "localhost");
+
+    // Expired but valid HMAC → still redirects (with ?signin=slow marker).
+    expect(res.status).toBe(302);
+    expect(res.headers["location"]).toBe(`${path}?signin=slow`);
+  });
+});
