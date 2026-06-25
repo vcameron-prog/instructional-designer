@@ -132,7 +132,7 @@ export function PRIVACY_ANSWER(): React.ReactNode {
         or account and is not shared with other users. AI processing uses
         Anthropic&#39;s Claude API&#8212;see{" "}
         <a
-          href="https://www.anthropic.com/privacy"
+          href="https://www.anthropic.com/legal/privacy"
           target="_blank"
           rel="noopener noreferrer"
           className="underline hover:opacity-80"

@@ -26,7 +26,7 @@ export function PoweredByFooter() {
           <Shield className="w-3 h-3 flex-shrink-0 mt-0.5" />
           <span>
             Your data is stored securely, never shared, and not used to train AI models. Powered by{" "}
-            <a href="https://www.anthropic.com/privacy" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80">Anthropic's Claude API</a>.
+            <a href="https://www.anthropic.com/legal/privacy" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80">Anthropic's Claude API</a>.
             {" "}This tool improves accessibility but does not guarantee full WCAG 2.1 compliance — automated remediation is a starting point and human review is required. Please review all content before use.
           </span>
         </p>

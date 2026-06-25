@@ -231,7 +231,7 @@ export default function HelpPage() {
               </p>
               <div className="pt-2">
                 <a
-                  href="https://www.w3.org/WAI/WCAG21/quickref/"
+                  href="https://www.w3.org/WAI/WCAG22/quickref/?versions=2.1"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-sm text-primary hover:underline inline-flex items-center gap-1"

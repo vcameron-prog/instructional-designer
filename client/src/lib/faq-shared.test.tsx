@@ -165,7 +165,7 @@ describe("renderFAQAnswer", () => {
       ).toBeInTheDocument();
       expect(
         screen.getByRole("link", { name: /anthropic.*privacy policy/i })
-      ).toHaveAttribute("href", "https://www.anthropic.com/privacy");
+      ).toHaveAttribute("href", "https://www.anthropic.com/legal/privacy");
     });
   });
 });
