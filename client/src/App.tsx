@@ -15,6 +15,7 @@ import HelpPage from "@/pages/help";
 import AdminDashboard from "@/pages/admin-dashboard";
 import { ThemeProvider } from "@/components/theme-provider";
 import { FontSizeProvider } from "@/components/font-size-provider";
+import { ProtectedRoute } from "@/components/protected-route";
 
 function FocusManager() {
   const [location] = useLocation();
@@ -39,12 +40,18 @@ function Router() {
       <Route path="/" component={CaiLandingPage} />
       <Route path="/accessibility" component={PdfUpload} />
       <Route path="/pdf-accessibility" component={PdfUpload} />
-      <Route path="/pdf-accessibility/history" component={PdfHistory} />
+      <Route path="/pdf-accessibility/history">
+        {() => <ProtectedRoute component={PdfHistory} />}
+      </Route>
       <Route path="/pdf-accessibility/faq" component={PdfFaq} />
       <Route path="/pdf-accessibility/:id" component={PdfConversion} />
-      <Route path="/settings" component={SettingsPage} />
+      <Route path="/settings">
+        {() => <ProtectedRoute component={SettingsPage} />}
+      </Route>
       <Route path="/help" component={HelpPage} />
-      <Route path="/admin" component={AdminDashboard} />
+      <Route path="/admin">
+        {() => <ProtectedRoute component={AdminDashboard} />}
+      </Route>
       <Route component={NotFound} />
     </Switch>
   );
