@@ -37,13 +37,10 @@ function isBsuEmail(email?: string | null): boolean {
 }
 
 function getConverterUrl(): string {
-  if (import.meta.env.VITE_CONVERTER_APP_URL) {
-    return import.meta.env.VITE_CONVERTER_APP_URL;
-  }
   if (import.meta.env.DEV) {
     return `${window.location.protocol}//${window.location.hostname}/accessibility`;
   }
-  return "#";
+  return import.meta.env.VITE_CONVERTER_APP_URL || `${window.location.protocol}//${window.location.hostname}/accessibility`;
 }
 
 export default function LandingPage() {
