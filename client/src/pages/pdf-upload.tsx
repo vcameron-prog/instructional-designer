@@ -15,6 +15,7 @@ import {
   Image,
   AlignLeft,
   Info,
+  ExternalLink,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { ConverterHeader } from "@/components/header-controls";
@@ -364,17 +365,6 @@ export default function PdfUpload() {
           <p className="text-gray-300 max-w-2xl mx-auto text-base">
             Instantly remediate PDF, Word, PowerPoint, and Excel documents—or import directly from Google Docs, Sheets, and Slides—and prepare them to meet ADA Title II and WCAG 2.1 AA requirements using advanced AI structural analysis and description generation.
           </p>
-          <p className="mt-4 text-sm text-gray-400">
-            Also available:{" "}
-            <a
-              href="https://bsu-accessibility-tool.replit.app/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline underline-offset-2 hover:text-white transition-colors"
-            >
-              Accessibility Tool
-            </a>
-          </p>
         </div>
       </section>
 
@@ -403,6 +393,25 @@ export default function PdfUpload() {
           </div>
         </div>
 
+        {/* Accessibility Tool cross-link tile */}
+        <div className="max-w-3xl mx-auto mb-6">
+          <a
+            href="https://bsu-accessibility-tool.replit.app/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-4 rounded-lg border bg-card p-5 hover:bg-secondary/50 transition-colors group"
+            data-testid="link-accessibility-tool"
+          >
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-red-600 to-rose-700 flex items-center justify-center flex-shrink-0">
+              <ExternalLink className="w-6 h-6 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-foreground group-hover:underline">Accessibility Tool</p>
+              <p className="text-sm text-muted-foreground">Visit the full BSU Accessibility Tool at bsu-accessibility-tool.replit.app</p>
+            </div>
+            <ArrowRight className="w-5 h-5 text-muted-foreground flex-shrink-0 group-hover:translate-x-1 transition-transform" />
+          </a>
+        </div>
 
         {uploadError && (
           <div
