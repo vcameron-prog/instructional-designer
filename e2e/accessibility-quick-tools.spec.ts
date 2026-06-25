@@ -81,6 +81,109 @@ test.describe("Color Contrast Checker (/accessibility-tools/color-contrast)", ()
     );
   });
 
+  test("mid-range pair (~3.74:1) shows a Large Text Only badge", async ({
+    page,
+  }) => {
+    // #848484 on white — ratio ≈ 3.74:1 (above 3:1 aa_large threshold,
+    // below 4.5:1 aa_normal threshold) → "Large Text Only"
+    await page.getByTestId("input-foreground").fill("#848484");
+    await page.getByTestId("input-background").fill("#ffffff");
+
+    await page.getByTestId("button-check-contrast").click();
+
+    await expect(page.getByTestId("text-contrast-ratio")).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(page.getByTestId("text-contrast-ratio")).toContainText("3.74");
+    await expect(page.getByTestId("badge-contrast-rating")).toContainText(
+      "Large Text Only",
+    );
+  });
+
+  test("exact 3.00:1 boundary shows Large Text Only badge", async ({
+    page,
+  }) => {
+    // #959595 on white — computed ratio rounds to exactly 3.00:1, the aa_large
+    // inclusive lower boundary (ratio >= 3) → "Large Text Only"
+    await page.getByTestId("input-foreground").fill("#959595");
+    await page.getByTestId("input-background").fill("#ffffff");
+
+    await page.getByTestId("button-check-contrast").click();
+
+    await expect(page.getByTestId("text-contrast-ratio")).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(page.getByTestId("text-contrast-ratio")).toContainText("3.00");
+    await expect(page.getByTestId("badge-contrast-rating")).toContainText(
+      "Large Text Only",
+    );
+  });
+
+  test("pair just below the 4.5:1 boundary (~4.48:1) shows Large Text Only, not AA Pass", async ({
+    page,
+  }) => {
+    // #777777 on white — ratio rounds to 4.48:1, just below the aa_normal
+    // (4.5:1) ceiling → still "Large Text Only", not "AA Pass"
+    await page.getByTestId("input-foreground").fill("#777777");
+    await page.getByTestId("input-background").fill("#ffffff");
+
+    await page.getByTestId("button-check-contrast").click();
+
+    await expect(page.getByTestId("text-contrast-ratio")).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(page.getByTestId("text-contrast-ratio")).toContainText("4.48");
+    await expect(page.getByTestId("badge-contrast-rating")).toContainText(
+      "Large Text Only",
+    );
+    await expect(page.getByTestId("badge-contrast-rating")).not.toContainText(
+      "AA Pass",
+    );
+  });
+
+  test("exact 4.50:1 boundary shows AA Pass badge", async ({
+    page,
+  }) => {
+    // #6464f4 on white — computed ratio rounds to exactly 4.50:1, the aa_normal
+    // inclusive boundary (ratio >= 4.5) → "AA Pass"
+    await page.getByTestId("input-foreground").fill("#6464f4");
+    await page.getByTestId("input-background").fill("#ffffff");
+
+    await page.getByTestId("button-check-contrast").click();
+
+    await expect(page.getByTestId("text-contrast-ratio")).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(page.getByTestId("text-contrast-ratio")).toContainText("4.50");
+    await expect(page.getByTestId("badge-contrast-rating")).toContainText(
+      "AA Pass",
+    );
+  });
+
+  test("exact 7.00:1 boundary shows AA Pass badge and AAA Normal Text passes", async ({
+    page,
+  }) => {
+    // #595959 on white — computed ratio rounds to exactly 7.00:1, the aaa_normal
+    // boundary (ratio >= 7) → "AA Pass" badge; the AAA Normal Text row should
+    // show Pass
+    await page.getByTestId("input-foreground").fill("#595959");
+    await page.getByTestId("input-background").fill("#ffffff");
+
+    await page.getByTestId("button-check-contrast").click();
+
+    await expect(page.getByTestId("text-contrast-ratio")).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(page.getByTestId("text-contrast-ratio")).toContainText("7.00");
+    await expect(page.getByTestId("badge-contrast-rating")).toContainText(
+      "AA Pass",
+    );
+    // The AAA Normal Text row (≥ 7:1) should also pass at exactly 7:1
+    await expect(
+      page.getByText("AAA — Normal text (≥ 7:1)"),
+    ).toBeVisible();
+  });
+
   test("swap button exchanges foreground and background values", async ({
     page,
   }) => {
