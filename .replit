@@ -57,6 +57,10 @@ args = "id-smoke"
 task = "workflow.run"
 args = "migration-journal"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "oidc-state-smoke"
+
 [[workflows.workflow]]
 name = "Start application"
 author = "agent"
@@ -129,6 +133,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npx tsx scripts/check-migration-journal.ts && npx tsx scripts/check-migration-snapshots.ts"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "oidc-state-smoke"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "CI=1 npx playwright test e2e/oidc-state-roundtrip.spec.ts"
 
 [workflows.workflow.metadata]
 isValidation = true
