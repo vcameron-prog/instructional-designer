@@ -3,14 +3,10 @@
  *
  * Each of the four retired tool paths (/url-scanner, /color-contrast,
  * /alt-text, /math-ocr) must respond with HTTP 301 and a Location header
- * that points to the Instructional Designer app.
- *
- * Two scenarios are covered per path:
- *   1. ID_APP_URL env var is set → absolute destination URL.
- *   2. ID_APP_URL env var is absent → relative destination path.
+ * that points to the equivalent relative path within this app.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import express from "express";
 import { createServer } from "http";
 import request from "supertest";
@@ -147,8 +143,6 @@ async function buildApp() {
   return app;
 }
 
-const ID_APP_BASE = "https://bsu-instructional-designer.replit.app";
-
 // Derived from the real TOOLKIT_REDIRECTS export so new entries are
 // automatically covered without any manual test update.
 const TOOLKIT_ROUTES: Array<{ oldPath: string; idSlug: string }> =
@@ -158,63 +152,18 @@ const TOOLKIT_ROUTES: Array<{ oldPath: string; idSlug: string }> =
   }));
 
 // ===========================================================================
-// Scenario 1: ID_APP_URL is set — absolute redirect destination
+// Toolkit redirects — relative destination paths
 // ===========================================================================
 
-describe("TOOLKIT_REDIRECTS – absolute redirect when ID_APP_URL is set", () => {
+describe("TOOLKIT_REDIRECTS – relative redirect to in-app paths", () => {
   let app: express.Express;
-  const savedEnv = process.env.ID_APP_URL;
 
   beforeEach(async () => {
-    process.env.ID_APP_URL = ID_APP_BASE;
     app = await buildApp();
   });
 
-  afterEach(() => {
-    if (savedEnv === undefined) {
-      delete process.env.ID_APP_URL;
-    } else {
-      process.env.ID_APP_URL = savedEnv;
-    }
-  });
-
   for (const { oldPath, idSlug } of TOOLKIT_ROUTES) {
-    it(`GET ${oldPath} → 301 to ${ID_APP_BASE}/accessibility-tools/${idSlug}`, async () => {
-      const res = await request(app)
-        .get(oldPath)
-        .redirects(0);
-
-      expect(res.status).toBe(301);
-      expect(res.headers["location"]).toBe(
-        `${ID_APP_BASE}/accessibility-tools/${idSlug}`,
-      );
-    });
-  }
-});
-
-// ===========================================================================
-// Scenario 2: ID_APP_URL is absent — relative redirect destination
-// ===========================================================================
-
-describe("TOOLKIT_REDIRECTS – relative redirect when ID_APP_URL is absent", () => {
-  let app: express.Express;
-  const savedEnv = process.env.ID_APP_URL;
-
-  beforeEach(async () => {
-    delete process.env.ID_APP_URL;
-    app = await buildApp();
-  });
-
-  afterEach(() => {
-    if (savedEnv === undefined) {
-      delete process.env.ID_APP_URL;
-    } else {
-      process.env.ID_APP_URL = savedEnv;
-    }
-  });
-
-  for (const { oldPath, idSlug } of TOOLKIT_ROUTES) {
-    it(`GET ${oldPath} → 301 to /accessibility-tools/${idSlug} (relative)`, async () => {
+    it(`GET ${oldPath} → 301 to /accessibility-tools/${idSlug}`, async () => {
       const res = await request(app)
         .get(oldPath)
         .redirects(0);
@@ -223,38 +172,4 @@ describe("TOOLKIT_REDIRECTS – relative redirect when ID_APP_URL is absent", ()
       expect(res.headers["location"]).toBe(`/accessibility-tools/${idSlug}`);
     });
   }
-});
-
-// ===========================================================================
-// Scenario 3: ID_APP_URL with trailing slash is normalised
-// ===========================================================================
-
-describe("TOOLKIT_REDIRECTS – trailing slash in ID_APP_URL is stripped", () => {
-  let app: express.Express;
-  const savedEnv = process.env.ID_APP_URL;
-
-  beforeEach(async () => {
-    process.env.ID_APP_URL = `${ID_APP_BASE}/`;
-    app = await buildApp();
-  });
-
-  afterEach(() => {
-    if (savedEnv === undefined) {
-      delete process.env.ID_APP_URL;
-    } else {
-      process.env.ID_APP_URL = savedEnv;
-    }
-  });
-
-  it("GET /url-scanner → Location has no double slash", async () => {
-    const res = await request(app)
-      .get("/url-scanner")
-      .redirects(0);
-
-    expect(res.status).toBe(301);
-    expect(res.headers["location"]).toBe(
-      `${ID_APP_BASE}/accessibility-tools/url-scanner`,
-    );
-    expect(res.headers["location"]).not.toContain("//accessibility-tools");
-  });
 });
