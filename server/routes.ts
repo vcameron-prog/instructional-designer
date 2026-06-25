@@ -1,7 +1,8 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import type { Server } from "http";
 import { randomUUID, createHmac } from "crypto";
-import { storage } from "./storage";
+import { z } from "zod";
+import { storage, type UserPreferences } from "./storage";
 import { conversions, courses, generatedContent, adminExports } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import {
@@ -227,6 +228,42 @@ export async function registerRoutes(
         criticalRate:  isNaN(criticalRate)  ? 0.10: criticalRate,
       },
     });
+  });
+
+  // =============================================
+  // USER PREFERENCES ROUTES
+  // =============================================
+
+  const preferencesSchema = z.object({
+    skipPreview: z.boolean().optional(),
+    autoExpand: z.boolean().optional(),
+    defaultLanguage: z.string().max(64).optional(),
+    preferredTool: z.string().max(64).optional(),
+  });
+
+  app.get("/api/preferences", isAuthenticated, async (req: Request, res: Response) => {
+    const userId = getUserId(req);
+    if (!userId) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    const prefs = await storage.getUserPreferences(userId);
+    res.json(prefs);
+  });
+
+  app.patch("/api/preferences", isAuthenticated, async (req: Request, res: Response) => {
+    const userId = getUserId(req);
+    if (!userId) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    const parsed = preferencesSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Invalid preferences", details: parsed.error.flatten() });
+      return;
+    }
+    const updated = await storage.setUserPreferences(userId, parsed.data as Partial<UserPreferences>);
+    res.json(updated);
   });
 
   // =============================================

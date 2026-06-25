@@ -6,6 +6,14 @@ import {
   courses,
   generatedContent,
 } from "@shared/schema";
+import { users } from "@shared/models/auth";
+
+export interface UserPreferences {
+  skipPreview?: boolean;
+  autoExpand?: boolean;
+  defaultLanguage?: string;
+  preferredTool?: string;
+}
 
 export interface GeneratedContentOwnership {
   id: number;
@@ -23,6 +31,10 @@ export interface ContentApprovalResult {
 }
 
 export interface IStorage {
+  // User preferences
+  getUserPreferences(userId: string): Promise<UserPreferences>;
+  setUserPreferences(userId: string, patch: Partial<UserPreferences>): Promise<UserPreferences>;
+
   // Manual Fix Items (per conversion)
   getManualFixItems(id: number): Promise<{ title: string; reason: string; criterion?: string }[] | null>;
   setManualFixItems(id: number, items: { title: string; reason: string; criterion?: string }[]): Promise<void>;
@@ -38,6 +50,26 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  // User preferences
+  async getUserPreferences(userId: string): Promise<UserPreferences> {
+    const [row] = await db
+      .select({ preferences: users.preferences })
+      .from(users)
+      .where(eq(users.id, userId));
+    if (!row) return {};
+    return (row.preferences as UserPreferences) ?? {};
+  }
+
+  async setUserPreferences(userId: string, patch: Partial<UserPreferences>): Promise<UserPreferences> {
+    const existing = await this.getUserPreferences(userId);
+    const merged: UserPreferences = { ...existing, ...patch };
+    await db
+      .update(users)
+      .set({ preferences: merged })
+      .where(eq(users.id, userId));
+    return merged;
+  }
+
   // Manual Fix Items (per conversion)
   async getManualFixItems(id: number): Promise<{ title: string; reason: string }[] | null> {
     const [row] = await db.select({ manualFixItems: conversions.manualFixItems }).from(conversions).where(eq(conversions.id, id));
