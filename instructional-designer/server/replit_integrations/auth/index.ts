@@ -1,3 +1,3 @@
-export { setupAuth, isAuthenticated, isBsuAuthenticated, optionalAuth, getSession } from "./replitAuth";
+export { setupAuth, isAuthenticated, isBsuAuthenticated, optionalAuth, getSession, signReturnToState, verifyReturnToState, type VerifyReturnToStateResult } from "./replitAuth";
 export { authStorage, type IAuthStorage } from "./storage";
 export { registerAuthRoutes } from "./routes";

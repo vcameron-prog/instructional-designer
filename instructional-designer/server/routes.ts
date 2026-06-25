@@ -10,6 +10,7 @@ import {
   isAuthenticated,
   isBsuAuthenticated,
   optionalAuth,
+  verifyReturnToState,
 } from "./replit_integrations/auth";
 import Anthropic from "@anthropic-ai/sdk";
 import multer from "multer";
@@ -1396,6 +1397,36 @@ export async function registerRoutes(
         return;
       }
       res.json({ id: row.id, syllabusUploadedAt: row.syllabusUploadedAt });
+    });
+
+    // ---------------------------------------------------------------------------
+    // GET /api/test/oidc-state-callback
+    // Dev/test-only endpoint that exercises the verifyReturnToState() + redirect
+    // logic without requiring a real OIDC token exchange.  Used by Playwright
+    // smoke tests to prove the signed-state round-trip works for the ID app.
+    //
+    // Usage:  GET /api/test/oidc-state-callback?state=<signed-token>
+    //   • Valid signed state  → redirect to the encoded returnTo path
+    //   • Absent/tampered state → redirect to "/"
+    //
+    // Only registered when NODE_ENV !== "production".
+    // ---------------------------------------------------------------------------
+    app.get("/api/test/oidc-state-callback", (req: Request, res: Response) => {
+      const rawState = typeof req.query.state === "string" ? req.query.state : null;
+      let redirectTo = "/";
+      if (rawState) {
+        const stateResult = verifyReturnToState(rawState);
+        if (stateResult) {
+          if (stateResult.expired) {
+            console.warn(
+              "[auth][test] Signed state token expired — still honouring returnTo path:",
+              stateResult.path
+            );
+          }
+          redirectTo = stateResult.path;
+        }
+      }
+      res.redirect(redirectTo);
     });
   }
 
