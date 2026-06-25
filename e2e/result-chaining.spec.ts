@@ -19,30 +19,18 @@
  */
 
 import { test, expect, type Page } from "@playwright/test";
+import { loginAndRedirect, type TestUser } from "./helpers/auth";
 
 // ---------------------------------------------------------------------------
 // Shared helpers
 // ---------------------------------------------------------------------------
 
-const TEST_USER = {
+const TEST_USER: TestUser = {
   sub: "pw-chain-result-test-user",
   email: "pwchainresult@bridgew.edu",
   firstName: "Playwright",
   lastName: "Chain",
 };
-
-async function loginAsTestUser(page: Page): Promise<void> {
-  const resp = await page.request.post("/api/test/login", {
-    data: TEST_USER,
-  });
-  if (!resp.ok()) {
-    const body = await resp.text();
-    throw new Error(
-      `Test login failed (${resp.status()}): ${body}. ` +
-        "Make sure the server is started with PLAYWRIGHT_TEST=1.",
-    );
-  }
-}
 
 async function seedContent(
   page: Page,
@@ -97,7 +85,7 @@ test.describe("Quick Tools chaining — Rubric → Alignment", () => {
   test("Next Steps card and alignment chain button are visible on a rubric result page", async ({
     page,
   }) => {
-    await loginAsTestUser(page);
+    await loginAndRedirect(page, "/", TEST_USER);
     const contentId = await seedContent(
       page,
       "rubric",
@@ -123,7 +111,7 @@ test.describe("Quick Tools chaining — Rubric → Alignment", () => {
   test("clicking 'Check alignment for this rubric' navigates to the alignment form", async ({
     page,
   }) => {
-    await loginAsTestUser(page);
+    await loginAndRedirect(page, "/", TEST_USER);
     const contentId = await seedContent(
       page,
       "rubric",
@@ -147,7 +135,7 @@ test.describe("Quick Tools chaining — Rubric → Alignment", () => {
   test("alignment form is pre-filled with the rubric content in the assignments field", async ({
     page,
   }) => {
-    await loginAsTestUser(page);
+    await loginAndRedirect(page, "/", TEST_USER);
     const contentId = await seedContent(
       page,
       "rubric",
@@ -177,7 +165,7 @@ test.describe("Quick Tools chaining — Rubric → Alignment", () => {
   test("chain prefill banner is shown on the alignment form", async ({
     page,
   }) => {
-    await loginAsTestUser(page);
+    await loginAndRedirect(page, "/", TEST_USER);
     const contentId = await seedContent(
       page,
       "rubric",
@@ -231,7 +219,7 @@ test.describe("Quick Tools chaining — Assignment → Alignment", () => {
   test("Next Steps card and alignment chain button are visible on an assignment result page", async ({
     page,
   }) => {
-    await loginAsTestUser(page);
+    await loginAndRedirect(page, "/", TEST_USER);
     const contentId = await seedContent(
       page,
       "assignment",
@@ -257,7 +245,7 @@ test.describe("Quick Tools chaining — Assignment → Alignment", () => {
   test("clicking 'Check alignment for this' navigates to the alignment form", async ({
     page,
   }) => {
-    await loginAsTestUser(page);
+    await loginAndRedirect(page, "/", TEST_USER);
     const contentId = await seedContent(
       page,
       "assignment",
@@ -281,7 +269,7 @@ test.describe("Quick Tools chaining — Assignment → Alignment", () => {
   test("alignment form is pre-filled with learningObjectives in learningOutcomes and generatedContent in assignments", async ({
     page,
   }) => {
-    await loginAsTestUser(page);
+    await loginAndRedirect(page, "/", TEST_USER);
     const contentId = await seedContent(
       page,
       "assignment",
@@ -315,7 +303,7 @@ test.describe("Quick Tools chaining — Assignment → Alignment", () => {
   test("chain prefill banner is shown on the alignment form", async ({
     page,
   }) => {
-    await loginAsTestUser(page);
+    await loginAndRedirect(page, "/", TEST_USER);
     const contentId = await seedContent(
       page,
       "assignment",
@@ -365,7 +353,7 @@ test.describe("Quick Tools chaining — AI-Resistant → AI-Student Activity", (
   test("Next Steps card and aistudent chain button are visible on an AI-resistant result page", async ({
     page,
   }) => {
-    await loginAsTestUser(page);
+    await loginAndRedirect(page, "/", TEST_USER);
     const contentId = await seedContent(
       page,
       "airesistant",
@@ -391,7 +379,7 @@ test.describe("Quick Tools chaining — AI-Resistant → AI-Student Activity", (
   test("clicking 'Design an AI-powered activity for this' navigates to the aistudent form", async ({
     page,
   }) => {
-    await loginAsTestUser(page);
+    await loginAndRedirect(page, "/", TEST_USER);
     const contentId = await seedContent(
       page,
       "airesistant",
@@ -415,7 +403,7 @@ test.describe("Quick Tools chaining — AI-Resistant → AI-Student Activity", (
   test("aistudent form is pre-filled with additionalContext in the learningObjectives field", async ({
     page,
   }) => {
-    await loginAsTestUser(page);
+    await loginAndRedirect(page, "/", TEST_USER);
     const contentId = await seedContent(
       page,
       "airesistant",
@@ -443,7 +431,7 @@ test.describe("Quick Tools chaining — AI-Resistant → AI-Student Activity", (
   test("chain prefill banner is shown on the aistudent form", async ({
     page,
   }) => {
-    await loginAsTestUser(page);
+    await loginAndRedirect(page, "/", TEST_USER);
     const contentId = await seedContent(
       page,
       "airesistant",

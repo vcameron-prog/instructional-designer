@@ -11,8 +11,9 @@
  */
 
 import { test, expect, type Page } from "@playwright/test";
+import { loginAndRedirect, type TestUser } from "./helpers/auth";
 
-const TEST_USER = {
+const TEST_USER: TestUser = {
   sub: "pw-chain-test-user",
   email: "pwtest@bridgew.edu",
   firstName: "Playwright",
@@ -31,23 +32,6 @@ const ASSIGNMENT_CONTENT =
   "analyzing primary historical sources.\n\n## Learning Objectives\n\n" +
   "- Analyze primary sources\n- Develop thesis statement\n\n## Instructions\n\n" +
   "Submit a 10-page paper following academic citation guidelines.";
-
-/**
- * Log in via the test-only endpoint using the page's request context so that
- * session cookies are automatically available to the browser page.
- */
-async function loginAsTestUser(page: Page): Promise<void> {
-  const resp = await page.request.post("/api/test/login", {
-    data: TEST_USER,
-  });
-  if (!resp.ok()) {
-    const body = await resp.text();
-    throw new Error(
-      `Test login failed (${resp.status()}): ${body}. ` +
-        "Make sure the server is started with PLAYWRIGHT_TEST=1.",
-    );
-  }
-}
 
 /**
  * Insert an assignment content record and return its id.
@@ -79,7 +63,7 @@ test.describe("Quick Tools chaining — Assignment → Rubric", () => {
   test("Next Steps card and chain button are visible on an assignment result page", async ({
     page,
   }) => {
-    await loginAsTestUser(page);
+    await loginAndRedirect(page, "/", TEST_USER);
     const contentId = await seedAssignmentContent(page);
 
     await page.goto(`/quick-tools/result/${contentId}`);
@@ -102,7 +86,7 @@ test.describe("Quick Tools chaining — Assignment → Rubric", () => {
   test("clicking 'Build a rubric for this' navigates to the rubric form", async ({
     page,
   }) => {
-    await loginAsTestUser(page);
+    await loginAndRedirect(page, "/", TEST_USER);
     const contentId = await seedAssignmentContent(page);
 
     await page.goto(`/quick-tools/result/${contentId}`);
@@ -118,7 +102,7 @@ test.describe("Quick Tools chaining — Assignment → Rubric", () => {
   test("rubric form is pre-filled with assessmentType from the assignment", async ({
     page,
   }) => {
-    await loginAsTestUser(page);
+    await loginAndRedirect(page, "/", TEST_USER);
     const contentId = await seedAssignmentContent(page);
 
     await page.goto(`/quick-tools/result/${contentId}`);
@@ -138,7 +122,7 @@ test.describe("Quick Tools chaining — Assignment → Rubric", () => {
   test("rubric form is pre-filled with criteria from the assignment learning objectives", async ({
     page,
   }) => {
-    await loginAsTestUser(page);
+    await loginAndRedirect(page, "/", TEST_USER);
     const contentId = await seedAssignmentContent(page);
 
     await page.goto(`/quick-tools/result/${contentId}`);
@@ -158,7 +142,7 @@ test.describe("Quick Tools chaining — Assignment → Rubric", () => {
   test("full chaining flow: both assessmentType and criteria are pre-filled", async ({
     page,
   }) => {
-    await loginAsTestUser(page);
+    await loginAndRedirect(page, "/", TEST_USER);
     const contentId = await seedAssignmentContent(page);
 
     await page.goto(`/quick-tools/result/${contentId}`);
