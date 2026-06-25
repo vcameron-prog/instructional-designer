@@ -18,3 +18,9 @@ id = "ZgMHAeznr5rEdxaYbFy4n"
 uri = "file://id-app.tar.gz"
 type = "unspecified"
 title = "Instructional Designer App (id-app.tar.gz)"
+
+[[outputs]]
+id = "9XNoAMSESuTHy9WeNqoAp"
+uri = "file://instructional-designer.tar.gz"
+type = "unspecified"
+title = "Instructional Designer — source code (1.7 MB)"
