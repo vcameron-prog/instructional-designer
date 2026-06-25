@@ -661,9 +661,10 @@ describe("Integrated returnTo round-trip (Stages 2 + 3)", () => {
       .get(`/api/callback?state=${encodeURIComponent(expiredState)}`)
       .set("Host", "localhost");
 
-    // The handler should still redirect to the original page, not drop to "/".
+    // The handler should still redirect to the original page (with ?signin=slow),
+    // not drop to "/".
     expect(res.status).toBe(302);
-    expect(res.headers["location"]).toBe(path);
+    expect(res.headers["location"]).toBe(`${path}?signin=slow`);
   });
 
   it("prefers an expired state token over session.returnTo", async () => {
@@ -696,6 +697,6 @@ describe("Integrated returnTo round-trip (Stages 2 + 3)", () => {
       .set("Host", "localhost");
 
     expect(res.status).toBe(302);
-    expect(res.headers["location"]).toBe(statePath);
+    expect(res.headers["location"]).toBe(`${statePath}?signin=slow`);
   });
 });

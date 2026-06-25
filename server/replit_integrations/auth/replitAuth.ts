@@ -399,12 +399,14 @@ export async function setupAuth(app: Express) {
       }
 
       let redirectTo = "/";
+      let slowSignIn = false;
       const rawState =
         typeof req.query.state === "string" ? req.query.state : null;
       if (rawState) {
         const stateResult = verifyReturnToState(rawState);
         if (stateResult) {
           if (stateResult.expired) {
+            slowSignIn = true;
             console.warn(
               "[auth][test] Signed state token expired — still honouring returnTo path:",
               stateResult.path
@@ -416,6 +418,11 @@ export async function setupAuth(app: Express) {
 
       if (redirectTo === "/" && sessionReturnTo) {
         redirectTo = sessionReturnTo;
+      }
+
+      if (slowSignIn) {
+        const sep = redirectTo.includes("?") ? "&" : "?";
+        redirectTo = `${redirectTo}${sep}signin=slow`;
       }
 
       req.session.save((err) => {
@@ -451,12 +458,14 @@ export async function setupAuth(app: Express) {
           // server and was set for this user, so dropping them to "/" would
           // only cause confusion.  We log a warning for observability.
           let redirectTo = "/";
+          let slowSignIn = false;
           const rawState =
             typeof req.query.state === "string" ? req.query.state : null;
           if (rawState) {
             const stateResult = verifyReturnToState(rawState);
             if (stateResult) {
               if (stateResult.expired) {
+                slowSignIn = true;
                 console.warn(
                   "[auth] Signed state token expired — still honouring returnTo path for user-friendly redirect:",
                   stateResult.path
@@ -470,6 +479,11 @@ export async function setupAuth(app: Express) {
           // e.g. the user navigated to /api/login without a returnTo param).
           if (redirectTo === "/" && sessionReturnTo) {
             redirectTo = sessionReturnTo;
+          }
+
+          if (slowSignIn) {
+            const sep = redirectTo.includes("?") ? "&" : "?";
+            redirectTo = `${redirectTo}${sep}signin=slow`;
           }
 
           res.redirect(redirectTo);

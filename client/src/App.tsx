@@ -4,6 +4,7 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { useToast } from "@/hooks/use-toast";
 import NotFound from "@/pages/not-found";
 import CaiLandingPage from "@/pages/cai-landing";
 import PdfUpload from "@/pages/pdf-upload";
@@ -75,6 +76,27 @@ function FocusManager() {
   return null;
 }
 
+function SlowSignInNotice() {
+  const { toast } = useToast();
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("signin") === "slow") {
+      params.delete("signin");
+      const newSearch = params.toString();
+      const newUrl = window.location.pathname + (newSearch ? `?${newSearch}` : "") + window.location.hash;
+      window.history.replaceState(null, "", newUrl);
+      toast({
+        title: "Session timed out",
+        description: "Your session timed out — you've been signed back in.",
+        duration: 6000,
+      });
+    }
+  }, [toast]);
+
+  return null;
+}
+
 function Router() {
   return (
     <Switch>
@@ -101,6 +123,7 @@ function App() {
             </a>
             <Toaster />
             <FocusManager />
+            <SlowSignInNotice />
             <Router />
           </TooltipProvider>
         </FontSizeProvider>
