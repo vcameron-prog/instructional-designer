@@ -160,52 +160,45 @@ export default function LandingPage() {
           </div>
         )}
 
-        <div className="max-w-4xl mx-auto space-y-10">
+        <div className="max-w-5xl mx-auto space-y-10">
 
-          {/* ── Section 1: Open to Everyone ── */}
-          <section aria-labelledby="open-section-heading">
-            <h2 id="open-section-heading" className="sr-only">Open to Everyone</h2>
+          {/* ── Three main tiles in a unified 3-column grid ── */}
+          <section aria-labelledby="tools-section-heading">
+            <h2 id="tools-section-heading" className="sr-only">Tools</h2>
 
-            <Card
-              className="group cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl bg-card border border-emerald-200/60 dark:border-emerald-800/40"
-              onClick={() => { window.open(getConverterUrl(), "_blank", "noopener noreferrer"); }}
-              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); window.open(getConverterUrl(), "_blank", "noopener noreferrer"); } }}
-              tabIndex={0}
-              role="button"
-              aria-label="Accessibility Converter — open to everyone"
-              data-testid="card-pdf-accessibility"
-            >
-              <CardContent className="p-8 flex flex-col sm:flex-row items-center sm:items-start gap-6">
-                <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
-                  <Shield className="w-10 h-10 text-white" />
-                </div>
-                <div className="text-center sm:text-left flex-1">
-                  <div className="flex justify-center sm:justify-start mb-2">
-                    <div className="inline-flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-full px-3 py-1 text-xs font-semibold">
-                      <Globe className="w-3.5 h-3.5" aria-hidden="true" />
-                      Open to everyone — no login needed
-                    </div>
-                  </div>
-                  <CardTitle className="text-2xl mb-2">Accessibility Converter</CardTitle>
-                  <CardDescription className="text-base mb-4" style={{ textWrap: "balance" }}>
-                    Convert PDFs, Word documents, and Google Docs into ADA Title II &amp; WCAG 2.1 AA compliant accessible documents. No account required.
-                  </CardDescription>
-                  <Button variant="outline" className="gap-2" data-testid="button-pdf-accessibility">
-                    Convert a Document <ArrowRight className="w-4 h-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </section>
-
-          {/* ── Section 2: BSU Faculty Tools ── */}
-          <section aria-labelledby="bsu-section-heading">
-            <h2 id="bsu-section-heading" className="sr-only">BSU Faculty Tools</h2>
-
-            {/* Signed in as BSU user — show the tools */}
+            {/* Signed in as BSU user — show all three tiles equally */}
             {isBsu ? (
               <div className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-4 md:grid-cols-3">
+                  <Card
+                    className="group cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl bg-card border border-emerald-200/60 dark:border-emerald-800/40"
+                    onClick={() => { window.open(getConverterUrl(), "_blank", "noopener noreferrer"); }}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); window.open(getConverterUrl(), "_blank", "noopener noreferrer"); } }}
+                    tabIndex={0}
+                    role="button"
+                    aria-label="Accessibility Converter — open to everyone"
+                    data-testid="card-pdf-accessibility"
+                  >
+                    <CardContent className="p-8 text-center flex flex-col items-center">
+                      <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center mb-6 group-hover:scale-105 transition-transform">
+                        <Shield className="w-10 h-10 text-white" />
+                      </div>
+                      <div className="mb-2">
+                        <div className="inline-flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-full px-3 py-1 text-xs font-semibold">
+                          <Globe className="w-3.5 h-3.5" aria-hidden="true" />
+                          Open to everyone
+                        </div>
+                      </div>
+                      <CardTitle className="text-2xl mb-3">Accessibility Converter</CardTitle>
+                      <CardDescription className="text-base mb-4" style={{ textWrap: "balance" }}>
+                        Convert PDFs, Word documents, and Google Docs into WCAG 2.1 AA compliant accessible documents.
+                      </CardDescription>
+                      <Button variant="outline" className="mt-auto gap-2" data-testid="button-pdf-accessibility">
+                        Convert a Document <ArrowRight className="w-4 h-4" />
+                      </Button>
+                    </CardContent>
+                  </Card>
+
                   <Card
                     className="group cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl bg-card border-0"
                     onClick={() => navigate("/quick-tools")}
@@ -292,27 +285,60 @@ export default function LandingPage() {
                 )}
               </div>
             ) : (
-              /* Not signed in (or non-BSU) — show locked preview cards with sign-in prompt */
-              <Card className="bg-card border border-dashed border-muted-foreground/30" data-testid="card-bsu-locked">
-                <CardContent className="p-8">
-                  <div className="grid gap-4 md:grid-cols-2 opacity-50 pointer-events-none select-none mb-8" aria-hidden="true">
-                    <div className="rounded-xl border bg-muted/30 p-6 text-center">
-                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-500 to-yellow-400 flex items-center justify-center mx-auto mb-4">
-                        <Zap className="w-8 h-8 text-white" />
+              /* Not signed in (or non-BSU) — show all three tiles, two dimmed with sign-in prompt */
+              <div className="space-y-6">
+                <div className="grid gap-4 md:grid-cols-3">
+                  {/* Accessibility Converter — always accessible */}
+                  <Card
+                    className="group cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl bg-card border border-emerald-200/60 dark:border-emerald-800/40"
+                    onClick={() => { window.open(getConverterUrl(), "_blank", "noopener noreferrer"); }}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); window.open(getConverterUrl(), "_blank", "noopener noreferrer"); } }}
+                    tabIndex={0}
+                    role="button"
+                    aria-label="Accessibility Converter — open to everyone"
+                    data-testid="card-pdf-accessibility"
+                  >
+                    <CardContent className="p-8 text-center flex flex-col items-center">
+                      <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center mb-6 group-hover:scale-105 transition-transform">
+                        <Shield className="w-10 h-10 text-white" />
                       </div>
-                      <p className="font-semibold text-foreground">Quick Tools</p>
-                      <p className="text-sm text-muted-foreground mt-1">One-off assignments, rubrics &amp; more</p>
-                    </div>
-                    <div className="rounded-xl border bg-muted/30 p-6 text-center">
-                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center mx-auto mb-4">
-                        <Sparkles className="w-8 h-8 text-white" />
+                      <div className="mb-2">
+                        <div className="inline-flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-full px-3 py-1 text-xs font-semibold">
+                          <Globe className="w-3.5 h-3.5" aria-hidden="true" />
+                          Open to everyone
+                        </div>
                       </div>
-                      <p className="font-semibold text-foreground">Course Design</p>
-                      <p className="text-sm text-muted-foreground mt-1">Full course materials from scratch</p>
+                      <CardTitle className="text-2xl mb-3">Accessibility Converter</CardTitle>
+                      <CardDescription className="text-base mb-4" style={{ textWrap: "balance" }}>
+                        Convert PDFs, Word documents, and Google Docs into WCAG 2.1 AA compliant accessible documents.
+                      </CardDescription>
+                      <Button variant="outline" className="mt-auto gap-2" data-testid="button-pdf-accessibility">
+                        Convert a Document <ArrowRight className="w-4 h-4" />
+                      </Button>
+                    </CardContent>
+                  </Card>
+
+                  {/* Quick Tools — dimmed/locked */}
+                  <div className="rounded-xl border bg-muted/30 p-8 text-center opacity-50 pointer-events-none select-none" aria-hidden="true">
+                    <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-amber-500 to-yellow-400 flex items-center justify-center mx-auto mb-6">
+                      <Zap className="w-10 h-10 text-white" />
                     </div>
+                    <p className="text-xl font-semibold text-foreground mb-3">Quick Tools</p>
+                    <p className="text-sm text-muted-foreground" style={{ textWrap: "balance" }}>One-off assignments, rubrics &amp; more without a full course</p>
                   </div>
 
-                  <div className="text-center">
+                  {/* Course Design — dimmed/locked */}
+                  <div className="rounded-xl border bg-muted/30 p-8 text-center opacity-50 pointer-events-none select-none" aria-hidden="true">
+                    <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center mx-auto mb-6">
+                      <Sparkles className="w-10 h-10 text-white" />
+                    </div>
+                    <p className="text-xl font-semibold text-foreground mb-3">Design a New Course</p>
+                    <p className="text-sm text-muted-foreground" style={{ textWrap: "balance" }}>Full course materials from scratch</p>
+                  </div>
+                </div>
+
+                <Card className="bg-card border border-dashed border-muted-foreground/30" data-testid="card-bsu-locked">
+                  <CardContent className="p-8 text-center">
                     <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/10 mb-4">
                       <Lock className="w-7 h-7 text-primary" />
                     </div>
@@ -335,9 +361,9 @@ export default function LandingPage() {
                       <Shield className="w-3.5 h-3.5" />
                       <span>Use your @bridgew.edu Google account</span>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              </div>
             )}
           </section>
         </div>
