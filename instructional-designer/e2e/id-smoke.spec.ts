@@ -523,10 +523,26 @@ test.describe("Accessibility Tools — URL Scanner page", () => {
 });
 
 // ===========================================================================
-// Test 10 — Alt Text Generator page: file upload input visible
+// Test 10 — Alt Text Generator: upload image and assert result card appears
 // ===========================================================================
 test.describe("Accessibility Tools — Alt Text Generator page", () => {
-  test("file upload dropzone and hidden file input are present", async ({ page }) => {
+  test("uploads a synthetic image, mocks API, and result card with alt text appears", async ({
+    page,
+  }) => {
+    // Mock the alt-text API — avoid any real Anthropic call
+    const mockAltResult = {
+      altText: "A red circle",
+      isDecorative: false,
+      characterCount: 14,
+    };
+    await page.route("**/api/tools/alt-text", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(mockAltResult),
+      });
+    });
+
     await page.goto("/accessibility-tools/alt-text");
     await expect(page).toHaveURL(/\/accessibility-tools\/alt-text/, { timeout: 10_000 });
 
@@ -535,27 +551,72 @@ test.describe("Accessibility Tools — Alt Text Generator page", () => {
       "Alt Text Generator heading is visible",
     ).toBeVisible({ timeout: 10_000 });
 
+    // Dropzone must be visible
     await expect(
       page.getByTestId("dropzone-image"),
       "image upload dropzone is visible",
     ).toBeVisible({ timeout: 10_000 });
 
-    // The file input is visually hidden (sr-only) but must exist in the DOM
+    // Upload a minimal 1×1 red PNG via the hidden file input
     const fileInput = page.getByTestId("input-image-file");
     await expect(fileInput, "hidden file input is present in DOM").toBeAttached();
 
+    // Minimal 1×1 red PNG (67 bytes, valid file header)
+    const minimalPng = Buffer.from(
+      "89504e470d0a1a0a0000000d494844520000000100000001080200000090" +
+        "7753de0000000c4944415408d76360f8cfc00000000200017221bc330000" +
+        "0000049454e44ae426082",
+      "hex",
+    );
+    await fileInput.setInputFiles({
+      name: "test-image.png",
+      mimeType: "image/png",
+      buffer: minimalPng,
+    });
+
+    // Generate button should become enabled once a file is selected
+    const generateBtn = page.getByTestId("button-generate-alt");
+    await expect(generateBtn, "Generate Alt Text button is enabled after file select").toBeEnabled({
+      timeout: 5_000,
+    });
+
+    // Click to trigger the (mocked) API call
+    await generateBtn.click();
+
+    // Result card must appear
     await expect(
-      page.getByTestId("button-generate-alt"),
-      "Generate Alt Text button is visible",
+      page.getByTestId("alt-result"),
+      "alt-result card appears after generation",
     ).toBeVisible({ timeout: 10_000 });
+
+    // The generated alt text must be displayed
+    await expect(
+      page.getByTestId("text-generated-alt"),
+      "generated alt text is displayed in result card",
+    ).toHaveText("A red circle", { timeout: 10_000 });
   });
 });
 
 // ===========================================================================
-// Test 11 — Math OCR page: file upload input visible
+// Test 11 — Math OCR: upload image and assert result card appears
 // ===========================================================================
 test.describe("Accessibility Tools — Math OCR page", () => {
-  test("file upload dropzone and hidden file input are present", async ({ page }) => {
+  test("uploads a synthetic image, mocks API, and math-result card appears", async ({ page }) => {
+    // Mock the math-ocr API — avoid any real Anthropic call
+    const mockMathResult = {
+      plainText: "x squared plus y squared equals r squared",
+      latex: "x^2 + y^2 = r^2",
+      mathml: "<math><msup><mi>x</mi><mn>2</mn></msup></math>",
+      description: "The Pythagorean theorem in standard form.",
+    };
+    await page.route("**/api/tools/math-ocr", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(mockMathResult),
+      });
+    });
+
     await page.goto("/accessibility-tools/math-ocr");
     await expect(page).toHaveURL(/\/accessibility-tools\/math-ocr/, { timeout: 10_000 });
 
@@ -564,18 +625,47 @@ test.describe("Accessibility Tools — Math OCR page", () => {
       "Math OCR heading is visible",
     ).toBeVisible({ timeout: 10_000 });
 
+    // Dropzone must be visible
     await expect(
       page.getByTestId("dropzone-math-image"),
       "math image upload dropzone is visible",
     ).toBeVisible({ timeout: 10_000 });
 
-    // The file input is visually hidden (sr-only) but must exist in the DOM
+    // Upload a minimal 1×1 PNG via the hidden file input
     const fileInput = page.getByTestId("input-math-file");
     await expect(fileInput, "hidden file input is present in DOM").toBeAttached();
 
+    const minimalPng = Buffer.from(
+      "89504e470d0a1a0a0000000d494844520000000100000001080200000090" +
+        "7753de0000000c4944415408d76360f8cfc00000000200017221bc330000" +
+        "0000049454e44ae426082",
+      "hex",
+    );
+    await fileInput.setInputFiles({
+      name: "math-image.png",
+      mimeType: "image/png",
+      buffer: minimalPng,
+    });
+
+    // Extract button should become enabled once a file is selected
+    const extractBtn = page.getByTestId("button-extract-math");
+    await expect(extractBtn, "Extract Math Content button is enabled after file select").toBeEnabled(
+      { timeout: 5_000 },
+    );
+
+    // Click to trigger the (mocked) API call
+    await extractBtn.click();
+
+    // Math result card must appear
     await expect(
-      page.getByTestId("button-extract-math"),
-      "Extract Math Content button is visible",
+      page.getByTestId("math-result"),
+      "math-result card appears after extraction",
+    ).toBeVisible({ timeout: 10_000 });
+
+    // At least one copy button should be visible in the result card
+    await expect(
+      page.getByTestId("button-copy-plain"),
+      "copy plain-text button is visible in math-result card",
     ).toBeVisible({ timeout: 10_000 });
   });
 });
