@@ -148,6 +148,7 @@ import {
   setupAuth,
   signReturnToState,
   verifyReturnToState,
+  type VerifyReturnToStateResult,
 } from "./replitAuth.js";
 
 // ---------------------------------------------------------------------------
@@ -197,13 +198,15 @@ describe("signReturnToState / verifyReturnToState", () => {
   it("round-trips a valid returnTo path", () => {
     const path = "/courses/42/edit";
     const state = signReturnToState(path);
-    expect(verifyReturnToState(state)).toBe(path);
+    const result = verifyReturnToState(state);
+    expect(result).toEqual({ path, expired: false });
   });
 
   it("round-trips a path with a query string", () => {
     const path = "/syllabi/new?template=lecture&week=3";
     const state = signReturnToState(path);
-    expect(verifyReturnToState(state)).toBe(path);
+    const result = verifyReturnToState(state);
+    expect(result).toEqual({ path, expired: false });
   });
 
   it("returns null for a tampered payload", () => {
@@ -224,16 +227,37 @@ describe("signReturnToState / verifyReturnToState", () => {
     expect(verifyReturnToState("")).toBeNull();
   });
 
+  it("returns { path, expired: true } for a valid but expired token", () => {
+    // Build a token with a timestamp 15 minutes in the past (well beyond the 10-min TTL).
+    const { createHmac } = require("crypto");
+    const path = "/courses/42/edit";
+    const payload = JSON.stringify({
+      v: "v1",
+      r: path,
+      t: Math.floor(Date.now() / 1000) - 15 * 60,
+    });
+    const data = Buffer.from(payload).toString("base64url");
+    const sig = createHmac("sha256", process.env.SESSION_SECRET!)
+      .update(data)
+      .digest("base64url");
+    const expiredState = `${data}.${sig}`;
+    const result = verifyReturnToState(expiredState);
+    expect(result).toEqual({ path, expired: true });
+  });
+
+  it("distinguishes expired from tampered — tampered still returns null", () => {
+    // Tamper with the data section of a freshly-signed token.
+    const state = signReturnToState("/courses/99");
+    const dotIdx = state.lastIndexOf(".");
+    const tampered = state.slice(0, dotIdx - 1) + "Z" + state.slice(dotIdx);
+    expect(verifyReturnToState(tampered)).toBeNull();
+  });
+
   it("rejects an absolute URL embedded in a forged state", () => {
     // Build a fake payload that encodes an absolute URL — must be rejected even
     // if someone somehow gets a valid HMAC (impossible without the secret, but
     // defence-in-depth: the path guard runs after HMAC verification).
     // Here we just verify the path guard is in place for invalid paths.
-    const state = signReturnToState("/safe-path");
-    // The only way to get a valid state with an absolute URL is to know the
-    // secret, so instead we verify that an absolute URL is caught at
-    // verifyReturnToState's internal path check.
-    // We cannot forge a valid HMAC, so we build a helper that would produce one:
     const { createHmac } = require("crypto");
     const payload = JSON.stringify({
       v: "v1",
@@ -612,5 +636,66 @@ describe("Integrated returnTo round-trip (Stages 2 + 3)", () => {
     // Falls back to session.returnTo.
     expect(res.status).toBe(302);
     expect(res.headers["location"]).toBe("/legit-path");
+  });
+
+  it("honours an expired (but valid-HMAC) state token rather than dropping to '/'", async () => {
+    // Simulate the user taking > 10 minutes to complete SSO by building a
+    // state token with a timestamp 15 minutes in the past.
+    const { createHmac } = require("crypto");
+    const path = "/courses/77/edit";
+    const payload = JSON.stringify({
+      v: "v1",
+      r: path,
+      t: Math.floor(Date.now() / 1000) - 15 * 60,
+    });
+    const data = Buffer.from(payload).toString("base64url");
+    const sig = createHmac("sha256", process.env.SESSION_SECRET!)
+      .update(data)
+      .digest("base64url");
+    const expiredState = `${data}.${sig}`;
+
+    const server = createServer(integrationApp);
+    const agent = request.agent(server);
+
+    const res = await agent
+      .get(`/api/callback?state=${encodeURIComponent(expiredState)}`)
+      .set("Host", "localhost");
+
+    // The handler should still redirect to the original page, not drop to "/".
+    expect(res.status).toBe(302);
+    expect(res.headers["location"]).toBe(path);
+  });
+
+  it("prefers an expired state token over session.returnTo", async () => {
+    // Even an expired state (valid HMAC) should take precedence over
+    // session.returnTo, because the state describes where the user actually
+    // wanted to go when they initiated the SSO flow.
+    const { createHmac } = require("crypto");
+    const statePath = "/expired-state-path";
+    const payload = JSON.stringify({
+      v: "v1",
+      r: statePath,
+      t: Math.floor(Date.now() / 1000) - 15 * 60,
+    });
+    const data = Buffer.from(payload).toString("base64url");
+    const sig = createHmac("sha256", process.env.SESSION_SECRET!)
+      .update(data)
+      .digest("base64url");
+    const expiredState = `${data}.${sig}`;
+
+    const server = createServer(integrationApp);
+    const agent = request.agent(server);
+
+    // Store a different returnTo in session.
+    await agent
+      .get("/api/login?returnTo=%2Fsession-path")
+      .set("Host", "localhost");
+
+    const res = await agent
+      .get(`/api/callback?state=${encodeURIComponent(expiredState)}`)
+      .set("Host", "localhost");
+
+    expect(res.status).toBe(302);
+    expect(res.headers["location"]).toBe(statePath);
   });
 });

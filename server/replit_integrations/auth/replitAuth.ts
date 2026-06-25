@@ -192,11 +192,34 @@ export function signReturnToState(returnTo: string): string {
 }
 
 /**
- * Verify a state token produced by signReturnToState.
- * Returns the returnTo path on success, or null if the token is invalid,
- * expired, tampered with, or encodes an unsafe destination.
+ * The result of verifying a signed returnTo state token.
+ *
+ * - `{ path, expired: false }` — valid, in-TTL token; use path directly.
+ * - `{ path, expired: true }`  — HMAC is valid but the 10-minute TTL elapsed.
+ *   The path is still safe to use (the signature proves it came from our
+ *   server), so callers should still redirect to it rather than dropping the
+ *   user to "/" with no explanation.
+ * - `null` — token is tampered, malformed, or encodes an unsafe destination;
+ *   do not use it.
  */
-export function verifyReturnToState(state: string): string | null {
+export type VerifyReturnToStateResult =
+  | { path: string; expired: false }
+  | { path: string; expired: true }
+  | null;
+
+/**
+ * Verify a state token produced by signReturnToState.
+ * Returns a `VerifyReturnToStateResult`:
+ *   - `{ path, expired: false }` on success within TTL
+ *   - `{ path, expired: true }` when the HMAC is valid but the token is stale
+ *   - `null` when the token is tampered, malformed, or encodes an unsafe path
+ *
+ * Callers should treat `expired: true` as a still-usable redirect target —
+ * the HMAC guarantees the path originated from our server, so redirecting to
+ * it is safe even after the TTL.  The TTL exists to bound replay windows, not
+ * to invalidate the destination itself.
+ */
+export function verifyReturnToState(state: string): VerifyReturnToStateResult {
   try {
     const dotIdx = state.lastIndexOf(".");
     if (dotIdx === -1) return null;
@@ -220,9 +243,6 @@ export function verifyReturnToState(state: string): string | null {
     const payload = JSON.parse(Buffer.from(data, "base64url").toString("utf8"));
     if (payload.v !== STATE_VERSION) return null;
 
-    const age = Math.floor(Date.now() / 1000) - (payload.t ?? 0);
-    if (age < 0 || age > STATE_TTL_SECONDS) return null;
-
     const returnTo: unknown = payload.r;
     if (
       typeof returnTo !== "string" ||
@@ -232,7 +252,10 @@ export function verifyReturnToState(state: string): string | null {
       return null;
     }
 
-    return returnTo;
+    const age = Math.floor(Date.now() / 1000) - (payload.t ?? 0);
+    const expired = age < 0 || age > STATE_TTL_SECONDS;
+
+    return { path: returnTo, expired };
   } catch {
     return null;
   }
@@ -354,13 +377,24 @@ export async function setupAuth(app: Express) {
           // Primary: extract returnTo from the signed state parameter.
           // This survives cookie loss because the OIDC provider echoes the
           // state value back through the redirect URL query string.
+          //
+          // If the token is expired (user took > 10 min to complete SSO) we
+          // still use its path — the valid HMAC proves the path came from our
+          // server and was set for this user, so dropping them to "/" would
+          // only cause confusion.  We log a warning for observability.
           let redirectTo = "/";
           const rawState =
             typeof req.query.state === "string" ? req.query.state : null;
           if (rawState) {
-            const fromState = verifyReturnToState(rawState);
-            if (fromState) {
-              redirectTo = fromState;
+            const stateResult = verifyReturnToState(rawState);
+            if (stateResult) {
+              if (stateResult.expired) {
+                console.warn(
+                  "[auth] Signed state token expired — still honouring returnTo path for user-friendly redirect:",
+                  stateResult.path
+                );
+              }
+              redirectTo = stateResult.path;
             }
           }
 
