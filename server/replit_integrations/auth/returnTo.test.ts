@@ -699,4 +699,197 @@ describe("Integrated returnTo round-trip (Stages 2 + 3)", () => {
     expect(res.status).toBe(302);
     expect(res.headers["location"]).toBe(`${statePath}?signin=slow`);
   });
+
+  it("full 3-leg round-trip: unauthenticated GET → 401 → login with query-string returnTo → callback restores full path (session fallback)", async () => {
+    // This test mirrors what happens when a user lands directly on a deep-link
+    // page that includes a query string (e.g. /syllabi/new?template=lecture).
+    //
+    // Leg 1: unauthenticated GET to a protected API route → 401.
+    //        The server saves the URL in session.returnTo.
+    //
+    // Leg 2: client redirects to /api/login?returnTo=<encoded-path+qs>.
+    //        The login route validates the param, overwrites session.returnTo,
+    //        and encodes the path in a signed OIDC state token.
+    //        The URL produced here matches what buildLoginRedirectUrl() returns.
+    //
+    // Leg 3: OIDC callback arrives WITHOUT a state param (simulates OIDC
+    //        providers that strip unknown state params). The callback must fall
+    //        back to session.returnTo and still restore the full path including
+    //        the query string — NOT just "/".
+
+    const server = createServer(integrationApp);
+    const agent = request.agent(server);
+
+    // Leg 1: unauthenticated request to a protected route.
+    // The 401 body is {"message":"Unauthorized"} — exactly what useRequireAuth
+    // detects via isUnauthorizedError() before issuing the client-side redirect.
+    const leg1 = await agent
+      .get("/api/courses/55?preview=true&tab=rubric")
+      .set("Host", "localhost");
+    expect(leg1.status).toBe(401);
+    expect(leg1.body).toMatchObject({ message: "Unauthorized" });
+
+    // Leg 2: client constructs the login URL the same way buildLoginRedirectUrl
+    // does — pathname + search from window.location, percent-encoded.
+    // Note: the client uses its OWN page route (/syllabi/new), not the API
+    // route (/api/courses/55) that issued the 401.
+    const returnToPath = "/syllabi/new?template=lecture&week=3";
+    const encodedReturnTo = encodeURIComponent(returnToPath);
+    const leg2 = await agent
+      .get(`/api/login?returnTo=${encodedReturnTo}`)
+      .set("Host", "localhost");
+    expect(leg2.status).toBe(302);
+
+    // Confirm the login route stored the returnTo in the session.
+    // (The debug route is registered in beforeAll for exactly this purpose.)
+    const sessionState = await agent
+      .get("/api/test/session-state")
+      .set("Host", "localhost");
+    expect(sessionState.body.returnTo).toBe(returnToPath);
+
+    // Leg 3: callback WITHOUT a state param — falls back to session.returnTo.
+    // This branch runs when the OIDC provider strips our custom state or when
+    // the user takes a path where state was not set.
+    const leg3 = await agent
+      .get("/api/callback")
+      .set("Host", "localhost");
+
+    // The callback must redirect to the full deep-link path including the query
+    // string — if this fails, users land on "/" and lose their place.
+    expect(leg3.status).toBe(302);
+    expect(leg3.headers["location"]).toBe(returnToPath);
+  });
+
+  it("callback preserves query string from session.returnTo when state is absent", async () => {
+    // When the signed state param is not present (e.g. the OIDC provider
+    // stripped the state), the callback must fall back to session.returnTo and
+    // still return the full path including query string.
+    const server = createServer(integrationApp);
+    const agent = request.agent(server);
+
+    const returnToPath = "/courses/12?tab=assignments&draft=1";
+    const encodedReturnTo = encodeURIComponent(returnToPath);
+
+    await agent
+      .get(`/api/login?returnTo=${encodedReturnTo}`)
+      .set("Host", "localhost");
+
+    // Callback without a state parameter — must fall back to session.returnTo
+    // and include the query string in the Location header.
+    const res = await agent
+      .get("/api/callback")
+      .set("Host", "localhost");
+
+    expect(res.status).toBe(302);
+    expect(res.headers["location"]).toBe(returnToPath);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Strict end-to-end: signed state captured from /api/login and consumed by
+// /api/callback — no independent signReturnToState() call in the test body.
+//
+// This describe block uses a dedicated passport mock that embeds the
+// signedReturnToState option into the login redirect Location header so the
+// test can extract the exact state the server produced and pass it verbatim
+// to the callback.  This proves the callback consumes the real state emitted
+// by the login route, not a independently-synthesized one.
+// ---------------------------------------------------------------------------
+
+describe("Strict state propagation: login emits → callback consumes (no independent synthesis)", () => {
+  let strictApp: express.Express;
+  const FAKE_USER = { claims: { sub: "u2" }, expires_at: VALID_AT };
+
+  beforeAll(async () => {
+    vi.clearAllMocks();
+    mockDiscovery.mockResolvedValue(FAKE_OIDC_CONFIG);
+
+    // Configure passport.authenticate to behave differently per call site:
+    //
+    //   /api/login (no doneCb):
+    //     Embed the signedReturnToState option into the redirect Location so the
+    //     test can read the actual state the login handler produced.
+    //     Location: /oauth/authorize?state=<signedReturnToState>
+    //
+    //   /api/callback (doneCb provided):
+    //     Simulate a successful OIDC exchange and attach req.logIn.
+    mockPassportAuthenticate.mockImplementation(
+      (_strategyName: string, opts: any, doneCb?: Function) =>
+        (req: any, res: any, next: any) => {
+          if (typeof doneCb === "function") {
+            req.logIn = (user: any, cb: (err?: any) => void) => {
+              req.user = user;
+              cb();
+            };
+            doneCb(null, FAKE_USER, {});
+          } else {
+            // Embed the signedReturnToState so the test can extract it.
+            const stateParam =
+              typeof opts?.signedReturnToState === "string"
+                ? `?state=${encodeURIComponent(opts.signedReturnToState)}`
+                : "";
+            res
+              .status(302)
+              .setHeader("Location", `/oauth/authorize${stateParam}`)
+              .end();
+          }
+        }
+    );
+
+    strictApp = express();
+    await setupAuth(strictApp);
+
+    strictApp.get("/api/courses/:id", isAuthenticated, (req, res) => {
+      res.json({ id: req.params.id });
+    });
+  });
+
+  it("callback receives and honours the exact signed state emitted by /api/login (query-string returnTo)", async () => {
+    // Mirrors the primary production path:
+    //   user lands on /assignments/new?course=101&week=4
+    //   useRequireAuth() → window.location.href = buildLoginRedirectUrl(…)
+    //   /api/login encodes the path in a signed state token
+    //   OIDC provider echoes the state in the callback URL
+    //   /api/callback decodes the state and redirects to the original page
+
+    const server = createServer(strictApp);
+    const agent = request.agent(server);
+
+    // Leg 1: unauthenticated request to a protected route → 401.
+    const leg1 = await agent
+      .get("/api/courses/101?preview=true")
+      .set("Host", "localhost");
+    expect(leg1.status).toBe(401);
+    expect(leg1.body).toMatchObject({ message: "Unauthorized" });
+
+    // Leg 2: client calls /api/login?returnTo=<path-with-qs>.
+    //   The mock embeds signedReturnToState in the redirect Location so we can
+    //   extract the actual state value produced by the server.
+    const returnToPath = "/assignments/new?course=101&week=4";
+    const leg2 = await agent
+      .get(`/api/login?returnTo=${encodeURIComponent(returnToPath)}`)
+      .set("Host", "localhost");
+    expect(leg2.status).toBe(302);
+
+    // Extract the signed state that /api/login actually produced.
+    const location = leg2.headers["location"] as string;
+    const stateMatch = location.match(/[?&]state=([^&]+)/);
+    expect(stateMatch).not.toBeNull();
+    const capturedSignedState = decodeURIComponent(stateMatch![1]);
+
+    // Sanity-check: the captured state decodes to the expected returnTo path.
+    const decoded = verifyReturnToState(capturedSignedState);
+    expect(decoded).not.toBeNull();
+    expect(decoded?.path).toBe(returnToPath);
+
+    // Leg 3: callback with the EXACT state the login route produced.
+    //   No independent signReturnToState() call — this proves the server's
+    //   own emitted state works end-to-end.
+    const leg3 = await agent
+      .get(`/api/callback?state=${encodeURIComponent(capturedSignedState)}`)
+      .set("Host", "localhost");
+
+    expect(leg3.status).toBe(302);
+    expect(leg3.headers["location"]).toBe(returnToPath);
+  });
 });
