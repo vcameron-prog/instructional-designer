@@ -129,7 +129,7 @@ vi.mock("@anthropic-ai/sdk", () => ({
 // ---------------------------------------------------------------------------
 // Module under test — imported AFTER all vi.mock() calls
 // ---------------------------------------------------------------------------
-import { registerRoutes } from "./routes.js";
+import { registerRoutes, TOOLKIT_REDIRECTS } from "./routes.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -149,12 +149,13 @@ async function buildApp() {
 
 const ID_APP_BASE = "https://bsu-instructional-designer.replit.app";
 
-const TOOLKIT_ROUTES: Array<{ oldPath: string; idSlug: string }> = [
-  { oldPath: "/url-scanner",    idSlug: "url-scanner" },
-  { oldPath: "/color-contrast", idSlug: "color-contrast" },
-  { oldPath: "/alt-text",       idSlug: "alt-text" },
-  { oldPath: "/math-ocr",       idSlug: "math-ocr" },
-];
+// Derived from the real TOOLKIT_REDIRECTS export so new entries are
+// automatically covered without any manual test update.
+const TOOLKIT_ROUTES: Array<{ oldPath: string; idSlug: string }> =
+  Object.entries(TOOLKIT_REDIRECTS).map(([oldPath, idPath]) => ({
+    oldPath,
+    idSlug: idPath.replace(/^\/accessibility-tools\//, ""),
+  }));
 
 // ===========================================================================
 // Scenario 1: ID_APP_URL is set — absolute redirect destination

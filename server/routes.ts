@@ -185,7 +185,7 @@ function getIdAppBase(): string {
   return (process.env.ID_APP_URL ?? "").replace(/\/$/, "");
 }
 
-const TOOLKIT_REDIRECTS: Record<string, string> = {
+export const TOOLKIT_REDIRECTS: Record<string, string> = {
   "/url-scanner":    "/accessibility-tools/url-scanner",
   "/color-contrast": "/accessibility-tools/color-contrast",
   "/alt-text":       "/accessibility-tools/alt-text",
