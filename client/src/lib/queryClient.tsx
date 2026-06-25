@@ -1,5 +1,6 @@
 import { QueryClient, QueryFunction, MutationCache, QueryCache } from "@tanstack/react-query";
 import { SESSION_EXPIRED_MESSAGE, isSessionExpiredMessage } from "./upload-error-utils";
+import { buildLoginRedirectUrl } from "./auth-utils";
 import { toast } from "@/hooks/use-toast";
 import { ToastAction } from "@/components/ui/toast";
 
@@ -57,8 +58,10 @@ function showSessionExpiredToast() {
       <ToastAction
         altText="Sign in again"
         onClick={() => {
-          const returnTo = window.location.pathname + window.location.search;
-          window.location.href = `/api/login?returnTo=${encodeURIComponent(returnTo)}`;
+          window.location.href = buildLoginRedirectUrl(
+            window.location.pathname,
+            window.location.search,
+          );
         }}
       >
         Sign in again
