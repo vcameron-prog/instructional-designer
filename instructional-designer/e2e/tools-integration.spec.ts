@@ -140,6 +140,11 @@ test.describe("[integration] Color Contrast — real server response", () => {
 // These tests make a live Anthropic API call.  They are automatically skipped
 // when ANTHROPIC_API_KEY is absent from the server environment.
 test.describe("[integration] URL Scanner — real server + AI response", () => {
+  // Live Anthropic API calls can take 10-20 s on their own; under a loaded CI
+  // machine the round-trip could exceed the global 30 s default and produce a
+  // flaky timeout rather than a clean skip.  60 s gives enough headroom.
+  test.setTimeout(60_000);
+
   test.beforeEach(async ({ page }) => {
     // Probe the server for the API key presence via a canary request.
     // If the key is missing the endpoint returns a 500 with a recognisable
@@ -280,6 +285,11 @@ function loadMathEquationFixture(): Buffer {
 // These tests make a live Anthropic API call.  They are automatically skipped
 // when AI_INTEGRATIONS_ANTHROPIC_API_KEY is not set in the server environment.
 test.describe("[integration] Alt Text Generator — real server + AI response", () => {
+  // Live Anthropic API calls can take 10-20 s on their own; under a loaded CI
+  // machine the round-trip could exceed the global 30 s default and produce a
+  // flaky timeout rather than a clean skip.  60 s gives enough headroom.
+  test.setTimeout(60_000);
+
   test.beforeEach(() => {
     if (!AI_KEY_AVAILABLE) {
       test.skip(true, "AI_INTEGRATIONS_ANTHROPIC_API_KEY not set — skipping AI-dependent test");
@@ -386,6 +396,11 @@ test.describe("[integration] Alt Text Generator — real server + AI response", 
 // These tests make a live Anthropic API call.  They are automatically skipped
 // when AI_INTEGRATIONS_ANTHROPIC_API_KEY is not set in the server environment.
 test.describe("[integration] Math OCR — real server + AI response", () => {
+  // Live Anthropic API calls can take 10-20 s on their own; under a loaded CI
+  // machine the round-trip could exceed the global 30 s default and produce a
+  // flaky timeout rather than a clean skip.  60 s gives enough headroom.
+  test.setTimeout(60_000);
+
   test.beforeEach(() => {
     if (!AI_KEY_AVAILABLE) {
       test.skip(true, "AI_INTEGRATIONS_ANTHROPIC_API_KEY not set — skipping AI-dependent test");
