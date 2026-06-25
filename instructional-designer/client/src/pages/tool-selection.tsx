@@ -149,7 +149,7 @@ export default function ToolSelection() {
           <Card className="max-w-md">
             <CardContent className="p-6 text-center">
               <p className="text-muted-foreground">Course not found</p>
-              <Button className="mt-4" onClick={() => navigate("/faculty")}>
+              <Button className="mt-4" onClick={() => navigate("/")}>
                 Return Home
               </Button>
             </CardContent>
@@ -178,7 +178,7 @@ export default function ToolSelection() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => navigate("/faculty")}
+                onClick={() => navigate("/")}
                 aria-label="Back to home"
                 data-testid="button-back-home"
               >

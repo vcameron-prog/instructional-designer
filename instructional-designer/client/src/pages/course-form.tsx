@@ -298,7 +298,7 @@ export default function CourseForm({ courseId }: { courseId?: number }) {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => navigate("/faculty")}
+                onClick={() => navigate("/")}
                 aria-label="Back to home"
                 data-testid="button-back-home"
               >
@@ -700,7 +700,7 @@ export default function CourseForm({ courseId }: { courseId?: number }) {
             </Card>
 
             <div className="flex justify-end gap-4">
-              <Button type="button" variant="outline" onClick={() => navigate("/faculty")} data-testid="button-cancel">
+              <Button type="button" variant="outline" onClick={() => navigate("/")} data-testid="button-cancel">
                 Cancel
               </Button>
               <Button type="submit" disabled={isPending} className="gap-2" data-testid="button-submit">
