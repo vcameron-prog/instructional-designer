@@ -1,7 +1,7 @@
 #!/bin/sh
 # Self-contained smoke test runner.
 # Starts the instructional-designer dev server, waits for it to be ready,
-# runs the Playwright id-smoke tests, then tears everything down.
+# runs the Playwright id-smoke and oidc-state-roundtrip tests, then tears everything down.
 # This avoids having Playwright's webServer spawn /bin/sh internally,
 # which fails in the validation runner's sandboxed environment.
 
