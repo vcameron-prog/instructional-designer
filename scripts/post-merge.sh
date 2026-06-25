@@ -21,3 +21,9 @@ bash scripts/check-schema-drift.sh
 # This catches cases where drizzle-kit migrate exits 0 but silently skipped rows.
 npx tsx scripts/assert-migrations-applied.ts
 
+# Verify all hardcoded external links in client/src/ resolve successfully.
+# A dead link blocks the deployment here rather than reaching users.
+echo ""
+echo "Checking external links in client/src/ ..."
+bash scripts/check-links.sh
+
