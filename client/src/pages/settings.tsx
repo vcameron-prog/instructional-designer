@@ -7,9 +7,10 @@ import { PoweredByFooter } from "@/components/powered-by-footer";
 import { HeaderControls } from "@/components/header-controls";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useAuth } from "@/hooks/use-auth";
-import { ArrowLeft, Settings, Wand2, Globe, LayoutList, Zap, Cloud, CloudOff } from "lucide-react";
+import { ArrowLeft, Settings, Wand2, Globe, LayoutList, Zap, Cloud, CloudOff, AlertCircle } from "lucide-react";
 import { TOOLS } from "@/lib/constants";
 import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 const SKIP_PREVIEW_KEY = "a11y-skip-preview";
 const AUTO_EXPAND_KEY = "bsu-auto-expand-sections";
@@ -38,6 +39,8 @@ export default function SettingsPage() {
   const [, navigate] = useLocation();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [saveError, setSaveError] = useState(false);
 
   const [skipPreview, setSkipPreview] = useState(
     () => localStorage.getItem(SKIP_PREVIEW_KEY) === "true"
@@ -96,8 +99,20 @@ export default function SettingsPage() {
     mutationFn: async (patch: Partial<UserPreferences>) => {
       return apiRequest("PATCH", "/api/preferences", patch);
     },
+    onMutate: () => {
+      setSaveError(false);
+    },
     onSuccess: () => {
+      setSaveError(false);
       queryClient.invalidateQueries({ queryKey: ["/api/preferences"] });
+    },
+    onError: () => {
+      setSaveError(true);
+      toast({
+        title: "Preferences not saved",
+        description: "Your settings could not be synced to your account. Please try again.",
+        variant: "destructive",
+      });
     },
   });
 
@@ -137,6 +152,7 @@ export default function SettingsPage() {
 
   const quickTools = TOOLS.filter(t => QUICK_TOOL_IDS.includes(t.id));
   const isSyncing = saveMutation.isPending;
+  const isSaveError = saveError && !isSyncing;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -167,19 +183,24 @@ export default function SettingsPage() {
           </div>
           {isAuthenticated && (
             <div
-              className="flex items-center gap-1.5 text-xs text-muted-foreground"
+              className="flex items-center gap-1.5 text-xs"
               data-testid="status-sync"
               aria-live="polite"
             >
               {isSyncing ? (
                 <>
-                  <Cloud className="w-3.5 h-3.5 animate-pulse" />
-                  <span>Saving…</span>
+                  <Cloud className="w-3.5 h-3.5 animate-pulse text-muted-foreground" />
+                  <span className="text-muted-foreground">Saving…</span>
+                </>
+              ) : isSaveError ? (
+                <>
+                  <AlertCircle className="w-3.5 h-3.5 text-destructive" />
+                  <span className="text-destructive" data-testid="status-sync-error">Save failed</span>
                 </>
               ) : (
                 <>
                   <Cloud className="w-3.5 h-3.5 text-green-500" />
-                  <span>Synced to your account</span>
+                  <span className="text-muted-foreground">Synced to your account</span>
                 </>
               )}
             </div>
