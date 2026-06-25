@@ -499,3 +499,71 @@ test.describe("[integration] Math OCR — real server + AI response", () => {
     expect(resp.status(), "non-image MIME type must yield 400").toBe(400);
   });
 });
+
+// ===========================================================================
+// E. [integration] Oversized image upload — limit check fires before AI call
+// ===========================================================================
+// These tests confirm that multer's 5 MB fileSize limit rejects oversized
+// uploads with 400 BEFORE the Anthropic API is ever invoked.
+// They do NOT require an AI key and run in every environment.
+test.describe("[integration] Oversized image upload — 400 before AI call", () => {
+  // Produce a buffer just over 5 MB filled with zeros.  The exact content
+  // does not matter — multer enforces the limit by counting stream bytes, not
+  // by inspecting the image format.
+  const FIVE_MB = 5 * 1024 * 1024;
+  const oversizedBuffer = (): Buffer => Buffer.alloc(FIVE_MB + 1024, 0);
+
+  test("alt-text endpoint returns 400 for a >5 MB image", async ({ page }) => {
+    const resp = await page.request.post("/api/tools/alt-text", {
+      multipart: {
+        image: {
+          name: "oversized.png",
+          mimeType: "image/png",
+          buffer: oversizedBuffer(),
+        },
+      },
+    });
+
+    // The ID server's multer callback catches LIMIT_FILE_SIZE and returns 400
+    // before the Anthropic API is ever called.  A 5xx here would indicate the
+    // error bypassed the limit check and reached the AI path.
+    expect(
+      resp.status(),
+      "oversized upload to /api/tools/alt-text must return 400, not 500",
+    ).toBe(400);
+
+    const body = await resp.json() as Record<string, unknown>;
+    expect(typeof body.error, "error field must be a string").toBe("string");
+    expect(
+      (body.error as string).trim().length,
+      "error message must be non-empty",
+    ).toBeGreaterThan(0);
+  });
+
+  test("math-ocr endpoint returns 400 for a >5 MB image", async ({ page }) => {
+    const resp = await page.request.post("/api/tools/math-ocr", {
+      multipart: {
+        image: {
+          name: "oversized.png",
+          mimeType: "image/png",
+          buffer: oversizedBuffer(),
+        },
+      },
+    });
+
+    // The ID server's multer callback catches LIMIT_FILE_SIZE and returns 400
+    // before the Anthropic API is ever called.  A 5xx here would indicate the
+    // error bypassed the limit check and reached the AI path.
+    expect(
+      resp.status(),
+      "oversized upload to /api/tools/math-ocr must return 400, not 500",
+    ).toBe(400);
+
+    const body = await resp.json() as Record<string, unknown>;
+    expect(typeof body.error, "error field must be a string").toBe("string");
+    expect(
+      (body.error as string).trim().length,
+      "error message must be non-empty",
+    ).toBeGreaterThan(0);
+  });
+});
