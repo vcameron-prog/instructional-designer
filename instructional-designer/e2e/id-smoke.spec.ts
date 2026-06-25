@@ -696,6 +696,12 @@ test.describe("Accessibility Tools — Alt Text Generator page", () => {
       page.getByTestId("code-decorative-snippet"),
       "code snippet contains alt=\"\" attribute",
     ).toContainText('alt=""');
+
+    // The human-readable "Decorative Image" label must be visible inside the result card
+    await expect(
+      page.getByTestId("alt-result").getByText("Decorative Image"),
+      "result card shows the 'Decorative Image' label",
+    ).toBeVisible({ timeout: 10_000 });
   });
 });
 
