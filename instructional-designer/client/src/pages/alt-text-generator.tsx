@@ -214,7 +214,7 @@ export default function AltTextGeneratorPage() {
                   <p className="text-sm text-muted-foreground">
                     This image appears to be decorative. Use <code className="text-xs bg-muted px-1 py-0.5 rounded">alt=""</code> (empty alt attribute) in your HTML.
                   </p>
-                  <code className="block text-xs bg-muted px-3 py-2 rounded font-mono">
+                  <code className="block text-xs bg-muted px-3 py-2 rounded font-mono" data-testid="code-decorative-snippet">
                     {`<img src="..." alt="" role="presentation" />`}
                   </code>
                 </div>

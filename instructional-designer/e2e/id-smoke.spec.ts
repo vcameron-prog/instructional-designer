@@ -595,6 +595,75 @@ test.describe("Accessibility Tools — Alt Text Generator page", () => {
       "generated alt text is displayed in result card",
     ).toHaveText("A red circle", { timeout: 10_000 });
   });
+
+  test("uploads a synthetic image, mocks decorative API response, and shows empty-alt code snippet", async ({
+    page,
+  }) => {
+    // Mock the alt-text API to return a decorative result
+    const mockDecorativeResult = {
+      altText: "",
+      isDecorative: true,
+      characterCount: 0,
+    };
+    await page.route("**/api/tools/alt-text", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(mockDecorativeResult),
+      });
+    });
+
+    await page.goto("/accessibility-tools/alt-text");
+    await expect(page).toHaveURL(/\/accessibility-tools\/alt-text/, { timeout: 10_000 });
+
+    // Upload the same minimal 1×1 red PNG via the hidden file input
+    const fileInput = page.getByTestId("input-image-file");
+    await expect(fileInput, "hidden file input is present in DOM").toBeAttached();
+
+    const minimalPng = Buffer.from(
+      "89504e470d0a1a0a0000000d494844520000000100000001080200000090" +
+        "7753de0000000c4944415408d76360f8cfc00000000200017221bc330000" +
+        "0000049454e44ae426082",
+      "hex",
+    );
+    await fileInput.setInputFiles({
+      name: "test-image.png",
+      mimeType: "image/png",
+      buffer: minimalPng,
+    });
+
+    // Generate button should become enabled once a file is selected
+    const generateBtn = page.getByTestId("button-generate-alt");
+    await expect(generateBtn, "Generate Alt Text button is enabled after file select").toBeEnabled({
+      timeout: 5_000,
+    });
+
+    // Click to trigger the (mocked) API call
+    await generateBtn.click();
+
+    // Result card must appear
+    await expect(
+      page.getByTestId("alt-result"),
+      "alt-result card appears for decorative image",
+    ).toBeVisible({ timeout: 10_000 });
+
+    // The non-decorative alt text element must NOT be present
+    await expect(
+      page.getByTestId("text-generated-alt"),
+      "text-generated-alt is not rendered for decorative images",
+    ).toHaveCount(0);
+
+    // The decorative code snippet with alt="" must be visible
+    await expect(
+      page.getByTestId("code-decorative-snippet"),
+      "decorative-image code snippet with alt=\"\" is visible",
+    ).toBeVisible({ timeout: 10_000 });
+
+    await expect(
+      page.getByTestId("code-decorative-snippet"),
+      "code snippet contains alt=\"\" attribute",
+    ).toContainText('alt=""');
+  });
 });
 
 // ===========================================================================
