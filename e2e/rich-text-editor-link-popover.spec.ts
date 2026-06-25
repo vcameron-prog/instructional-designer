@@ -23,6 +23,7 @@
  */
 
 import { test, expect, type Page } from "@playwright/test";
+import { loginAndRedirect } from "./helpers/auth";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -67,19 +68,6 @@ const NEW_LINK_HREF = "https://bridgew.edu";
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-async function loginAsTestUser(page: Page): Promise<void> {
-  const resp = await page.request.post("/api/test/login", {
-    data: TEST_USER,
-  });
-  if (!resp.ok()) {
-    const body = await resp.text();
-    throw new Error(
-      `Test login failed (${resp.status()}): ${body}. ` +
-        "Make sure the server is started with PLAYWRIGHT_TEST=1.",
-    );
-  }
-}
 
 async function seedConversionWithHtml(
   page: Page,
@@ -139,7 +127,7 @@ test.describe("RichTextEditor — link popover", () => {
   test("clicking link button on plain-text selection opens popover with no 'Current link' label", async ({
     page,
   }) => {
-    await loginAsTestUser(page);
+    await loginAndRedirect(page, "/", TEST_USER);
     const conversionId = await seedConversionWithHtml(
       page,
       SEED_HTML_PLAIN,
@@ -175,7 +163,7 @@ test.describe("RichTextEditor — link popover", () => {
   test("clicking link button inside an existing link shows 'Current link' label with correct href", async ({
     page,
   }) => {
-    await loginAsTestUser(page);
+    await loginAndRedirect(page, "/", TEST_USER);
     const conversionId = await seedConversionWithHtml(
       page,
       SEED_HTML_WITH_LINK,
@@ -214,7 +202,7 @@ test.describe("RichTextEditor — link popover", () => {
   test("editing the URL and confirming updates the link href in the editor", async ({
     page,
   }) => {
-    await loginAsTestUser(page);
+    await loginAndRedirect(page, "/", TEST_USER);
     const conversionId = await seedConversionWithHtml(
       page,
       SEED_HTML_WITH_LINK,
@@ -270,7 +258,7 @@ test.describe("RichTextEditor — link popover", () => {
   test("clicking 'Remove link' removes the anchor mark from the text", async ({
     page,
   }) => {
-    await loginAsTestUser(page);
+    await loginAndRedirect(page, "/", TEST_USER);
     const conversionId = await seedConversionWithHtml(
       page,
       SEED_HTML_WITH_LINK,

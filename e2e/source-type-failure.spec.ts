@@ -17,6 +17,7 @@
  */
 
 import { test, expect, type Page } from "@playwright/test";
+import { loginAndRedirect } from "./helpers/auth";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -36,19 +37,6 @@ const ERROR_MESSAGE =
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-async function loginAsTestUser(page: Page): Promise<void> {
-  const resp = await page.request.post("/api/test/login", {
-    data: TEST_USER,
-  });
-  if (!resp.ok()) {
-    const body = await resp.text();
-    throw new Error(
-      `Test login failed (${resp.status()}): ${body}. ` +
-        "Make sure the server is started with PLAYWRIGHT_TEST=1.",
-    );
-  }
-}
 
 async function seedFailedConversion(
   page: Page,
@@ -83,7 +71,7 @@ test.describe("Source-type visual treatment on failed conversions", () => {
   test(
     "google-doc failure shows 'Google Doc' badge on the detail page; pdf failure does not",
     async ({ page }) => {
-      await loginAsTestUser(page);
+      await loginAndRedirect(page, "/", TEST_USER);
 
       const googleDocId = await seedFailedConversion(
         page,
@@ -124,7 +112,7 @@ test.describe("Source-type visual treatment on failed conversions", () => {
   test(
     "history list shows 'Google Doc' label for google-doc failure but not for pdf failure",
     async ({ page }) => {
-      await loginAsTestUser(page);
+      await loginAndRedirect(page, "/", TEST_USER);
 
       const googleDocId = await seedFailedConversion(
         page,

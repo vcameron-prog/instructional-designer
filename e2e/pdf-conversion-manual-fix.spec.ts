@@ -20,6 +20,7 @@
  */
 
 import { test, expect, type Page } from "@playwright/test";
+import { loginAndRedirect } from "./helpers/auth";
 
 const TEST_USER = {
   sub: "pw-manual-fix-test-user",
@@ -38,19 +39,6 @@ const MANUAL_FIX_ITEMS = [
     reason: "Table spanning rows and columns requires manual header associations.",
   },
 ];
-
-async function loginAsTestUser(page: Page): Promise<void> {
-  const resp = await page.request.post("/api/test/login", {
-    data: TEST_USER,
-  });
-  if (!resp.ok()) {
-    const body = await resp.text();
-    throw new Error(
-      `Test login failed (${resp.status()}): ${body}. ` +
-        "Make sure the server is started with PLAYWRIGHT_TEST=1.",
-    );
-  }
-}
 
 async function seedConversionWithManualFixes(page: Page): Promise<number> {
   const resp = await page.request.post("/api/test/seed-conversion", {
@@ -75,7 +63,7 @@ test.describe("PDF Conversion — manual-fix items persist across reload", () =>
   test("manual-fix summary is visible on load and survives a page reload", async ({
     page,
   }) => {
-    await loginAsTestUser(page);
+    await loginAndRedirect(page, "/", TEST_USER);
     const conversionId = await seedConversionWithManualFixes(page);
 
     // Navigate to the conversion result page.
@@ -115,7 +103,7 @@ test.describe("PDF Conversion — manual-fix items persist across reload", () =>
   test("manual-fix item count in the summary header survives a reload", async ({
     page,
   }) => {
-    await loginAsTestUser(page);
+    await loginAndRedirect(page, "/", TEST_USER);
     const conversionId = await seedConversionWithManualFixes(page);
 
     await page.goto(`/pdf-accessibility/${conversionId}`);

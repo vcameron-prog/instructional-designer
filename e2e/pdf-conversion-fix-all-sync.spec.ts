@@ -23,6 +23,7 @@
  */
 
 import { test, expect, type Page, type Route } from "@playwright/test";
+import { loginAndRedirect } from "./helpers/auth";
 
 const TEST_USER = {
   sub: "pw-fix-all-sync-test-user",
@@ -81,19 +82,6 @@ function makeStubFixResponse(
   };
 }
 
-async function loginAsTestUser(page: Page): Promise<void> {
-  const resp = await page.request.post("/api/test/login", {
-    data: TEST_USER,
-  });
-  if (!resp.ok()) {
-    const body = await resp.text();
-    throw new Error(
-      `Test login failed (${resp.status()}): ${body}. ` +
-        "Make sure the server is started with PLAYWRIGHT_TEST=1.",
-    );
-  }
-}
-
 async function seedConversionWithComplianceReport(
   page: Page,
 ): Promise<number> {
@@ -122,7 +110,7 @@ test.describe(
     test("Fix All produces manual-fix items that survive a page reload", async ({
       page,
     }) => {
-      await loginAsTestUser(page);
+      await loginAndRedirect(page, "/", TEST_USER);
       const conversionId = await seedConversionWithComplianceReport(page);
 
       // Intercept fix-issue calls and return a stub noFixReason so the
@@ -205,7 +193,7 @@ test.describe(
     test("Fix All item count in the summary header survives a reload", async ({
       page,
     }) => {
-      await loginAsTestUser(page);
+      await loginAndRedirect(page, "/", TEST_USER);
       const conversionId = await seedConversionWithComplianceReport(page);
 
       await page.route(

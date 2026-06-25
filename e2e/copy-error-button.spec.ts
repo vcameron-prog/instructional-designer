@@ -16,6 +16,7 @@
  */
 
 import { test, expect, type Page } from "@playwright/test";
+import { loginAndRedirect } from "./helpers/auth";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -35,19 +36,6 @@ const KNOWN_ERROR_MESSAGE =
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-async function loginAsTestUser(page: Page): Promise<void> {
-  const resp = await page.request.post("/api/test/login", {
-    data: TEST_USER,
-  });
-  if (!resp.ok()) {
-    const body = await resp.text();
-    throw new Error(
-      `Test login failed (${resp.status()}): ${body}. ` +
-        "Make sure the server is started with PLAYWRIGHT_TEST=1.",
-    );
-  }
-}
 
 async function seedFailedConversion(page: Page): Promise<number> {
   const resp = await page.request.post("/api/test/seed-conversion", {
@@ -74,7 +62,7 @@ test.describe("Copy-error button on failed conversions", () => {
   test(
     "button appears for a failed conversion, copies the errorMessage, and shows 'Copied' confirmation",
     async ({ page }) => {
-      await loginAsTestUser(page);
+      await loginAndRedirect(page, "/", TEST_USER);
       const conversionId = await seedFailedConversion(page);
 
       // Grant clipboard permissions so page.evaluate can read from the clipboard.
@@ -112,7 +100,7 @@ test.describe("Copy-error button on failed conversions", () => {
   test(
     "copy button is absent for a completed conversion",
     async ({ page }) => {
-      await loginAsTestUser(page);
+      await loginAndRedirect(page, "/", TEST_USER);
 
       // Seed a completed conversion (no copy-error button expected).
       const minimalHtml =
