@@ -2,7 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import type { Server } from "http";
 import { randomUUID } from "crypto";
 import { storage } from "./storage";
-import { conversions, courses, generatedContent } from "@shared/schema";
+import { conversions, courses, generatedContent, adminExports } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import {
   setupAuth,
@@ -3387,12 +3387,72 @@ export async function registerRoutes(
       const exportDate = now.toISOString().slice(0, 10);
       const csvContent = rows.join("\r\n");
 
+      // Log this export for the audit trail (fire-and-forget; don't block the response).
+      const exportingUserId = getUserId(_req);
+      if (exportingUserId) {
+        db.insert(adminExports)
+          .values({
+            userId: exportingUserId,
+            rowCounts: {
+              courses: totalCoursesRow?.count ?? 0,
+              content: totalContentRow?.count ?? 0,
+              conversions: totalConversionsRow?.count ?? 0,
+              users: totalUsersRow?.count ?? 0,
+            },
+          })
+          .catch((logErr: unknown) => {
+            console.error("[admin/stats/export] failed to log export:", logErr);
+          });
+      }
+
       res.setHeader("Content-Type", "text/csv; charset=utf-8");
       res.setHeader("Content-Disposition", `attachment; filename="bsu-admin-stats-${exportDate}.csv"`);
       res.send(csvContent);
     } catch (err) {
       console.error("[admin/stats/export] failed:", err);
       res.status(500).json({ error: "Failed to export admin stats" });
+    }
+  });
+
+  app.get("/api/admin/export-history", isAuthenticated, isAdmin, async (_req: Request, res: Response) => {
+    try {
+      const history = await db
+        .select({
+          id: adminExports.id,
+          userId: adminExports.userId,
+          exportedAt: adminExports.exportedAt,
+          rowCounts: adminExports.rowCounts,
+        })
+        .from(adminExports)
+        .orderBy(desc(adminExports.exportedAt))
+        .limit(10);
+
+      const userIds = [...new Set(history.map((r) => r.userId))];
+      let userInfoMap: Record<string, { email: string | null; firstName: string | null; lastName: string | null }> = {};
+      if (userIds.length > 0) {
+        const userRows = await db
+          .select({ id: users.id, email: users.email, firstName: users.firstName, lastName: users.lastName })
+          .from(users)
+          .where(inArray(users.id, userIds));
+        userInfoMap = Object.fromEntries(
+          userRows.map((u) => [u.id, { email: u.email ?? null, firstName: u.firstName ?? null, lastName: u.lastName ?? null }]),
+        );
+      }
+
+      const result = history.map((r) => ({
+        id: r.id,
+        userId: r.userId,
+        exportedAt: r.exportedAt,
+        rowCounts: r.rowCounts,
+        email: userInfoMap[r.userId]?.email ?? null,
+        firstName: userInfoMap[r.userId]?.firstName ?? null,
+        lastName: userInfoMap[r.userId]?.lastName ?? null,
+      }));
+
+      res.json(result);
+    } catch (err) {
+      console.error("[admin/export-history] failed:", err);
+      res.status(500).json({ error: "Failed to load export history" });
     }
   });
 

@@ -27,6 +27,16 @@ import {
   Download,
 } from "lucide-react";
 
+interface ExportHistoryEntry {
+  id: number;
+  userId: string;
+  exportedAt: string;
+  rowCounts: { courses: number; content: number; conversions: number; users: number } | null;
+  email: string | null;
+  firstName: string | null;
+  lastName: string | null;
+}
+
 interface AdminStats {
   totals: {
     courses: number;
@@ -93,6 +103,12 @@ export default function AdminDashboard() {
     retry: false,
   });
 
+  const { data: exportHistory, refetch: refetchHistory } = useQuery<ExportHistoryEntry[]>({
+    queryKey: ["/api/admin/export-history"],
+    enabled: isAdmin === true,
+    retry: false,
+  });
+
   if (checkLoading) {
     return (
       <main id="main-content" tabIndex={-1} className="min-h-screen flex items-center justify-center bg-background">
@@ -146,7 +162,7 @@ export default function AdminDashboard() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => refetch()}
+              onClick={() => { refetch(); refetchHistory(); }}
               data-testid="button-refresh-stats"
             >
               <RefreshCw className="w-4 h-4 mr-2" />
@@ -162,6 +178,7 @@ export default function AdminDashboard() {
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
+                setTimeout(() => refetchHistory(), 1500);
               }}
               data-testid="button-export-csv"
             >
@@ -365,6 +382,56 @@ export default function AdminDashboard() {
                       </tbody>
                     </table>
                   </div>
+                </CardContent>
+              </Card>
+            </section>
+            {/* Export history */}
+            <section aria-labelledby="section-export-history">
+              <Card>
+                <CardHeader>
+                  <CardTitle id="section-export-history" className="text-base">Export History (Last 10)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {!exportHistory || exportHistory.length === 0 ? (
+                    <p className="text-sm text-muted-foreground" data-testid="text-no-export-history">No exports recorded yet.</p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm" aria-label="Export history">
+                        <thead>
+                          <tr className="border-b border-border text-left">
+                            <th className="pb-2 font-medium text-muted-foreground">Exported By</th>
+                            <th className="pb-2 font-medium text-muted-foreground">Date &amp; Time</th>
+                            <th className="pb-2 font-medium text-muted-foreground text-right">Courses</th>
+                            <th className="pb-2 font-medium text-muted-foreground text-right">Content</th>
+                            <th className="pb-2 font-medium text-muted-foreground text-right">Conversions</th>
+                            <th className="pb-2 font-medium text-muted-foreground text-right">Users</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                          {exportHistory.map((entry) => (
+                            <tr key={entry.id} data-testid={`row-export-${entry.id}`}>
+                              <td className="py-2 text-foreground">
+                                {displayName(entry)}
+                              </td>
+                              <td className="py-2 text-muted-foreground whitespace-nowrap">
+                                {new Date(entry.exportedAt).toLocaleString("en-US", {
+                                  month: "short",
+                                  day: "numeric",
+                                  year: "numeric",
+                                  hour: "numeric",
+                                  minute: "2-digit",
+                                })}
+                              </td>
+                              <td className="py-2 text-right font-mono text-foreground">{entry.rowCounts?.courses ?? "—"}</td>
+                              <td className="py-2 text-right font-mono text-foreground">{entry.rowCounts?.content ?? "—"}</td>
+                              <td className="py-2 text-right font-mono text-foreground">{entry.rowCounts?.conversions ?? "—"}</td>
+                              <td className="py-2 text-right font-mono text-foreground">{entry.rowCounts?.users ?? "—"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </section>

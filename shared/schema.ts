@@ -133,3 +133,20 @@ export const appMetrics = pgTable("app_metrics", {
 });
 
 export type AppMetric = typeof appMetrics.$inferSelect;
+
+// Admin export audit log — records when an admin triggered a stats CSV export.
+export const adminExports = pgTable("admin_exports", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull(),
+  exportedAt: timestamp("exported_at", { withTimezone: true })
+    .default(sql`CURRENT_TIMESTAMP`)
+    .notNull(),
+  rowCounts: jsonb("row_counts").$type<{
+    courses: number;
+    content: number;
+    conversions: number;
+    users: number;
+  }>(),
+});
+
+export type AdminExport = typeof adminExports.$inferSelect;
