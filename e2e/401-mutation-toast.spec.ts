@@ -207,6 +207,69 @@ test.describe("401 MutationCache path — session-expired toast", () => {
     expect(returnTo).toBe(targetPath);
   });
 
+  test("delete mutation 403 returnTo preserves pathname AND query string", async ({
+    page,
+  }) => {
+    // Mirrors the 401 query-string test above but uses a 403 response, ensuring
+    // both status codes preserve window.location.search in the returnTo value.
+    const targetPath = "/pdf-accessibility/history";
+    const targetSearch = "?q=report";
+    const fullTarget = targetPath + targetSearch;
+
+    await loginAndLandOn(page, "/settings");
+
+    await page.route("**/api/conversions", (route) => {
+      if (route.request().method() === "GET") {
+        route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify([FAKE_CONVERSION]),
+        });
+      } else {
+        route.continue();
+      }
+    });
+
+    await page.route(`**/api/conversions/${FAKE_CONVERSION.id}`, (route) => {
+      if (route.request().method() === "DELETE") {
+        route.fulfill({
+          status: 403,
+          body: "Forbidden",
+          contentType: "text/plain",
+        });
+      } else {
+        route.continue();
+      }
+    });
+
+    page.on("dialog", (dialog) => dialog.accept());
+
+    // Navigate with a query string in the URL.
+    await page.goto(fullTarget);
+
+    const deleteButton = page.getByRole("button", { name: /delete/i });
+    await expect(deleteButton).toBeVisible({ timeout: 10_000 });
+    await deleteButton.click();
+
+    await expect(page.getByText("Session expired").first()).toBeVisible({
+      timeout: 10_000,
+    });
+    const signInButton = page.getByRole("button", { name: "Sign in again" });
+    await expect(signInButton).toBeVisible({ timeout: 5_000 });
+
+    const loginRequestPromise = page.waitForRequest("**/api/login*");
+    await page.route("**/api/login*", (route) => route.abort());
+
+    await signInButton.click();
+
+    const loginRequest = await loginRequestPromise;
+    const loginUrl = new URL(loginRequest.url());
+    const returnTo = loginUrl.searchParams.get("returnTo");
+
+    // Must include both pathname AND search — not just the pathname.
+    expect(returnTo).toBe(fullTarget);
+  });
+
   test("delete mutation 401 returnTo preserves pathname AND query string", async ({
     page,
   }) => {
