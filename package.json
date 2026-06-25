@@ -90,6 +90,7 @@
     "express": "^5.0.1",
     "express-session": "^1.19.0",
     "framer-motion": "^11.13.1",
+    "http-proxy-middleware": "^3.0.7",
     "input-otp": "^1.4.2",
     "jsdom": "^29.1.1",
     "jszip": "^3.10.1",

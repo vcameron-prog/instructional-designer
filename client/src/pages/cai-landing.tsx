@@ -64,9 +64,7 @@ export default function CaiLandingPage() {
           </p>
 
           <a
-            href={import.meta.env.VITE_ID_APP_URL || "https://bsu-instructional-designer.replit.app"}
-            target="_blank"
-            rel="noopener noreferrer"
+            href="/faculty"
             className="inline-flex items-center gap-2 bg-white text-gray-900 hover:bg-gray-100 text-base px-8 py-6 rounded-xl font-semibold shadow-lg transition-colors"
             data-testid="button-open-id-app"
           >

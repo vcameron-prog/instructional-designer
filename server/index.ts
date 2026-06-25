@@ -1,4 +1,5 @@
 import express, { type Request, Response, NextFunction } from "express";
+import { createProxyMiddleware } from "http-proxy-middleware";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
@@ -136,6 +137,32 @@ async function resetStaleProcessingJobs() {
 
   // Schedule the daily health summary email (7am ET by default)
   scheduleDailySummary();
+
+  // Proxy /faculty/api/* → Instructional Designer API on port 3001
+  // Must be registered before main app routes so /faculty namespace is isolated.
+  // Express strips the mount path, so the proxy receives the path after the mount.
+  app.use(
+    "/faculty/api",
+    createProxyMiddleware({
+      target: "http://localhost:3001",
+      changeOrigin: true,
+      // Express strips "/faculty/api" → proxy receives "/courses" etc.
+      // Prepend "/api" so the ID app's Express routes match.
+      pathRewrite: { "^": "/api" },
+    }),
+  );
+
+  // Proxy /faculty/* (HTML, assets, etc.) → Instructional Designer on port 3001
+  // Express strips "/faculty" → proxy receives "/", "/assets/main.js", etc.
+  // Re-add "/faculty" so the ID Vite dev server (base: "/faculty/") serves correctly.
+  app.use(
+    "/faculty",
+    createProxyMiddleware({
+      target: "http://localhost:3001",
+      changeOrigin: true,
+      pathRewrite: { "^": "/faculty" },
+    }),
+  );
 
   await registerRoutes(httpServer, app);
 

@@ -10,8 +10,14 @@ export function serveStatic(app: Express) {
     );
   }
 
-  app.use(express.static(distPath));
+  // Serve at /faculty/ prefix — used when accessed via the main app proxy
+  app.use("/faculty", express.static(distPath));
+  app.use("/faculty/{*path}", (_req, res) => {
+    res.sendFile(path.resolve(distPath, "index.html"));
+  });
 
+  // Also serve at root for direct access
+  app.use(express.static(distPath));
   app.use("/{*path}", (_req, res) => {
     res.sendFile(path.resolve(distPath, "index.html"));
   });

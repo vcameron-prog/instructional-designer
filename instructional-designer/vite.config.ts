@@ -19,6 +19,7 @@ export default defineConfig({
         ]
       : []),
   ],
+  base: "/faculty/",
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "client", "src"),
@@ -32,6 +33,13 @@ export default defineConfig({
     emptyOutDir: true,
   },
   server: {
+    proxy: {
+      "/faculty/api": {
+        target: "http://localhost:3001",
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/faculty/, ""),
+      },
+    },
     fs: {
       strict: true,
       deny: ["**/.*"],

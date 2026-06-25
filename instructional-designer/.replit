@@ -33,3 +33,4 @@ waitForPort = 5000
 
 [userenv.shared]
 VITE_CONVERTER_APP_URL = "https://bsu-instructional-designer.replit.app/accessibility"
+VITE_API_BASE_PATH = "/faculty"
