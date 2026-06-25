@@ -355,7 +355,7 @@ export async function setupAuth(app: Express) {
     })(req, res, next);
   });
 
-  app.get("/api/callback", (req, res, next) => {
+  app.get("/api/callback", async (req, res, next) => {
     ensureStrategy(req.hostname);
 
     // ---------------------------------------------------------------------------
@@ -391,6 +391,16 @@ export async function setupAuth(app: Express) {
         refresh_token: "playwright-state-test-refresh",
         expires_at: Math.floor(Date.now() / 1000) + 7200,
       };
+      // Upsert the synthetic user into the DB so that /api/auth/user can find
+      // it and return a non-null value.  Without this, useRequireAuth() sees
+      // isAuthenticated=false and fires a redirect to /api/login before
+      // SlowSignInNotice has a chance to show its toast (relevant when the
+      // returnTo destination is a protected page).
+      try {
+        await upsertUser(sessionUser.claims);
+      } catch {
+        // Non-fatal: the DB may be unavailable in some test environments.
+      }
       (req.session as any).passport = { user: sessionUser };
 
       const sessionReturnTo = (req.session as any).returnTo as string | undefined;

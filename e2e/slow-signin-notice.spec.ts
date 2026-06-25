@@ -110,4 +110,84 @@ test.describe("slow sign-in notice", () => {
       ).not.toHaveURL(/signin=slow/, { timeout: 5_000 });
     }
   );
+
+  test(
+    "expired state token still shows toast when returnTo targets a protected page",
+    async ({ page }) => {
+      // This test guards a specific regression: if the returnTo destination
+      // requires authentication, useRequireAuth() fires window.location.href
+      // (a full-page navigation) inside a useEffect.  If that redirect fires
+      // before SlowSignInNotice's own useEffect has a chance to run, the
+      // ?signin=slow param is lost and the toast never appears.
+      //
+      // The _test_state_only=1 bypass creates a real server-side session, so
+      // useRequireAuth() resolves to isAuthenticated=true and the redirect is
+      // never triggered.  The test verifies that the toast still fires and the
+      // param is still stripped even when the landing page is behind a
+      // ProtectedRoute.
+
+      // Step 1 — Obtain an expired signed state token whose returnTo path
+      // points at /settings, a route with requiresAuth: true in App.tsx.
+      const tokenResp = await page.request.get(
+        `${ROOT}/api/test/expired-signed-state?returnTo=/settings`
+      );
+      expect(
+        tokenResp.ok(),
+        "GET /api/test/expired-signed-state must return 200 — " +
+          "is the server running with PLAYWRIGHT_TEST=1?"
+      ).toBe(true);
+      const { state: expiredState } = await tokenResp.json();
+      expect(
+        typeof expiredState,
+        "response body must contain a `state` string"
+      ).toBe("string");
+
+      // Step 2 — Listen for the /api/callback response to capture the
+      // 302 Location header before the browser follows the redirect.
+      let callbackLocation: string | null = null;
+      page.on("response", (resp) => {
+        if (
+          resp.url().includes("/api/callback") &&
+          (resp.status() === 302 || resp.status() === 301)
+        ) {
+          callbackLocation = resp.headers()["location"] ?? null;
+        }
+      });
+
+      // Step 3 — Navigate to the callback with the expired state.
+      // The _test_state_only=1 flag both creates a synthetic authenticated
+      // session AND runs the redirect logic (verifyReturnToState + signin=slow),
+      // so the browser lands on /settings?signin=slow as a logged-in user.
+      await page.goto(
+        `${ROOT}/api/callback?state=${encodeURIComponent(expiredState)}&_test_state_only=1`,
+        { waitUntil: "networkidle", timeout: 15_000 }
+      );
+
+      // Step 4 — Assert the redirect URL contained ?signin=slow.
+      expect(
+        callbackLocation,
+        "server must append ?signin=slow when the state token is expired"
+      ).toMatch(/signin=slow/);
+
+      // Step 5 — Assert the redirect pointed at the protected page.
+      expect(
+        callbackLocation,
+        "redirect target must be /settings (the protected returnTo path)"
+      ).toMatch(/\/settings/);
+
+      // Step 6 — Assert the "Session timed out" toast appeared.
+      // SlowSignInNotice is rendered outside <Router>, so it mounts and its
+      // useEffect fires before ProtectedRoute can issue any auth redirect.
+      await expect(
+        page.getByText("Session timed out", { exact: true }),
+        "SlowSignInNotice must show the 'Session timed out' toast even on a protected page"
+      ).toBeVisible({ timeout: 8_000 });
+
+      // Step 7 — Assert ?signin=slow was stripped from the URL.
+      await expect(
+        page,
+        "SlowSignInNotice must remove ?signin=slow from the URL via replaceState"
+      ).not.toHaveURL(/signin=slow/, { timeout: 5_000 });
+    }
+  );
 });
