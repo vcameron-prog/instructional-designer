@@ -1897,7 +1897,6 @@ export async function registerRoutes(
       try {
         const userId = getUserId(req) as string;
         const id = parseInt(req.params.id as string);
-        if (isNaN(id)) return res.status(400).json({ error: "Invalid course id" });
         const course = await storage.getCourse(id, userId);
         if (!course) {
           return res.status(404).json({ error: "Course not found" });
@@ -1940,7 +1939,6 @@ export async function registerRoutes(
       try {
         const userId = getUserId(req) as string;
         const id = parseInt(req.params.id as string);
-        if (isNaN(id)) return res.status(400).json({ error: "Invalid course id" });
         // Validate partial course data
         const partialSchema = insertCourseSchema.partial();
         const parsed = partialSchema.safeParse(req.body);
@@ -1977,7 +1975,6 @@ export async function registerRoutes(
       try {
         const userId = getUserId(req) as string;
         const id = parseInt(req.params.id as string);
-        if (isNaN(id)) return res.status(400).json({ error: "Invalid course id" });
         await storage.deleteCourse(id, userId);
         res.status(204).send();
       } catch (error) {
@@ -1995,7 +1992,6 @@ export async function registerRoutes(
       try {
         const userId = getUserId(req) as string;
         const courseId = parseInt(req.params.id as string);
-        if (isNaN(courseId)) return res.status(400).json({ error: "Invalid course id" });
 
         // Verify course ownership
         const course = await storage.getCourse(courseId, userId);
@@ -2030,7 +2026,6 @@ export async function registerRoutes(
       try {
         const userId = getUserId(req) as string;
         const courseId = parseInt(req.params.id as string);
-        if (isNaN(courseId)) return res.status(400).json({ error: "Invalid course id" });
 
         const course = await storage.getCourse(courseId, userId);
         if (!course) {
@@ -2158,7 +2153,6 @@ export async function registerRoutes(
       try {
         const userId = getUserId(req) as string;
         const id = parseInt(req.params.id as string);
-        if (isNaN(id)) return res.status(400).json({ error: "Invalid content id" });
         const { isApproved } = req.body;
 
         if (typeof isApproved !== "boolean") {
@@ -2200,7 +2194,6 @@ export async function registerRoutes(
       try {
         const userId = getUserId(req) as string;
         const courseId = parseInt(req.params.id as string);
-        if (isNaN(courseId)) return res.status(400).json({ error: "Invalid course id" });
         const { toolId, toolName, formData, language } = req.body;
 
         const course = await storage.getCourse(courseId, userId);
@@ -2428,7 +2421,6 @@ export async function registerRoutes(
       try {
         const userId = getUserId(req) as string;
         const id = parseInt(req.params.id as string);
-        if (isNaN(id)) return res.status(400).json({ error: "Invalid content id" });
         const content = await storage.getStandaloneContentById(id, userId);
         if (!content) {
           return res.status(404).json({ error: "Content not found" });
@@ -2449,7 +2441,6 @@ export async function registerRoutes(
       try {
         const userId = getUserId(req) as string;
         const id = parseInt(req.params.id as string);
-        if (isNaN(id)) return res.status(400).json({ error: "Invalid content id" });
         const { refinementRequest } = req.body;
 
         const content = await storage.getContent(id);
@@ -2516,7 +2507,6 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     async (req: Request, res: Response) => {
       try {
         const id = parseInt(req.params.id as string);
-        if (isNaN(id)) return res.status(400).json({ error: "Invalid content id" });
         const content = await storage.getContent(id);
         if (!content) {
           return res.status(404).json({ error: "Content not found" });
@@ -2554,7 +2544,6 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     async (req: Request, res: Response) => {
       try {
         const id = parseInt(req.params.id as string);
-        if (isNaN(id)) return res.status(400).json({ error: "Invalid content id" });
         const { versionId } = req.body;
         if (!versionId) {
           return res.status(400).json({ error: "versionId is required" });
@@ -2654,7 +2643,6 @@ Please generate an IMPROVED version that incorporates the requested changes whil
       try {
         const userId = getUserId(req) as string;
         const id = parseInt(req.params.id as string);
-        if (isNaN(id)) return res.status(400).json({ error: "Invalid course id" });
         const duplicated = await storage.duplicateCourse(id, userId);
         if (!duplicated) {
           return res.status(404).json({ error: "Course not found" });
@@ -2675,7 +2663,6 @@ Please generate an IMPROVED version that incorporates the requested changes whil
       try {
         const userId = getUserId(req) as string;
         const id = parseInt(req.params.id as string);
-        if (isNaN(id)) return res.status(400).json({ error: "Invalid course id" });
         const { semester, contentIds } = z.object({
           semester: z.string().min(1),
           contentIds: z.array(z.number().int().positive()).optional().default([]),
@@ -2749,7 +2736,6 @@ Please generate an IMPROVED version that incorporates the requested changes whil
       try {
         const userId = getUserId(req) as string;
         const id = parseInt(req.params.id as string);
-        if (isNaN(id)) return res.status(400).json({ error: "Invalid library item id" });
         await storage.deleteSavedContent(id, userId);
         res.status(204).send();
       } catch (error) {
@@ -2852,7 +2838,6 @@ Please generate an IMPROVED version that incorporates the requested changes whil
       try {
         const userId = getUserId(req) as string;
         const id = parseInt(req.params.id as string);
-        if (isNaN(id)) return res.status(400).json({ error: "Invalid content id" });
         const content = await storage.getContent(id);
 
         if (!content) {
@@ -3118,11 +3103,7 @@ Limit to the 10 most impactful issues. Be precise and technical.`;
 
   app.post(
     "/api/tools/alt-text",
-    (req, res, next) =>
-      altTextUpload.single("image")(req, res, (err) => {
-        if (err) return res.status(400).json({ error: err.message });
-        next();
-      }),
+    altTextUpload.single("image"),
     async (req: Request, res: Response) => {
       if (!req.file) return res.status(400).json({ error: "No image file provided" });
       const { context } = req.body as { context?: string };
@@ -3190,11 +3171,7 @@ Respond with ONLY the alt text — no explanation, no quotes.`,
 
   app.post(
     "/api/tools/math-ocr",
-    (req, res, next) =>
-      mathOcrUpload.single("image")(req, res, (err) => {
-        if (err) return res.status(400).json({ error: err.message });
-        next();
-      }),
+    mathOcrUpload.single("image"),
     async (req: Request, res: Response) => {
       if (!req.file) return res.status(400).json({ error: "No image file provided" });
 

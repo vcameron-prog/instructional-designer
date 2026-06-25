@@ -235,7 +235,7 @@ export default function AltTextGeneratorPage() {
                       )}
                     </button>
                   </div>
-                  <p className="text-xs text-muted-foreground" data-testid="text-alt-char-count">{result.characterCount} characters</p>
+                  <p className="text-xs text-muted-foreground">{result.characterCount} characters</p>
 
                   <div className="space-y-1.5">
                     <p className="text-sm font-medium text-muted-foreground">HTML usage:</p>

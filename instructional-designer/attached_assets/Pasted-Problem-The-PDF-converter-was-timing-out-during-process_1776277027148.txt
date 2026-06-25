@@ -1,0 +1,36 @@
+Problem: The PDF converter was timing out during processing. Conversions would start but never complete — they'd get stuck indefinitely at the AI processing step with no error or timeout.
+
+Root Cause: Two issues working together:
+
+The AI model (gpt-5-mini) is a reasoning model. Reasoning models spend a large portion of their token budget on internal "thinking" before generating output. For structured tasks like converting text to HTML or running compliance audits, this makes them extremely slow — calls that should take a few seconds would hang for many minutes or never return at all.
+
+The OpenAI client had no timeout or retry configuration. If an API call hung, the server would wait forever with no fallback. There was also no logging to diagnose where processing got stuck.
+
+Changes Made:
+
+1. Switched AI models from gpt-5-mini to gpt-4o-mini
+
+Four AI call sites were changed. These are all in the accessibility engine file (the file that handles the actual document conversion logic):
+
+Document conversion (single-page documents) — the main call that converts extracted text into accessible HTML
+Document conversion (continuation chunks for multi-page documents) — processes additional pages/sections sequentially
+Compliance auditing — analyzes the generated HTML against WCAG 2.1 standards and produces the compliance report
+Compliance issue fixing — when a user clicks "Fix" on a specific issue, this regenerates the HTML to address that issue
+OCR (optical character recognition for scanned PDFs) was left on gpt-4o — it was already working fine since it uses the vision API.
+
+gpt-4o-mini is much faster for these structured output tasks and produces equally good results. It's not a reasoning model, so it doesn't waste tokens on internal thinking.
+
+2. Added timeout and retry settings to the OpenAI client
+
+The OpenAI client initialization was updated to include:
+
+A 5-minute timeout per API request — if the AI doesn't respond within 5 minutes, the call fails instead of hanging forever
+2 automatic retries — if a call fails due to a transient error, it retries up to 2 times before giving up
+3. Added logging for background processing
+
+A log message when background processing starts for a conversion
+A log message when background processing completes successfully
+A safety catch for any completely unexpected/unhandled errors in the background processing task
+Result: Conversions that were previously hanging indefinitely now complete in roughly 10 seconds.
+
+If the other Replit uses a different model, the key takeaway is: make sure the model being used isn't a reasoning model (like gpt-5-mini or o1/o3 series) for structured output tasks. Non-reasoning models like gpt-4o-mini or gpt-4o are much faster and more reliable for HTML generation and compliance analysis. And always configure a timeout on the API client so calls can't hang forever.

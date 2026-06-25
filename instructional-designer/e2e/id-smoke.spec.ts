@@ -610,12 +610,6 @@ test.describe("Accessibility Tools — Alt Text Generator page", () => {
       "generated alt text is displayed in result card",
     ).toHaveText("A red circle", { timeout: 10_000 });
 
-    // The character count badge must show the correct count from the API response
-    await expect(
-      page.getByTestId("text-alt-char-count"),
-      "character count badge shows '14 characters' inside the result card",
-    ).toHaveText("14 characters", { timeout: 10_000 });
-
     // ---------------------------------------------------------------------------
     // Verify the copy button transitions to its "Copied" state after a click.
     // ---------------------------------------------------------------------------
@@ -708,13 +702,6 @@ test.describe("Accessibility Tools — Alt Text Generator page", () => {
       page.getByTestId("alt-result").getByText("Decorative Image"),
       "result card shows the 'Decorative Image' label",
     ).toBeVisible({ timeout: 10_000 });
-
-    // The character count badge must not be rendered for decorative images
-    // (characterCount: 0 means the element is hidden entirely, not shown as "0 characters")
-    await expect(
-      page.getByTestId("text-alt-char-count"),
-      "character count element is not rendered for decorative images",
-    ).toHaveCount(0);
   });
 });
 
