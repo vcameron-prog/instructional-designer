@@ -359,10 +359,28 @@ export async function setupAuth(app: Express) {
   });
 }
 
+async function saveReturnTo(req: Parameters<RequestHandler>[0]): Promise<void> {
+  const url = req.originalUrl || req.url;
+  if (url && url.startsWith("/") && !url.startsWith("//")) {
+    (req.session as any).returnTo = url;
+    try {
+      await new Promise<void>((resolve, reject) =>
+        req.session.save((err) => (err ? reject(err) : resolve()))
+      );
+    } catch (err) {
+      console.warn(
+        "[auth] session.save() failed while persisting returnTo — redirect may fall back to '/':",
+        err
+      );
+    }
+  }
+}
+
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
   const user = req.user as any;
 
   if (!req.isAuthenticated() || !user.expires_at) {
+    await saveReturnTo(req);
     return res.status(401).json({ message: "Unauthorized" });
   }
 
@@ -373,6 +391,7 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
 
   const refreshToken = user.refresh_token;
   if (!refreshToken) {
+    await saveReturnTo(req);
     res.status(401).json({ message: "Unauthorized" });
     return;
   }
@@ -384,6 +403,7 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
     await persistSession(req, user);
     return next();
   } catch (error) {
+    await saveReturnTo(req);
     res.status(401).json({ message: "Unauthorized" });
     return;
   }
@@ -396,6 +416,7 @@ export const isBsuAuthenticated: RequestHandler = async (req, res, next) => {
   const user = req.user as any;
 
   if (!req.isAuthenticated() || !user?.expires_at) {
+    await saveReturnTo(req);
     return res.status(401).json({ message: "Unauthorized" });
   }
 
@@ -403,6 +424,7 @@ export const isBsuAuthenticated: RequestHandler = async (req, res, next) => {
   if (now > user.expires_at) {
     const refreshToken = user.refresh_token;
     if (!refreshToken) {
+      await saveReturnTo(req);
       return res.status(401).json({ message: "Unauthorized" });
     }
     try {
@@ -411,6 +433,7 @@ export const isBsuAuthenticated: RequestHandler = async (req, res, next) => {
       updateUserSession(user, tokenResponse);
       await persistSession(req, user);
     } catch {
+      await saveReturnTo(req);
       return res.status(401).json({ message: "Unauthorized" });
     }
   }

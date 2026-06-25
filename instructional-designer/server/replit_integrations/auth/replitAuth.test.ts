@@ -71,7 +71,7 @@ const EXPIRED_AT = NOW - 300;   // 5 minutes ago — definitely expired
 const VALID_AT = NOW + 3600;    // 1 hour from now — definitely valid
 
 /** Builds a fake Express request object with an in-memory session. */
-function makeReq(userOverride: Record<string, unknown> = {}, authenticated = true) {
+function makeReq(userOverride: Record<string, unknown> = {}, authenticated = true, url?: string) {
   const session: any = {
     save: vi.fn((cb: (err?: Error | null) => void) => cb(null)),
   };
@@ -80,6 +80,7 @@ function makeReq(userOverride: Record<string, unknown> = {}, authenticated = tru
     session,
     user: userOverride,
     logout: vi.fn((cb: () => void) => cb()),
+    ...(url !== undefined ? { originalUrl: url } : {}),
   };
 }
 
@@ -190,6 +191,58 @@ describe("isAuthenticated", () => {
     expect(next).not.toHaveBeenCalled();
     expect(req.session.save).not.toHaveBeenCalled();
   });
+
+  it("saves returnTo in session when not authenticated and a URL is present", async () => {
+    const req = makeReq({}, false, "/faculty/courses/42");
+    const res = makeRes();
+    const next = vi.fn();
+
+    await isAuthenticated(req as any, res as any, next);
+
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(req.session.returnTo).toBe("/faculty/courses/42");
+    expect(req.session.save).toHaveBeenCalledOnce();
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it("saves returnTo in session when token is expired, no refresh_token, and URL is present", async () => {
+    const req = makeReq({ expires_at: EXPIRED_AT }, true, "/faculty/assignments/7");
+    const res = makeRes();
+    const next = vi.fn();
+
+    await isAuthenticated(req as any, res as any, next);
+
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(req.session.returnTo).toBe("/faculty/assignments/7");
+    expect(req.session.save).toHaveBeenCalledOnce();
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it("saves returnTo in session when refresh grant throws and URL is present", async () => {
+    mockRefreshTokenGrant.mockRejectedValueOnce(new Error("token revoked"));
+    const req = makeReq({ expires_at: EXPIRED_AT, refresh_token: "stale-rt" }, true, "/faculty/rubrics/3");
+    const res = makeRes();
+    const next = vi.fn();
+
+    await isAuthenticated(req as any, res as any, next);
+
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(req.session.returnTo).toBe("/faculty/rubrics/3");
+    expect(req.session.save).toHaveBeenCalledOnce();
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it("does NOT save returnTo for paths starting with '//' (open-redirect guard)", async () => {
+    const req = makeReq({}, false, "//evil.com/phish");
+    const res = makeRes();
+    const next = vi.fn();
+
+    await isAuthenticated(req as any, res as any, next);
+
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(req.session.returnTo).toBeUndefined();
+    expect(req.session.save).not.toHaveBeenCalled();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -290,6 +343,46 @@ describe("isBsuAuthenticated", () => {
     await isBsuAuthenticated(req as any, res as any, next);
 
     expect(res.status).toHaveBeenCalledWith(401);
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it("saves returnTo in session when not authenticated and a URL is present", async () => {
+    const req = makeReq({}, false, "/faculty/syllabus/edit");
+    const res = makeRes();
+    const next = vi.fn();
+
+    await isBsuAuthenticated(req as any, res as any, next);
+
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(req.session.returnTo).toBe("/faculty/syllabus/edit");
+    expect(req.session.save).toHaveBeenCalledOnce();
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it("saves returnTo in session when expired with no refresh_token and URL is present", async () => {
+    const req = makeReq({ expires_at: EXPIRED_AT }, true, "/faculty/quick-tools");
+    const res = makeRes();
+    const next = vi.fn();
+
+    await isBsuAuthenticated(req as any, res as any, next);
+
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(req.session.returnTo).toBe("/faculty/quick-tools");
+    expect(req.session.save).toHaveBeenCalledOnce();
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it("saves returnTo in session when refresh grant throws and URL is present", async () => {
+    mockRefreshTokenGrant.mockRejectedValueOnce(new Error("network error"));
+    const req = makeReq({ expires_at: EXPIRED_AT, refresh_token: "bad-rt" }, true, "/faculty/modules/5");
+    const res = makeRes();
+    const next = vi.fn();
+
+    await isBsuAuthenticated(req as any, res as any, next);
+
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(req.session.returnTo).toBe("/faculty/modules/5");
+    expect(req.session.save).toHaveBeenCalledOnce();
     expect(next).not.toHaveBeenCalled();
   });
 });
