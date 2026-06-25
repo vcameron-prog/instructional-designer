@@ -190,4 +190,58 @@ test.describe("slow sign-in notice", () => {
       ).not.toHaveURL(/signin=slow/, { timeout: 5_000 });
     }
   );
+
+  test(
+    "toast fires before useRequireAuth redirect when session is missing on a protected page",
+    async ({ page }) => {
+      // EDGE CASE: expired or invalidated session cookie
+      // --------------------------------------------------------------------------
+      // This test covers the third scenario not addressed by the two tests above:
+      // the browser arrives on a protected page with ?signin=slow while holding
+      // NO valid session (cookie absent, expired server-side, or invalidated).
+      //
+      // Expected product behavior:
+      //   1. SlowSignInNotice's useEffect fires immediately on mount. It reads
+      //      window.location.search synchronously — no network call — strips the
+      //      ?signin=slow param, and fires the "Session timed out" toast.
+      //   2. useRequireAuth() also fires a useEffect. However it can only redirect
+      //      after its auth query (GET /api/auth/user) completes and returns 401,
+      //      which requires a full HTTP round-trip.
+      //   3. Because step 1 is synchronous and step 2 is async, the toast is
+      //      guaranteed to render before the redirect fires under normal conditions.
+      //   4. After the toast appears the page is redirected to /api/login so the
+      //      user can sign in again. The toast serves as a brief notice that their
+      //      session timed out before they are asked to authenticate.
+      //
+      // We simulate "expired/invalid session" by navigating directly to the
+      // protected page with ?signin=slow and no auth cookie — identical to what
+      // the browser sees if the session was cleared between the OAuth redirect
+      // and landing back on the returnTo page.
+      // --------------------------------------------------------------------------
+
+      // Navigate to a protected page with ?signin=slow but NO auth session.
+      // Using waitUntil:"domcontentloaded" so Playwright returns as soon as the
+      // initial HTML is parsed, before the JS-driven redirect fires.
+      await page.goto(`${ROOT}/settings?signin=slow`, {
+        waitUntil: "domcontentloaded",
+        timeout: 15_000,
+      });
+
+      // The "Session timed out" toast must appear before useRequireAuth redirects.
+      // SlowSignInNotice reads the URL synchronously; the auth check requires a
+      // network round-trip, so there is a reliable ordering guarantee here.
+      await expect(
+        page.getByText("Session timed out", { exact: true }),
+        "SlowSignInNotice must show the 'Session timed out' toast even when the " +
+          "session is missing (expired or invalidated) — the toast fires before " +
+          "useRequireAuth() can complete its async auth check and redirect"
+      ).toBeVisible({ timeout: 8_000 });
+
+      // Note: we do NOT assert on the final URL here. After the toast appears,
+      // useRequireAuth() will redirect to /api/login once the auth query returns
+      // 401. Asserting a specific post-redirect URL would be flaky because the
+      // timing of that redirect relative to Playwright's observation window varies.
+      // The critical invariant — that the toast fires at all — is asserted above.
+    }
+  );
 });
