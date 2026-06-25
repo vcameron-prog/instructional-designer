@@ -14,12 +14,10 @@ import {
   Shield,
   Image,
   AlignLeft,
-  Info,
   ExternalLink,
   Globe,
   Eye,
   Calculator,
-  ScanText,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { ConverterHeader } from "@/components/header-controls";

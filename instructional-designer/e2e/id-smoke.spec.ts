@@ -147,7 +147,7 @@ test.describe("Library page — no conversions card", () => {
 //   - instructional-designer/.replit  (standalone deploy)
 //   - .replit (monorepo dev run)
 // If either drifts from this constant, this test will fail CI.
-const EXPECTED_CONVERTER_URL = "https://bsu-accessibility-tool.replit.app";
+const EXPECTED_CONVERTER_URL = "https://bsu-instructional-designer.replit.app/accessibility";
 
 test.describe("Landing page — Accessibility Converter link", () => {
   test("card-pdf-accessibility is visible and configured with a real URL", async ({ page }) => {

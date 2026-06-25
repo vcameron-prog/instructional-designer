@@ -1,4 +1,4 @@
-import { Sparkles, Shield } from "lucide-react";
+import { Shield } from "lucide-react";
 import bsuAiLogo from "@assets/bsu-cai-logo.png";
 import { useLocation } from "wouter";
 
