@@ -529,6 +529,21 @@ test.describe("Accessibility Tools — Alt Text Generator page", () => {
   test("uploads a synthetic image, mocks API, and result card with alt text appears", async ({
     page,
   }) => {
+    // ---------------------------------------------------------------------------
+    // Mock navigator.clipboard before the first navigation so the component's
+    // copy() function reaches setCopied(true) without real clipboard access.
+    // navigator.clipboard is unavailable in headless Playwright; without this
+    // mock the try/catch in copy() silently swallows the error and the button
+    // never transitions to its "Copied" state.
+    // ---------------------------------------------------------------------------
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, "clipboard", {
+        value: { writeText: (_text: string) => Promise.resolve() },
+        writable: true,
+        configurable: true,
+      });
+    });
+
     // Mock the alt-text API — avoid any real Anthropic call
     const mockAltResult = {
       altText: "A red circle",
@@ -594,6 +609,24 @@ test.describe("Accessibility Tools — Alt Text Generator page", () => {
       page.getByTestId("text-generated-alt"),
       "generated alt text is displayed in result card",
     ).toHaveText("A red circle", { timeout: 10_000 });
+
+    // ---------------------------------------------------------------------------
+    // Verify the copy button transitions to its "Copied" state after a click.
+    // ---------------------------------------------------------------------------
+    const copyBtn = page.getByTestId("button-copy-alt");
+    await expect(copyBtn, "copy-alt button is visible before clicking").toBeVisible({ timeout: 5_000 });
+    await expect(copyBtn, "copy-alt button starts with 'Copy alt text' label").toHaveAttribute(
+      "aria-label",
+      "Copy alt text",
+    );
+
+    await copyBtn.click();
+
+    // The button should switch aria-label to "Copied" within a short window
+    await expect(
+      copyBtn,
+      "copy-alt button aria-label transitions to 'Copied' after click",
+    ).toHaveAttribute("aria-label", "Copied", { timeout: 3_000 });
   });
 
   test("uploads a synthetic image, mocks decorative API response, and shows empty-alt code snippet", async ({
