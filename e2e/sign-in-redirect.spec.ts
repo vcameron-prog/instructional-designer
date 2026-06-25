@@ -14,10 +14,12 @@
  *    the real OIDC callback does with req.session.returnTo after a successful
  *    login.
  *
- * Uses /settings as the target page because it renders HeaderControls directly
+ * Uses /help as the target page because it renders HeaderControls directly
  * (with showLogin defaulting to true), so button-header-login is visible to
  * unauthenticated visitors. Pages using ConverterHeader (history, conversion,
  * upload) force showLogin={false} and do not show this button.
+ * /settings was previously tried but it is a protected route (requiresAuth:
+ * true) that redirects unauthenticated visitors to OIDC before rendering.
  *
  * Run with:
  *   PLAYWRIGHT_TEST=1 npx playwright test e2e/sign-in-redirect.spec.ts
@@ -44,8 +46,8 @@ test.describe("Sign-in returnTo redirect flow", () => {
   test("unauthenticated visit to a page with HeaderControls shows Sign In button", async ({
     page,
   }) => {
-    // /settings uses HeaderControls directly with showLogin defaulting to true.
-    await page.goto("/settings");
+    // /help uses HeaderControls directly with showLogin defaulting to true.
+    await page.goto("/help");
 
     const loginBtn = page.getByTestId("button-header-login");
     await expect(loginBtn).toBeVisible({ timeout: 15_000 });
@@ -55,7 +57,7 @@ test.describe("Sign-in returnTo redirect flow", () => {
   test("Sign In button encodes current path as returnTo query param", async ({
     page,
   }) => {
-    const protectedPath = "/settings";
+    const protectedPath = "/help";
     await page.goto(protectedPath);
 
     const loginBtn = page.getByTestId("button-header-login");
@@ -79,7 +81,7 @@ test.describe("Sign-in returnTo redirect flow", () => {
   test("after sign-in the browser lands on the originally requested URL, not just /", async ({
     page,
   }) => {
-    const protectedPath = "/settings";
+    const protectedPath = "/help";
 
     // Step 1: Navigate to the page without being signed in.
     await page.goto(protectedPath);
@@ -109,8 +111,8 @@ test.describe("Sign-in returnTo redirect flow", () => {
       timeout: 10_000,
     });
 
-    // The page must render authenticated content (proves we're on /settings).
-    await expect(page.getByText("Preferences")).toBeVisible({ timeout: 10_000 });
+    // The page must render content that proves we're on /help.
+    await expect(page.getByText("Help & Resources")).toBeVisible({ timeout: 10_000 });
   });
 
   test("returnTo preserves path AND query string (matches queryClient 401 handler)", async ({
@@ -120,7 +122,7 @@ test.describe("Sign-in returnTo redirect flow", () => {
     //   window.location.pathname + window.location.search
     // This test verifies the header Sign In button uses the same formula by
     // navigating to a path with a query string and checking the encoded value.
-    const pathWithSearch = "/settings?tab=account";
+    const pathWithSearch = "/help?tab=account";
     await page.goto(pathWithSearch);
 
     const loginBtn = page.getByTestId("button-header-login");
