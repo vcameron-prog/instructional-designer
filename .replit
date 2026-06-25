@@ -23,7 +23,7 @@ PORT = "5000"
 [deployment]
 deploymentTarget = "autoscale"
 run = ["bash", "scripts/pre-start.sh"]
-build = ["npm", "run", "build"]
+build = ["bash", "scripts/build-all.sh"]
 
 [workflows]
 runButton = "Project"

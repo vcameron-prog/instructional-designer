@@ -31,7 +31,16 @@ echo "[pre-start] Step 3: Asserting zero pending migrations..."
 npx tsx scripts/assert-migrations-applied.ts
 
 echo ""
-echo "[pre-start] All checks passed. Starting server..."
+echo "[pre-start] All checks passed."
+
+echo ""
+echo "[pre-start] Step 4: Starting Instructional Designer server (background)..."
+PORT=3001 node instructional-designer/dist/index.cjs &
+ID_PID=$!
+echo "[pre-start] Instructional Designer started (PID $ID_PID)"
+
+echo ""
+echo "[pre-start] Step 5: Starting main server..."
 echo "============================================================"
 echo ""
 
