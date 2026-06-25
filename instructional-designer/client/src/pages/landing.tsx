@@ -208,7 +208,7 @@ export default function LandingPage() {
                     aria-label="Quick Tools"
                     data-testid="card-quick-tools"
                   >
-                    <CardContent className="p-8 text-center">
+                    <CardContent className="p-8 text-center flex flex-col items-center">
                       <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-amber-500 to-yellow-400 flex items-center justify-center mx-auto mb-6 group-hover:scale-105 transition-transform">
                         <Zap className="w-10 h-10 text-white" />
                       </div>
@@ -216,7 +216,7 @@ export default function LandingPage() {
                       <CardDescription className="text-base" style={{ textWrap: "balance" }}>
                         Create a one-off assignment, rubric, or other material without setting up a full course
                       </CardDescription>
-                      <Button variant="outline" className="mt-6 gap-2" data-testid="button-quick-tools">
+                      <Button variant="outline" className="mt-auto gap-2" data-testid="button-quick-tools">
                         Browse Tools <ArrowRight className="w-4 h-4" />
                       </Button>
                     </CardContent>
@@ -231,7 +231,7 @@ export default function LandingPage() {
                     aria-label="Design a new course"
                     data-testid="card-new-course"
                   >
-                    <CardContent className="p-8 text-center">
+                    <CardContent className="p-8 text-center flex flex-col items-center">
                       <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center mx-auto mb-6 group-hover:scale-105 transition-transform">
                         <Sparkles className="w-10 h-10 text-white" />
                       </div>
@@ -239,7 +239,7 @@ export default function LandingPage() {
                       <CardDescription className="text-base" style={{ textWrap: "balance" }}>
                         Begin with course information and create complete course materials from scratch
                       </CardDescription>
-                      <Button className="mt-6 gap-2" data-testid="button-start-new">
+                      <Button className="mt-auto gap-2" data-testid="button-start-new">
                         Get Started <ArrowRight className="w-4 h-4" />
                       </Button>
                     </CardContent>
