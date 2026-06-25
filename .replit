@@ -53,6 +53,10 @@ args = "schema-drift"
 task = "workflow.run"
 args = "playwright-auth"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "check-links"
+
 [[workflows.workflow]]
 name = "Start application"
 author = "agent"
@@ -102,6 +106,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "CI=1 npx playwright test e2e/sign-in-redirect.spec.ts"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "check-links"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "bash scripts/check-links.sh"
 
 [workflows.workflow.metadata]
 isValidation = true
