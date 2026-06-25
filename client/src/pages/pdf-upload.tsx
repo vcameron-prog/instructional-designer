@@ -16,6 +16,10 @@ import {
   AlignLeft,
   Info,
   ExternalLink,
+  Globe,
+  Eye,
+  Calculator,
+  ScanText,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { ConverterHeader } from "@/components/header-controls";
@@ -38,7 +42,7 @@ function formatBytes(bytes: number): string {
 }
 
 export default function PdfUpload() {
-  usePageTitle("Accessibility Converter");
+  usePageTitle("Accessibility Tools");
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
@@ -351,19 +355,18 @@ export default function PdfUpload() {
             </button>
           </div>
 
-
           <h1
             id="id-converter-heading"
             className="text-3xl md:text-4xl font-bold mb-3 tracking-tight"
             data-testid="text-page-title"
           >
-            Accessibility Converter
+            Accessibility Tools
           </h1>
           <span className="inline-block text-xs font-semibold bg-white/10 border border-white/20 text-gray-200 px-3 py-1 rounded-full mb-6">
             ADA Title II · WCAG 2.1 AA
           </span>
           <p className="text-gray-300 max-w-2xl mx-auto text-base">
-            Instantly remediate PDF, Word, PowerPoint, and Excel documents—or import directly from Google Docs, Sheets, and Slides—and prepare them to meet ADA Title II and WCAG 2.1 AA requirements using advanced AI structural analysis and description generation.
+            AI-powered tools to make your documents, content, and courses accessible. Remediate files instantly or use standalone checkers — all in one place.
           </p>
         </div>
       </section>
@@ -393,24 +396,73 @@ export default function PdfUpload() {
           </div>
         </div>
 
-        {/* Accessibility Tool cross-link tile */}
+        {/* Additional accessibility tools from BSU Accessibility Tool */}
         <div className="max-w-3xl mx-auto mb-6">
-          <a
-            href="https://bsu-accessibility-tool.replit.app/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-4 rounded-lg border bg-card p-5 hover:bg-secondary/50 transition-colors group"
-            data-testid="link-accessibility-tool"
-          >
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-red-600 to-rose-700 flex items-center justify-center flex-shrink-0">
-              <ExternalLink className="w-6 h-6 text-white" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-foreground group-hover:underline">Accessibility Tool</p>
-              <p className="text-sm text-muted-foreground">Visit the full BSU Accessibility Tool at bsu-accessibility-tool.replit.app</p>
-            </div>
-            <ArrowRight className="w-5 h-5 text-muted-foreground flex-shrink-0 group-hover:translate-x-1 transition-transform" />
-          </a>
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+            More Accessibility Tools
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {[
+              {
+                href: "https://bsu-accessibility-tool.replit.app/url-scanner",
+                icon: <Globe className="w-5 h-5 text-white" />,
+                gradient: "from-sky-500 to-cyan-600",
+                label: "URL Scanner",
+                description: "Check any webpage for accessibility issues and WCAG violations.",
+                testid: "link-tool-url-scanner",
+              },
+              {
+                href: "https://bsu-accessibility-tool.replit.app/color-contrast",
+                icon: <Eye className="w-5 h-5 text-white" />,
+                gradient: "from-amber-500 to-orange-600",
+                label: "Color Contrast",
+                description: "Verify foreground/background color combinations meet WCAG contrast ratios.",
+                testid: "link-tool-color-contrast",
+              },
+              {
+                href: "https://bsu-accessibility-tool.replit.app/alt-text",
+                icon: <Image className="w-5 h-5 text-white" />,
+                gradient: "from-fuchsia-500 to-pink-600",
+                label: "Alt Text",
+                description: "Generate and review alternative text descriptions for images.",
+                testid: "link-tool-alt-text",
+              },
+              {
+                href: "https://bsu-accessibility-tool.replit.app/document-converter",
+                icon: <FileText className="w-5 h-5 text-white" />,
+                gradient: "from-lime-500 to-green-600",
+                label: "Document Converter",
+                description: "Convert and remediate documents in the BSU Accessibility Tool.",
+                testid: "link-tool-document-converter",
+              },
+              {
+                href: "https://bsu-accessibility-tool.replit.app/math-ocr",
+                icon: <Calculator className="w-5 h-5 text-white" />,
+                gradient: "from-rose-500 to-red-600",
+                label: "Math OCR",
+                description: "Extract and convert mathematical expressions into accessible formats.",
+                testid: "link-tool-math-ocr",
+              },
+            ].map((tool) => (
+              <a
+                key={tool.testid}
+                href={tool.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-4 rounded-lg border bg-card p-4 hover:bg-secondary/50 transition-colors group"
+                data-testid={tool.testid}
+              >
+                <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${tool.gradient} flex items-center justify-center flex-shrink-0`}>
+                  {tool.icon}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-foreground text-sm group-hover:underline">{tool.label}</p>
+                  <p className="text-xs text-muted-foreground">{tool.description}</p>
+                </div>
+                <ExternalLink className="w-4 h-4 text-muted-foreground flex-shrink-0 opacity-60" />
+              </a>
+            ))}
+          </div>
         </div>
 
         {uploadError && (
