@@ -7,7 +7,7 @@ import { PoweredByFooter } from "@/components/powered-by-footer";
 import { HeaderControls } from "@/components/header-controls";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useAuth } from "@/hooks/use-auth";
-import { ArrowLeft, Settings, Wand2, Globe, LayoutList, Zap, Cloud, CloudOff, AlertCircle } from "lucide-react";
+import { ArrowLeft, Settings, Wand2, Globe, LayoutList, Zap, Cloud, CloudOff, AlertCircle, RotateCcw } from "lucide-react";
 import { TOOLS } from "@/lib/constants";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -41,6 +41,7 @@ export default function SettingsPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [saveError, setSaveError] = useState(false);
+  const [lastFailedPatch, setLastFailedPatch] = useState<Partial<UserPreferences> | null>(null);
 
   const [skipPreview, setSkipPreview] = useState(
     () => localStorage.getItem(SKIP_PREVIEW_KEY) === "true"
@@ -101,13 +102,16 @@ export default function SettingsPage() {
     },
     onMutate: () => {
       setSaveError(false);
+      setLastFailedPatch(null);
     },
     onSuccess: () => {
       setSaveError(false);
+      setLastFailedPatch(null);
       queryClient.invalidateQueries({ queryKey: ["/api/preferences"] });
     },
-    onError: () => {
+    onError: (_err, patch) => {
       setSaveError(true);
+      setLastFailedPatch(patch);
       toast({
         title: "Preferences not saved",
         description: "Your settings could not be synced to your account. Please try again.",
@@ -196,6 +200,17 @@ export default function SettingsPage() {
                 <>
                   <AlertCircle className="w-3.5 h-3.5 text-destructive" />
                   <span className="text-destructive" data-testid="status-sync-error">Save failed</span>
+                  <button
+                    type="button"
+                    onClick={() => lastFailedPatch && saveMutation.mutate(lastFailedPatch)}
+                    disabled={!lastFailedPatch}
+                    data-testid="button-retry-save"
+                    className="flex items-center gap-1 text-destructive underline underline-offset-2 hover:text-destructive/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-destructive disabled:opacity-50 disabled:cursor-not-allowed"
+                    aria-label="Retry saving preferences"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    Retry
+                  </button>
                 </>
               ) : (
                 <>
