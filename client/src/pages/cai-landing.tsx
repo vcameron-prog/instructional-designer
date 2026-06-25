@@ -63,16 +63,17 @@ export default function CaiLandingPage() {
             powered by AI and built specifically for Bridgewater State University instructors.
           </p>
 
-          <Button
-            size="lg"
-            className="gap-2 bg-white text-gray-900 hover:bg-gray-100 text-base px-8 py-6 rounded-xl font-semibold shadow-lg"
-            onClick={() => window.open(import.meta.env.VITE_ID_APP_URL || "https://bsu-instructional-designer.replit.app", "_blank", "noopener,noreferrer")}
+          <a
+            href={import.meta.env.VITE_ID_APP_URL || "https://bsu-instructional-designer.replit.app"}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 bg-white text-gray-900 hover:bg-gray-100 text-base px-8 py-6 rounded-xl font-semibold shadow-lg transition-colors"
             data-testid="button-open-id-app"
           >
             <GraduationCap className="w-5 h-5" />
             Open Instructional Designer
             <ArrowRight className="w-5 h-5" />
-          </Button>
+          </a>
         </div>
       </section>
 
