@@ -364,6 +364,17 @@ export default function PdfUpload() {
           <p className="text-gray-300 max-w-2xl mx-auto text-base">
             Instantly remediate PDF, Word, PowerPoint, and Excel documents—or import directly from Google Docs, Sheets, and Slides—and prepare them to meet ADA Title II and WCAG 2.1 AA requirements using advanced AI structural analysis and description generation.
           </p>
+          <p className="mt-4 text-sm text-gray-400">
+            Also available:{" "}
+            <a
+              href="https://bsu-accessibility-tool.replit.app/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline underline-offset-2 hover:text-white transition-colors"
+            >
+              Accessibility Tool
+            </a>
+          </p>
         </div>
       </section>
 

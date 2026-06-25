@@ -672,7 +672,7 @@ export default function HelpPage() {
 
               <div className="pt-4 border-t">
                 <Button
-                  onClick={() => window.open(import.meta.env.VITE_CONVERTER_APP_URL || "#", "_blank", "noopener noreferrer")}
+                  onClick={() => { const url = import.meta.env.DEV ? `${window.location.protocol}//${window.location.hostname}/accessibility` : (import.meta.env.VITE_CONVERTER_APP_URL || "#"); window.open(url, "_blank", "noopener noreferrer"); }}
                   className="w-full sm:w-auto"
                   data-testid="button-go-to-pdf-converter"
                 >

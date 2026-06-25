@@ -32,4 +32,4 @@ waitForPort = 5000
 [userenv]
 
 [userenv.shared]
-VITE_CONVERTER_APP_URL = "https://bsu-accessibility-tool.replit.app"
+VITE_CONVERTER_APP_URL = "https://bsu-instructional-designer.replit.app/accessibility"

@@ -36,6 +36,13 @@ function isBsuEmail(email?: string | null): boolean {
   return !!email && email.toLowerCase().endsWith("@bridgew.edu");
 }
 
+function getConverterUrl(): string {
+  if (import.meta.env.DEV) {
+    return `${window.location.protocol}//${window.location.hostname}/accessibility`;
+  }
+  return import.meta.env.VITE_CONVERTER_APP_URL || "#";
+}
+
 export default function LandingPage() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
@@ -161,8 +168,8 @@ export default function LandingPage() {
 
             <Card
               className="group cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl bg-card border border-emerald-200/60 dark:border-emerald-800/40"
-              onClick={() => { window.open(import.meta.env.VITE_CONVERTER_APP_URL || "#", "_blank", "noopener noreferrer"); }}
-              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); window.open(import.meta.env.VITE_CONVERTER_APP_URL || "#", "_blank", "noopener noreferrer"); } }}
+              onClick={() => { window.open(getConverterUrl(), "_blank", "noopener noreferrer"); }}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); window.open(getConverterUrl(), "_blank", "noopener noreferrer"); } }}
               tabIndex={0}
               role="button"
               aria-label="Accessibility Converter — open to everyone"
