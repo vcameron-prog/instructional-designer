@@ -244,4 +244,83 @@ test.describe("slow sign-in notice", () => {
       // The critical invariant — that the toast fires at all — is asserted above.
     }
   );
+
+  test(
+    "toast does NOT fire a second time after browser back-navigation to the cleaned URL",
+    async ({ page }) => {
+      // REGRESSION GUARD: replaceState strips ?signin=slow from the history entry.
+      // --------------------------------------------------------------------------
+      // When SlowSignInNotice fires it calls window.history.replaceState, which
+      // mutates the current history entry in-place so the URL no longer contains
+      // ?signin=slow.  If the user presses Back (after being redirected away by
+      // useRequireAuth), they land on the already-cleaned URL.  The param is gone,
+      // so SlowSignInNotice's useEffect must not fire the toast a second time.
+      //
+      // Test flow
+      // ---------
+      // 1. Navigate to /settings?signin=slow with no auth cookie.
+      // 2. Assert the toast appears (first and only expected occurrence).
+      // 3. Assert the URL is cleaned before the redirect fires.
+      // 4. Wait for useRequireAuth() to redirect away (to /api/login).
+      // 5. Navigate Back — the browser restores the cleaned /settings URL.
+      // 6. Assert the toast does NOT appear again.
+      // --------------------------------------------------------------------------
+
+      // Step 1 — Navigate to the protected page with ?signin=slow and no session.
+      // domcontentloaded lets us observe the toast before the JS redirect fires.
+      await page.goto(`${ROOT}/settings?signin=slow`, {
+        waitUntil: "domcontentloaded",
+        timeout: 15_000,
+      });
+
+      // Step 2 — Assert the "Session timed out" toast appeared exactly once.
+      await expect(
+        page.getByText("Session timed out", { exact: true }),
+        "SlowSignInNotice must show the toast on the first visit"
+      ).toBeVisible({ timeout: 8_000 });
+
+      // Step 3 — Assert replaceState already cleaned the URL in this history entry.
+      await expect(
+        page,
+        "replaceState must strip ?signin=slow from the URL before the redirect"
+      ).not.toHaveURL(/signin=slow/, { timeout: 5_000 });
+
+      // Step 4 — Wait for useRequireAuth() to redirect away to the login page.
+      // The auth query (GET /api/auth/user) must return 401 and then the effect
+      // issues window.location.href — a full-page navigation.  We wait for a URL
+      // change away from /settings to confirm the redirect has completed.
+      await page.waitForURL((url) => !url.pathname.startsWith("/settings"), {
+        timeout: 15_000,
+      });
+
+      // Step 5 — Navigate Back.  The browser pops the history stack and restores
+      // the entry that replaceState cleaned (/settings, without ?signin=slow).
+      await page.goBack({ waitUntil: "domcontentloaded", timeout: 15_000 });
+
+      // Confirm Back actually landed on /settings and not on an intermediate
+      // page (e.g. /api/login) that could make the following negative assertions
+      // pass vacuously.  replaceState mutated the entry in-place, so the URL
+      // must be /settings.  The separate not.toHaveURL(/signin=slow/) assertion
+      // below then confirms the param is still absent.
+      await expect(
+        page,
+        "back-navigation must restore the /settings history entry"
+      ).toHaveURL(/\/settings/, { timeout: 5_000 });
+
+      // Step 6 — The toast must NOT fire a second time.
+      // We give a short window (3 s) so the test stays fast while still catching
+      // any regression where SlowSignInNotice fires on the stale history entry.
+      await expect(
+        page.getByText("Session timed out", { exact: true }),
+        "SlowSignInNotice must NOT show the toast again after back-navigation " +
+          "because replaceState already stripped ?signin=slow from the history entry"
+      ).not.toBeVisible({ timeout: 3_000 });
+
+      // Step 7 — Confirm the URL is still free of ?signin=slow.
+      await expect(
+        page,
+        "the back-navigated URL must not contain ?signin=slow"
+      ).not.toHaveURL(/signin=slow/);
+    }
+  );
 });
