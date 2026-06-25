@@ -3641,5 +3641,321 @@ export async function registerRoutes(
 
   // ─── End admin routes ───────────────────────────────────────────────────────
 
+  // ─── Accessibility Quick Tools ───────────────────────────────────────────────
+
+  // -- Color Contrast (no AI, pure math) ------------------------------------
+  app.post("/api/tools/color-contrast", (req: Request, res: Response) => {
+    const { foreground, background } = req.body as { foreground?: string; background?: string };
+    if (!foreground || !background) {
+      return res.status(400).json({ error: "foreground and background colors are required" });
+    }
+
+    function parseHex(hex: string): [number, number, number] | null {
+      const clean = hex.replace(/^#/, "");
+      if (clean.length === 3) {
+        const r = parseInt(clean[0] + clean[0], 16);
+        const g = parseInt(clean[1] + clean[1], 16);
+        const b = parseInt(clean[2] + clean[2], 16);
+        if (isNaN(r) || isNaN(g) || isNaN(b)) return null;
+        return [r, g, b];
+      }
+      if (clean.length === 6) {
+        const r = parseInt(clean.slice(0, 2), 16);
+        const g = parseInt(clean.slice(2, 4), 16);
+        const b = parseInt(clean.slice(4, 6), 16);
+        if (isNaN(r) || isNaN(g) || isNaN(b)) return null;
+        return [r, g, b];
+      }
+      return null;
+    }
+
+    function relativeLuminance([r, g, b]: [number, number, number]): number {
+      const linearize = (v: number) => {
+        const s = v / 255;
+        return s <= 0.04045 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+      };
+      return 0.2126 * linearize(r) + 0.7152 * linearize(g) + 0.0722 * linearize(b);
+    }
+
+    const fg = parseHex(foreground);
+    const bg = parseHex(background);
+    if (!fg) return res.status(400).json({ error: "Invalid foreground color. Use a 3 or 6-digit hex code (e.g. #fff or #ffffff)." });
+    if (!bg) return res.status(400).json({ error: "Invalid background color. Use a 3 or 6-digit hex code (e.g. #000 or #000000)." });
+
+    const l1 = relativeLuminance(fg);
+    const l2 = relativeLuminance(bg);
+    const lighter = Math.max(l1, l2);
+    const darker = Math.min(l1, l2);
+    const ratio = parseFloat(((lighter + 0.05) / (darker + 0.05)).toFixed(2));
+
+    res.json({
+      ratio,
+      aa_normal: ratio >= 4.5,
+      aa_large: ratio >= 3,
+      aaa_normal: ratio >= 7,
+      aaa_large: ratio >= 4.5,
+      foreground,
+      background,
+    });
+  });
+
+  // -- URL Scanner ----------------------------------------------------------
+  // Blocks requests to private/loopback/link-local IP ranges (SSRF guard).
+  function isPrivateIpTools(addr: string): boolean {
+    const ip = addr.replace(/^::ffff:/i, "");
+    if (ip === "::1") return true;
+    if (/^fc/i.test(ip) || /^fd/i.test(ip)) return true;
+    if (/^fe80/i.test(ip)) return true;
+    const parts = ip.split(".").map(Number);
+    if (parts.length !== 4 || parts.some(isNaN)) return false;
+    const [a, b] = parts;
+    return (
+      a === 0 ||
+      a === 10 ||
+      a === 127 ||
+      (a === 169 && b === 254) ||
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && b === 168) ||
+      (a === 100 && b >= 64 && b <= 127)
+    );
+  }
+
+  async function guardSsrfTools(hostname: string): Promise<string | null> {
+    if (hostname === "localhost") return "Requests to localhost are not allowed";
+    const { promises: dns } = await import("dns");
+    let address: string;
+    try {
+      const result = await dns.lookup(hostname);
+      address = result.address;
+    } catch {
+      return "Could not resolve hostname";
+    }
+    if (isPrivateIpTools(address)) return "Requests to private/internal addresses are not allowed";
+    return null;
+  }
+
+  app.post("/api/tools/url-scanner", async (req: Request, res: Response) => {
+    const { url } = req.body as { url?: string };
+    if (!url) return res.status(400).json({ error: "url is required" });
+
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(url);
+    } catch {
+      return res.status(400).json({ error: "Invalid URL. Please provide a full URL including https://" });
+    }
+    if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+      return res.status(400).json({ error: "Only http and https URLs are supported" });
+    }
+
+    const ssrfError = await guardSsrfTools(parsedUrl.hostname);
+    if (ssrfError) {
+      return res.status(400).json({ error: ssrfError });
+    }
+
+    let html: string;
+    try {
+      const response = await fetch(url, {
+        headers: { "User-Agent": "BSU-Accessibility-Scanner/1.0" },
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (!response.ok) {
+        return res.status(400).json({ error: `Could not fetch URL: HTTP ${response.status}` });
+      }
+      const contentType = response.headers.get("content-type") || "";
+      if (!contentType.includes("text/html")) {
+        return res.status(400).json({ error: "URL does not return an HTML page" });
+      }
+      html = await response.text();
+    } catch (err: any) {
+      if (err?.name === "TimeoutError") {
+        return res.status(400).json({ error: "The URL took too long to respond (15s timeout)" });
+      }
+      return res.status(400).json({ error: "Failed to fetch URL. Make sure it is publicly accessible." });
+    }
+
+    const truncated = html.slice(0, 20_000);
+
+    const systemPrompt = `You are a WCAG 2.1 AA accessibility expert. Analyze the provided HTML snippet and identify accessibility issues. For each issue, provide: a short title, severity (critical/major/minor), WCAG criterion (e.g. 1.1.1), a one-sentence description, and a concrete recommendation. Return valid JSON only — no markdown fences.
+
+Return a JSON object with this exact shape:
+{
+  "score": <0-100 integer, 100 = perfect>,
+  "summary": "<2-3 sentence overall summary>",
+  "issues": [
+    {
+      "title": "<short title>",
+      "severity": "critical"|"major"|"minor",
+      "criterion": "<WCAG criterion>",
+      "description": "<what the problem is>",
+      "recommendation": "<how to fix it>"
+    }
+  ],
+  "passed": ["<thing that looks correct>", ...]
+}
+
+Limit to the 10 most impactful issues. Be precise and technical.`;
+
+    try {
+      const message = await anthropic.messages.create({
+        model: "claude-haiku-4-5",
+        max_tokens: 2048,
+        system: systemPrompt,
+        messages: [{ role: "user", content: `URL: ${url}\n\nHTML:\n${truncated}` }],
+      });
+
+      const text = (message.content[0] as any).text as string;
+      let result: any;
+      try {
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        result = JSON.parse(jsonMatch ? jsonMatch[0] : text);
+      } catch {
+        return res.status(500).json({ error: "AI returned an unexpected response. Please try again." });
+      }
+      res.json({ url, ...result });
+    } catch (err) {
+      console.error("URL Scanner AI error:", err);
+      res.status(500).json({ error: "AI analysis failed. Please try again." });
+    }
+  });
+
+  // -- Alt Text Generator ---------------------------------------------------
+  const altTextUploadTools = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 5 * 1024 * 1024 },
+    fileFilter: (_req, file, cb) => {
+      if (/^image\/(jpeg|png|gif|webp)$/.test(file.mimetype)) cb(null, true);
+      else cb(new Error("Only JPEG, PNG, GIF, and WebP images are supported"));
+    },
+  });
+
+  app.post(
+    "/api/tools/alt-text",
+    altTextUploadTools.single("image"),
+    async (req: Request, res: Response) => {
+      if (!req.file) return res.status(400).json({ error: "No image file provided" });
+      const { context } = req.body as { context?: string };
+
+      const base64 = req.file.buffer.toString("base64");
+      const mediaType = req.file.mimetype as "image/jpeg" | "image/png" | "image/gif" | "image/webp";
+
+      try {
+        const message = await anthropic.messages.create({
+          model: "claude-haiku-4-5",
+          max_tokens: 512,
+          messages: [
+            {
+              role: "user",
+              content: [
+                {
+                  type: "image",
+                  source: { type: "base64", media_type: mediaType, data: base64 },
+                },
+                {
+                  type: "text",
+                  text: `Generate concise, descriptive alternative text for this image following WCAG 2.1 guidelines.
+${context ? `Context about the image: ${context}` : ""}
+
+Rules:
+- Start directly with the description (no "Image of" or "Picture of")
+- Be specific and meaningful — describe what matters for understanding
+- For charts/graphs: describe the data and trends, not just the visual style
+- For decorative images: respond with exactly: [decorative]
+- Aim for 50-125 characters for simple images, up to 250 for complex ones
+- Do not include the word "alt" in your response
+
+Respond with ONLY the alt text — no explanation, no quotes.`,
+                },
+              ],
+            },
+          ],
+        });
+
+        const altText = ((message.content[0] as any).text as string).trim();
+        const isDecorative = altText === "[decorative]";
+
+        res.json({
+          altText: isDecorative ? "" : altText,
+          isDecorative,
+          characterCount: altText.length,
+        });
+      } catch (err) {
+        console.error("Alt text generation error:", err);
+        res.status(500).json({ error: "AI analysis failed. Please try again." });
+      }
+    },
+  );
+
+  // -- Math OCR -------------------------------------------------------------
+  const mathOcrUploadTools = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 5 * 1024 * 1024 },
+    fileFilter: (_req, file, cb) => {
+      if (/^image\/(jpeg|png|gif|webp)$/.test(file.mimetype)) cb(null, true);
+      else cb(new Error("Only JPEG, PNG, GIF, and WebP images are supported"));
+    },
+  });
+
+  app.post(
+    "/api/tools/math-ocr",
+    mathOcrUploadTools.single("image"),
+    async (req: Request, res: Response) => {
+      if (!req.file) return res.status(400).json({ error: "No image file provided" });
+
+      const base64 = req.file.buffer.toString("base64");
+      const mediaType = req.file.mimetype as "image/jpeg" | "image/png" | "image/gif" | "image/webp";
+
+      try {
+        const message = await anthropic.messages.create({
+          model: "claude-haiku-4-5",
+          max_tokens: 1024,
+          messages: [
+            {
+              role: "user",
+              content: [
+                {
+                  type: "image",
+                  source: { type: "base64", media_type: mediaType, data: base64 },
+                },
+                {
+                  type: "text",
+                  text: `Extract and convert the mathematical content from this image into accessible formats. Return valid JSON only — no markdown fences.
+
+Return this exact JSON shape:
+{
+  "plainText": "<spoken/readable version, e.g. 'x equals negative b plus or minus the square root of b squared minus 4ac, all divided by 2a'>",
+  "latex": "<LaTeX representation, e.g. x = \\\\frac{-b \\\\pm \\\\sqrt{b^2-4ac}}{2a}>",
+  "mathml": "<MathML representation>",
+  "description": "<one sentence describing what this expression or equation represents>"
+}
+
+If the image does not contain clear mathematical content, return:
+{"error": "No mathematical content detected in this image"}`,
+                },
+              ],
+            },
+          ],
+        });
+
+        const text = ((message.content[0] as any).text as string).trim();
+        let result: any;
+        try {
+          const jsonMatch = text.match(/\{[\s\S]*\}/);
+          result = JSON.parse(jsonMatch ? jsonMatch[0] : text);
+        } catch {
+          return res.status(500).json({ error: "AI returned an unexpected response. Please try again." });
+        }
+
+        if (result.error) return res.status(422).json({ error: result.error });
+        res.json(result);
+      } catch (err) {
+        console.error("Math OCR error:", err);
+        res.status(500).json({ error: "AI analysis failed. Please try again." });
+      }
+    },
+  );
+
+  // ─── End accessibility quick tools ───────────────────────────────────────────
+
   return httpServer;
 }

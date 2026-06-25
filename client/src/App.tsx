@@ -14,6 +14,10 @@ import PdfFaq from "@/pages/pdf-faq";
 import SettingsPage from "@/pages/settings";
 import HelpPage from "@/pages/help";
 import AdminDashboard from "@/pages/admin-dashboard";
+import UrlScannerPage from "@/pages/url-scanner";
+import ColorContrastPage from "@/pages/color-contrast";
+import AltTextGeneratorPage from "@/pages/alt-text-generator";
+import MathOcrPage from "@/pages/math-ocr";
 import { ThemeProvider } from "@/components/theme-provider";
 import { FontSizeProvider } from "@/components/font-size-provider";
 import { ProtectedRoute } from "@/components/protected-route";
@@ -35,6 +39,10 @@ const ROUTE_COMPONENTS: Record<string, React.ComponentType> = {
   "/pdf-accessibility/history": PdfHistory,
   "/pdf-accessibility/faq":     PdfFaq,
   "/pdf-accessibility/:id":     PdfConversion,
+  "/accessibility-tools/url-scanner":    UrlScannerPage,
+  "/accessibility-tools/color-contrast": ColorContrastPage,
+  "/accessibility-tools/alt-text":       AltTextGeneratorPage,
+  "/accessibility-tools/math-ocr":       MathOcrPage,
   "/settings":                  SettingsPage,
   "/help":                      HelpPage,
   "/admin":                     AdminDashboard,
