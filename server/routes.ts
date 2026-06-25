@@ -3027,11 +3027,12 @@ export async function registerRoutes(
     // Creates a server-side session for a synthetic user without going through
     // the real Replit OIDC flow. Used by Playwright E2E tests.
     app.post("/api/test/login", async (req: Request, res: Response) => {
-      const { sub, email, firstName, lastName } = req.body as {
+      const { sub, email, firstName, lastName, returnTo } = req.body as {
         sub: string;
         email: string;
         firstName?: string;
         lastName?: string;
+        returnTo?: string;
       };
       if (!sub || !email) {
         res.status(400).json({ error: "sub and email are required" });
@@ -3069,7 +3070,17 @@ export async function registerRoutes(
           res.status(500).json({ error: String(err) });
           return;
         }
-        res.json({ ok: true, sub, email, sessionId: req.sessionID });
+        const safeReturnTo =
+          typeof returnTo === "string" &&
+          returnTo.startsWith("/") &&
+          !returnTo.startsWith("//")
+            ? returnTo
+            : null;
+        if (safeReturnTo) {
+          res.redirect(safeReturnTo);
+        } else {
+          res.json({ ok: true, sub, email, sessionId: req.sessionID });
+        }
       });
     });
 

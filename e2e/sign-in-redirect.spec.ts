@@ -7,11 +7,12 @@
  *    returnTo param from `window.location.pathname + window.location.search`
  *    (the same formula used by the queryClient 401 handler).
  *
- * B. Server-side redirect: GET /api/test/login?returnTo=<path> creates a real
- *    session and issues a 302 redirect back to the original path. The browser
- *    follows that redirect naturally — no manual `page.goto()` call drives the
- *    final navigation.  This mirrors what the real OIDC callback does with
- *    req.session.returnTo after a successful login.
+ * B. Server-side redirect: POST /api/test/login with a `returnTo` body field
+ *    creates a real session and issues a 302 redirect back to the original path.
+ *    The browser follows that redirect naturally via a form submission — no
+ *    manual `page.goto()` call drives the final navigation.  This mirrors what
+ *    the real OIDC callback does with req.session.returnTo after a successful
+ *    login.
  *
  * Uses /settings as the target page because it renders HeaderControls directly
  * (with showLogin defaulting to true), so button-header-login is visible to
@@ -31,18 +32,6 @@ const TEST_USER = {
   firstName: "Playwright",
   lastName: "ReturnTo",
 };
-
-/** Build an absolute URL for GET /api/test/login with session + redirect params. */
-function buildTestLoginUrl(base: string, returnTo: string): string {
-  const params = new URLSearchParams({
-    sub: TEST_USER.sub,
-    email: TEST_USER.email,
-    firstName: TEST_USER.firstName,
-    lastName: TEST_USER.lastName,
-    returnTo,
-  });
-  return `${base}/api/test/login?${params.toString()}`;
-}
 
 test.describe("Sign-in returnTo redirect flow", () => {
   test.beforeEach(async ({ page }) => {
@@ -104,17 +93,39 @@ test.describe("Sign-in returnTo redirect flow", () => {
     );
     expect(capturedReturnTo).toBe(protectedPath);
 
-    // Derive the origin from the current page URL so the test works in any
-    // environment (local dev, CI, staged) without a hardcoded base URL.
-    const origin = new URL(page.url()).origin;
+    // Step 3: Simulate the post-OIDC callback by submitting a form POST to
+    // /api/test/login with returnTo in the body.  The endpoint creates a real
+    // session and issues a 302 redirect — the browser follows that redirect
+    // naturally without any manual page.goto() call driving the final destination.
+    // This mirrors the real OIDC callback's req.session.returnTo redirect flow.
+    await page.evaluate(
+      ({ fields }) => {
+        const form = document.createElement("form");
+        form.method = "POST";
+        form.action = "/api/test/login";
+        for (const [name, value] of Object.entries(fields)) {
+          const input = document.createElement("input");
+          input.type = "hidden";
+          input.name = name;
+          input.value = value as string;
+          form.appendChild(input);
+        }
+        document.body.appendChild(form);
+        form.submit();
+      },
+      {
+        fields: {
+          sub: TEST_USER.sub,
+          email: TEST_USER.email,
+          firstName: TEST_USER.firstName,
+          lastName: TEST_USER.lastName,
+          returnTo: capturedReturnTo,
+        },
+      },
+    );
 
-    // Step 3: Simulate the post-OIDC callback by navigating to GET /api/test/login
-    // with the captured returnTo.  The endpoint creates a real session and issues
-    // a 302 redirect — the browser follows that redirect naturally without any
-    // manual page.goto() call driving the final destination.
-    await page.goto(buildTestLoginUrl(origin, capturedReturnTo));
-
-    // page.goto follows redirects; waitForURL makes the assertion explicit.
+    // The form POST triggers a 302 redirect; wait for the browser to land on
+    // the originally requested path without any manual navigation.
     await page.waitForURL(`**${protectedPath}`, { timeout: 15_000 });
 
     // Step 4: Assert the browser is on the correct URL — not just "/".
