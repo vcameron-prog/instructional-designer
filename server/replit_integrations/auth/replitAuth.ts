@@ -6,6 +6,7 @@ import session from "express-session";
 import type { Express, RequestHandler } from "express";
 import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
+import { createHmac, timingSafeEqual } from "crypto";
 import { authStorage } from "./storage";
 import { db } from "../../db";
 import { appMetrics } from "@shared/schema";
@@ -158,6 +159,122 @@ async function upsertUser(claims: any) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Signed returnTo state — encodes the post-login redirect destination into
+// the OIDC `state` parameter so it survives even when the session cookie is
+// absent on the callback request (third-party cookie blocking, SameSite=Lax
+// across a redirect chain, etc.).
+//
+// Format:  base64url(JSON payload) + "." + HMAC-SHA-256 signature
+// The payload includes a version tag, the returnTo path, and a Unix timestamp
+// so the token can be expired after STATE_TTL_SECONDS.
+// ---------------------------------------------------------------------------
+
+const STATE_VERSION = "v1";
+const STATE_TTL_SECONDS = 10 * 60; // 10 minutes — enough for a slow SSO flow
+
+/**
+ * Encode a validated returnTo path into a short-lived HMAC-signed state token.
+ * Only call this with paths that have already passed the open-redirect guard
+ * (starts with "/" and does NOT start with "//").
+ */
+export function signReturnToState(returnTo: string): string {
+  const payload = {
+    v: STATE_VERSION,
+    r: returnTo,
+    t: Math.floor(Date.now() / 1000),
+  };
+  const data = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  const sig = createHmac("sha256", process.env.SESSION_SECRET!)
+    .update(data)
+    .digest("base64url");
+  return `${data}.${sig}`;
+}
+
+/**
+ * Verify a state token produced by signReturnToState.
+ * Returns the returnTo path on success, or null if the token is invalid,
+ * expired, tampered with, or encodes an unsafe destination.
+ */
+export function verifyReturnToState(state: string): string | null {
+  try {
+    const dotIdx = state.lastIndexOf(".");
+    if (dotIdx === -1) return null;
+    const data = state.slice(0, dotIdx);
+    const sig = state.slice(dotIdx + 1);
+
+    const expectedSig = createHmac("sha256", process.env.SESSION_SECRET!)
+      .update(data)
+      .digest("base64url");
+
+    // Constant-time comparison to prevent timing attacks.
+    const sigBuf = Buffer.from(sig, "base64url");
+    const expectedBuf = Buffer.from(expectedSig, "base64url");
+    if (
+      sigBuf.length !== expectedBuf.length ||
+      !timingSafeEqual(sigBuf, expectedBuf)
+    ) {
+      return null;
+    }
+
+    const payload = JSON.parse(Buffer.from(data, "base64url").toString("utf8"));
+    if (payload.v !== STATE_VERSION) return null;
+
+    const age = Math.floor(Date.now() / 1000) - (payload.t ?? 0);
+    if (age < 0 || age > STATE_TTL_SECONDS) return null;
+
+    const returnTo: unknown = payload.r;
+    if (
+      typeof returnTo !== "string" ||
+      !returnTo.startsWith("/") ||
+      returnTo.startsWith("//")
+    ) {
+      return null;
+    }
+
+    return returnTo;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Extended Strategy that injects a signed returnTo token into the OIDC
+ * `state` parameter.
+ *
+ * Why this survives cookie loss:
+ * openid-client/passport only sets its own random `state` when the OIDC
+ * server does NOT support PKCE (see passport.js source, `authorizationRequest`
+ * method). Replit OIDC supports PKCE, so no random state is generated —
+ * our custom `state` value is included verbatim in the authorization URL,
+ * stored in session stateData.state, echoed back by the provider in the
+ * callback query string, and validated by openid-client against stateData.state.
+ * After that validation passes, `req.query.state` holds our signed returnTo
+ * token and can be read without touching the session at all.
+ */
+class ReturnToAwareStrategy extends Strategy {
+  authorizationRequestParams(
+    req: any,
+    options: any
+  ): URLSearchParams | Record<string, string> | undefined {
+    const base = super.authorizationRequestParams(req, options);
+    if (typeof options?.signedReturnToState !== "string") {
+      return base;
+    }
+    // Normalise the base result to a URLSearchParams so we can set `state`.
+    let params: URLSearchParams;
+    if (base instanceof URLSearchParams) {
+      params = base;
+    } else if (base && typeof base === "object") {
+      params = new URLSearchParams(base as Record<string, string>);
+    } else {
+      params = new URLSearchParams();
+    }
+    params.set("state", options.signedReturnToState);
+    return params;
+  }
+}
+
 export async function setupAuth(app: Express) {
   app.set("trust proxy", 1);
   app.use(getSession());
@@ -183,7 +300,7 @@ export async function setupAuth(app: Express) {
   const ensureStrategy = (domain: string) => {
     const strategyName = `replitauth:${domain}`;
     if (!registeredStrategies.has(strategyName)) {
-      const strategy = new Strategy(
+      const strategy = new ReturnToAwareStrategy(
         {
           name: strategyName,
           config,
@@ -203,21 +320,60 @@ export async function setupAuth(app: Express) {
   app.get("/api/login", (req, res, next) => {
     ensureStrategy(req.hostname);
     const returnTo = req.query["returnTo"];
+    let signedState: string | undefined;
     if (typeof returnTo === "string" && returnTo.startsWith("/") && !returnTo.startsWith("//")) {
       (req.session as any).returnTo = returnTo;
+      signedState = signReturnToState(returnTo);
     }
     passport.authenticate(`replitauth:${req.hostname}`, {
       prompt: "login consent",
       scope: ["openid", "email", "profile", "offline_access"],
+      ...(signedState !== undefined ? { signedReturnToState: signedState } : {}),
     })(req, res, next);
   });
 
   app.get("/api/callback", (req, res, next) => {
     ensureStrategy(req.hostname);
-    passport.authenticate(`replitauth:${req.hostname}`, {
-      successReturnToOrRedirect: "/",
-      failureRedirect: "/api/login",
-    })(req, res, next);
+    passport.authenticate(
+      `replitauth:${req.hostname}`,
+      { failureRedirect: "/api/login" },
+      (err: any, user: Express.User | false, _info: any) => {
+        if (err || !user) {
+          return res.redirect("/api/login");
+        }
+        req.logIn(user, (loginErr: any) => {
+          if (loginErr) return next(loginErr);
+
+          // Capture and clear session.returnTo now so stale values never
+          // affect a future login flow, regardless of which path we use.
+          const sessionReturnTo = (req.session as any).returnTo as string | undefined;
+          if (sessionReturnTo) {
+            delete (req.session as any).returnTo;
+          }
+
+          // Primary: extract returnTo from the signed state parameter.
+          // This survives cookie loss because the OIDC provider echoes the
+          // state value back through the redirect URL query string.
+          let redirectTo = "/";
+          const rawState =
+            typeof req.query.state === "string" ? req.query.state : null;
+          if (rawState) {
+            const fromState = verifyReturnToState(rawState);
+            if (fromState) {
+              redirectTo = fromState;
+            }
+          }
+
+          // Fallback: session-based returnTo (works when state was not set,
+          // e.g. the user navigated to /api/login without a returnTo param).
+          if (redirectTo === "/" && sessionReturnTo) {
+            redirectTo = sessionReturnTo;
+          }
+
+          res.redirect(redirectTo);
+        });
+      }
+    )(req, res, next);
   });
 
   app.post("/api/logout", (req, res) => {

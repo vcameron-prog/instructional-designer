@@ -8,24 +8,26 @@
  *             stores the requested URL in req.session.returnTo.
  *
  *   Stage 2 – Client redirects to /api/login?returnTo=<url>.
- *             The login route validates the param and stores it in
- *             req.session.returnTo (overwriting anything set by stage 1).
+ *             The login route validates the param, stores it in
+ *             req.session.returnTo, and also encodes it in a short-lived
+ *             signed OIDC state token (signedReturnToState).
  *
- *   Stage 3 – After a successful OIDC callback /api/callback uses
- *             passport's successReturnToOrRedirect option, which reads
- *             req.session.returnTo and redirects there.
+ *   Stage 3 – After a successful OIDC callback /api/callback reads the
+ *             returnTo from the signed state parameter first (primary path),
+ *             falling back to req.session.returnTo, then to "/".
  *
- * Tests below cover all three stages and the open-redirect guard.
+ * Tests below cover all three stages, the signed-state crypto helpers, and
+ * the open-redirect guard.
  *
  * For the unit tests (Stage 1) req objects are constructed manually,
  * matching the pattern in replitAuth.test.ts.
  *
- * For the integration test (Stage 2 + Stage 3) a real express-session with
- * an in-memory store is used together with supertest.agent so the session
- * cookie persists across the three-request chain:
+ * For the integration test (Stages 2 + 3) a real express-session with an
+ * in-memory store is used together with supertest.agent so the session cookie
+ * persists across the three-request chain:
  *   GET /api/courses/42       → 401, session.returnTo set
- *   GET /api/login?returnTo=… → 302, session.returnTo overwritten
- *   GET /api/callback         → 302, Location === session.returnTo
+ *   GET /api/login?returnTo=… → 302, session.returnTo overwritten, signedState generated
+ *   GET /api/callback?state=… → 302, Location === the signed state's returnTo
  */
 
 import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest";
@@ -67,6 +69,9 @@ vi.mock("openid-client", () => ({
 vi.mock("openid-client/passport", () => ({
   Strategy: class MockStrategy {
     constructor(_opts: any, _verify: any) {}
+    authorizationRequestParams(_req: any, _opts: any) {
+      return new URLSearchParams();
+    }
   },
 }));
 
@@ -141,6 +146,8 @@ import {
   isAuthenticated,
   isBsuAuthenticated,
   setupAuth,
+  signReturnToState,
+  verifyReturnToState,
 } from "./replitAuth.js";
 
 // ---------------------------------------------------------------------------
@@ -150,7 +157,7 @@ const FAKE_OIDC_CONFIG = { issuer: "https://replit.com/oidc" };
 const NOW = Math.floor(Date.now() / 1000);
 const VALID_AT = NOW + 3600;
 
-// Provide SESSION_SECRET so getSession() does not throw.
+// Provide SESSION_SECRET so getSession() and the signing helpers do not throw.
 process.env.SESSION_SECRET = "test-session-secret-for-vitest";
 
 // ---------------------------------------------------------------------------
@@ -181,6 +188,80 @@ function makeRes() {
   };
   return res;
 }
+
+// ---------------------------------------------------------------------------
+// Signed state helpers — unit tests
+// ---------------------------------------------------------------------------
+
+describe("signReturnToState / verifyReturnToState", () => {
+  it("round-trips a valid returnTo path", () => {
+    const path = "/courses/42/edit";
+    const state = signReturnToState(path);
+    expect(verifyReturnToState(state)).toBe(path);
+  });
+
+  it("round-trips a path with a query string", () => {
+    const path = "/syllabi/new?template=lecture&week=3";
+    const state = signReturnToState(path);
+    expect(verifyReturnToState(state)).toBe(path);
+  });
+
+  it("returns null for a tampered payload", () => {
+    const state = signReturnToState("/courses/42");
+    // Flip a character in the data section (before the last dot).
+    const dotIdx = state.lastIndexOf(".");
+    const tampered = state.slice(0, dotIdx - 1) + "X" + state.slice(dotIdx);
+    expect(verifyReturnToState(tampered)).toBeNull();
+  });
+
+  it("returns null for a tampered signature", () => {
+    const state = signReturnToState("/courses/42");
+    expect(verifyReturnToState(state + "X")).toBeNull();
+  });
+
+  it("returns null for a completely invalid string", () => {
+    expect(verifyReturnToState("not-a-valid-state")).toBeNull();
+    expect(verifyReturnToState("")).toBeNull();
+  });
+
+  it("rejects an absolute URL embedded in a forged state", () => {
+    // Build a fake payload that encodes an absolute URL — must be rejected even
+    // if someone somehow gets a valid HMAC (impossible without the secret, but
+    // defence-in-depth: the path guard runs after HMAC verification).
+    // Here we just verify the path guard is in place for invalid paths.
+    const state = signReturnToState("/safe-path");
+    // The only way to get a valid state with an absolute URL is to know the
+    // secret, so instead we verify that an absolute URL is caught at
+    // verifyReturnToState's internal path check.
+    // We cannot forge a valid HMAC, so we build a helper that would produce one:
+    const { createHmac } = require("crypto");
+    const payload = JSON.stringify({
+      v: "v1",
+      r: "https://evil.com/steal",
+      t: Math.floor(Date.now() / 1000),
+    });
+    const data = Buffer.from(payload).toString("base64url");
+    const sig = createHmac("sha256", process.env.SESSION_SECRET!)
+      .update(data)
+      .digest("base64url");
+    const forgedState = `${data}.${sig}`;
+    expect(verifyReturnToState(forgedState)).toBeNull();
+  });
+
+  it("rejects a protocol-relative URL embedded in a forged state", () => {
+    const { createHmac } = require("crypto");
+    const payload = JSON.stringify({
+      v: "v1",
+      r: "//evil.com/steal",
+      t: Math.floor(Date.now() / 1000),
+    });
+    const data = Buffer.from(payload).toString("base64url");
+    const sig = createHmac("sha256", process.env.SESSION_SECRET!)
+      .update(data)
+      .digest("base64url");
+    expect(verifyReturnToState(`${data}.${sig}`)).toBeNull();
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Stage 1 – middleware saves returnTo when blocking an unauthenticated request
@@ -352,37 +433,50 @@ describe("Stage 2 – /api/login open-redirect guard", () => {
 // ---------------------------------------------------------------------------
 // Stage 2 + Stage 3 – end-to-end integration: the full returnTo round-trip
 //
+// The passport.authenticate mock simulates two behaviours:
+//
+//   Login route  — no custom done-callback (third arg).  The mock just
+//                  redirects toward the OAuth provider.
+//
+//   Callback route — a done-callback IS provided as the third argument.
+//                    The mock calls it with (null, fakeUser) to simulate a
+//                    successful OIDC exchange, then the real route handler
+//                    reads req.query.state (primary) or req.session.returnTo
+//                    (fallback) and issues the final redirect.
+//
 // Uses the real express-session (with an in-memory store) and supertest.agent
-// so the session cookie persists across all three legs of the flow.  The
-// passport.authenticate mock for /api/callback simulates passport's
-// successReturnToOrRedirect behaviour: it reads req.session.returnTo and
-// issues a real redirect to that URL (falling back to "/").
+// so the session cookie persists across all legs of the flow.
 // ---------------------------------------------------------------------------
 
 describe("Integrated returnTo round-trip (Stages 2 + 3)", () => {
   let integrationApp: express.Express;
+  const FAKE_USER = { claims: { sub: "u1" }, expires_at: VALID_AT };
 
   beforeAll(async () => {
     vi.clearAllMocks();
     mockDiscovery.mockResolvedValue(FAKE_OIDC_CONFIG);
 
-    // Configure passport.authenticate to behave differently depending on
-    // which route calls it:
-    //   /api/login    → no successReturnToOrRedirect option → redirect to OAuth
-    //   /api/callback → successReturnToOrRedirect present   → real redirect
+    // Configure passport.authenticate differently depending on which route
+    // invokes it:
+    //
+    //   /api/login    → no done-callback → redirect to OAuth provider
+    //   /api/callback → done-callback provided → call it with (null, user)
+    //
+    // The callback route also provides req.logIn on the request so the
+    // handler can call req.logIn(user, cb).
     mockPassportAuthenticate.mockImplementation(
-      (_strategyName: string, opts: any) =>
-        (req: any, res: any, _next: any) => {
-          if (opts?.successReturnToOrRedirect !== undefined) {
-            // Simulate passport's successReturnToOrRedirect: read the stored
-            // URL from the session and redirect there.
-            const dest = (req.session as any)?.returnTo ?? opts.successReturnToOrRedirect;
-            if ((req.session as any)?.returnTo) {
-              delete (req.session as any).returnTo;
-            }
-            req.session.save(() => res.redirect(dest));
+      (_strategyName: string, _opts: any, doneCb?: Function) =>
+        (req: any, res: any, next: any) => {
+          if (typeof doneCb === "function") {
+            // Simulate successful OIDC authentication.
+            // Attach logIn so the handler can call req.logIn(user, cb).
+            req.logIn = (user: any, cb: (err?: any) => void) => {
+              req.user = user;
+              cb();
+            };
+            doneCb(null, FAKE_USER, {});
           } else {
-            // Login initiation — just send the browser toward the OAuth provider.
+            // Login initiation — redirect toward the OAuth provider.
             res.status(302).setHeader("Location", "/oauth/authorize").end();
           }
         }
@@ -404,51 +498,55 @@ describe("Integrated returnTo round-trip (Stages 2 + 3)", () => {
     });
   });
 
-  it("hitting a protected route then completing the OAuth flow redirects back to the originally requested URL", async () => {
+  it("callback redirects to the returnTo encoded in the signed state parameter", async () => {
     const server = createServer(integrationApp);
-    // supertest.agent maintains the Set-Cookie header between requests,
-    // giving all three legs the same session.
     const agent = request.agent(server);
 
     // Leg 1: Unauthenticated request to a protected route → 401.
-    //        isAuthenticated writes req.originalUrl to session.returnTo.
     const leg1 = await agent
       .get("/api/courses/42")
       .set("Host", "localhost");
-
     expect(leg1.status).toBe(401);
 
-    // Assert that isAuthenticated stored the protected URL in the session
-    // immediately after the 401, before leg 2 overwrites it.
-    const afterLeg1 = await agent
-      .get("/api/test/session-state")
-      .set("Host", "localhost");
-    expect(afterLeg1.body.returnTo).toBe("/api/courses/42");
-
     // Leg 2: Client redirects to /api/login?returnTo=<the page it was on>.
-    //        The login handler validates the param and stores it in session,
-    //        overwriting the value set by isAuthenticated in leg 1.
     const leg2 = await agent
       .get("/api/login?returnTo=%2Fcourses%2F42")
       .set("Host", "localhost");
-
     expect(leg2.status).toBe(302);
 
-    // Leg 3: After OAuth completes, the browser hits /api/callback.
-    //        The mock passport reads session.returnTo and redirects there.
-    //        supertest does not follow redirects by default — we inspect the
-    //        Location header directly.
+    // Leg 3: Generate the same signed state that the login handler would have
+    // created and include it in the callback URL.  The handler should use it
+    // (primary path) to redirect to /courses/42.
+    const signedState = signReturnToState("/courses/42");
     const leg3 = await agent
-      .get("/api/callback")
+      .get(`/api/callback?state=${encodeURIComponent(signedState)}`)
       .set("Host", "localhost");
 
     expect(leg3.status).toBe(302);
     expect(leg3.headers["location"]).toBe("/courses/42");
   });
 
-  it("falls back to '/' when no returnTo was stored in the session before the callback", async () => {
+  it("callback falls back to session.returnTo when state is absent", async () => {
     const server = createServer(integrationApp);
-    // Fresh agent — no session, no returnTo.
+    const agent = request.agent(server);
+
+    // Store returnTo in session via the login route.
+    await agent
+      .get("/api/login?returnTo=%2Fcourses%2F99")
+      .set("Host", "localhost");
+
+    // Callback without a state param — must fall back to session.returnTo.
+    const res = await agent
+      .get("/api/callback")
+      .set("Host", "localhost");
+
+    expect(res.status).toBe(302);
+    expect(res.headers["location"]).toBe("/courses/99");
+  });
+
+  it("callback falls back to '/' when neither state nor session.returnTo is present", async () => {
+    const server = createServer(integrationApp);
+    // Fresh agent — no session, no state.
     const agent = request.agent(server);
 
     const res = await agent
@@ -459,7 +557,26 @@ describe("Integrated returnTo round-trip (Stages 2 + 3)", () => {
     expect(res.headers["location"]).toBe("/");
   });
 
-  it("rejects a protocol-relative returnTo and falls back to '/' on callback", async () => {
+  it("state parameter is preferred over session.returnTo when both are present", async () => {
+    const server = createServer(integrationApp);
+    const agent = request.agent(server);
+
+    // Store a different returnTo in session.
+    await agent
+      .get("/api/login?returnTo=%2Fsession-path")
+      .set("Host", "localhost");
+
+    // Pass a signed state pointing to a different path.
+    const signedState = signReturnToState("/state-path");
+    const res = await agent
+      .get(`/api/callback?state=${encodeURIComponent(signedState)}`)
+      .set("Host", "localhost");
+
+    expect(res.status).toBe(302);
+    expect(res.headers["location"]).toBe("/state-path");
+  });
+
+  it("rejects a protocol-relative returnTo in the login route and falls back to '/' on callback", async () => {
     const server = createServer(integrationApp);
     const agent = request.agent(server);
 
@@ -468,12 +585,32 @@ describe("Integrated returnTo round-trip (Stages 2 + 3)", () => {
       .get("/api/login?returnTo=%2F%2Fevil.com")
       .set("Host", "localhost");
 
-    // session.returnTo must not have been set — callback should redirect to "/".
+    // session.returnTo must not have been set, no signed state → falls back to "/".
     const res = await agent
       .get("/api/callback")
       .set("Host", "localhost");
 
     expect(res.status).toBe(302);
     expect(res.headers["location"]).toBe("/");
+  });
+
+  it("rejects a tampered signed state and falls back to session.returnTo", async () => {
+    const server = createServer(integrationApp);
+    const agent = request.agent(server);
+
+    // Store a valid session returnTo.
+    await agent
+      .get("/api/login?returnTo=%2Flegit-path")
+      .set("Host", "localhost");
+
+    // Pass a tampered state token.
+    const badState = "tampered.invalidsig";
+    const res = await agent
+      .get(`/api/callback?state=${encodeURIComponent(badState)}`)
+      .set("Host", "localhost");
+
+    // Falls back to session.returnTo.
+    expect(res.status).toBe(302);
+    expect(res.headers["location"]).toBe("/legit-path");
   });
 });
