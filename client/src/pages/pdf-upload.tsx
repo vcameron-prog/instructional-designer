@@ -403,7 +403,7 @@ export default function PdfUpload() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {[
               {
-                href: "https://bsu-accessibility-tool.replit.app/url-scanner",
+                href: "https://bsu-accessibility-tool.replit.app/",
                 icon: <Globe className="w-5 h-5 text-white" />,
                 gradient: "from-sky-500 to-cyan-600",
                 label: "URL Scanner",
