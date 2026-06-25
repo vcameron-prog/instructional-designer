@@ -350,9 +350,7 @@ export default function PdfUpload() {
             </button>
           </div>
 
-          <p className="text-base text-gray-300 mb-6">
-            Center for Artificial Intelligence
-          </p>
+
           <h1
             id="id-converter-heading"
             className="text-3xl md:text-4xl font-bold mb-3 tracking-tight"
