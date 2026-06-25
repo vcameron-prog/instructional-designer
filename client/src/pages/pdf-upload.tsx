@@ -426,14 +426,6 @@ export default function PdfUpload() {
                 testid: "link-tool-alt-text",
               },
               {
-                href: "https://bsu-accessibility-tool.replit.app/document-converter",
-                icon: <FileText className="w-5 h-5 text-white" />,
-                gradient: "from-lime-500 to-green-600",
-                label: "Document Converter",
-                description: "Convert and remediate documents in the BSU Accessibility Tool.",
-                testid: "link-tool-document-converter",
-              },
-              {
                 href: "https://bsu-accessibility-tool.replit.app/math-ocr",
                 icon: <Calculator className="w-5 h-5 text-white" />,
                 gradient: "from-rose-500 to-red-600",
