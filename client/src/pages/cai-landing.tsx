@@ -65,7 +65,7 @@ export default function CaiLandingPage() {
           <Button
             size="lg"
             className="gap-2 bg-white text-gray-900 hover:bg-gray-100 text-base px-8 py-6 rounded-xl font-semibold shadow-lg"
-            onClick={() => navigate("/accessibility")}
+            onClick={() => window.open(import.meta.env.VITE_ID_APP_URL || "https://bsu-instructional-designer.replit.app", "_blank", "noopener,noreferrer")}
             data-testid="button-open-id-app"
           >
             <GraduationCap className="w-5 h-5" />
