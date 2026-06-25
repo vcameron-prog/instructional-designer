@@ -41,4 +41,13 @@ done
 
 # Run the smoke tests. Server is already running, so Playwright
 # will reuse it (reuseExistingServer: true in playwright.config.ts).
-npx playwright test e2e/id-smoke.spec.ts e2e/oidc-state-roundtrip.spec.ts --config playwright.config.ts
+#
+# tools-integration.spec.ts is included here; the URL-scanner suite inside it
+# skips itself gracefully when ANTHROPIC_API_KEY is absent (via a beforeEach
+# probe), so the color-contrast tests always run and the AI-dependent tests
+# are skipped safely in CI without breaking the overall run.
+npx playwright test \
+  e2e/id-smoke.spec.ts \
+  e2e/oidc-state-roundtrip.spec.ts \
+  e2e/tools-integration.spec.ts \
+  --config playwright.config.ts
