@@ -357,6 +357,74 @@ export async function setupAuth(app: Express) {
 
   app.get("/api/callback", (req, res, next) => {
     ensureStrategy(req.hostname);
+
+    // ---------------------------------------------------------------------------
+    // DEV / TEST BYPASS — only active when PLAYWRIGHT_TEST=1 and NODE_ENV is
+    // not "production".  Allows Playwright smoke tests to drive the full
+    // state-reading + redirect logic of this handler without executing a real
+    // OIDC token exchange (which would require an interactive browser login).
+    //
+    // A test hits:
+    //   GET /api/callback?state=<signed-state>&_test_state_only=1
+    //
+    // The handler then:
+    //   1. Creates a synthetic session (same shape as /api/test/login).
+    //   2. Runs the SAME verifyReturnToState() + redirect path as production.
+    //   3. Redirects to the decoded returnTo path (or "/" on failure/fallback).
+    //
+    // Security: doubly-gated by PLAYWRIGHT_TEST=1 AND NODE_ENV !== "production"
+    // so it is unreachable in any production deployment.
+    // ---------------------------------------------------------------------------
+    if (
+      process.env.NODE_ENV !== "production" &&
+      process.env.PLAYWRIGHT_TEST === "1" &&
+      req.query._test_state_only === "1"
+    ) {
+      const sessionUser = {
+        claims: {
+          sub: "e2e-oidc-state-user",
+          email: "e2e-state@example.com",
+          first_name: "E2E",
+          last_name: "StateTest",
+        },
+        access_token: "playwright-state-test-token",
+        refresh_token: "playwright-state-test-refresh",
+        expires_at: Math.floor(Date.now() / 1000) + 7200,
+      };
+      (req.session as any).passport = { user: sessionUser };
+
+      const sessionReturnTo = (req.session as any).returnTo as string | undefined;
+      if (sessionReturnTo) {
+        delete (req.session as any).returnTo;
+      }
+
+      let redirectTo = "/";
+      const rawState =
+        typeof req.query.state === "string" ? req.query.state : null;
+      if (rawState) {
+        const stateResult = verifyReturnToState(rawState);
+        if (stateResult) {
+          if (stateResult.expired) {
+            console.warn(
+              "[auth][test] Signed state token expired — still honouring returnTo path:",
+              stateResult.path
+            );
+          }
+          redirectTo = stateResult.path;
+        }
+      }
+
+      if (redirectTo === "/" && sessionReturnTo) {
+        redirectTo = sessionReturnTo;
+      }
+
+      req.session.save((err) => {
+        if (err) return next(err);
+        res.redirect(redirectTo);
+      });
+      return;
+    }
+
     passport.authenticate(
       `replitauth:${req.hostname}`,
       { failureRedirect: "/api/login" },
