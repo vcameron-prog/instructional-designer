@@ -43,71 +43,8 @@ export default function CaiLandingPage() {
         />
       </div>
 
-      {/* Accessibility Converter section — shown first */}
-      <section aria-labelledby="converter-heading" className="py-16 px-4 bg-secondary/30">
-        <div className="container mx-auto max-w-4xl">
-          <div className="flex flex-col md:flex-row items-center gap-10">
-            <div className="flex-1">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-muted text-muted-foreground text-xs font-semibold mb-4">
-                <Shield className="w-3.5 h-3.5" />
-                ADA Title II · WCAG 2.1 AA
-              </div>
-              <h2
-                id="converter-heading"
-                className="text-2xl md:text-3xl font-bold text-foreground mb-3"
-                data-testid="heading-converter"
-              >
-                Accessibility Converter
-              </h2>
-              <p className="text-muted-foreground mb-6 max-w-lg">
-                A free, shared accessibility resource from the Bridgewater State University Center for Artificial Intelligence. Built to help Massachusetts state universities and community colleges work toward ADA Title II and WCAG 2.1 AA accessibility standards.
-              </p>
-              <Button
-                size="lg"
-                onClick={() => navigate("/accessibility")}
-                className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90 text-base px-8 py-6 rounded-xl font-semibold shadow-lg"
-                data-testid="button-open-converter"
-              >
-                <FileText className="w-5 h-5" />
-                Open Accessibility Converter
-                <ArrowRight className="w-5 h-5" />
-              </Button>
-            </div>
-            <div className="flex-shrink-0 grid grid-cols-1 gap-3 w-full md:w-72">
-              <div className="flex items-start gap-3 p-4 bg-card border border-border rounded-xl">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0">
-                  <FileText className="w-4 h-4 text-white" />
-                </div>
-                <div>
-                  <p className="font-semibold text-foreground text-sm">PDF, Word, PowerPoint &amp; Excel</p>
-                  <p className="text-xs text-muted-foreground">Upload any common document format</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3 p-4 bg-card border border-border rounded-xl">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center flex-shrink-0">
-                  <Zap className="w-4 h-4 text-white" />
-                </div>
-                <div>
-                  <p className="font-semibold text-foreground text-sm">AI-Powered Remediation</p>
-                  <p className="text-xs text-muted-foreground">Alt text, heading structure, reading order</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3 p-4 bg-card border border-border rounded-xl">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center flex-shrink-0">
-                  <Shield className="w-4 h-4 text-white" />
-                </div>
-                <div>
-                  <p className="font-semibold text-foreground text-sm">No Login Needed</p>
-                  <p className="text-xs text-muted-foreground">Public tool — free to use instantly</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Instructional Designer section */}
-      <section aria-labelledby="id-hero-heading" className="py-16 px-4 bg-background border-t border-border">
+      {/* Instructional Designer section — shown first */}
+      <section aria-labelledby="id-hero-heading" className="py-16 px-4 bg-secondary/30">
         <div className="container mx-auto max-w-4xl">
           <div className="flex flex-col md:flex-row items-center gap-10">
             <div className="flex-1">
@@ -162,6 +99,69 @@ export default function CaiLandingPage() {
                 <div>
                   <p className="font-semibold text-foreground text-sm">Built for BSU Faculty</p>
                   <p className="text-xs text-muted-foreground">BSU syllabus template &amp; DOCX export</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Accessibility Converter section */}
+      <section aria-labelledby="converter-heading" className="py-16 px-4 bg-background border-t border-border">
+        <div className="container mx-auto max-w-4xl">
+          <div className="flex flex-col md:flex-row items-center gap-10">
+            <div className="flex-1">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-muted text-muted-foreground text-xs font-semibold mb-4">
+                <Shield className="w-3.5 h-3.5" />
+                ADA Title II · WCAG 2.1 AA
+              </div>
+              <h2
+                id="converter-heading"
+                className="text-2xl md:text-3xl font-bold text-foreground mb-3"
+                data-testid="heading-converter"
+              >
+                Accessibility Converter
+              </h2>
+              <p className="text-muted-foreground mb-6 max-w-lg">
+                A free, shared accessibility resource from the Bridgewater State University Center for Artificial Intelligence. Built to help Massachusetts state universities and community colleges work toward ADA Title II and WCAG 2.1 AA accessibility standards.
+              </p>
+              <Button
+                size="lg"
+                onClick={() => navigate("/accessibility")}
+                className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90 text-base px-8 py-6 rounded-xl font-semibold shadow-lg"
+                data-testid="button-open-converter"
+              >
+                <FileText className="w-5 h-5" />
+                Open Accessibility Converter
+                <ArrowRight className="w-5 h-5" />
+              </Button>
+            </div>
+            <div className="flex-shrink-0 grid grid-cols-1 gap-3 w-full md:w-72">
+              <div className="flex items-start gap-3 p-4 bg-card border border-border rounded-xl">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0">
+                  <FileText className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <p className="font-semibold text-foreground text-sm">PDF, Word, PowerPoint &amp; Excel</p>
+                  <p className="text-xs text-muted-foreground">Upload any common document format</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 p-4 bg-card border border-border rounded-xl">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center flex-shrink-0">
+                  <Zap className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <p className="font-semibold text-foreground text-sm">AI-Powered Remediation</p>
+                  <p className="text-xs text-muted-foreground">Alt text, heading structure, reading order</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 p-4 bg-card border border-border rounded-xl">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center flex-shrink-0">
+                  <Shield className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <p className="font-semibold text-foreground text-sm">No Login Needed</p>
+                  <p className="text-xs text-muted-foreground">Public tool — free to use instantly</p>
                 </div>
               </div>
             </div>
