@@ -1,14 +1,12 @@
 import { useState, useEffect } from "react";
 import React from "react";
-import { useLocation } from "wouter";
 import caiLogo from "@assets/bsu-cai-logo.png";
 import caiLogoWhite from "@assets/Center_for_AI_Apparel_&_Promotional_Items-WHITE_(1)_1775653892158.png";
 import {
   ChevronDown,
   ChevronRight,
-  ArrowLeft,
 } from "lucide-react";
-import { ConverterHeader } from "@/components/header-controls";
+import { ConverterHeader, BackButton } from "@/components/header-controls";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { cn } from "@/lib/utils";
 import { PoweredByFooter } from "@/components/powered-by-footer";
@@ -269,8 +267,6 @@ export default function PdfFaq() {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
-  const [, navigate] = useLocation();
-
   return (
     <main
       id="main-content"
@@ -293,14 +289,7 @@ export default function PdfFaq() {
               data-testid="img-cai-logo-white"
             />
             <div className="w-px h-6 bg-border" aria-hidden="true" />
-            <button
-              onClick={() => navigate("/pdf-accessibility")}
-              className="text-muted-foreground hover:text-foreground transition-colors"
-              data-testid="button-back"
-              aria-label="Back to Accessibility Converter"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
+            <BackButton />
             <div>
               <h1
                 className="font-bold text-foreground text-lg"

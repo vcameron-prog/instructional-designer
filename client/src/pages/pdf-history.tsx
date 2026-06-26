@@ -6,7 +6,6 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   FileText,
   Trash2,
-  ArrowLeft,
   Loader2,
   Upload,
   ArrowRight,
@@ -26,7 +25,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { ConverterHeader } from "@/components/header-controls";
+import { ConverterHeader, BackButton } from "@/components/header-controls";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
@@ -246,14 +245,7 @@ export default function PdfHistory() {
               />
             </button>
             <div className="w-px h-6 bg-border" aria-hidden="true" />
-            <button
-              onClick={() => navigate("/pdf-accessibility")}
-              className="text-muted-foreground hover:text-foreground transition-colors"
-              data-testid="button-back"
-              aria-label="Back to Accessibility Converter"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
+            <BackButton />
             <div>
               <h1
                 className="font-bold text-foreground text-lg"
