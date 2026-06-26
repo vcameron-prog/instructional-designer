@@ -108,14 +108,16 @@ export default function MathOcrPage() {
 
   return (
     <main id="main-content" tabIndex={-1} className="min-h-screen bg-background">
-      <nav aria-label="Back navigation" className="absolute top-4 left-4 z-20">
-        <BackButton />
-      </nav>
-      <nav aria-label="User menu" className="absolute top-4 right-4 z-20">
-        <HeaderControls showLogout={false} showLogin={false} />
-      </nav>
+      <header className="sticky top-0 z-20 flex items-center justify-between px-4 py-2 bg-background/95 backdrop-blur-sm border-b border-border">
+        <nav aria-label="Back navigation">
+          <BackButton />
+        </nav>
+        <nav aria-label="User menu">
+          <HeaderControls showLogout={false} showLogin={false} />
+        </nav>
+      </header>
 
-      <div className="container mx-auto px-4 py-10 max-w-2xl">
+      <div className="container mx-auto px-4 py-8 max-w-2xl">
         <div className="mb-6">
           <button
             onClick={() => navigate("/accessibility-tools")}
