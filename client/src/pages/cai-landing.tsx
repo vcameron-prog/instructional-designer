@@ -23,12 +23,16 @@ export default function CaiLandingPage() {
   });
 
   return (
-    <main id="main-content" tabIndex={-1} className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
+      <header className="border-b bg-background/95 backdrop-blur sticky top-0 z-20">
+        <div className="container mx-auto px-4 py-2 flex items-center justify-end">
+          <nav aria-label="Display preferences">
+            <HeaderControls showLibrary={false} showHelp={false} showSettings={false} showLogout={false} showLogin={false} />
+          </nav>
+        </div>
+      </header>
 
-      {/* Top-right controls (theme toggle, font size only — no login) */}
-      <nav aria-label="Display preferences" className="absolute top-4 right-4 z-20">
-        <HeaderControls showLibrary={false} showHelp={false} showSettings={false} showLogout={false} showLogin={false} />
-      </nav>
+      <main id="main-content" tabIndex={-1} className="flex-1">
 
       {/* Hero section with CAI branding.
            The background is intentionally hardcoded as a dark gray gradient
@@ -211,6 +215,7 @@ export default function CaiLandingPage() {
           )}
         </div>
       </footer>
-    </main>
+      </main>
+    </div>
   );
 }
