@@ -25,7 +25,7 @@ export function HeaderControls({
   showLogout = true,
   showLogin = true,
 }: HeaderControlsProps) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { fontSize, increaseFontSize, decreaseFontSize } = useFontSize();
   const [location, navigate] = useLocation();
@@ -175,7 +175,7 @@ export function HeaderControls({
               variant={btnVariant}
               size="icon"
               className={btnClass}
-              onClick={() => window.location.href = "/api/logout"}
+              onClick={() => logout()}
               data-testid="button-logout"
               aria-label="Sign out"
             >
