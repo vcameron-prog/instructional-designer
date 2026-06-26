@@ -128,7 +128,7 @@ export default function CaiLandingPage() {
         <div className="container mx-auto max-w-4xl">
           <div className="flex flex-col md:flex-row items-center gap-10">
             <div className="flex-1">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold mb-4">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-muted text-muted-foreground text-xs font-semibold mb-4">
                 <Shield className="w-3.5 h-3.5" />
                 ADA Title II · WCAG 2.1 AA
               </div>
