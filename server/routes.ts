@@ -32,6 +32,11 @@ import {
   HEAVY_OP_RATE_WINDOW_MS,
 } from "./lib/rateLimiters.js";
 
+/** Maximum image upload size for vision tools (alt-text, math-ocr).
+ *  Override at runtime via IMAGE_UPLOAD_MAX_MB env var (integer MB). */
+const IMAGE_UPLOAD_MAX_BYTES =
+  (parseInt(process.env.IMAGE_UPLOAD_MAX_MB ?? "", 10) || 5) * 1024 * 1024;
+
 function getUserId(req: Request): string | null {
   return (req.user as any)?.claims?.sub ?? null;
 }
@@ -3815,7 +3820,7 @@ Limit to the 10 most impactful issues. Be precise and technical.`;
   // -- Alt Text Generator ---------------------------------------------------
   const altTextUploadTools = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: 5 * 1024 * 1024 },
+    limits: { fileSize: IMAGE_UPLOAD_MAX_BYTES },
     fileFilter: (_req, file, cb) => {
       if (/^image\/(jpeg|png|gif|webp)$/.test(file.mimetype)) cb(null, true);
       else cb(new Error("Only JPEG, PNG, GIF, and WebP images are supported"));
@@ -3887,7 +3892,7 @@ Respond with ONLY the alt text — no explanation, no quotes.`,
   // -- Math OCR -------------------------------------------------------------
   const mathOcrUploadTools = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: 5 * 1024 * 1024 },
+    limits: { fileSize: IMAGE_UPLOAD_MAX_BYTES },
     fileFilter: (_req, file, cb) => {
       if (/^image\/(jpeg|png|gif|webp)$/.test(file.mimetype)) cb(null, true);
       else cb(new Error("Only JPEG, PNG, GIF, and WebP images are supported"));

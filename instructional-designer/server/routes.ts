@@ -32,6 +32,11 @@ import {
 } from "./lib/rateLimiters.js";
 import { buildContentDocx } from "./lib/content-docx.js";
 
+/** Maximum image upload size for vision tools (alt-text, math-ocr).
+ *  Override at runtime via IMAGE_UPLOAD_MAX_MB env var (integer MB). */
+const IMAGE_UPLOAD_MAX_BYTES =
+  (parseInt(process.env.IMAGE_UPLOAD_MAX_MB ?? "", 10) || 5) * 1024 * 1024;
+
 function getUserId(req: Request): string | null {
   return (req.user as any)?.claims?.sub ?? null;
 }
@@ -3094,7 +3099,7 @@ Limit to the 10 most impactful issues. Be precise and technical.`;
   // Accepts an image upload and generates descriptive alt text via Anthropic vision.
   const altTextUpload = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: 5 * 1024 * 1024 },
+    limits: { fileSize: IMAGE_UPLOAD_MAX_BYTES },
     fileFilter: (_req, file, cb) => {
       if (/^image\/(jpeg|png|gif|webp)$/.test(file.mimetype)) cb(null, true);
       else {
@@ -3166,7 +3171,7 @@ Respond with ONLY the alt text — no explanation, no quotes.`,
   // Accepts an image of mathematical content and converts it to accessible text.
   const mathOcrUpload = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: 5 * 1024 * 1024 },
+    limits: { fileSize: IMAGE_UPLOAD_MAX_BYTES },
     fileFilter: (_req, file, cb) => {
       if (/^image\/(jpeg|png|gif|webp)$/.test(file.mimetype)) cb(null, true);
       else {
