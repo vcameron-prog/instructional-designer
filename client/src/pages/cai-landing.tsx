@@ -118,16 +118,6 @@ export default function CaiLandingPage() {
         className="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white py-20 px-4"
       >
         <div className="container mx-auto max-w-4xl text-center">
-          {/* White logo — always visible because the hero background is always dark */}
-          <div className="flex justify-center mb-4" data-testid="cai-logo-area">
-            <img
-              src={caiLogoWhite}
-              alt="Center for Artificial Intelligence"
-              className="h-20 md:h-24 w-auto"
-              data-testid="img-cai-logo"
-            />
-          </div>
-
           <h1
             id="id-hero-heading"
             className="text-2xl md:text-4xl font-bold mb-4 tracking-tight"
