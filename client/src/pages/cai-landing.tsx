@@ -30,13 +30,18 @@ export default function CaiLandingPage() {
         <HeaderControls showLibrary={false} showHelp={false} showSettings={false} showLogout={false} showLogin={false} />
       </nav>
 
-      {/* Hero section with CAI branding */}
+      {/* Hero section with CAI branding.
+           The background is intentionally hardcoded as a dark gray gradient
+           (from-gray-900 via-gray-800 to-gray-900) — it does NOT follow the
+           app's light/dark theme toggle.  Because this section is always dark,
+           the white-only CAI logo (caiLogoWhite) is always legible here and
+           no theme-aware logo swap is needed. */}
       <section
         aria-labelledby="id-hero-heading"
         className="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white py-20 px-4"
       >
         <div className="container mx-auto max-w-4xl text-center">
-          {/* CAI logo */}
+          {/* White logo — always visible because the hero background is always dark */}
           <div className="flex justify-center mb-4" data-testid="cai-logo-area">
             <img
               src={caiLogoWhite}

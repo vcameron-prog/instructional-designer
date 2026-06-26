@@ -331,11 +331,18 @@ export default function PdfUpload() {
         </div>
       </header>
 
+      {/* Hero section.
+           The background is intentionally hardcoded as a dark gray gradient
+           (from-gray-900 via-gray-800 to-gray-900) — it does NOT follow the
+           app's light/dark theme toggle.  Because this section is always dark,
+           the white-only CAI logo (caiLogoWhite) is always legible here and
+           no theme-aware logo swap is needed. */}
       <section
         aria-labelledby="id-converter-heading"
         className="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white py-16 px-4"
       >
         <div className="container mx-auto max-w-4xl text-center">
+          {/* White logo — always visible because the hero background is always dark */}
           <div className="flex justify-center mb-6" data-testid="cai-logo-area">
             <button
               onClick={() => navigate("/")}
