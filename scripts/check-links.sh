@@ -10,6 +10,17 @@ SEARCH_DIR="client/src"
 FAIL=0
 CHECKED=0
 
+# Connectivity pre-check: attempt a HEAD request to a known reliable host.
+# If outbound HTTP is unavailable (air-gapped, restricted network, local dev),
+# skip the link check entirely rather than hard-failing every URL with HTTP 000.
+CONNECTIVITY_HOST="https://www.google.com"
+CONNECTIVITY_CODE=$(curl -sL -o /dev/null -w "%{http_code}" --max-time 10 "$CONNECTIVITY_HOST" 2>/dev/null || echo "000")
+if [[ "$CONNECTIVITY_CODE" == "000" ]]; then
+  echo "WARNING: Outbound HTTP unavailable (connectivity check to $CONNECTIVITY_HOST returned 000)."
+  echo "Skipping external link check — no network access in this environment."
+  exit 0
+fi
+
 # Extract unique https:// URLs from href= attributes in non-test .tsx/.ts source files.
 # Excludes placeholder="https://..." values (those are UX hints, not real links).
 mapfile -t URLS < <(
