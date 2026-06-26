@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# check-links.sh — scan client/src/ for hardcoded external hrefs and verify each resolves with 2xx.
+# check-links.sh — scan client/src/, server/, and shared/ for hardcoded external hrefs and verify each resolves with 2xx.
 # Excludes test files (*.test.tsx / *.test.ts) and placeholder= attributes.
 # Usage: bash scripts/check-links.sh
 # Exits 0 if all links are reachable, 1 if any return 4xx/5xx or are unreachable.
 
 set -euo pipefail
 
-SEARCH_DIR="client/src"
+SEARCH_DIRS=("client/src" "server" "shared")
 FAIL=0
 CHECKED=0
 
@@ -30,7 +30,8 @@ if [[ "$CONNECTIVITY_OK" == "0" ]]; then
   exit 0
 fi
 
-# Extract unique https:// URLs from href= attributes in non-test .tsx/.ts source files.
+# Extract unique https:// URLs from href= attributes in non-test .tsx/.ts source files
+# across client/src/, server/, and shared/.
 # Excludes placeholder="https://..." values (those are UX hints, not real links).
 mapfile -t URLS < <(
   grep -roh \
@@ -39,17 +40,19 @@ mapfile -t URLS < <(
     --exclude="*.test.tsx" \
     --exclude="*.test.ts" \
     'href="https://[^"]*"' \
-    "$SEARCH_DIR" \
+    "${SEARCH_DIRS[@]}" \
   | grep -oP 'https://[^"]+' \
   | sort -u
 )
 
+DIRS_LABEL="${SEARCH_DIRS[*]}"
+
 if [[ ${#URLS[@]} -eq 0 ]]; then
-  echo "No external hrefs found in $SEARCH_DIR — nothing to check."
+  echo "No external hrefs found in ${DIRS_LABEL} — nothing to check."
   exit 0
 fi
 
-echo "Checking ${#URLS[@]} external link(s) found in $SEARCH_DIR ..."
+echo "Checking ${#URLS[@]} external link(s) found in ${DIRS_LABEL} ..."
 echo ""
 
 for URL in "${URLS[@]}"; do
