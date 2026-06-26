@@ -34,6 +34,16 @@ export default function CaiLandingPage() {
 
       <main id="main-content" tabIndex={-1} className="flex-1">
 
+      {/* CAI logo banner — always dark so the white logo stays legible */}
+      <div className="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 py-8 flex justify-center">
+        <img
+          src={caiLogoWhite}
+          alt="Center for Artificial Intelligence"
+          className="h-20 md:h-24 w-auto"
+          data-testid="img-cai-logo"
+        />
+      </div>
+
       {/* Accessibility Converter section — shown first */}
       <section aria-labelledby="converter-heading" className="py-16 px-4 bg-secondary/30">
         <div className="container mx-auto max-w-4xl">
