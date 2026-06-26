@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useLocation } from "wouter";
-import caiLogoWhite from "@assets/bsu-cai-logo.png";
+import caiLogo from "@assets/bsu-cai-logo.png";
+import caiLogoWhite from "@assets/Center_for_AI_Apparel_&_Promotional_Items-WHITE_(1)_1775653892158.png";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   FileText,
@@ -234,9 +235,14 @@ export default function PdfHistory() {
               className="flex-shrink-0"
             >
               <img
+                src={caiLogo}
+                alt="Center for Artificial Intelligence"
+                className="h-8 w-auto dark:hidden"
+              />
+              <img
                 src={caiLogoWhite}
                 alt="Center for Artificial Intelligence"
-                className="h-8 w-auto"
+                className="h-8 w-auto hidden dark:block"
               />
             </button>
             <div className="w-px h-6 bg-border" aria-hidden="true" />

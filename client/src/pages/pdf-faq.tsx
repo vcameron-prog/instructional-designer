@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import React from "react";
 import { useLocation } from "wouter";
-import caiLogoWhite from "@assets/bsu-cai-logo.png";
+import caiLogo from "@assets/bsu-cai-logo.png";
+import caiLogoWhite from "@assets/Center_for_AI_Apparel_&_Promotional_Items-WHITE_(1)_1775653892158.png";
 import {
   ChevronDown,
   ChevronRight,
@@ -280,10 +281,16 @@ export default function PdfFaq() {
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img
+              src={caiLogo}
+              alt="Center for Artificial Intelligence"
+              className="h-8 w-auto flex-shrink-0 dark:hidden"
+              data-testid="img-cai-logo"
+            />
+            <img
               src={caiLogoWhite}
               alt="Center for Artificial Intelligence"
-              className="h-8 w-auto flex-shrink-0"
-              data-testid="img-cai-logo"
+              className="h-8 w-auto flex-shrink-0 hidden dark:block"
+              data-testid="img-cai-logo-white"
             />
             <div className="w-px h-6 bg-border" aria-hidden="true" />
             <button

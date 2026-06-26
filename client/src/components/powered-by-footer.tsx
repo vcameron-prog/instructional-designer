@@ -1,5 +1,6 @@
 import { Shield } from "lucide-react";
 import bsuAiLogo from "@assets/bsu-cai-logo.png";
+import bsuAiLogoWhite from "@assets/Center_for_AI_Apparel_&_Promotional_Items-WHITE_(1)_1775653892158.png";
 import { useLocation } from "wouter";
 
 export function PoweredByFooter() {
@@ -17,8 +18,14 @@ export function PoweredByFooter() {
           <img
             src={bsuAiLogo}
             alt="BSU Center for Artificial Intelligence"
-            className="h-12 dark:bg-white/90 dark:rounded-lg dark:px-3 dark:py-1"
+            className="h-12 dark:hidden"
             data-testid="img-bsu-ai-logo"
+          />
+          <img
+            src={bsuAiLogoWhite}
+            alt="BSU Center for Artificial Intelligence"
+            className="h-12 hidden dark:block"
+            data-testid="img-bsu-ai-logo-white"
           />
         </div>
 

@@ -4,6 +4,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import bsuCaiLogo from "@assets/bsu-cai-logo.png";
+import bsuCaiLogoWhite from "@assets/Center_for_AI_Apparel_&_Promotional_Items-WHITE_(1)_1775653892158.png";
 import {
   Sparkles,
   FolderOpen,
@@ -135,8 +136,14 @@ export default function LandingPage() {
             <img
               src={bsuCaiLogo}
               alt="BSU Center for Artificial Intelligence"
-              className="h-16 md:h-20 w-auto dark:bg-white/95 dark:rounded-xl dark:px-4 dark:py-2"
+              className="h-16 md:h-20 w-auto dark:hidden"
               data-testid="img-hero-logo"
+            />
+            <img
+              src={bsuCaiLogoWhite}
+              alt="BSU Center for Artificial Intelligence"
+              className="h-16 md:h-20 w-auto hidden dark:block"
+              data-testid="img-hero-logo-white"
             />
           </div>
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground mb-4 tracking-tight">
