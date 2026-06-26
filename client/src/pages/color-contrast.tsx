@@ -21,9 +21,9 @@ interface ContrastResult {
   background: string;
 }
 
-function PassFail({ pass, label }: { pass: boolean; label: string }) {
+function PassFail({ pass, label, testId }: { pass: boolean; label: string; testId?: string }) {
   return (
-    <div className="flex items-center justify-between py-2 border-b border-border last:border-0">
+    <div className="flex items-center justify-between py-2 border-b border-border last:border-0" data-testid={testId}>
       <span className="text-sm text-foreground">{label}</span>
       {pass ? (
         <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 text-sm font-semibold">
@@ -230,10 +230,10 @@ export default function ColorContrastPage() {
                   <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
                     WCAG 2.1 Results
                   </h2>
-                  <PassFail pass={result.aa_normal} label="AA — Normal text (≥ 4.5:1)" />
-                  <PassFail pass={result.aa_large} label="AA — Large text / UI (≥ 3:1)" />
-                  <PassFail pass={result.aaa_normal} label="AAA — Normal text (≥ 7:1)" />
-                  <PassFail pass={result.aaa_large} label="AAA — Large text (≥ 4.5:1)" />
+                  <PassFail pass={result.aa_normal} label="AA — Normal text (≥ 4.5:1)" testId="passfail-aa-normal" />
+                  <PassFail pass={result.aa_large} label="AA — Large text / UI (≥ 3:1)" testId="passfail-aa-large" />
+                  <PassFail pass={result.aaa_normal} label="AAA — Normal text (≥ 7:1)" testId="passfail-aaa-normal" />
+                  <PassFail pass={result.aaa_large} label="AAA — Large text (≥ 4.5:1)" testId="passfail-aaa-large" />
                 </div>
 
                 <p className="text-xs text-muted-foreground">

@@ -160,12 +160,11 @@ test.describe("Color Contrast Checker (/accessibility-tools/color-contrast)", ()
     );
   });
 
-  test("exact 7.00:1 boundary shows AA Pass badge and AAA Normal Text passes", async ({
+  test("exact 7.00:1 boundary shows AA Pass badge and both AAA rows pass", async ({
     page,
   }) => {
     // #595959 on white — computed ratio rounds to exactly 7.00:1, the aaa_normal
-    // boundary (ratio >= 7) → "AA Pass" badge; the AAA Normal Text row should
-    // show Pass
+    // inclusive boundary (ratio >= 7) → "AA Pass" badge; both AAA rows pass.
     await page.getByTestId("input-foreground").fill("#595959");
     await page.getByTestId("input-background").fill("#ffffff");
 
@@ -178,10 +177,37 @@ test.describe("Color Contrast Checker (/accessibility-tools/color-contrast)", ()
     await expect(page.getByTestId("badge-contrast-rating")).toContainText(
       "AA Pass",
     );
-    // The AAA Normal Text row (≥ 7:1) should also pass at exactly 7:1
-    await expect(
-      page.getByText("AAA — Normal text (≥ 7:1)"),
-    ).toBeVisible();
+    // AAA — Normal text (≥ 7:1): ratio is exactly at threshold → Pass
+    await expect(page.getByTestId("passfail-aaa-normal")).toContainText("Pass");
+    // AAA — Large text (≥ 4.5:1): ratio of 7:1 exceeds 4.5:1 → Pass
+    await expect(page.getByTestId("passfail-aaa-large")).toContainText("Pass");
+  });
+
+  test("ratio just below 7:1 (~6.89:1) flips AAA Normal Text to Fail while AAA Large Text still passes", async ({
+    page,
+  }) => {
+    // #5a5a5a on white — computed ratio ≈ 6.89:1, just below the aaa_normal
+    // 7:1 threshold → AAA Normal Text row shows Fail; AAA Large Text (≥ 4.5:1)
+    // still passes because 6.89 > 4.5.
+    await page.getByTestId("input-foreground").fill("#5a5a5a");
+    await page.getByTestId("input-background").fill("#ffffff");
+
+    await page.getByTestId("button-check-contrast").click();
+
+    await expect(page.getByTestId("text-contrast-ratio")).toBeVisible({
+      timeout: 10_000,
+    });
+    // Confirm ratio is below 7:1
+    const ratioText = await page.getByTestId("text-contrast-ratio").textContent();
+    const ratio = parseFloat(ratioText?.replace(":1", "") ?? "0");
+    expect(ratio).toBeLessThan(7);
+    expect(ratio).toBeGreaterThan(4.5);
+
+    // AAA Normal Text (≥ 7:1) should Fail
+    await expect(page.getByTestId("passfail-aaa-normal")).toContainText("Fail");
+    await expect(page.getByTestId("passfail-aaa-normal")).not.toContainText("Pass");
+    // AAA Large Text (≥ 4.5:1) still passes because ratio > 4.5
+    await expect(page.getByTestId("passfail-aaa-large")).toContainText("Pass");
   });
 
   test("swap button exchanges foreground and background values", async ({
