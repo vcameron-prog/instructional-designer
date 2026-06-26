@@ -13,6 +13,7 @@ interface AltTextResult {
   altText: string;
   isDecorative: boolean;
   characterCount: number;
+  confidence?: string;
 }
 
 export default function AltTextGeneratorPage() {
@@ -240,7 +241,12 @@ export default function AltTextGeneratorPage() {
                       )}
                     </button>
                   </div>
-                  <p className="text-xs text-muted-foreground">{result.characterCount} characters</p>
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <span>{result.characterCount} characters</span>
+                    {result.confidence && (
+                      <span data-testid="text-alt-confidence">Confidence: {result.confidence}</span>
+                    )}
+                  </div>
 
                   <div className="space-y-1.5">
                     <p className="text-sm font-medium text-muted-foreground">HTML usage:</p>

@@ -549,6 +549,7 @@ test.describe("Accessibility Tools — Alt Text Generator page", () => {
       altText: "A red circle",
       isDecorative: false,
       characterCount: 14,
+      confidence: "High",
     };
     await page.route("**/api/tools/alt-text", async (route) => {
       await route.fulfill({
@@ -609,6 +610,12 @@ test.describe("Accessibility Tools — Alt Text Generator page", () => {
       page.getByTestId("text-generated-alt"),
       "generated alt text is displayed in result card",
     ).toHaveText("A red circle", { timeout: 10_000 });
+
+    // Confidence label must be displayed when API returns a confidence value
+    await expect(
+      page.getByTestId("text-alt-confidence"),
+      "confidence label is displayed in result card",
+    ).toHaveText("Confidence: High", { timeout: 5_000 });
 
     // ---------------------------------------------------------------------------
     // Verify the copy button transitions to its "Copied" state after a click.
