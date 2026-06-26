@@ -46,10 +46,6 @@ export default function CaiLandingPage() {
             />
           </div>
 
-          <p className="text-sm text-gray-300 mb-8 max-w-2xl mx-auto leading-relaxed" data-testid="text-hero-tagline">
-            A free, shared accessibility resource from the Bridgewater State University Center for Artificial Intelligence. Built to help Massachusetts state universities and community colleges work toward ADA Title II and WCAG 2.1 AA accessibility standards.
-          </p>
-
           <h1
             id="id-hero-heading"
             className="text-2xl md:text-4xl font-bold mb-4 tracking-tight"
@@ -144,7 +140,7 @@ export default function CaiLandingPage() {
                 Accessibility Converter
               </h2>
               <p className="text-muted-foreground mb-6 max-w-lg">
-                Upload a PDF, Word, PowerPoint, or Excel file—or import directly from Google Docs, Sheets, or Slides—and get back a document with accessibility improvements applied in seconds. No login required.
+                A free, shared accessibility resource from the Bridgewater State University Center for Artificial Intelligence. Built to help Massachusetts state universities and community colleges work toward ADA Title II and WCAG 2.1 AA accessibility standards.
               </p>
               <Button
                 size="lg"
