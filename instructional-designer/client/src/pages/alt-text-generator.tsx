@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, Image, AlertCircle, RefreshCw, Upload, Copy, Check } from "lucide-react";
-import { HeaderControls } from "@/components/header-controls";
+import { HeaderControls, BackButton } from "@/components/header-controls";
 import { PoweredByFooter } from "@/components/powered-by-footer";
 import { usePageTitle } from "@/hooks/use-page-title";
 
@@ -88,6 +88,9 @@ export default function AltTextGeneratorPage() {
 
   return (
     <main id="main-content" tabIndex={-1} className="min-h-screen bg-background">
+      <nav aria-label="Back navigation" className="absolute top-4 left-4 z-20">
+        <BackButton />
+      </nav>
       <nav aria-label="User menu" className="absolute top-4 right-4 z-20">
         <HeaderControls showLogout={false} showLogin={false} />
       </nav>

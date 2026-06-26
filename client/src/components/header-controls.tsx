@@ -1,4 +1,4 @@
-import { Moon, Sun, Minus, Plus, Type, Library, HelpCircle, LogOut, Home, LogIn, Settings } from "lucide-react";
+import { Moon, Sun, Minus, Plus, Type, Library, HelpCircle, LogOut, Home, LogIn, Settings, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTheme } from "@/components/theme-provider";
@@ -214,5 +214,26 @@ export function HeaderControls({
         </Tooltip>
       )}
     </div>
+  );
+}
+
+export function BackButton({ variant = "light" }: { variant?: "light" | "dark" }) {
+  const [location, navigate] = useLocation();
+  if (location === "/") return null;
+  const dest = location === "/accessibility" ? "/" : "/accessibility";
+  const label = dest === "/" ? "Home" : "Accessibility Tools";
+  const isDark = variant === "dark";
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      className={`gap-1.5 ${isDark ? "text-white hover:text-white/80 hover:bg-white/10" : "text-foreground hover:text-foreground"}`}
+      onClick={() => navigate(dest)}
+      data-testid="button-back-nav"
+      aria-label={`Back to ${label}`}
+    >
+      <ArrowLeft className="w-4 h-4" aria-hidden="true" />
+      <span className="hidden sm:inline">{label}</span>
+    </Button>
   );
 }

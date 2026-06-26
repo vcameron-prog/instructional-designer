@@ -19,7 +19,7 @@ import {
   Calculator,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
-import { ConverterHeader } from "@/components/header-controls";
+import { ConverterHeader, BackButton } from "@/components/header-controls";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { cn } from "@/lib/utils";
 import { PoweredByFooter } from "@/components/powered-by-footer";
@@ -302,7 +302,8 @@ export default function PdfUpload() {
       className="min-h-screen bg-background"
     >
       <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-3 flex items-center justify-end">
+        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+          <BackButton />
           <div className="flex items-center gap-2">
             {isAuthenticated && (
               <button
