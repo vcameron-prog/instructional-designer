@@ -107,91 +107,66 @@ export default function CaiLandingPage() {
         </div>
       </section>
 
-      {/* Hero section with CAI branding.
-           The background is intentionally hardcoded as a dark gray gradient
-           (from-gray-900 via-gray-800 to-gray-900) — it does NOT follow the
-           app's light/dark theme toggle.  Because this section is always dark,
-           the white-only CAI logo (caiLogoWhite) is always legible here and
-           no theme-aware logo swap is needed. */}
-      <section
-        aria-labelledby="id-hero-heading"
-        className="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white py-20 px-4"
-      >
-        <div className="container mx-auto max-w-4xl text-center">
-          <h1
-            id="id-hero-heading"
-            className="text-2xl md:text-4xl font-bold mb-4 tracking-tight"
-            style={{ textWrap: "balance" }}
-            data-testid="heading-id-main"
-          >
-            AI-Powered Course Design for BSU Faculty
-          </h1>
-          <p
-            className="text-lg md:text-xl text-gray-300 max-w-2xl mx-auto mb-10"
-            style={{ textWrap: "balance" }}
-            data-testid="text-id-subtitle"
-          >
-            Create assignments, rubrics, syllabi, and UDL-aligned course materials in minutes —
-            powered by AI and built specifically for Bridgewater State University instructors.
-          </p>
-
-          <a
-            href="/faculty"
-            className="inline-flex items-center gap-2 bg-white text-gray-900 hover:bg-gray-100 text-base px-8 py-6 rounded-xl font-semibold shadow-lg transition-colors"
-            data-testid="button-open-id-app"
-          >
-            <GraduationCap className="w-5 h-5" />
-            Open Instructional Designer
-            <ArrowRight className="w-5 h-5" />
-          </a>
-        </div>
-      </section>
-
-      {/* What it does section */}
-      <section aria-labelledby="features-heading" className="py-16 px-4 bg-background">
+      {/* Instructional Designer section */}
+      <section aria-labelledby="id-hero-heading" className="py-16 px-4 bg-background border-t border-border">
         <div className="container mx-auto max-w-4xl">
-          <h2 id="features-heading" className="text-2xl md:text-3xl font-bold text-center text-foreground mb-10" data-testid="heading-features">
-            What the Instructional Designer Does
-          </h2>
-
-          <div className="grid gap-6 md:grid-cols-3">
-            <Card className="border border-border" data-testid="card-feature-course-materials">
-              <CardContent className="p-6 text-center">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center mx-auto mb-4">
-                  <BookOpen className="w-7 h-7 text-white" />
+          <div className="flex flex-col md:flex-row items-center gap-10">
+            <div className="flex-1">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-muted text-muted-foreground text-xs font-semibold mb-4">
+                <GraduationCap className="w-3.5 h-3.5" />
+                UDL · Inclusive Design · BSU Faculty
+              </div>
+              <h2
+                id="id-hero-heading"
+                className="text-2xl md:text-3xl font-bold text-foreground mb-3"
+                data-testid="heading-id-main"
+              >
+                AI-Powered Course Design for BSU Faculty
+              </h2>
+              <p className="text-muted-foreground mb-6 max-w-lg" data-testid="text-id-subtitle">
+                Create assignments, rubrics, syllabi, and UDL-aligned course materials in minutes —
+                powered by AI and built specifically for Bridgewater State University instructors.
+              </p>
+              <a
+                href="/faculty"
+                className="inline-flex items-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90 text-base px-8 py-6 rounded-xl font-semibold shadow-lg transition-colors"
+                data-testid="button-open-id-app"
+              >
+                <GraduationCap className="w-5 h-5" />
+                Open Instructional Designer
+                <ArrowRight className="w-5 h-5" />
+              </a>
+            </div>
+            <div className="flex-shrink-0 grid grid-cols-1 gap-3 w-full md:w-72">
+              <div className="flex items-start gap-3 p-4 bg-card border border-border rounded-xl" data-testid="card-feature-course-materials">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0">
+                  <BookOpen className="w-4 h-4 text-white" />
                 </div>
-                <h3 className="font-semibold text-foreground mb-2">AI-Generated Course Materials</h3>
-                <p className="text-sm text-muted-foreground">
-                  Generate complete assignments, rubrics, syllabi, and learning modules from a simple course description — ready to drop into your LMS.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="border border-border" data-testid="card-feature-udl">
-              <CardContent className="p-6 text-center">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center mx-auto mb-4">
-                  <Users className="w-7 h-7 text-white" />
+                <div>
+                  <p className="font-semibold text-foreground text-sm">AI-Generated Course Materials</p>
+                  <p className="text-xs text-muted-foreground">Assignments, rubrics, syllabi &amp; modules</p>
                 </div>
-                <h3 className="font-semibold text-foreground mb-2">UDL &amp; Inclusive Design</h3>
-                <p className="text-sm text-muted-foreground">
-                  Every output automatically incorporates Universal Design for Learning, Cultural Relevance, and Social-Emotional Learning frameworks.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="border border-border" data-testid="card-feature-bsu">
-              <CardContent className="p-6 text-center">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center mx-auto mb-4">
-                  <GraduationCap className="w-7 h-7 text-white" />
+              </div>
+              <div className="flex items-start gap-3 p-4 bg-card border border-border rounded-xl" data-testid="card-feature-udl">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center flex-shrink-0">
+                  <Users className="w-4 h-4 text-white" />
                 </div>
-                <h3 className="font-semibold text-foreground mb-2">Built for BSU Faculty</h3>
-                <p className="text-sm text-muted-foreground">
-                  Uses BSU's official syllabus template and AI policy framework, with professional DOCX export for seamless upload to Blackboard Ultra.
-                </p>
-              </CardContent>
-            </Card>
+                <div>
+                  <p className="font-semibold text-foreground text-sm">UDL &amp; Inclusive Design</p>
+                  <p className="text-xs text-muted-foreground">Cultural relevance &amp; SEL built in</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 p-4 bg-card border border-border rounded-xl" data-testid="card-feature-bsu">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center flex-shrink-0">
+                  <GraduationCap className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <p className="font-semibold text-foreground text-sm">Built for BSU Faculty</p>
+                  <p className="text-xs text-muted-foreground">BSU syllabus template &amp; DOCX export</p>
+                </div>
+              </div>
+            </div>
           </div>
-
         </div>
       </section>
 
