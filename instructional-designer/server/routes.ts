@@ -3097,7 +3097,11 @@ Limit to the 10 most impactful issues. Be precise and technical.`;
     limits: { fileSize: 5 * 1024 * 1024 },
     fileFilter: (_req, file, cb) => {
       if (/^image\/(jpeg|png|gif|webp)$/.test(file.mimetype)) cb(null, true);
-      else cb(new Error("Only JPEG, PNG, GIF, and WebP images are supported"));
+      else {
+        const err: any = new Error("Only JPEG, PNG, GIF, and WebP images are supported");
+        err.isFileFilterError = true;
+        cb(err);
+      }
     },
   });
 
@@ -3165,7 +3169,11 @@ Respond with ONLY the alt text — no explanation, no quotes.`,
     limits: { fileSize: 5 * 1024 * 1024 },
     fileFilter: (_req, file, cb) => {
       if (/^image\/(jpeg|png|gif|webp)$/.test(file.mimetype)) cb(null, true);
-      else cb(new Error("Only JPEG, PNG, GIF, and WebP images are supported"));
+      else {
+        const err: any = new Error("Only JPEG, PNG, GIF, and WebP images are supported");
+        err.isFileFilterError = true;
+        cb(err);
+      }
     },
   });
 

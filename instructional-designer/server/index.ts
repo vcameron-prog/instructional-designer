@@ -144,6 +144,9 @@ async function runMigrations() {
     if (err.code === "LIMIT_FILE_COUNT" || err.code === "LIMIT_UNEXPECTED_FILE") {
       return res.status(400).json({ error: "Invalid file upload request." });
     }
+    if (err.isFileFilterError) {
+      return res.status(400).json({ error: err.message });
+    }
 
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
