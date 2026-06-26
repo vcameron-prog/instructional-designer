@@ -524,11 +524,7 @@ export async function setupAuth(app: Express) {
       return;
     }
     req.logout(() => {
-      const endSessionUrl = client.buildEndSessionUrl(config, {
-        client_id: process.env.REPL_ID!,
-        post_logout_redirect_uri: expectedOrigin,
-      }).href;
-      res.json({ redirectUrl: endSessionUrl });
+      res.json({ redirectUrl: expectedOrigin + "/" });
     });
   });
 }
