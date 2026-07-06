@@ -46,8 +46,11 @@ import {
   findSplitPoint,
   mergeChunksIntoDocument,
   generateAccessibleDocument,
+  isHeadingLikeLine,
+  findLastConvertedMarker,
   type ComplianceIssue,
   type ComplianceReport,
+  type PageChunk,
 } from "./accessibility-engine.js";
 import type { ExtractedImage } from "./pdf-processor.js";
 
@@ -8046,5 +8049,94 @@ describe("generateAccessibleDocument — truncationWarning when a document excee
     );
 
     expect(result.truncationWarning).toBeUndefined();
+  });
+
+  it("names the last converted heading in the truncationWarning when one is present near the cutoff", async () => {
+    // Build a document where the 60th (last-included) page ends with a
+    // clear, heading-shaped line right before the cutoff, so the warning
+    // can point the user at exactly where conversion stopped.
+    const pageBody = "Lorem ipsum sentence about the course material. ".repeat(200);
+    let text = "";
+    for (let i = 1; i <= 59; i++) {
+      text += `\nPage ${i}\n${pageBody}`;
+    }
+    text += `\nPage 60\n${pageBody}\nModule 12: Final Assessment\n`;
+    for (let i = 61; i <= 65; i++) {
+      text += `\nPage ${i}\n${pageBody}`;
+    }
+
+    mockCreate.mockImplementation(async () => ({
+      content: [{ type: "text", text: "<h1>Section</h1><p>Converted text.</p>" }],
+    }));
+
+    const result = await generateAccessibleDocument(
+      text,
+      "huge-syllabus.pdf",
+      { title: "Huge Syllabus" },
+      [],
+      [],
+    );
+
+    expect(result.truncationWarning).toMatch(/Module 12: Final Assessment/);
+    expect(result.truncationWarning).toMatch(/re-upload the remaining content/i);
+  });
+});
+
+describe("isHeadingLikeLine", () => {
+  it("accepts short, capitalized, unpunctuated lines as heading-like", () => {
+    expect(isHeadingLikeLine("Module 3: Assessment Design")).toBe(true);
+    expect(isHeadingLikeLine("Introduction")).toBe(true);
+    expect(isHeadingLikeLine("Chapter 5")).toBe(true);
+  });
+
+  it("rejects long sentences ending in sentence punctuation", () => {
+    expect(
+      isHeadingLikeLine(
+        "This is a full sentence of body prose that ends with a period, like real text does.",
+      ),
+    ).toBe(false);
+    expect(isHeadingLikeLine("A short but punctuated line,")).toBe(false);
+  });
+
+  it("rejects lines that don't start with a capital letter or digit", () => {
+    expect(isHeadingLikeLine("lowercase start of a line")).toBe(false);
+  });
+
+  it("rejects empty or whitespace-only lines", () => {
+    expect(isHeadingLikeLine("   ")).toBe(false);
+    expect(isHeadingLikeLine("")).toBe(false);
+  });
+});
+
+describe("findLastConvertedMarker", () => {
+  it("finds the last heading-like line searching backward across chunks", () => {
+    const chunks: PageChunk[] = [
+      { text: "Introduction\nSome prose here.", startPage: 1, endPage: 1, startsMidPage: false },
+      { text: "More prose without headings.", startPage: 2, endPage: 2, startsMidPage: false },
+      { text: "Module 2: Grading Policy\nMore prose after the heading.", startPage: 3, endPage: 3, startsMidPage: false },
+    ];
+
+    const marker = findLastConvertedMarker(chunks);
+    expect(marker?.isHeading).toBe(true);
+    expect(marker?.heading).toBe("Module 2: Grading Policy");
+  });
+
+  it("falls back to the last non-empty line when no heading-like line exists", () => {
+    const chunks: PageChunk[] = [
+      {
+        text: "This is a long sentence of prose that never looks like a heading at all.",
+        startPage: 1,
+        endPage: 1,
+        startsMidPage: false,
+      },
+    ];
+
+    const marker = findLastConvertedMarker(chunks);
+    expect(marker?.isHeading).toBe(false);
+    expect(marker?.heading).toContain("This is a long sentence of prose");
+  });
+
+  it("returns undefined for an empty chunk list", () => {
+    expect(findLastConvertedMarker([])).toBeUndefined();
   });
 });

@@ -104,31 +104,25 @@ vi.mock("./storage", () => ({
   ),
 }));
 
-vi.mock("./lib/accessibility-engine", () => ({
-  getDeterministicFixerKeys: () => [],
-  getAiFixRetryMetrics: () => ({ count: 0, lastAt: null }),
-  getPersistAiFixRetryLastFailed: () => false,
-  generateAccessibleDocument: mockGenerateAccessibleDocument,
-  evaluateOriginalDocument: vi.fn().mockReturnValue(null),
-  registerDeterministicFixer: vi.fn(),
-  applyHeadingHierarchyFix: (html: string) => html,
-  fixComplianceIssue: vi.fn(),
-  fixAllAriaRoleMisuse: vi.fn(),
-  buildComplianceReport: vi.fn().mockReturnValue({ issues: [], summary: {} }),
-}));
+vi.mock("./lib/accessibility-engine", async () => {
+  const { createAccessibilityEngineMock } = await import(
+    "./test-utils/accessibility-engine-mock.js"
+  );
+  return createAccessibilityEngineMock({
+    generateAccessibleDocument: mockGenerateAccessibleDocument,
+    evaluateOriginalDocument: vi.fn().mockReturnValue(null),
+  });
+});
 
-vi.mock("./lib/accessibility-engine.js", () => ({
-  getDeterministicFixerKeys: () => [],
-  getAiFixRetryMetrics: () => ({ count: 0, lastAt: null }),
-  getPersistAiFixRetryLastFailed: () => false,
-  generateAccessibleDocument: mockGenerateAccessibleDocument,
-  evaluateOriginalDocument: vi.fn().mockReturnValue(null),
-  registerDeterministicFixer: vi.fn(),
-  applyHeadingHierarchyFix: (html: string) => html,
-  fixComplianceIssue: vi.fn(),
-  fixAllAriaRoleMisuse: vi.fn(),
-  buildComplianceReport: vi.fn().mockReturnValue({ issues: [], summary: {} }),
-}));
+vi.mock("./lib/accessibility-engine.js", async () => {
+  const { createAccessibilityEngineMock } = await import(
+    "./test-utils/accessibility-engine-mock.js"
+  );
+  return createAccessibilityEngineMock({
+    generateAccessibleDocument: mockGenerateAccessibleDocument,
+    evaluateOriginalDocument: vi.fn().mockReturnValue(null),
+  });
+});
 
 vi.mock("./markdownTableConverter.js", () => ({
   convertMarkdownTablesToHtml: (html: string) => html,

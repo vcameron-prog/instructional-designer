@@ -2630,7 +2630,7 @@ ${stripped}`,
 
 export type ProgressCallback = (message: string) => Promise<void>;
 
-interface PageChunk {
+export interface PageChunk {
   text: string;
   startPage: number;
   endPage: number;
@@ -2695,6 +2695,52 @@ export function findSplitPoint(text: string, start: number, maxEnd: number): num
   // minimum-progress floor — fall back to the hard limit rather than
   // producing a pathologically tiny chunk or looping forever.
   return maxEnd;
+}
+
+/**
+ * Heuristic check for whether a line of raw extracted text looks like a
+ * section/chapter heading rather than a sentence of body prose. Extracted
+ * text has no markdown/HTML markup, so this relies on shape only: short,
+ * capitalized, no trailing sentence punctuation, and not too many words.
+ */
+export function isHeadingLikeLine(line: string): boolean {
+  const trimmed = line.trim();
+  if (trimmed.length < 3 || trimmed.length > 100) return false;
+  if (/[.,;:]$/.test(trimmed)) return false;
+  if (!/^[A-Z0-9]/.test(trimmed)) return false;
+  const wordCount = trimmed.split(/\s+/).filter(Boolean).length;
+  if (wordCount > 12) return false;
+  return true;
+}
+
+/**
+ * Finds the last heading-like line within the chunks that were actually
+ * converted (i.e. before the truncation cutoff), searching backward from the
+ * end of the last included chunk. Falls back to the last non-empty line of
+ * text when no heading-shaped line is found, so users always get some
+ * indication of where the converted content ends — not just a character
+ * count.
+ */
+export function findLastConvertedMarker(
+  includedChunks: PageChunk[],
+): { heading: string; isHeading: boolean } | undefined {
+  for (let i = includedChunks.length - 1; i >= 0; i--) {
+    const lines = includedChunks[i].text.split("\n");
+    for (let j = lines.length - 1; j >= 0; j--) {
+      if (isHeadingLikeLine(lines[j])) {
+        return { heading: lines[j].trim(), isHeading: true };
+      }
+    }
+  }
+  for (let i = includedChunks.length - 1; i >= 0; i--) {
+    const lines = includedChunks[i].text.split("\n").map((l) => l.trim()).filter(Boolean);
+    if (lines.length > 0) {
+      const lastLine = lines[lines.length - 1];
+      const snippet = lastLine.length > 80 ? `${lastLine.slice(0, 80)}...` : lastLine;
+      return { heading: snippet, isHeading: false };
+    }
+  }
+  return undefined;
 }
 
 export function splitTextByPages(text: string, maxChunkSize: number = 8000): PageChunk[] {
@@ -3042,7 +3088,13 @@ export async function generateAccessibleDocument(
   let truncationWarning: string | undefined;
   if (allChunks.length > MAX_CHUNKS) {
     const droppedChars = allChunks.slice(MAX_CHUNKS).reduce((sum, c) => sum + c.text.length, 0);
-    truncationWarning = `This document was very large (${allChunks.length} sections). Only the first ${MAX_CHUNKS} sections were converted; approximately ${droppedChars.toLocaleString()} characters at the end of the document were not processed.`;
+    const lastMarker = findLastConvertedMarker(allChunks.slice(0, MAX_CHUNKS));
+    const cutoffNote = lastMarker
+      ? lastMarker.isHeading
+        ? ` Conversion stopped after the section titled "${lastMarker.heading}" — re-upload the remaining content starting from there to convert the rest.`
+        : ` Conversion stopped after the text "${lastMarker.heading}" — re-upload the remaining content starting from there to convert the rest.`
+      : "";
+    truncationWarning = `This document was very large (${allChunks.length} sections). Only the first ${MAX_CHUNKS} sections were converted; approximately ${droppedChars.toLocaleString()} characters at the end of the document were not processed.${cutoffNote}`;
     console.warn(`[accessibility-engine] Document split into ${allChunks.length} chunks; capping at ${MAX_CHUNKS} to limit AI API usage. ${droppedChars} trailing characters were dropped.`);
   }
   const chunks = allChunks.slice(0, MAX_CHUNKS);
