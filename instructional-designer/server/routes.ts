@@ -3137,7 +3137,7 @@ Limit to the 10 most impactful issues. Be precise and technical.`;
                   text: `Generate concise, descriptive alternative text for this image following WCAG 2.1 guidelines.
 ${context ? `Context about the image: ${context}` : ""}
 
-Rules:
+Rules for the alt text:
 - Start directly with the description (no "Image of" or "Picture of")
 - Be specific and meaningful — describe what matters for understanding
 - For charts/graphs: describe the data and trends, not just the visual style
@@ -3145,20 +3145,36 @@ Rules:
 - Aim for 50-125 characters for simple images, up to 250 for complex ones
 - Do not include the word "alt" in your response
 
-Respond with ONLY the alt text — no explanation, no quotes.`,
+Also rate your confidence in how accurately the alt text captures the image, as "High", "Medium", or "Low". Use "Low" when the image is ambiguous, small, unclear, or you are guessing at details (e.g. unreadable text, unclear chart data, uncertain context). Use "Medium" when you are fairly but not fully sure. Use "High" only when the image is clear and unambiguous.
+
+Respond with ONLY valid JSON, no markdown fences, in exactly this shape:
+{"altText": "<the alt text, or \\"[decorative]\\" for decorative images>", "confidence": "High" | "Medium" | "Low"}`,
                 },
               ],
             },
           ],
         });
 
-        const altText = ((message.content[0] as any).text as string).trim();
+        const rawText = ((message.content[0] as any).text as string).trim();
+        let altText: string;
+        let confidence: string | undefined;
+        try {
+          const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+          const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : rawText);
+          altText = String(parsed.altText ?? "").trim();
+          if (typeof parsed.confidence === "string" && /^(High|Medium|Low)$/i.test(parsed.confidence)) {
+            confidence = parsed.confidence.charAt(0).toUpperCase() + parsed.confidence.slice(1).toLowerCase();
+          }
+        } catch {
+          altText = rawText;
+        }
         const isDecorative = altText === "[decorative]";
 
         res.json({
           altText: isDecorative ? "" : altText,
           isDecorative,
           characterCount: altText.length,
+          ...(confidence ? { confidence } : {}),
         });
       } catch (err) {
         console.error("Alt text generation error:", err);
