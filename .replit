@@ -83,7 +83,7 @@ isValidation = true
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npx vitest run"
+args = "npx vitest run && cd instructional-designer && npx vitest run --config vitest.config.ts"
 
 [[workflows.workflow]]
 name = "typecheck"
