@@ -578,6 +578,7 @@ export default function PdfConversion() {
   const [copiedNoFixKeys, setCopiedNoFixKeys] = useState<Set<number>>(new Set());
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [bannerVisible, setBannerVisible] = useState(true);
+  const [headingRenumberBannerDismissed, setHeadingRenumberBannerDismissed] = useState(false);
   const [acceptingIndex, setAcceptingIndex] = useState<number | null>(null);
   const [revertingIndex, setRevertingIndex] = useState<number | null>(null);
   const [justificationText, setJustificationText] = useState("");
@@ -1349,6 +1350,11 @@ export default function PdfConversion() {
 
   const report = conversion.complianceReport;
   const originalReport = conversion.originalComplianceReport;
+  const headingRenumberIssueIndex = report?.issues?.findIndex(
+    (issue: any) => issue.criterion === "2.4.6" && issue.fixNotes,
+  ) ?? -1;
+  const headingRenumberIssue =
+    headingRenumberIssueIndex >= 0 ? report.issues[headingRenumberIssueIndex] : null;
   const contentFidelity = (conversion as any)?.contentFidelity as
     | {
         textCoverageRatio: number;
@@ -2317,6 +2323,43 @@ export default function PdfConversion() {
             <div className="lg:col-span-2 space-y-6">
               {conversion.accessibleHtml && (
                 <section className="bg-card border rounded-2xl overflow-hidden">
+                  {headingRenumberIssue && !headingRenumberBannerDismissed && (
+                    <div
+                      className="flex items-start justify-between gap-3 px-4 py-3 bg-blue-50 dark:bg-blue-900/10 border-b border-blue-200 dark:border-blue-800"
+                      role="note"
+                      data-testid="heading-renumber-banner"
+                    >
+                      <div className="flex items-start gap-2">
+                        <Info className="w-4 h-4 text-blue-700 dark:text-blue-400 mt-0.5 shrink-0" aria-hidden="true" />
+                        <p className="text-sm text-blue-900 dark:text-blue-200">
+                          <span className="font-bold">Heading levels were auto-renumbered.</span>{" "}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const key = `${headingRenumberIssue.criterion}::${headingRenumberIssue.title}::${headingRenumberIssueIndex}`;
+                              setExpandedIssues((prev) => new Set(prev).add(key));
+                              document
+                                .querySelector(`[data-testid="issue-toggle-${headingRenumberIssueIndex}"]`)
+                                ?.scrollIntoView({ behavior: "smooth", block: "center" });
+                            }}
+                            className="underline font-semibold hover:text-blue-700 dark:hover:text-blue-300"
+                            data-testid="button-view-heading-renumber-note"
+                          >
+                            View details
+                          </button>{" "}
+                          in the compliance report below.
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setHeadingRenumberBannerDismissed(true)}
+                        className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 shrink-0"
+                        aria-label="Dismiss heading renumber notice"
+                        data-testid="button-dismiss-heading-renumber-banner"
+                      >
+                        <X className="w-4 h-4" aria-hidden="true" />
+                      </button>
+                    </div>
+                  )}
                   <div className="bg-secondary/50 border-b px-6 py-4 flex items-center justify-between">
                     <h2 className="flex items-center gap-2 font-bold">
                       <Code className="w-5 h-5" />
