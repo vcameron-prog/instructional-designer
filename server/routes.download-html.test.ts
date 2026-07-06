@@ -78,16 +78,10 @@ vi.mock("./storage", () => ({
 // ---------------------------------------------------------------------------
 // Mock: accessibility-engine
 // ---------------------------------------------------------------------------
-vi.mock("./lib/accessibility-engine", () => ({
-  getDeterministicFixerKeys: () => [],
-  fixComplianceIssue: vi.fn(),
-  fixAllAriaRoleMisuse: vi.fn(),
-  getAiFixRetryMetrics: () => ({ count: 0, lastAt: null }),
-  applyAriaComboboxRoleFix: (html: string) => html,
-  applyAriaGridRoleFix: (html: string) => html,
-  applyAriaTabRoleFix: (html: string) => html,
-  applyHeadingHierarchyFix: (html: string) => html,
-}));
+vi.mock("./lib/accessibility-engine", async () => {
+  const { createAccessibilityEngineMock } = await import("./test-utils/accessibility-engine-mock");
+  return createAccessibilityEngineMock();
+});
 
 // ---------------------------------------------------------------------------
 // Mock: markdownTableConverter

@@ -131,14 +131,10 @@ vi.mock("./storage", () => ({
 // ---------------------------------------------------------------------------
 // Mock: accessibility-engine
 // ---------------------------------------------------------------------------
-vi.mock("./lib/accessibility-engine", () => ({
-  getDeterministicFixerKeys: () => [],
-  getAiFixRetryMetrics: () => ({ count: 0, lastAt: null }),
-  generateAccessibleDocument: vi.fn(),
-  evaluateOriginalDocument: vi.fn(),
-  fixComplianceIssue: vi.fn(),
-  fixAllAriaRoleMisuse: vi.fn(),
-}));
+vi.mock("./lib/accessibility-engine", async () => {
+  const { createAccessibilityEngineMock } = await import("./test-utils/accessibility-engine-mock");
+  return createAccessibilityEngineMock();
+});
 
 // ---------------------------------------------------------------------------
 // Mock: markdownTableConverter

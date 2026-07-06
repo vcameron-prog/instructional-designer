@@ -151,16 +151,12 @@ vi.mock("@anthropic-ai/sdk", () => ({
 // ---------------------------------------------------------------------------
 // Mock: accessibility-engine
 // ---------------------------------------------------------------------------
-vi.mock("./lib/accessibility-engine", () => ({
-  getDeterministicFixerKeys: () => [],
-  getAiFixRetryMetrics: vi.fn().mockResolvedValue({ retryCount: 0, lastRetryAt: null }),
-  getPersistAiFixRetryLastFailed: vi.fn().mockReturnValue(false),
-  fixComplianceIssue: vi.fn(),
-  fixAllAriaRoleMisuse: vi.fn(),
-  applyAriaComboboxRoleFix: (html: string) => html,
-  applyAriaGridRoleFix: (html: string) => html,
-  applyAriaTabRoleFix: (html: string) => html,
-}));
+vi.mock("./lib/accessibility-engine", async () => {
+  const { createAccessibilityEngineMock } = await import("./test-utils/accessibility-engine-mock");
+  return createAccessibilityEngineMock({
+    getAiFixRetryMetrics: vi.fn().mockResolvedValue({ retryCount: 0, lastRetryAt: null }),
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Mock: rateLimiters

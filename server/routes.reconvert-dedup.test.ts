@@ -114,19 +114,19 @@ vi.mock("./lib/rateLimiters.js", () => ({
   getRateLimitCleanupMetrics: vi.fn().mockReturnValue({ count: 0, lastAt: null }),
 }));
 
-vi.mock("./lib/accessibility-engine", () => ({
-  getDeterministicFixerKeys: vi.fn().mockReturnValue([]),
-  getAiFixRetryMetrics: vi.fn().mockReturnValue({ count: 0, lastAt: null }),
-  generateAccessibleDocument: mockGenerateAccessibleDocument,
-  registerDeterministicFixer: vi.fn(),
-}));
+vi.mock("./lib/accessibility-engine", async () => {
+  const { createAccessibilityEngineMock } = await import("./test-utils/accessibility-engine-mock");
+  return createAccessibilityEngineMock({
+    generateAccessibleDocument: mockGenerateAccessibleDocument,
+  });
+});
 
-vi.mock("./lib/accessibility-engine.js", () => ({
-  getDeterministicFixerKeys: vi.fn().mockReturnValue([]),
-  getAiFixRetryMetrics: vi.fn().mockReturnValue({ count: 0, lastAt: null }),
-  generateAccessibleDocument: mockGenerateAccessibleDocument,
-  registerDeterministicFixer: vi.fn(),
-}));
+vi.mock("./lib/accessibility-engine.js", async () => {
+  const { createAccessibilityEngineMock } = await import("./test-utils/accessibility-engine-mock");
+  return createAccessibilityEngineMock({
+    generateAccessibleDocument: mockGenerateAccessibleDocument,
+  });
+});
 
 vi.mock("./storage", () => ({
   storage: new Proxy(

@@ -119,12 +119,10 @@ vi.mock("./lib/table-fixers.js", () => ({
 // ---------------------------------------------------------------------------
 // Mock: accessibility-engine
 // ---------------------------------------------------------------------------
-vi.mock("./lib/accessibility-engine", () => ({
-  getDeterministicFixerKeys: () => [],
-  applyAriaComboboxRoleFix: (html: string) => html,
-  applyAriaGridRoleFix: (html: string) => html,
-  applyAriaTabRoleFix: (html: string) => html,
-}));
+vi.mock("./lib/accessibility-engine", async () => {
+  const { createAccessibilityEngineMock } = await import("./test-utils/accessibility-engine-mock");
+  return createAccessibilityEngineMock();
+});
 
 // ---------------------------------------------------------------------------
 // Mock: rateLimiters — all checks pass by default

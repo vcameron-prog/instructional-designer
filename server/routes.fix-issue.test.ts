@@ -36,12 +36,12 @@ vi.mock("./db", () => ({
 // individual tests can control whether wasRetried is set in the return value.
 // getDeterministicFixerKeys is needed at module load time (route registration).
 // ---------------------------------------------------------------------------
-vi.mock("./lib/accessibility-engine", () => ({
-  getDeterministicFixerKeys: () => [],
-  fixComplianceIssue: mockFixComplianceIssue,
-  fixAllAriaRoleMisuse: vi.fn(),
-  getAiFixRetryMetrics: () => ({ count: 0, lastAt: null }),
-}));
+vi.mock("./lib/accessibility-engine", async () => {
+  const { createAccessibilityEngineMock } = await import("./test-utils/accessibility-engine-mock");
+  return createAccessibilityEngineMock({
+    fixComplianceIssue: mockFixComplianceIssue,
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Mock: Replit auth middleware – setupAuth is a no-op; all middleware

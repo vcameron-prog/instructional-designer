@@ -34,18 +34,17 @@ vi.mock("./db", () => ({
 // Mock: accessibility-engine – exposes the functions needed at module load
 // time (route registration) and for runtime calls.
 // ---------------------------------------------------------------------------
-vi.mock("./lib/accessibility-engine", () => ({
-  getDeterministicFixerKeys: () => [],
-  fixComplianceIssue: vi.fn(),
-  fixAllAriaRoleMisuse: vi.fn(),
-  getAiFixRetryMetrics: () => ({ count: 0, lastAt: null }),
-  generateAccessibleDocument: vi.fn().mockResolvedValue({
-    accessibleHtml: "<html></html>",
-    complianceReport: { issues: [] },
-    pageCount: 1,
-    ocrApplied: false,
-  }),
-}));
+vi.mock("./lib/accessibility-engine", async () => {
+  const { createAccessibilityEngineMock } = await import("./test-utils/accessibility-engine-mock");
+  return createAccessibilityEngineMock({
+    generateAccessibleDocument: vi.fn().mockResolvedValue({
+      accessibleHtml: "<html></html>",
+      complianceReport: { issues: [] },
+      pageCount: 1,
+      ocrApplied: false,
+    }),
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Mock: Replit auth middleware – setupAuth is a no-op; all middleware

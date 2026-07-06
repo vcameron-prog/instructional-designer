@@ -127,13 +127,12 @@ vi.mock("./storage", () => ({
 // ---------------------------------------------------------------------------
 // Mock: accessibility-engine – getAiFixRetryMetrics is called by /api/metrics.
 // ---------------------------------------------------------------------------
-vi.mock("./lib/accessibility-engine", () => ({
-  getDeterministicFixerKeys: () => [],
-  getAiFixRetryMetrics: mockGetAiFixRetryMetrics,
-  getPersistAiFixRetryLastFailed: vi.fn().mockReturnValue(false),
-  fixComplianceIssue: vi.fn(),
-  fixAllAriaRoleMisuse: vi.fn(),
-}));
+vi.mock("./lib/accessibility-engine", async () => {
+  const { createAccessibilityEngineMock } = await import("./test-utils/accessibility-engine-mock");
+  return createAccessibilityEngineMock({
+    getAiFixRetryMetrics: mockGetAiFixRetryMetrics,
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Mock: rateLimiters – exports used during route registration.

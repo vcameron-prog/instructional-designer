@@ -2,3 +2,5 @@
 - [Drizzle schema drift in dev DB](drizzle-schema-drift.md) — dev DB is missing several columns added to schema but not migrated; use raw SQL for inserts/selects in test endpoints to avoid 500s.
 - [TipTap v3 re-render and jsdom testing](tiptap-v3-rerender.md) — must add shouldRerenderOnTransaction: true to useEditor; userEvent.click in jsdom moves cursor to pos 0 (outside blocks).
 - [Sub-path proxy for co-hosted Express+Vite apps](subpath-proxy-pattern.md) — how to serve a second Express+Vite app at /subpath/ off the main deployed app using http-proxy-middleware.
+- [Shared vi.mock factories must lazy-import](vi-mock-shared-factory.md) — a factory helper referenced by vi.mock() must be dynamically imported inside the callback, not statically, or you hit a hoisting TDZ error.
+- [Monorepo has two parallel apps](monorepo-nested-instructional-designer.md) — root workspace and instructional-designer/ are separate apps with separate routes.ts/tests; don't assume a fix in one applies to the other.
