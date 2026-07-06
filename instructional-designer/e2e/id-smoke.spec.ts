@@ -636,6 +636,72 @@ test.describe("Accessibility Tools — Alt Text Generator page", () => {
     ).toHaveAttribute("aria-label", "Copied", { timeout: 3_000 });
   });
 
+  for (const confidence of ["Medium", "Low"] as const) {
+    test(`shows a visibly distinct confidence badge for "${confidence}" confidence results`, async ({
+      page,
+    }) => {
+      const mockAltResult = {
+        altText: "A red circle",
+        isDecorative: false,
+        characterCount: 14,
+        confidence,
+      };
+      await page.route("**/api/tools/alt-text", async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify(mockAltResult),
+        });
+      });
+
+      await page.goto("/accessibility-tools/alt-text");
+      await expect(page).toHaveURL(/\/accessibility-tools\/alt-text/, { timeout: 10_000 });
+
+      const fileInput = page.getByTestId("input-image-file");
+      await expect(fileInput, "hidden file input is present in DOM").toBeAttached();
+
+      const minimalPng = Buffer.from(
+        "89504e470d0a1a0a0000000d494844520000000100000001080200000090" +
+          "7753de0000000c4944415408d76360f8cfc00000000200017221bc330000" +
+          "0000049454e44ae426082",
+        "hex",
+      );
+      await fileInput.setInputFiles({
+        name: "test-image.png",
+        mimeType: "image/png",
+        buffer: minimalPng,
+      });
+
+      const generateBtn = page.getByTestId("button-generate-alt");
+      await expect(generateBtn, "Generate Alt Text button is enabled after file select").toBeEnabled({
+        timeout: 5_000,
+      });
+      await generateBtn.click();
+
+      await expect(
+        page.getByTestId("alt-result"),
+        "alt-result card appears after generation",
+      ).toBeVisible({ timeout: 10_000 });
+
+      const confidenceLabel = page.getByTestId("text-alt-confidence");
+      await expect(
+        confidenceLabel,
+        `confidence label shows "${confidence}" value`,
+      ).toHaveText(`Confidence: ${confidence}`, { timeout: 5_000 });
+
+      // Low/Medium confidence must render with a visually distinct badge
+      // (colored background) so faculty notice the AI is less certain,
+      // rather than plain unstyled text.
+      const backgroundColor = await confidenceLabel.evaluate(
+        (el) => getComputedStyle(el).backgroundColor,
+      );
+      expect(
+        backgroundColor,
+        `"${confidence}" confidence badge has a non-transparent background color`,
+      ).not.toBe("rgba(0, 0, 0, 0)");
+    });
+  }
+
   test("uploads a synthetic image, mocks decorative API response, and shows empty-alt code snippet", async ({
     page,
   }) => {

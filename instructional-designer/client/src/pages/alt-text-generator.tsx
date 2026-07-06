@@ -19,6 +19,17 @@ interface AltTextResult {
 
 const DEFAULT_MAX_UPLOAD_MB = 5;
 
+function confidenceBadgeClasses(confidence: string): string {
+  const normalized = confidence.trim().toLowerCase();
+  if (normalized === "low") {
+    return "text-amber-800 bg-amber-100 border border-amber-300 dark:text-amber-200 dark:bg-amber-950 dark:border-amber-800";
+  }
+  if (normalized === "medium") {
+    return "text-blue-800 bg-blue-100 border border-blue-300 dark:text-blue-200 dark:bg-blue-950 dark:border-blue-800";
+  }
+  return "text-emerald-800 bg-emerald-100 border border-emerald-300 dark:text-emerald-200 dark:bg-emerald-950 dark:border-emerald-800";
+}
+
 export default function AltTextGeneratorPage() {
   usePageTitle("Alt Text Generator");
   const [, navigate] = useLocation();
@@ -252,7 +263,12 @@ export default function AltTextGeneratorPage() {
                   <div className="flex items-center gap-3 text-xs text-muted-foreground">
                     <span>{result.characterCount} characters</span>
                     {result.confidence && (
-                      <span data-testid="text-alt-confidence">Confidence: {result.confidence}</span>
+                      <span
+                        className={`px-2 py-0.5 rounded-full font-medium ${confidenceBadgeClasses(result.confidence)}`}
+                        data-testid="text-alt-confidence"
+                      >
+                        Confidence: {result.confidence}
+                      </span>
                     )}
                   </div>
 
