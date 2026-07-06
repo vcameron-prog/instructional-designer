@@ -36,7 +36,11 @@ import {
   HEAVY_OP_RATE_WINDOW_MS,
 } from "./lib/rateLimiters.js";
 import { buildContentDocx } from "./lib/content-docx.js";
-import { fixHtmlTableCaption, editHtmlTableCaption, fixHtmlTableThead } from "./lib/table-fixers.js";
+import {
+  fixHtmlTableCaption,
+  editHtmlTableCaption,
+  fixHtmlTableThead,
+} from "./lib/table-fixers.js";
 import { getDeterministicFixerKeys } from "./lib/accessibility-engine";
 
 /** Maximum image upload size for vision tools (alt-text, math-ocr).
@@ -166,6 +170,55 @@ function fixHeadingSkip(text: string): string {
   return lines.join("\n");
 }
 
+/**
+ * Applies a single deterministic (or AI-backed) accessibility fix to `content`
+ * based on `fixType`. Shared by the fix-accessibility (persist) and
+ * preview-fix (dry-run) routes so both stay in sync.
+ */
+async function applyAccessibilityFix(
+  fixType: string,
+  content: string,
+  body: Record<string, unknown>,
+): Promise<string> {
+  switch (fixType) {
+    case "fix-heading-skip":
+      return fixHeadingSkip(content);
+    case "fix-all-caps":
+      return fixAllCaps(content);
+    case "convert-markdown-tables":
+      return convertMarkdownTablesToHtml(content);
+    case "fix-html-table-caption": {
+      const result = fixHtmlTableCaption(content);
+      return result.html;
+    }
+    case "fix-html-table-thead": {
+      const result = fixHtmlTableThead(content);
+      return result.html;
+    }
+    case "edit-html-table-caption": {
+      const captionText = typeof body.captionText === "string" ? body.captionText : "";
+      const captionIndex = typeof body.captionIndex === "number" ? body.captionIndex : undefined;
+      return editHtmlTableCaption(content, captionText, captionIndex);
+    }
+    case "fix-aria-combobox": {
+      const { applyAriaComboboxRoleFix } = await import("./lib/accessibility-engine");
+      return applyAriaComboboxRoleFix(content);
+    }
+    case "fix-aria-grid": {
+      const { applyAriaGridRoleFix } = await import("./lib/accessibility-engine");
+      return applyAriaGridRoleFix(content);
+    }
+    case "fix-aria-tab": {
+      const { applyAriaTabRoleFix } = await import("./lib/accessibility-engine");
+      return applyAriaTabRoleFix(content);
+    }
+    case "fix-vague-link-text":
+      return await fixVagueLinkTextAI(content);
+    default:
+      throw new Error(`Unknown fixType: ${fixType}`);
+  }
+}
+
 // ── SSRF guard ────────────────────────────────────────────────────────────────
 // Blocks requests to private/loopback/link-local IP ranges so the url-scanner
 // endpoint cannot be used to probe internal services.
@@ -245,6 +298,23 @@ function looksLikeKnownBinaryDocument(buffer: Buffer): boolean {
   return detectKnownBinaryDocumentType(buffer) !== null;
 }
 
+/** Builds the 400 error payload for a .txt upload whose contents look like a renamed binary document. */
+function buildRenamedBinaryFileError(buffer: Buffer): { error: string; detectedType: string | null } {
+  const detectedType = detectKnownBinaryDocumentType(buffer);
+  const extensionHint =
+    detectedType === "PDF"
+      ? ".pdf"
+      : detectedType === "Word document (.docx)"
+        ? ".docx"
+        : detectedType === "Word document (.doc)"
+          ? ".doc"
+          : null;
+  const error = detectedType
+    ? `This file looks like a ${detectedType} that was renamed to .txt. Please re-upload it with its original ${extensionHint} extension, or paste the text content directly.`
+    : "This file looks like a PDF or Word document renamed as .txt. Please upload it with its original file type, or paste the text content directly.";
+  return { error, detectedType };
+}
+
 /**
  * Heuristic check for whether a buffer looks like binary data rather than
  * plain UTF-8/ASCII text: a NUL byte anywhere in the sample, or a high ratio
@@ -299,6 +369,30 @@ function sanitizeHeaderFilename(filename: string): string {
     .replace(/[\x00\r\n"]/g, "_")
     .slice(0, 200);
 }
+
+// Shared error message for non-numeric or out-of-range route :id parameters.
+const INVALID_ID_ERROR = "Invalid id";
+const CONVERSION_NOT_FOUND_ERROR = "Conversion not found";
+const DOCX_EXPORT_RATE_LIMIT_ERROR = "Too many DOCX export requests. Please wait before trying again.";
+
+/**
+ * No-op placeholder for heading-hierarchy normalization prior to DOCX export.
+ * This sub-app does not (yet) run the full accessibility conversion pipeline,
+ * so this simply returns the HTML unchanged.
+ */
+function applyHeadingHierarchyFix(html: string): string {
+  return html;
+}
+
+let activeDocxExports = 0;
+// Exported so the 503 concurrency-cap test can derive its slot count from the
+// actual constant rather than hardcoding a magic number. If this value ever
+// changes, the test stays correct automatically.
+export const MAX_CONCURRENT_DOCX_EXPORTS = parseInt(process.env.MAX_CONCURRENT_DOCX_EXPORTS ?? "3", 10) || 3;
+// Per-conversion export dedup keys — prevent the same completed document from
+// being exported multiple times concurrently on the same instance, which would
+// duplicate DOCX-builder work and exhaust concurrency slots.
+const activeDocxExportKeys = new Set<string>();
 
 // Generate prompt based on tool and course info
 function generatePrompt(
@@ -2707,95 +2801,19 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     },
   );
 
-  // Preview what an accessibility fix will change (dry-run, no save)
-  app.post(
-    "/api/content/:id/preview-fix",
-    optionalAuth,
-    async (req: Request, res: Response) => {
-      try {
-        const id = parseInt(req.params.id as string);
-        const { fixType } = req.body;
-        if (!fixType) {
-          return res.status(400).json({ error: "fixType is required" });
-        }
-
-        const content = await storage.getContent(id);
-        if (!content) {
-          return res.status(404).json({ error: "Content not found" });
-        }
-
-        const userId = getUserId(req);
-        if (content.courseId) {
-          if (!userId) return res.status(403).json({ error: "Unauthorized" });
-          const course = await storage.getCourse(content.courseId, userId);
-          if (!course) return res.status(404).json({ error: "Content not found" });
-        } else if (content.userId) {
-          if (content.userId !== userId) return res.status(403).json({ error: "Unauthorized" });
-        } else {
-          const vToken = getVisitorToken(req);
-          if (!vToken || vToken !== content.visitorToken) {
-            return res.status(403).json({ error: "Unauthorized" });
-          }
-        }
-
-        let fixedContent = content.content;
-
-        if (fixType === "convert-markdown-tables") {
-          fixedContent = convertMarkdownTablesToHtml(content.content);
-        } else if (fixType === "fix-heading-skip") {
-          fixedContent = fixHeadingSkip(content.content);
-        } else if (fixType === "fix-vague-link-text") {
-          const ip = req.ip || req.socket.remoteAddress || "unknown";
-          let allowed: boolean;
-          if (userId) {
-            allowed = await checkSharedRateLimit(userId, "ai-gen", AI_GEN_RATE_LIMIT, AI_GEN_RATE_WINDOW_MS, () => checkAiGenRateLimit(userId));
-          } else {
-            ensureVisitorToken(req);
-            allowed = await checkSharedRateLimit(`ip:${ip}`, "ai-gen", ANON_RATE_LIMIT, ANON_RATE_WINDOW_MS, () => checkAnonRateLimit(ip));
-          }
-          if (!allowed) {
-            return res.status(429).json({ error: "Rate limit exceeded. Please try again later." });
-          }
-          fixedContent = await fixVagueLinkTextAI(content.content);
-        } else if (fixType === "fix-all-caps") {
-          fixedContent = fixAllCaps(content.content);
-        } else if (fixType === "fix-html-table-caption") {
-          fixedContent = fixHtmlTableCaption(content.content).html;
-        } else if (fixType === "edit-html-table-caption") {
-          const { captionText, captionIndex } = req.body;
-          fixedContent = editHtmlTableCaption(content.content, captionText ?? "Table summary", captionIndex !== undefined ? Number(captionIndex) : undefined);
-        } else if (fixType === "fix-html-table-thead") {
-          fixedContent = fixHtmlTableThead(content.content).html;
-        } else if (fixType === "fix-aria-combobox") {
-          const { applyAriaComboboxRoleFix } = await import("./lib/accessibility-engine");
-          fixedContent = applyAriaComboboxRoleFix(content.content);
-        } else if (fixType === "fix-aria-grid") {
-          const { applyAriaGridRoleFix } = await import("./lib/accessibility-engine");
-          fixedContent = applyAriaGridRoleFix(content.content);
-        } else if (fixType === "fix-aria-tab") {
-          const { applyAriaTabRoleFix } = await import("./lib/accessibility-engine");
-          fixedContent = applyAriaTabRoleFix(content.content);
-        } else {
-          return res.status(400).json({ error: "Unknown fix type" });
-        }
-
-        res.json({ before: content.content, after: fixedContent });
-      } catch (error) {
-        console.error("Error previewing accessibility fix:", error);
-        res.status(500).json({ error: "Failed to preview fix" });
-      }
-    },
-  );
-
-  // Fix accessibility issue in-place
+  // Apply a deterministic (or AI-backed) accessibility fix and persist it,
+  // saving a pre-fix version snapshot so the change can be undone.
   app.post(
     "/api/content/:id/fix-accessibility",
     optionalAuth,
     async (req: Request, res: Response) => {
       try {
         const id = parseInt(req.params.id as string);
-        const { fixType, captionText, captionTexts, captionIndex } = req.body;
-        if (!fixType) {
+        if (isNaN(id)) {
+          return res.status(404).json({ error: "Content not found" });
+        }
+        const { fixType } = req.body;
+        if (!fixType || typeof fixType !== "string") {
           return res.status(400).json({ error: "fixType is required" });
         }
 
@@ -2808,7 +2826,9 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         if (content.courseId) {
           if (!userId) return res.status(403).json({ error: "Unauthorized" });
           const course = await storage.getCourse(content.courseId, userId);
-          if (!course) return res.status(404).json({ error: "Content not found" });
+          if (!course) {
+            return res.status(404).json({ error: "Content not found" });
+          }
         } else if (content.userId) {
           if (content.userId !== userId) return res.status(403).json({ error: "Unauthorized" });
         } else {
@@ -2818,14 +2838,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           }
         }
 
-        let fixedContent = content.content;
-        let tablesFixed: number | undefined;
-
-        if (fixType === "convert-markdown-tables") {
-          fixedContent = convertMarkdownTablesToHtml(content.content);
-        } else if (fixType === "fix-heading-skip") {
-          fixedContent = fixHeadingSkip(content.content);
-        } else if (fixType === "fix-vague-link-text") {
+        if (fixType === "fix-vague-link-text") {
           const ip = req.ip || req.socket.remoteAddress || "unknown";
           let allowed: boolean;
           if (userId) {
@@ -2837,37 +2850,15 @@ Please generate an IMPROVED version that incorporates the requested changes whil
           if (!allowed) {
             return res.status(429).json({ error: "Rate limit exceeded. Please try again later." });
           }
-          fixedContent = await fixVagueLinkTextAI(content.content);
-        } else if (fixType === "fix-all-caps") {
-          fixedContent = fixAllCaps(content.content);
-        } else if (fixType === "fix-html-table-caption") {
-          const result = fixHtmlTableCaption(content.content, captionTexts ?? captionText);
-          fixedContent = result.html;
-          tablesFixed = result.tablesFixed;
-        } else if (fixType === "edit-html-table-caption") {
-          fixedContent = editHtmlTableCaption(content.content, captionText ?? "Table summary", captionIndex !== undefined ? Number(captionIndex) : undefined);
-        } else if (fixType === "fix-html-table-thead") {
-          const result = fixHtmlTableThead(content.content);
-          fixedContent = result.html;
-          tablesFixed = result.tablesFixed;
-        } else if (fixType === "fix-aria-combobox") {
-          const { applyAriaComboboxRoleFix } = await import("./lib/accessibility-engine");
-          fixedContent = applyAriaComboboxRoleFix(content.content);
-        } else if (fixType === "fix-aria-grid") {
-          const { applyAriaGridRoleFix } = await import("./lib/accessibility-engine");
-          fixedContent = applyAriaGridRoleFix(content.content);
-        } else if (fixType === "fix-aria-tab") {
-          const { applyAriaTabRoleFix } = await import("./lib/accessibility-engine");
-          fixedContent = applyAriaTabRoleFix(content.content);
-        } else {
-          return res.status(400).json({ error: "Unknown fix type" });
         }
+
+        const fixedContent = await applyAccessibilityFix(fixType, content.content, req.body);
 
         if (fixedContent === content.content) {
-          return res.json({ ...content, preFixVersionId: null, tablesFixed: 0 });
+          return res.json(content);
         }
 
-        const savedVersion = await storage.createVersion({
+        const preFixVersion = await storage.createVersion({
           generatedContentId: id,
           content: content.content,
           refinementRequest: "accessibility-fix-snapshot",
@@ -2875,10 +2866,70 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         await storage.pruneOldVersions(id, VERSION_HISTORY_LIMIT);
 
         const updated = await storage.updateContent(id, fixedContent);
-        res.json({ ...updated, preFixVersionId: savedVersion.id, tablesFixed });
+        res.json({ ...updated, preFixVersionId: preFixVersion.id });
       } catch (error) {
-        console.error("Error fixing accessibility issue:", error);
-        res.status(500).json({ error: "Failed to apply fix" });
+        console.error("Error applying accessibility fix:", error);
+        res.status(500).json({ error: "Failed to apply accessibility fix" });
+      }
+    },
+  );
+
+  // Preview a deterministic (or AI-backed) accessibility fix without persisting it.
+  app.post(
+    "/api/content/:id/preview-fix",
+    optionalAuth,
+    async (req: Request, res: Response) => {
+      try {
+        const id = parseInt(req.params.id as string);
+        if (isNaN(id)) {
+          return res.status(404).json({ error: "Content not found" });
+        }
+        const { fixType } = req.body;
+        if (!fixType || typeof fixType !== "string") {
+          return res.status(400).json({ error: "fixType is required" });
+        }
+
+        const content = await storage.getContent(id);
+        if (!content) {
+          return res.status(404).json({ error: "Content not found" });
+        }
+
+        const userId = getUserId(req);
+        if (content.courseId) {
+          if (!userId) return res.status(403).json({ error: "Unauthorized" });
+          const course = await storage.getCourse(content.courseId, userId);
+          if (!course) {
+            return res.status(404).json({ error: "Content not found" });
+          }
+        } else if (content.userId) {
+          if (content.userId !== userId) return res.status(403).json({ error: "Unauthorized" });
+        } else {
+          const vToken = getVisitorToken(req);
+          if (!vToken || vToken !== content.visitorToken) {
+            return res.status(403).json({ error: "Unauthorized" });
+          }
+        }
+
+        if (fixType === "fix-vague-link-text") {
+          const ip = req.ip || req.socket.remoteAddress || "unknown";
+          let allowed: boolean;
+          if (userId) {
+            allowed = await checkSharedRateLimit(userId, "ai-gen", AI_GEN_RATE_LIMIT, AI_GEN_RATE_WINDOW_MS, () => checkAiGenRateLimit(userId));
+          } else {
+            ensureVisitorToken(req);
+            allowed = await checkSharedRateLimit(`ip:${ip}`, "ai-gen", ANON_RATE_LIMIT, ANON_RATE_WINDOW_MS, () => checkAnonRateLimit(ip));
+          }
+          if (!allowed) {
+            return res.status(429).json({ error: "Rate limit exceeded. Please try again later." });
+          }
+        }
+
+        const fixedContent = await applyAccessibilityFix(fixType, content.content, req.body);
+
+        res.json({ before: content.content, after: fixedContent });
+      } catch (error) {
+        console.error("Error previewing accessibility fix:", error);
+        res.status(500).json({ error: "Failed to preview accessibility fix" });
       }
     },
   );
@@ -2998,22 +3049,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
 
         if (mimeType === "text/plain" || fileName.endsWith(".txt")) {
           if (looksLikeBinaryContent(file.buffer)) {
-            const detectedType = detectKnownBinaryDocumentType(file.buffer);
-            const extensionHint =
-              detectedType === "PDF"
-                ? ".pdf"
-                : detectedType === "Word document (.docx)"
-                  ? ".docx"
-                  : detectedType === "Word document (.doc)"
-                    ? ".doc"
-                    : null;
-            const error = detectedType
-              ? `This file looks like a ${detectedType} that was renamed to .txt. Please re-upload it with its original ${extensionHint} extension, or paste the text content directly.`
-              : "This file looks like a PDF or Word document renamed as .txt. Please upload it with its original file type, or paste the text content directly.";
-            return res.status(400).json({
-              error,
-              detectedType,
-            });
+            return res.status(400).json(buildRenamedBinaryFileError(file.buffer));
           }
           content = file.buffer.toString("utf-8");
         } else if (
@@ -3295,7 +3331,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
       const userId = getUserId(req);
       const id = parseInt(req.params.id as string);
       if (isNaN(id)) {
-        res.status(400).json({ error: "Invalid id" });
+        res.status(400).json({ error: INVALID_ID_ERROR });
         return;
       }
 
@@ -3317,7 +3353,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         .where(ownerFilter);
 
       if (!conversion) {
-        res.status(404).json({ error: "Conversion not found" });
+        res.status(404).json({ error: CONVERSION_NOT_FOUND_ERROR });
         return;
       }
       if (conversion.status !== "completed" || !conversion.accessibleHtml) {
@@ -3325,26 +3361,36 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         return;
       }
 
+      // Rate-limit DOCX export. Both anonymous and authenticated users use
+      // the shared cross-instance DB-backed limit so the quota is globally
+      // enforced across all autoscaled instances.
       if (!userId) {
         ensureVisitorToken(req);
         const ip = req.ip || req.socket.remoteAddress || "unknown";
+        // Key by IP so token-rotation attacks cannot bypass the shared limit.
         if (!await checkSharedRateLimit(
           `ip:${ip}`, "docx_export", SHARED_HEAVY_OP_RATE_LIMIT, HEAVY_OP_RATE_WINDOW_MS,
           () => checkHeavyOpRateLimit(`docx:ip:${ip}`),
         )) {
-          res.status(429).json({ error: "Too many DOCX export requests. Please wait before trying again." });
+          res.status(429).json({ error: DOCX_EXPORT_RATE_LIMIT_ERROR });
           return;
         }
       } else {
+        // Authenticated callers also get a process-local fallback so that
+        // a transient DB outage does not automatically deny every authenticated
+        // request while anonymous traffic continues unimpeded.
         if (!await checkSharedRateLimit(
           `user:${userId}`, "docx_export", SHARED_HEAVY_OP_RATE_LIMIT, HEAVY_OP_RATE_WINDOW_MS,
           () => checkHeavyOpRateLimit(`docx:user:${userId}`),
         )) {
-          res.status(429).json({ error: "Too many DOCX export requests. Please wait before trying again." });
+          res.status(429).json({ error: DOCX_EXPORT_RATE_LIMIT_ERROR });
           return;
         }
       }
 
+      // Per-conversion export dedup — prevents the same document from being
+      // exported multiple times in parallel on this instance, which would
+      // duplicate DOCX-builder work and exhaust concurrency slots.
       const docxExportKey = String(id);
       if (activeDocxExportKeys.has(docxExportKey)) {
         res.status(409).json({ error: "A DOCX export for this document is already in progress. Please wait." });
@@ -3352,6 +3398,7 @@ Please generate an IMPROVED version that incorporates the requested changes whil
       }
       activeDocxExportKeys.add(docxExportKey);
 
+      // Global concurrency cap to prevent CPU/memory exhaustion from parallel DOCX builds
       if (activeDocxExports >= MAX_CONCURRENT_DOCX_EXPORTS) {
         activeDocxExportKeys.delete(docxExportKey);
         res.status(503).json({ error: "Server is busy generating DOCX files. Please try again shortly." });
@@ -3359,15 +3406,37 @@ Please generate an IMPROVED version that incorporates the requested changes whil
       }
       activeDocxExports++;
 
-      try {
-        const html = conversion.accessibleHtml;
-        const titleMatch = html.match(/<title[^>]*>(.*?)<\/title>/i);
-        const docTitle = titleMatch
-          ? titleMatch[1]
-          : conversion.originalFilename.replace(/\.pdf$/i, "");
-        const langMatch = html.match(/<html[^>]*\slang=["']([^"']+)["']/i);
-        const docLang = langMatch ? langMatch[1] : "en";
+      let html = applyHeadingHierarchyFix(conversion.accessibleHtml);
+      const updatedDate = conversion.updatedAt
+        ? new Date(conversion.updatedAt)
+        : new Date();
+      const readableDate = updatedDate.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      });
 
+      const timestampFooter = `\n<footer style="margin-top:2rem;padding:1rem 0;border-top:1px solid #e0e0e0;font-size:0.85rem;color:#666;text-align:center;" role="contentinfo" aria-label="Document timestamp">\n  <p>This accessible document was last updated on ${readableDate}</p>\n</footer>`;
+      const bodyCloseIdx = html.lastIndexOf("</body>");
+      if (bodyCloseIdx !== -1) {
+        html =
+          html.slice(0, bodyCloseIdx) +
+          timestampFooter +
+          "\n" +
+          html.slice(bodyCloseIdx);
+      }
+
+      const titleMatch = html.match(/<title[^>]*>(.*?)<\/title>/i);
+      const docTitle = titleMatch
+        ? titleMatch[1]
+        : conversion.originalFilename.replace(/\.pdf$/i, "");
+      const langMatch = html.match(/<html[^>]*\slang=["']([^"']+)["']/i);
+      const docLang = langMatch ? langMatch[1] : "en";
+
+      try {
         const { buildDocx } = await import("./lib/docx-builder");
         const docxBuffer = await buildDocx(html, {
           title: docTitle,

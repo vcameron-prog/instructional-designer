@@ -26,16 +26,19 @@ export function _convertRowToHeaderCells(row: string): string {
 
 /**
  * Inserts a <caption> after the opening tag of every HTML table that is
- * missing one.  The caption text defaults to "Table summary" but can be
+ * missing one. The caption text defaults to "Table summary" but can be
  * overridden via the optional captionTexts parameter (a single string or an
  * array of strings — one per uncaptioned table, in document order).
  *
  * Uses node-html-parser so that every table at every nesting level is visited
- * independently, avoiding the mis-matched range problem that a non-greedy
- * regex produces with nested tables.  insertAdjacentHTML is used for DOM
+ * independently, avoiding the mismatched-range problem that a non-greedy
+ * regex produces with nested tables. insertAdjacentHTML is used for DOM
  * mutation to keep existing child node references stable.
  */
-export function fixHtmlTableCaption(text: string, captionTexts: string | string[] = "Table summary"): { html: string; tablesFixed: number } {
+export function fixHtmlTableCaption(
+  text: string,
+  captionTexts: string | string[] = "Table summary",
+): { html: string; tablesFixed: number } {
   const captions = Array.isArray(captionTexts) ? captionTexts : [captionTexts];
   const root = parse(text);
   const tables = root.querySelectorAll("table");
@@ -57,8 +60,8 @@ export function fixHtmlTableCaption(text: string, captionTexts: string | string[
 
 /**
  * Replaces the text of a specific <caption>…</caption> element identified by
- * its 0-based index in document order.  When captionIndex is omitted every
- * caption is updated (legacy behaviour).  Tables without a caption are left
+ * its 0-based index in document order. When captionIndex is omitted every
+ * caption is updated (legacy behaviour). Tables without a caption are left
  * untouched.
  */
 export function editHtmlTableCaption(text: string, newCaption: string, captionIndex?: number): string {
@@ -82,8 +85,8 @@ export function editHtmlTableCaption(text: string, newCaption: string, captionIn
 
 /**
  * Finds groups of tables that share the same caption text and appends a
- * positional suffix ("(1 of N)", "2 of N)", …) to each duplicate so that
- * every caption becomes unique.  Tables without captions and tables whose
+ * positional suffix ("(1 of N)", "(2 of N)", …) to each duplicate so that
+ * every caption becomes unique. Tables without captions and tables whose
  * captions are already unique are left untouched.
  */
 export function fixDuplicateTableCaptions(html: string): string {

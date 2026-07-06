@@ -1,5 +1,27 @@
 import { parse as parseHtml } from "node-html-parser";
 
+/**
+ * The set of fixType keys that can be applied deterministically (no AI call
+ * required). Exposed via GET /api/deterministic-fixers so the client can
+ * decide whether to show an instant "Apply fix" action or route through the
+ * AI-backed flow (e.g. fix-vague-link-text).
+ */
+const DETERMINISTIC_FIXER_KEYS = [
+  "fix-heading-skip",
+  "fix-all-caps",
+  "convert-markdown-tables",
+  "fix-html-table-caption",
+  "fix-html-table-thead",
+  "edit-html-table-caption",
+  "fix-aria-combobox",
+  "fix-aria-grid",
+  "fix-aria-tab",
+];
+
+export function getDeterministicFixerKeys(): string[] {
+  return [...DETERMINISTIC_FIXER_KEYS];
+}
+
 /** Escape all regex metacharacters in a string so it can be safely embedded in a RegExp pattern. */
 function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
