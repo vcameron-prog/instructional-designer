@@ -17,7 +17,26 @@ import { test, expect } from "@playwright/test";
  *
  * Authentication (where required) is injected via dev-only endpoints so
  * no real OIDC flow is needed.
+ *
+ * IMPORTANT — app base path:
+ * The ID app's client-side router (client/src/App.tsx) is always mounted
+ * with `<Router base="/faculty">`, regardless of whether the app is reached
+ * directly (dev server on ID_PORT) or proxied under /faculty by the root
+ * app. Playwright resolves any `page.goto("/foo")` path starting with "/"
+ * against the *origin* of `baseURL`, discarding baseURL's own path segment
+ * (see https://playwright.dev/docs/api/class-testoptions#test-options-base-url).
+ * That means setting PLAYWRIGHT_BASE_URL to end in "/faculty" is NOT enough —
+ * every absolute-path `page.goto()` call still needs the "/faculty" prefix
+ * baked in explicitly. Use `appPath()` below for any SPA route navigation.
+ * Dev-only API endpoints (e.g. "/api/test/admin-login") are NOT behind
+ * "/faculty" on this server and should keep using plain leading-slash paths.
  */
+
+const APP_BASE_PATH = "/faculty";
+
+function appPath(path: string): string {
+  return `${APP_BASE_PATH}${path.startsWith("/") ? path : `/${path}`}`;
+}
 
 // ---------------------------------------------------------------------------
 // Helper: inject an admin session via the dev-only endpoint.
@@ -106,7 +125,7 @@ test.describe("Library page — no conversions card", () => {
       if (msg.type() === "error") jsErrors.push(msg.text());
     });
 
-    await page.goto("/library");
+    await page.goto(appPath("/library"));
 
     // Page URL must reach /library, not be redirected to an error or login page
     await expect(page).toHaveURL(/\/library/);
@@ -144,7 +163,7 @@ test.describe("Library page — no conversions card", () => {
 
 test.describe("Landing page — Accessibility Converter link", () => {
   test("card-pdf-accessibility is visible and opens /accessibility", async ({ page }) => {
-    await page.goto("/");
+    await page.goto(appPath("/"));
 
     const converterCard = page.getByTestId("card-pdf-accessibility");
     await expect(converterCard, "converter card is visible").toBeVisible({ timeout: 10_000 });
@@ -172,7 +191,7 @@ test.describe("Landing page — Accessibility Converter link", () => {
     });
 
     // Re-navigate so the init script is active
-    await page.goto("/");
+    await page.goto(appPath("/"));
     const card = page.getByTestId("card-pdf-accessibility");
     await expect(card).toBeVisible({ timeout: 10_000 });
     await card.click();
@@ -225,7 +244,7 @@ test.describe("Course creation — form submits and lands on tools page", () => 
   });
 
   test("fills course form and navigates to the course tools page", async ({ page }) => {
-    await page.goto("/new-course");
+    await page.goto(appPath("/new-course"));
     await expect(page).toHaveURL(/\/new-course/, { timeout: 10_000 });
 
     // Fill all required fields
@@ -331,7 +350,7 @@ test.describe("Quick-tool — assignment form generates content", () => {
     });
 
     // Navigate to quick tools and pick the assignment card
-    await page.goto("/quick-tools");
+    await page.goto(appPath("/quick-tools"));
     await expect(
       page.getByTestId("card-quick-tool-assignment"),
       "assignment quick-tool card is visible",
@@ -377,7 +396,7 @@ test.describe("Quick-tool — assignment form generates content", () => {
 // ===========================================================================
 test.describe("Accessibility Tools hub — all 4 tool tiles visible", () => {
   test("renders url-scanner, color-contrast, alt-text, and math-ocr cards", async ({ page }) => {
-    await page.goto("/accessibility-tools");
+    await page.goto(appPath("/accessibility-tools"));
     await expect(page).toHaveURL(/\/accessibility-tools/, { timeout: 10_000 });
 
     await expect(
@@ -433,7 +452,7 @@ test.describe("Accessibility Tools — Color Contrast page", () => {
       });
     });
 
-    await page.goto("/accessibility-tools/color-contrast");
+    await page.goto(appPath("/accessibility-tools/color-contrast"));
     await expect(page).toHaveURL(/\/accessibility-tools\/color-contrast/, { timeout: 10_000 });
 
     await expect(
@@ -491,7 +510,7 @@ test.describe("Accessibility Tools — URL Scanner page", () => {
       });
     });
 
-    await page.goto("/accessibility-tools/url-scanner");
+    await page.goto(appPath("/accessibility-tools/url-scanner"));
     await expect(page).toHaveURL(/\/accessibility-tools\/url-scanner/, { timeout: 10_000 });
 
     await expect(
@@ -559,7 +578,7 @@ test.describe("Accessibility Tools — Alt Text Generator page", () => {
       });
     });
 
-    await page.goto("/accessibility-tools/alt-text");
+    await page.goto(appPath("/accessibility-tools/alt-text"));
     await expect(page).toHaveURL(/\/accessibility-tools\/alt-text/, { timeout: 10_000 });
 
     await expect(
@@ -654,7 +673,7 @@ test.describe("Accessibility Tools — Alt Text Generator page", () => {
         });
       });
 
-      await page.goto("/accessibility-tools/alt-text");
+      await page.goto(appPath("/accessibility-tools/alt-text"));
       await expect(page).toHaveURL(/\/accessibility-tools\/alt-text/, { timeout: 10_000 });
 
       const fileInput = page.getByTestId("input-image-file");
@@ -719,7 +738,7 @@ test.describe("Accessibility Tools — Alt Text Generator page", () => {
       });
     });
 
-    await page.goto("/accessibility-tools/alt-text");
+    await page.goto(appPath("/accessibility-tools/alt-text"));
     await expect(page).toHaveURL(/\/accessibility-tools\/alt-text/, { timeout: 10_000 });
 
     // Upload the same minimal 1×1 red PNG via the hidden file input
@@ -798,7 +817,7 @@ test.describe("Accessibility Tools — Math OCR page", () => {
       });
     });
 
-    await page.goto("/accessibility-tools/math-ocr");
+    await page.goto(appPath("/accessibility-tools/math-ocr"));
     await expect(page).toHaveURL(/\/accessibility-tools\/math-ocr/, { timeout: 10_000 });
 
     await expect(
@@ -925,7 +944,7 @@ test.describe("Quick-tool — batch assignment+rubric form generates both items"
     });
 
     // Navigate to the assignment quick-tool form
-    await page.goto("/quick-tools/assignment");
+    await page.goto(appPath("/quick-tools/assignment"));
     await expect(page, "navigates to assignment tool form").toHaveURL(
       /\/quick-tools\/assignment/,
       { timeout: 10_000 },

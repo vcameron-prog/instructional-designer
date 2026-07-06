@@ -4,3 +4,5 @@
 - [Sub-path proxy for co-hosted Express+Vite apps](subpath-proxy-pattern.md) — how to serve a second Express+Vite app at /subpath/ off the main deployed app using http-proxy-middleware.
 - [Shared vi.mock factories must lazy-import](vi-mock-shared-factory.md) — a factory helper referenced by vi.mock() must be dynamically imported inside the callback, not statically, or you hit a hoisting TDZ error.
 - [Monorepo has two parallel apps](monorepo-nested-instructional-designer.md) — root workspace and instructional-designer/ are separate apps with separate routes.ts/tests; don't assume a fix in one applies to the other.
+- [Playwright baseURL discards path segments](playwright-baseurl-subpath.md) — page.goto("/foo") resolves against baseURL's origin only, dropping any sub-path prefix like "/faculty".
+- [Standalone smoke-test scripts assume caller's cwd](smoke-test-script-cwd.md) — a script using relative paths (npm run dev, e2e/*, playwright.config.ts) silently runs against the wrong app if invoked from the wrong directory.

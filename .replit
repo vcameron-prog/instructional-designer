@@ -69,6 +69,10 @@ args = "Instructional Designer"
 task = "workflow.run"
 args = "unit-tests-instructional-designer"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "playwright-id-smoke"
+
 [[workflows.workflow]]
 name = "Start application"
 author = "agent"
@@ -166,6 +170,17 @@ args = "cd instructional-designer && npx vitest run --config vitest.config.ts"
 
 [workflows.workflow.metadata]
 isValidation = true
+
+[[workflows.workflow]]
+name = "playwright-id-smoke"
+author = "agent"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd instructional-designer && ID_PORT=3097 bash script/smoke-test.sh"
 
 [agent]
 integrations = ["javascript_anthropic_ai_integrations:2.0.0", "javascript_log_in_with_replit:2.0.0", "github:1.0.0"]
