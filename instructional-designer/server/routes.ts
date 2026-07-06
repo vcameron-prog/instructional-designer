@@ -74,6 +74,7 @@ const anthropic = new Anthropic({
  * with no URL are replaced with an editorial placeholder instead.
  */
 async function fixVagueLinkTextAI(text: string): Promise<string> {
+
   const message = await anthropic.messages.create({
     model: "claude-sonnet-4-5",
     max_tokens: 8192,

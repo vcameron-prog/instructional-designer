@@ -7,3 +7,4 @@
 - [Playwright baseURL discards path segments](playwright-baseurl-subpath.md) — page.goto("/foo") resolves against baseURL's origin only, dropping any sub-path prefix like "/faculty".
 - [Standalone smoke-test scripts assume caller's cwd](smoke-test-script-cwd.md) — a script using relative paths (npm run dev, e2e/*, playwright.config.ts) silently runs against the wrong app if invoked from the wrong directory.
 - [instructional-designer/ missed routes during split](instructional-designer-split-gaps.md) — the split from the root app's routes.ts was manual and incomplete; before deleting a "missing route" as dead code, check git history for the pre-split source and confirm the frontend still calls it.
+- [Test vi.mock exports define the real module contract](vi-mock-defines-module-contract.md) — a route's helper must live wherever the test's vi.mock stub expects it, even if that means splitting a function between routes.ts and a lib file.
