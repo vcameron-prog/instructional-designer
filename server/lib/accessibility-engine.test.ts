@@ -3680,6 +3680,37 @@ describe("fixComplianceIssue – fixture-based regression tests", () => {
     expect(afterHeading.status).toBe("pass");
   });
 
+  it("adds a fixNotes explanation when fixing 2.4.6 renumbers heading levels", async () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><h2>Title</h2><h3>Section</h3></body></html>`;
+    const issues = runDeterministicChecks(html);
+    const headingIssue = issues.find((i) => i.criterion === "2.4.6")!;
+    expect(headingIssue.status).toBe("fail");
+
+    const report = makeReport(issues);
+    mockCreate.mockClear();
+    const result = await fixComplianceIssue(html, headingIssue, issues.indexOf(headingIssue), report);
+    expect(mockCreate).not.toHaveBeenCalled();
+
+    const fixedIssue = result.complianceReport.issues.find((i) => i.criterion === "2.4.6")!;
+    expect(fixedIssue.status).toBe("fixed");
+    expect(fixedIssue.fixNotes).toBeDefined();
+    expect(fixedIssue.fixNotes).toContain("H2");
+    expect(fixedIssue.fixNotes).toContain("renumbered");
+  });
+
+  it("does not add fixNotes when fixing 2.4.6 for a document that already starts at h1", async () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><p>No headings here</p></body></html>`;
+    const issues = runDeterministicChecks(html);
+    const headingIssue = issues.find((i) => i.criterion === "2.4.6")!;
+    expect(headingIssue.status).toBe("fail");
+
+    const report = makeReport(issues);
+    const result = await fixComplianceIssue(html, headingIssue, issues.indexOf(headingIssue), report);
+
+    const fixedIssue = result.complianceReport.issues.find((i) => i.criterion === "2.4.6")!;
+    expect(fixedIssue.fixNotes).toBeUndefined();
+  });
+
   it("fixes criterion 1.1.1 (Image Descriptions): returned HTML passes the alt-text check", async () => {
     const issues = runDeterministicChecks(fixtureHtml);
     const altIssue = issues.find((i) => i.criterion === "1.1.1")!;

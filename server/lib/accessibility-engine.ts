@@ -1745,6 +1745,43 @@ export function applyHeadingHierarchyFix(html: string): string {
   });
 }
 
+/**
+ * Returns the level (1-6) of the first heading element in the document, or
+ * null when the document has no headings. Used alongside
+ * `applyHeadingHierarchyFix` to detect (without changing its logic) whether
+ * that fixer actually renumbered anything, so the change can be surfaced to
+ * faculty in the compliance report.
+ */
+function getFirstHeadingLevel(html: string): number | null {
+  const firstHeadingMatch = html.match(/<h([1-6])(?=[\s>/])/i);
+  return firstHeadingMatch ? parseInt(firstHeadingMatch[1], 10) : null;
+}
+
+/**
+ * When `applyHeadingHierarchyFix` renumbered the document's headings (i.e.
+ * the topmost heading was not already an H1), attaches a `fixNotes`
+ * explanation to the "2.4.6 / Headings and Labels" issue so faculty can see
+ * that the auto-fixer changed their heading structure, rather than only
+ * seeing a silent "pass".
+ */
+function applyHeadingHierarchyFixNotes(
+  issues: ComplianceIssue[],
+  preFixFirstHeadingLevel: number | null
+): void {
+  if (!preFixFirstHeadingLevel || preFixFirstHeadingLevel === 1) return;
+
+  const delta = preFixFirstHeadingLevel - 1;
+  const headingIssueIdx = issues.findIndex(
+    (iss) => iss.criterion === "2.4.6" && iss.title === "Headings and Labels"
+  );
+  if (headingIssueIdx < 0) return;
+
+  issues[headingIssueIdx] = {
+    ...issues[headingIssueIdx],
+    fixNotes: `Heading levels were automatically renumbered: the document's topmost heading was an H${preFixFirstHeadingLevel} instead of H1, so every heading was shifted by ${delta} level${delta === 1 ? "" : "s"} to close the gap and restore a valid hierarchy. Review the heading levels to confirm they still reflect your intended document structure.`,
+  };
+}
+
 const BYPASS_LANDMARK_TAGS = new Set(["header", "nav", "footer"]);
 const BYPASS_LANDMARK_ROLES = new Set(["banner", "navigation", "contentinfo"]);
 
@@ -2373,8 +2410,12 @@ export async function fixComplianceIssue(
   if (deterministicFixer) {
     const isHeadingFix = registryKey === "1.3.1::ARIA Heading Role on Non-Heading Element";
     const isButtonFix = registryKey === "4.1.2::ARIA Button Role on Non-Button Element";
+    const isHeadingHierarchyFix = registryKey === "2.4.6::Headings and Labels";
     const headingFallbackAnalysis = isHeadingFix
       ? analyzeAriaHeadingFallbacks(currentHtml)
+      : null;
+    const preHeadingHierarchyFixLevel = isHeadingHierarchyFix
+      ? getFirstHeadingLevel(currentHtml)
       : null;
 
     const isBypassFix = registryKey === "2.4.1::Bypass Blocks";
@@ -2409,6 +2450,20 @@ export async function fixComplianceIssue(
           fixNotes: parts.join(" "),
         };
       }
+    }
+
+    if (
+      isHeadingHierarchyFix &&
+      preHeadingHierarchyFixLevel &&
+      preHeadingHierarchyFixLevel !== 1 &&
+      issueIndex >= 0 &&
+      issueIndex < updatedIssues.length
+    ) {
+      const delta = preHeadingHierarchyFixLevel - 1;
+      updatedIssues[issueIndex] = {
+        ...updatedIssues[issueIndex],
+        fixNotes: `Heading levels were automatically renumbered: the document's topmost heading was an H${preHeadingHierarchyFixLevel} instead of H1, so every heading was shifted by ${delta} level${delta === 1 ? "" : "s"} to close the gap and restore a valid hierarchy. Review the heading levels to confirm they still reflect your intended document structure.`,
+      };
     }
 
     const noFixReason: string | undefined = allLandmarksEdgeCase
@@ -3079,6 +3134,7 @@ ${structuralSummary}`,
   // Auto-apply deterministic fixes so users start with a clean baseline
   if (onProgress) await onProgress("Applying accessibility fixes…");
   accessibleHtml = applyLangAttributeFix(accessibleHtml);
+  const preHeadingHierarchyFixLevel = getFirstHeadingLevel(accessibleHtml);
   accessibleHtml = applyHeadingHierarchyFix(accessibleHtml);
   accessibleHtml = applyPageTitleFix(accessibleHtml);
   accessibleHtml = applyBypassBlocksFix(accessibleHtml);
@@ -3088,6 +3144,7 @@ ${structuralSummary}`,
   if (onProgress) await onProgress("Checking compliance…");
 
   const deterministicIssues = runDeterministicChecks(accessibleHtml);
+  applyHeadingHierarchyFixNotes(deterministicIssues, preHeadingHierarchyFixLevel);
   const [enhancedHtml, aiIssues] = await Promise.all([
     hasImages
       ? generateVisionAltText(accessibleHtml, images, signal)
