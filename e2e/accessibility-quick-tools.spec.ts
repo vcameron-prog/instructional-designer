@@ -98,6 +98,8 @@ test.describe("Color Contrast Checker (/accessibility-tools/color-contrast)", ()
     await expect(page.getByTestId("badge-contrast-rating")).toContainText(
       "Large Text Only",
     );
+    await expect(page.getByTestId("passfail-aa-large")).toContainText("Pass");
+    await expect(page.getByTestId("passfail-aa-normal")).toContainText("Fail");
   });
 
   test("exact 3.00:1 boundary shows Large Text Only badge", async ({
@@ -117,6 +119,7 @@ test.describe("Color Contrast Checker (/accessibility-tools/color-contrast)", ()
     await expect(page.getByTestId("badge-contrast-rating")).toContainText(
       "Large Text Only",
     );
+    await expect(page.getByTestId("passfail-aa-large")).toContainText("Pass");
   });
 
   test("pair just below the 4.5:1 boundary (~4.48:1) shows Large Text Only, not AA Pass", async ({
@@ -139,6 +142,7 @@ test.describe("Color Contrast Checker (/accessibility-tools/color-contrast)", ()
     await expect(page.getByTestId("badge-contrast-rating")).not.toContainText(
       "AA Pass",
     );
+    await expect(page.getByTestId("passfail-aa-normal")).toContainText("Fail");
   });
 
   test("exact 4.50:1 boundary shows AA Pass badge", async ({
@@ -158,6 +162,7 @@ test.describe("Color Contrast Checker (/accessibility-tools/color-contrast)", ()
     await expect(page.getByTestId("badge-contrast-rating")).toContainText(
       "AA Pass",
     );
+    await expect(page.getByTestId("passfail-aa-normal")).toContainText("Pass");
   });
 
   test("exact 7.00:1 boundary shows AA Pass badge and both AAA rows pass", async ({
