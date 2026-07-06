@@ -121,12 +121,27 @@ const PDF_MAGIC = Buffer.from("%PDF");
 const ZIP_MAGIC = Buffer.from([0x50, 0x4b, 0x03, 0x04]); // .docx (and any zip-based OOXML)
 const OLE_MAGIC = Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]); // legacy .doc
 
+/**
+ * Identifies the true document format from magic bytes, if it matches one of
+ * the binary formats we otherwise trust the client's extension/MIME type to
+ * report. Returns a human-readable label suitable for surfacing to faculty,
+ * or null if the buffer doesn't match a known binary document signature.
+ */
+function detectKnownBinaryDocumentType(buffer: Buffer): string | null {
+  if (buffer.length >= PDF_MAGIC.length && buffer.subarray(0, PDF_MAGIC.length).equals(PDF_MAGIC)) {
+    return "PDF";
+  }
+  if (buffer.length >= ZIP_MAGIC.length && buffer.subarray(0, ZIP_MAGIC.length).equals(ZIP_MAGIC)) {
+    return "Word document (.docx)";
+  }
+  if (buffer.length >= OLE_MAGIC.length && buffer.subarray(0, OLE_MAGIC.length).equals(OLE_MAGIC)) {
+    return "Word document (.doc)";
+  }
+  return null;
+}
+
 function looksLikeKnownBinaryDocument(buffer: Buffer): boolean {
-  return (
-    (buffer.length >= PDF_MAGIC.length && buffer.subarray(0, PDF_MAGIC.length).equals(PDF_MAGIC)) ||
-    (buffer.length >= ZIP_MAGIC.length && buffer.subarray(0, ZIP_MAGIC.length).equals(ZIP_MAGIC)) ||
-    (buffer.length >= OLE_MAGIC.length && buffer.subarray(0, OLE_MAGIC.length).equals(OLE_MAGIC))
-  );
+  return detectKnownBinaryDocumentType(buffer) !== null;
 }
 
 /**
@@ -2676,9 +2691,21 @@ Please generate an IMPROVED version that incorporates the requested changes whil
 
         if (mimeType === "text/plain" || fileName.endsWith(".txt")) {
           if (looksLikeBinaryContent(file.buffer)) {
+            const detectedType = detectKnownBinaryDocumentType(file.buffer);
+            const extensionHint =
+              detectedType === "PDF"
+                ? ".pdf"
+                : detectedType === "Word document (.docx)"
+                  ? ".docx"
+                  : detectedType === "Word document (.doc)"
+                    ? ".doc"
+                    : null;
+            const error = detectedType
+              ? `This file looks like a ${detectedType} that was renamed to .txt. Please re-upload it with its original ${extensionHint} extension, or paste the text content directly.`
+              : "This file looks like a PDF or Word document renamed as .txt. Please upload it with its original file type, or paste the text content directly.";
             return res.status(400).json({
-              error:
-                "This file looks like a PDF or Word document renamed as .txt. Please upload it with its original file type, or paste the text content directly.",
+              error,
+              detectedType,
             });
           }
           content = file.buffer.toString("utf-8");

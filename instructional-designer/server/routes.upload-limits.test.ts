@@ -267,6 +267,9 @@ describe("Upload size-limit error handling", () => {
       expect(res.status).toBe(400);
       expect(res.body).toHaveProperty("error");
       expect(res.body.error).toMatch(/renamed/i);
+      expect(res.body.error).toMatch(/PDF/);
+      expect(res.body.error).toMatch(/\.pdf/);
+      expect(res.body.detectedType).toBe("PDF");
     });
 
     it("rejects a DOCX (zip) renamed to .txt (magic-byte sniff)", async () => {
@@ -284,6 +287,9 @@ describe("Upload size-limit error handling", () => {
       expect(res.status).toBe(400);
       expect(res.body).toHaveProperty("error");
       expect(res.body.error).toMatch(/renamed/i);
+      expect(res.body.error).toMatch(/Word document/i);
+      expect(res.body.error).toMatch(/\.docx/);
+      expect(res.body.detectedType).toBe("Word document (.docx)");
     });
 
     it("rejects a legacy .doc (OLE) renamed to .txt (magic-byte sniff)", async () => {
@@ -301,9 +307,12 @@ describe("Upload size-limit error handling", () => {
       expect(res.status).toBe(400);
       expect(res.body).toHaveProperty("error");
       expect(res.body.error).toMatch(/renamed/i);
+      expect(res.body.error).toMatch(/Word document/i);
+      expect(res.body.error).toMatch(/\.doc\b/);
+      expect(res.body.detectedType).toBe("Word document (.doc)");
     });
 
-    it("rejects arbitrary binary content mislabeled as .txt", async () => {
+    it("rejects arbitrary binary content mislabeled as .txt without a detected type", async () => {
       const randomBinary = Buffer.from(
         Array.from({ length: 200 }, (_, i) => (i * 37) % 256),
       );
@@ -316,6 +325,7 @@ describe("Upload size-limit error handling", () => {
 
       expect(res.status).toBe(400);
       expect(res.body).toHaveProperty("error");
+      expect(res.body.detectedType).toBeNull();
     });
   });
 });
