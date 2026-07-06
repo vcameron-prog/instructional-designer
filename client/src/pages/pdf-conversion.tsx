@@ -544,6 +544,39 @@ export default function PdfConversion() {
     },
   });
 
+  const [pageTitleDrafts, setPageTitleDrafts] = useState<Record<number, string>>({});
+  const setPageTitleMutation = useMutation({
+    mutationFn: async ({
+      id,
+      title,
+    }: {
+      id: number;
+      title: string;
+      issueIndex: number;
+    }) => {
+      const res = await apiRequest("POST", `/api/conversions/${id}/set-page-title`, {
+        title,
+      });
+      return res.json();
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["/api/conversions", numericId],
+      });
+      toast({
+        title: "Page title updated",
+        description: `The page title was set to "${variables.title}".`,
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Couldn't update page title",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const [isDownloading, setIsDownloading] = useState(false);
   const [isDownloadingDocx, setIsDownloadingDocx] = useState(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
@@ -2949,7 +2982,7 @@ export default function PdfConversion() {
                                   })()}
                                 </div>
                               )}
-                            {issue.fixNotes && (
+                            {issue.fixNotes && issue.criterion !== "2.4.2" && (
                               <div
                                 className="rounded-lg border bg-blue-50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800 p-3 space-y-1.5"
                                 data-testid={`heading-fix-notes-${i}`}
@@ -2965,6 +2998,56 @@ export default function PdfConversion() {
                                 >
                                   {issue.fixNotes}
                                 </p>
+                              </div>
+                            )}
+                            {issue.fixNotes && issue.criterion === "2.4.2" && (
+                              <div
+                                className="rounded-lg border bg-blue-50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800 p-3 space-y-2"
+                                data-testid={`page-title-fix-notes-${i}`}
+                                role="note"
+                              >
+                                <p className="text-xs font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wide flex items-center gap-1.5">
+                                  <Info className="w-3.5 h-3.5" aria-hidden="true" />
+                                  Page Title Note
+                                </p>
+                                <p
+                                  className="text-sm text-blue-900 dark:text-blue-200"
+                                  data-testid={`page-title-fix-notes-text-${i}`}
+                                >
+                                  {issue.fixNotes}
+                                </p>
+                                <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                                  <input
+                                    type="text"
+                                    value={pageTitleDrafts[i] ?? ""}
+                                    onChange={(e) =>
+                                      setPageTitleDrafts((prev) => ({ ...prev, [i]: e.target.value }))
+                                    }
+                                    placeholder="Enter a descriptive page title"
+                                    maxLength={200}
+                                    className="flex-1 rounded-md border border-blue-300 dark:border-blue-700 bg-white dark:bg-blue-950/40 px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    data-testid={`input-page-title-${i}`}
+                                    aria-label="Custom page title"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const draft = (pageTitleDrafts[i] ?? "").trim();
+                                      if (!draft) return;
+                                      setPageTitleMutation.mutate({ id: numericId, title: draft, issueIndex: i });
+                                    }}
+                                    disabled={
+                                      !((pageTitleDrafts[i] ?? "").trim()) ||
+                                      (setPageTitleMutation.isPending && setPageTitleMutation.variables?.issueIndex === i)
+                                    }
+                                    className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-semibold rounded-md bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white transition-colors shrink-0"
+                                    data-testid={`button-set-page-title-${i}`}
+                                  >
+                                    {setPageTitleMutation.isPending && setPageTitleMutation.variables?.issueIndex === i
+                                      ? "Saving..."
+                                      : "Use this title"}
+                                  </button>
+                                </div>
                               </div>
                             )}
                             {issue.criterion === "1.1.1" &&

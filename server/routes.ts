@@ -17,7 +17,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import multer from "multer";
 import { db } from "./db";
 import { eq, and, isNull, sql, desc, inArray } from "drizzle-orm";
-import { getDeterministicFixerKeys, getAiFixRetryMetrics, getPersistAiFixRetryLastFailed, applyHeadingHierarchyFix, getContextLeakMetrics } from "./lib/accessibility-engine";
+import { getDeterministicFixerKeys, getAiFixRetryMetrics, getPersistAiFixRetryLastFailed, applyHeadingHierarchyFix, getContextLeakMetrics, applyCustomPageTitle } from "./lib/accessibility-engine";
 import {
   SHARED_ANON_UPLOAD_RATE_LIMIT,
   SHARED_HEAVY_OP_RATE_LIMIT,
@@ -2233,6 +2233,106 @@ export async function registerRoutes(
         activeFixJobs--;
         activeFixKeys.delete(fixDedupeKey);
       }
+    },
+  );
+
+  const MAX_CUSTOM_PAGE_TITLE_LENGTH = 200;
+
+  app.post(
+    "/api/conversions/:id/set-page-title",
+    optionalAuth,
+    async (req: Request, res: Response) => {
+      const userId = getUserId(req);
+      const id = parseInt(req.params.id as string);
+      if (isNaN(id)) {
+        res.status(400).json({ error: INVALID_ID_ERROR });
+        return;
+      }
+
+      const { title } = req.body as { title?: unknown };
+      if (typeof title !== "string" || !title.trim()) {
+        res.status(400).json({ error: "title is required" });
+        return;
+      }
+      const trimmedTitle = title.trim();
+      if (trimmedTitle.length > MAX_CUSTOM_PAGE_TITLE_LENGTH) {
+        res.status(400).json({
+          error: `title must be ${MAX_CUSTOM_PAGE_TITLE_LENGTH} characters or fewer`,
+        });
+        return;
+      }
+
+      const [conversion] = await db
+        .select()
+        .from(conversions)
+        .where(conversionOwnerFilter(id, userId, getVisitorToken(req)));
+
+      if (!conversion) {
+        res.status(404).json({ error: CONVERSION_NOT_FOUND_ERROR });
+        return;
+      }
+      if (conversion.status !== "completed" || !conversion.accessibleHtml) {
+        res.status(400).json({ error: CONVERSION_MUST_BE_COMPLETED_ERROR });
+        return;
+      }
+
+      const updatedHtml = applyCustomPageTitle(conversion.accessibleHtml, trimmedTitle);
+
+      const report = conversion.complianceReport as any;
+      let updatedReport = report;
+      if (report?.issues) {
+        const issues = report.issues.map((iss: any) => {
+          if (iss.criterion === "2.4.2" && iss.title === "Page Titled") {
+            const { fixNotes, ...rest } = iss;
+            return {
+              ...rest,
+              status: "fixed",
+              details: `Title set to '${trimmedTitle}' by faculty member.`,
+            };
+          }
+          return iss;
+        });
+        const fixedCount = issues.filter((iss: any) => iss.status === "fixed").length;
+        const passCount = issues.filter((iss: any) => iss.status === "pass").length;
+        const failCount = issues.filter((iss: any) => iss.status === "fail").length;
+        const warningCount = issues.filter((iss: any) => iss.status === "warning").length;
+        const acceptedCount = issues.filter((iss: any) => iss.status === "accepted").length;
+        updatedReport = {
+          ...report,
+          issues,
+          fixedCount,
+          passCount,
+          failCount,
+          warningCount,
+          acceptedCount,
+        };
+      }
+
+      const [updated] = await db
+        .update(conversions)
+        .set({
+          accessibleHtml: updatedHtml,
+          complianceReport: updatedReport,
+          updatedAt: new Date(),
+        })
+        .where(eq(conversions.id, id))
+        .returning({
+          id: conversions.id,
+          originalFilename: conversions.originalFilename,
+          fileSize: conversions.fileSize,
+          status: conversions.status,
+          pageCount: conversions.pageCount,
+          extractedText: conversions.extractedText,
+          accessibleHtml: conversions.accessibleHtml,
+          complianceReport: conversions.complianceReport,
+          originalComplianceReport: conversions.originalComplianceReport,
+          errorMessage: conversions.errorMessage,
+          ocrApplied: conversions.ocrApplied,
+          createdAt: conversions.createdAt,
+          updatedAt: conversions.updatedAt,
+        });
+
+      res.json(updated);
     },
   );
 

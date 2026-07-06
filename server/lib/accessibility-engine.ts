@@ -2005,6 +2005,27 @@ export function applyPageTitleFix(html: string): string {
   return html;
 }
 
+/**
+ * Sets the <title> element to a faculty-supplied custom value, regardless of
+ * whether a <title> already exists. Used when faculty override the
+ * auto-generated (often low-quality "Document") title from the 2.4.2 "Page
+ * Titled" compliance warning. The provided title is HTML-escaped before
+ * insertion since it is untrusted user input.
+ */
+export function applyCustomPageTitle(html: string, title: string): string {
+  const safeTitle = escapeHtmlText(title);
+  if (/<title>[\s\S]*?<\/title>/i.test(html)) {
+    return html.replace(/<title>[\s\S]*?<\/title>/i, `<title>${safeTitle}</title>`);
+  }
+  if (new RegExp(`<head${ATTR_PATTERN}>`, "i").test(html)) {
+    return html.replace(new RegExp(`(<head${ATTR_PATTERN}>)`, "i"), `$1<title>${safeTitle}</title>`);
+  }
+  if (new RegExp(`<html${ATTR_PATTERN}>`, "i").test(html)) {
+    return html.replace(new RegExp(`(<html${ATTR_PATTERN}>)`, "i"), `$1<head><title>${safeTitle}</title></head>`);
+  }
+  return `<head><title>${safeTitle}</title></head>${html}`;
+}
+
 function replaceAriaRoleElements(
   html: string,
   roleValue: string,
