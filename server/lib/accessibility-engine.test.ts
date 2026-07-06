@@ -3761,6 +3761,43 @@ describe("fixComplianceIssue – fixture-based regression tests", () => {
     expect(result.accessibleHtml).not.toContain("<main>");
   });
 
+  it("adds a fixNotes explanation when fixing 2.4.2 falls back to the generic 'Document' title", async () => {
+    const html = `<!DOCTYPE html><html lang="en"><head></head><body><p>No headings here, just a paragraph.</p></body></html>`;
+    const issues = runDeterministicChecks(html);
+    const titleIssue = issues.find((i) => i.criterion === "2.4.2" && i.title === "Page Titled")!;
+    expect(titleIssue.status).toBe("fail");
+
+    const report = makeReport(issues);
+    mockCreate.mockClear();
+    const result = await fixComplianceIssue(html, titleIssue, issues.indexOf(titleIssue), report);
+    expect(mockCreate).not.toHaveBeenCalled();
+
+    const fixedIssue = result.complianceReport.issues.find(
+      (i) => i.criterion === "2.4.2" && i.title === "Page Titled"
+    )!;
+    expect(fixedIssue.status).toBe("fixed");
+    expect(fixedIssue.fixNotes).toBeDefined();
+    expect(fixedIssue.fixNotes).toContain("Document");
+    expect(result.accessibleHtml).toContain("<title>Document</title>");
+  });
+
+  it("does not add fixNotes when fixing 2.4.2 successfully extracts a title from an <h1>", async () => {
+    const html = `<!DOCTYPE html><html lang="en"><head></head><body><h1>Course Overview</h1><p>Some content</p></body></html>`;
+    const issues = runDeterministicChecks(html);
+    const titleIssue = issues.find((i) => i.criterion === "2.4.2" && i.title === "Page Titled")!;
+    expect(titleIssue.status).toBe("fail");
+
+    const report = makeReport(issues);
+    const result = await fixComplianceIssue(html, titleIssue, issues.indexOf(titleIssue), report);
+
+    const fixedIssue = result.complianceReport.issues.find(
+      (i) => i.criterion === "2.4.2" && i.title === "Page Titled"
+    )!;
+    expect(fixedIssue.status).toBe("fixed");
+    expect(fixedIssue.fixNotes).toBeUndefined();
+    expect(result.accessibleHtml).toContain("<title>Course Overview</title>");
+  });
+
   it("fixes criterion 1.1.1 (Image Descriptions): returned HTML passes the alt-text check", async () => {
     const issues = runDeterministicChecks(fixtureHtml);
     const altIssue = issues.find((i) => i.criterion === "1.1.1")!;

@@ -1908,6 +1908,33 @@ export function applyBypassBlocksFix(html: string): string {
   });
 }
 
+export const PAGE_TITLE_FALLBACK_NOTE =
+  "A generic \"Document\" title was used because no usable <h1> or <h2> text could be found to build a descriptive page title. Review and edit the page title manually so it accurately describes your content.";
+
+/**
+ * When `applyPageTitleFix` had to fall back to the generic "Document" title
+ * (i.e. `extractPageTitleInfo` found no usable <h1>/<h2> text to derive a
+ * title from), attaches a `fixNotes` explanation to the "2.4.2 / Page Titled"
+ * issue so faculty can see the title is a low-quality placeholder rather than
+ * something meaningful extracted from their content.
+ */
+function applyPageTitleFixNotes(
+  issues: ComplianceIssue[],
+  pageTitleInfo: { title: string; headingLevel: "h1" | "h2" | null } | null
+): void {
+  if (!pageTitleInfo || pageTitleInfo.headingLevel !== null) return;
+
+  const titleIssueIdx = issues.findIndex(
+    (iss) => iss.criterion === "2.4.2" && iss.title === "Page Titled"
+  );
+  if (titleIssueIdx < 0) return;
+
+  issues[titleIssueIdx] = {
+    ...issues[titleIssueIdx],
+    fixNotes: PAGE_TITLE_FALLBACK_NOTE,
+  };
+}
+
 export function extractPageTitleInfo(html: string): { title: string; headingLevel: "h1" | "h2" | null } {
   const h1Match = html.match(new RegExp(`<h1${ATTR_PATTERN}>([\\s\\S]*?)<\\/h1>`, "i"));
   if (h1Match) {
@@ -2394,6 +2421,8 @@ export function applyDeterministicReport(
           const { title, headingLevel } = extractPageTitleInfo(fixedHtml);
           if (headingLevel) {
             updated = { ...updated, details: `Title set to '${title}' from the first <${headingLevel}>` };
+          } else {
+            updated = { ...updated, fixNotes: PAGE_TITLE_FALLBACK_NOTE };
           }
         }
         updatedIssues[issueIndex] = updated;
@@ -3176,6 +3205,8 @@ ${structuralSummary}`,
   accessibleHtml = applyLangAttributeFix(accessibleHtml);
   const preHeadingHierarchyFixLevel = getFirstHeadingLevel(accessibleHtml);
   accessibleHtml = applyHeadingHierarchyFix(accessibleHtml);
+  const preTitleHasTitle = /<title>[^<]+<\/title>/i.test(accessibleHtml);
+  const pageTitleInfoUsed = preTitleHasTitle ? null : extractPageTitleInfo(accessibleHtml);
   accessibleHtml = applyPageTitleFix(accessibleHtml);
   const preBypassHadMain = hasMainElement(accessibleHtml);
   const preBypassAllLandmarksNoContent = isAllLandmarksNoContent(accessibleHtml);
@@ -3189,6 +3220,7 @@ ${structuralSummary}`,
   const deterministicIssues = runDeterministicChecks(accessibleHtml);
   applyHeadingHierarchyFixNotes(deterministicIssues, preHeadingHierarchyFixLevel);
   applyBypassBlocksFixNotes(deterministicIssues, bypassBlocksFixWrapped);
+  applyPageTitleFixNotes(deterministicIssues, pageTitleInfoUsed);
   const [enhancedHtml, aiIssues] = await Promise.all([
     hasImages
       ? generateVisionAltText(accessibleHtml, images, signal)
