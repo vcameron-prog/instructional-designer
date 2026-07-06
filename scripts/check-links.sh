@@ -1,10 +1,50 @@
 #!/usr/bin/env bash
 # check-links.sh — scan client/src/, server/, and shared/ for hardcoded external hrefs and verify each resolves with 2xx.
 # Excludes test files (*.test.tsx / *.test.ts) and placeholder= attributes.
-# Usage: bash scripts/check-links.sh
+# Usage: bash scripts/check-links.sh [--timeout SECONDS]
 # Exits 0 if all links are reachable, 1 if any return 4xx/5xx or are unreachable.
+#
+# Timeout configuration:
+#   The per-request curl max-time used for both the connectivity probes and the
+#   URL checks can be tuned via (in order of precedence):
+#     1. --timeout SECONDS   CLI flag
+#     2. LINK_CHECK_TIMEOUT  env var
+#     3. defaults: 10s for connectivity probes, 15s for URL checks
+#   Setting either the flag or the env var overrides BOTH the probe and URL
+#   check timeouts with the same value.
 
 set -euo pipefail
+
+LINK_CHECK_TIMEOUT="${LINK_CHECK_TIMEOUT:-}"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --timeout)
+      if [[ $# -lt 2 ]]; then
+        echo "ERROR: --timeout requires a value (seconds). Usage: --timeout SECONDS" >&2
+        exit 1
+      fi
+      LINK_CHECK_TIMEOUT="$2"
+      shift 2
+      ;;
+    --timeout=*)
+      LINK_CHECK_TIMEOUT="${1#--timeout=}"
+      shift
+      ;;
+    *)
+      echo "Unknown argument: $1" >&2
+      exit 1
+      ;;
+  esac
+done
+
+if [[ -n "$LINK_CHECK_TIMEOUT" && ! "$LINK_CHECK_TIMEOUT" =~ ^[1-9][0-9]*$ ]]; then
+  echo "ERROR: timeout must be a positive integer >= 1 (seconds), got: $LINK_CHECK_TIMEOUT" >&2
+  exit 1
+fi
+
+PROBE_TIMEOUT="${LINK_CHECK_TIMEOUT:-10}"
+URL_TIMEOUT="${LINK_CHECK_TIMEOUT:-15}"
 
 SEARCH_DIRS=("client/src" "server" "shared")
 FAIL=0
@@ -17,7 +57,7 @@ CHECKED=0
 CONNECTIVITY_HOSTS=("https://www.google.com" "https://1.1.1.1" "https://github.com")
 CONNECTIVITY_OK=0
 for CONNECTIVITY_HOST in "${CONNECTIVITY_HOSTS[@]}"; do
-  CONNECTIVITY_CODE=$(curl -sL -o /dev/null -w "%{http_code}" --max-time 10 "$CONNECTIVITY_HOST" 2>/dev/null || echo "000")
+  CONNECTIVITY_CODE=$(curl -sL -o /dev/null -w "%{http_code}" --max-time "$PROBE_TIMEOUT" "$CONNECTIVITY_HOST" 2>/dev/null || echo "000")
   if [[ "$CONNECTIVITY_CODE" != "000" ]]; then
     CONNECTIVITY_OK=1
     break
@@ -83,7 +123,7 @@ echo ""
 
 for URL in "${URLS[@]}"; do
   CHECKED=$((CHECKED + 1))
-  HTTP_CODE=$(curl -sL -o /dev/null -w "%{http_code}" --max-time 15 --retry 2 --retry-delay 2 "$URL" 2>/dev/null || echo "000")
+  HTTP_CODE=$(curl -sL -o /dev/null -w "%{http_code}" --max-time "$URL_TIMEOUT" --retry 2 --retry-delay 2 "$URL" 2>/dev/null || echo "000")
 
   if [[ "$HTTP_CODE" =~ ^2 ]]; then
     echo "  OK  ($HTTP_CODE)  $URL"
