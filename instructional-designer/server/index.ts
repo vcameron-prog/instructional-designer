@@ -6,6 +6,7 @@ import { seedDatabase } from "./seed";
 import { trimAllOversizedVersions } from "./lib/trimVersions";
 import { scheduleDailySummary } from "./lib/daily-summary";
 import { clearRateLimiterIntervals, initRateLimitCleanupMetrics } from "./lib/rateLimiters.js";
+import { initAltTextParseFailMetrics } from "./lib/altTextMetrics.js";
 import { db, pool } from "./db";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { checkMigrationDrift } from "./lib/migrationCheck";
@@ -124,6 +125,8 @@ async function runMigrations() {
   await runMigrations();
 
   await initRateLimitCleanupMetrics();
+
+  await initAltTextParseFailMetrics();
 
   await seedDatabase();
 

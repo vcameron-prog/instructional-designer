@@ -20,6 +20,7 @@ import { db } from "./db";
 import { eq, and, desc, isNull, sql, inArray, ne } from "drizzle-orm";
 import { convertMarkdownTablesToHtml } from "./markdownTableConverter.js";
 import { parseVersionHistoryLimit } from "./lib/parseVersionHistoryLimit.js";
+import { recordAltTextParseFail } from "./lib/altTextMetrics.js";
 import {
   checkSharedRateLimit,
   checkAiGenRateLimit,
@@ -3207,31 +3208,8 @@ Limit to the 10 most impactful issues. Be precise and technical.`;
     },
   });
 
-  app.post(
-    "/api/tools/alt-text",
-    altTextUpload.single("image"),
-    async (req: Request, res: Response) => {
-      if (!req.file) return res.status(400).json({ error: "No image file provided" });
-      const { context } = req.body as { context?: string };
-
-      const base64 = req.file.buffer.toString("base64");
-      const mediaType = req.file.mimetype as "image/jpeg" | "image/png" | "image/gif" | "image/webp";
-
-      try {
-        const message = await anthropic.messages.create({
-          model: "claude-haiku-4-5",
-          max_tokens: 512,
-          messages: [
-            {
-              role: "user",
-              content: [
-                {
-                  type: "image",
-                  source: { type: "base64", media_type: mediaType, data: base64 },
-                },
-                {
-                  type: "text",
-                  text: `Generate concise, descriptive alternative text for this image following WCAG 2.1 guidelines.
+  function buildAltTextPrompt(context: string | undefined, strict: boolean): string {
+    const base = `Generate concise, descriptive alternative text for this image following WCAG 2.1 guidelines.
 ${context ? `Context about the image: ${context}` : ""}
 
 Rules for the alt text:
@@ -3245,25 +3223,101 @@ Rules for the alt text:
 Also rate your confidence in how accurately the alt text captures the image, as "High", "Medium", or "Low". Use "Low" when the image is ambiguous, small, unclear, or you are guessing at details (e.g. unreadable text, unclear chart data, uncertain context). Use "Medium" when you are fairly but not fully sure. Use "High" only when the image is clear and unambiguous.
 
 Respond with ONLY valid JSON, no markdown fences, in exactly this shape:
-{"altText": "<the alt text, or \\"[decorative]\\" for decorative images>", "confidence": "High" | "Medium" | "Low"}`,
+{"altText": "<the alt text, or \\"[decorative]\\" for decorative images>", "confidence": "High" | "Medium" | "Low"}`;
+
+    if (!strict) return base;
+
+    return `${base}
+
+IMPORTANT: Your previous response could not be parsed as JSON. Respond with NOTHING but the raw JSON object itself — no markdown code fences, no prose before or after, no explanation. The entire response must be exactly one JSON object matching the shape above.`;
+  }
+
+  function parseAltTextResponse(
+    rawText: string,
+  ): { altText: string; confidence?: string } | null {
+    try {
+      const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+      const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : rawText);
+      const altText = String(parsed.altText ?? "").trim();
+      if (!altText) return null;
+      let confidence: string | undefined;
+      if (typeof parsed.confidence === "string" && /^(High|Medium|Low)$/i.test(parsed.confidence)) {
+        confidence = parsed.confidence.charAt(0).toUpperCase() + parsed.confidence.slice(1).toLowerCase();
+      }
+      return { altText, confidence };
+    } catch {
+      return null;
+    }
+  }
+
+  app.post(
+    "/api/tools/alt-text",
+    altTextUpload.single("image"),
+    async (req: Request, res: Response) => {
+      if (!req.file) return res.status(400).json({ error: "No image file provided" });
+      const { context } = req.body as { context?: string };
+
+      const base64 = req.file.buffer.toString("base64");
+      const mediaType = req.file.mimetype as "image/jpeg" | "image/png" | "image/gif" | "image/webp";
+
+      const callAnthropic = async (strict: boolean) => {
+        const message = await anthropic.messages.create({
+          model: "claude-haiku-4-5",
+          max_tokens: 512,
+          messages: [
+            {
+              role: "user",
+              content: [
+                {
+                  type: "image",
+                  source: { type: "base64", media_type: mediaType, data: base64 },
+                },
+                {
+                  type: "text",
+                  text: buildAltTextPrompt(context, strict),
                 },
               ],
             },
           ],
         });
+        return ((message.content[0] as any).text as string).trim();
+      };
 
-        const rawText = ((message.content[0] as any).text as string).trim();
+      try {
+        let rawText = await callAnthropic(false);
+        let parsed = parseAltTextResponse(rawText);
+
+        if (!parsed) {
+          // Retry once with a stricter, JSON-only prompt before giving up,
+          // mirroring the fixComplianceIssue retry pattern used elsewhere.
+          // If the retry itself throws (e.g. transient network/API error),
+          // treat it the same as a parse failure and fall back to the first
+          // raw response rather than failing the whole request.
+          console.warn(
+            "[alt-text] Failed to parse AI JSON confidence response, retrying with stricter prompt",
+          );
+          try {
+            const retryText = await callAnthropic(true);
+            // Use the retry's raw text regardless of whether it parses —
+            // it's the most recent attempt and the one worth falling back to.
+            rawText = retryText;
+            parsed = parseAltTextResponse(retryText);
+          } catch (retryErr) {
+            console.error("[alt-text] Retry call failed, falling back to first response:", retryErr);
+          }
+        }
+
         let altText: string;
         let confidence: string | undefined;
-        try {
-          const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-          const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : rawText);
-          altText = String(parsed.altText ?? "").trim();
-          if (typeof parsed.confidence === "string" && /^(High|Medium|Low)$/i.test(parsed.confidence)) {
-            confidence = parsed.confidence.charAt(0).toUpperCase() + parsed.confidence.slice(1).toLowerCase();
-          }
-        } catch {
+        if (parsed) {
+          altText = parsed.altText;
+          confidence = parsed.confidence;
+        } else {
+          // Both attempts failed to produce parseable JSON. Fall back to the
+          // raw response as the alt text, drop confidence, and record the
+          // fallback so degraded confidence coverage is observable.
           altText = rawText;
+          await recordAltTextParseFail();
         }
         const isDecorative = altText === "[decorative]";
 
