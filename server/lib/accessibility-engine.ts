@@ -1924,11 +1924,8 @@ export function applyBypassBlocksFix(html: string): string {
   });
 }
 
-export const PAGE_TITLE_FALLBACK_NOTE =
-  "A generic \"Document\" title was used because no usable <h1> or <h2> text could be found to build a descriptive page title. Review and edit the page title manually so it accurately describes your content.";
-
-export const PAGE_TITLE_LOW_QUALITY_NOTE =
-  "The extracted page title may not be descriptive enough (it's very short or looks like a generic placeholder). Review and edit the page title manually so it accurately describes your content.";
+import { PAGE_TITLE_FALLBACK_NOTE, PAGE_TITLE_LOW_QUALITY_NOTE } from "@shared/page-title-messages";
+export { PAGE_TITLE_FALLBACK_NOTE, PAGE_TITLE_LOW_QUALITY_NOTE };
 
 const MIN_QUALITY_TITLE_LENGTH = 4;
 

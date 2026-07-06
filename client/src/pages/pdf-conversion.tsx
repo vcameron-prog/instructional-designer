@@ -35,6 +35,7 @@ import {
   BookmarkCheck,
 } from "lucide-react";
 import { SiGoogledrive, SiGooglesheets, SiGoogleslides } from "react-icons/si";
+import { PAGE_TITLE_FALLBACK_NOTE, PAGE_TITLE_LOW_QUALITY_NOTE } from "@shared/page-title-messages";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -3000,18 +3001,36 @@ export default function PdfConversion() {
                                 </p>
                               </div>
                             )}
-                            {issue.fixNotes && issue.criterion === "2.4.2" && (
+                            {issue.fixNotes && issue.criterion === "2.4.2" && (() => {
+                              const isGenericFallback = issue.fixNotes === PAGE_TITLE_FALLBACK_NOTE;
+                              const isLowQuality = issue.fixNotes === PAGE_TITLE_LOW_QUALITY_NOTE;
+                              const noteLabel = isGenericFallback
+                                ? "Generic Title Used"
+                                : isLowQuality
+                                ? "Title May Need Review"
+                                : "Page Title Note";
+                              const containerClass = isGenericFallback
+                                ? "rounded-lg border bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800 p-3 space-y-2"
+                                : "rounded-lg border bg-blue-50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800 p-3 space-y-2";
+                              const labelClass = isGenericFallback
+                                ? "text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wide flex items-center gap-1.5"
+                                : "text-xs font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wide flex items-center gap-1.5";
+                              const bodyClass = isGenericFallback
+                                ? "text-sm text-amber-900 dark:text-amber-200"
+                                : "text-sm text-blue-900 dark:text-blue-200";
+                              const IconComponent = isGenericFallback ? AlertTriangle : Info;
+                              return (
                               <div
-                                className="rounded-lg border bg-blue-50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800 p-3 space-y-2"
+                                className={containerClass}
                                 data-testid={`page-title-fix-notes-${i}`}
                                 role="note"
                               >
-                                <p className="text-xs font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wide flex items-center gap-1.5">
-                                  <Info className="w-3.5 h-3.5" aria-hidden="true" />
-                                  Page Title Note
+                                <p className={labelClass}>
+                                  <IconComponent className="w-3.5 h-3.5" aria-hidden="true" />
+                                  {noteLabel}
                                 </p>
                                 <p
-                                  className="text-sm text-blue-900 dark:text-blue-200"
+                                  className={bodyClass}
                                   data-testid={`page-title-fix-notes-text-${i}`}
                                 >
                                   {issue.fixNotes}
@@ -3049,7 +3068,8 @@ export default function PdfConversion() {
                                   </button>
                                 </div>
                               </div>
-                            )}
+                              );
+                            })()}
                             {issue.criterion === "1.1.1" &&
                               issue.imageItems &&
                               issue.imageItems.length > 0 && (
