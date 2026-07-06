@@ -18,10 +18,12 @@ export default defineConfig({
       "scripts/**/*.test.ts",
       "client/src/lib/**/*.test.{ts,tsx}",
       "client/src/components/**/*.test.tsx",
+      "client/src/pages/**/*.test.tsx",
     ],
     environmentMatchGlobs: [
       ["client/src/components/**", "jsdom"],
       ["client/src/lib/**/*.test.tsx", "jsdom"],
+      ["client/src/pages/**/*.test.tsx", "jsdom"],
     ],
     environment: "node",
   },
