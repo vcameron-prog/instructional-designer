@@ -37,6 +37,11 @@ import {
 const IMAGE_UPLOAD_MAX_BYTES =
   (parseInt(process.env.IMAGE_UPLOAD_MAX_MB ?? "", 10) || 5) * 1024 * 1024;
 
+/** Maximum document upload size for the accessibility converter (PDF/DOCX/etc.).
+ *  Override at runtime via DOCUMENT_UPLOAD_MAX_MB env var (integer MB). */
+const DOCUMENT_UPLOAD_MAX_BYTES =
+  (parseInt(process.env.DOCUMENT_UPLOAD_MAX_MB ?? "", 10) || 20) * 1024 * 1024;
+
 function getUserId(req: Request): string | null {
   return (req.user as any)?.claims?.sub ?? null;
 }
@@ -318,7 +323,7 @@ export async function registerRoutes(
 
   const docUpload = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: 20 * 1024 * 1024 },
+    limits: { fileSize: DOCUMENT_UPLOAD_MAX_BYTES },
     fileFilter: (_req, file, cb) => {
       if (ACCEPTED_MIMES.has(file.mimetype)) {
         cb(null, true);

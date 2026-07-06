@@ -37,6 +37,11 @@ import { buildContentDocx } from "./lib/content-docx.js";
 const IMAGE_UPLOAD_MAX_BYTES =
   (parseInt(process.env.IMAGE_UPLOAD_MAX_MB ?? "", 10) || 5) * 1024 * 1024;
 
+/** Maximum document upload size for course-material uploads (e.g. syllabus).
+ *  Override at runtime via DOCUMENT_UPLOAD_MAX_MB env var (integer MB). */
+const DOCUMENT_UPLOAD_MAX_BYTES =
+  (parseInt(process.env.DOCUMENT_UPLOAD_MAX_MB ?? "", 10) || 10) * 1024 * 1024;
+
 function getUserId(req: Request): string | null {
   return (req.user as any)?.claims?.sub ?? null;
 }
@@ -107,7 +112,7 @@ async function guardSsrf(hostname: string): Promise<string | null> {
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024, files: 1 },
+  limits: { fileSize: DOCUMENT_UPLOAD_MAX_BYTES, files: 1 },
 });
 
 const VERSION_HISTORY_LIMIT: number = parseVersionHistoryLimit(process.env.VERSION_HISTORY_LIMIT);
