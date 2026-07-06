@@ -20,7 +20,7 @@ import { db } from "./db";
 import { eq, and, desc, isNull, sql, inArray, ne } from "drizzle-orm";
 import { convertMarkdownTablesToHtml } from "./markdownTableConverter.js";
 import { parseVersionHistoryLimit } from "./lib/parseVersionHistoryLimit.js";
-import { recordAltTextParseFail } from "./lib/altTextMetrics.js";
+import { recordAltTextParseFail, getAltTextParseFailMetrics } from "./lib/altTextMetrics.js";
 import {
   checkSharedRateLimit,
   checkAiGenRateLimit,
@@ -30,6 +30,7 @@ import {
   ANON_RATE_WINDOW_MS,
   SHARED_ANON_UPLOAD_RATE_LIMIT,
   checkAnonRateLimit,
+  getRateLimitCleanupMetrics,
 } from "./lib/rateLimiters.js";
 import { buildContentDocx } from "./lib/content-docx.js";
 import { fixHtmlTableCaption, editHtmlTableCaption, fixHtmlTableThead } from "./lib/table-fixers.js";
@@ -1437,6 +1438,27 @@ export async function registerRoutes(
     res.json({
       versionHistoryLimit: VERSION_HISTORY_LIMIT,
       imageUploadMaxMB: IMAGE_UPLOAD_MAX_BYTES / (1024 * 1024),
+    });
+  });
+
+  // In-memory/DB-backed runtime counters, matching the root app's GET
+  // /api/metrics pattern. No auth required. Counters reset on server
+  // restart (persisted values are re-seeded from the app_metrics table on
+  // startup via initAltTextParseFailMetrics/initRateLimitCleanupMetrics).
+  app.get("/api/metrics", (_req: Request, res: Response) => {
+    const altTextParseFail = getAltTextParseFailMetrics();
+    const rateLimitCleanup = getRateLimitCleanupMetrics();
+
+    res.json({
+      altTextParseFail: {
+        count: altTextParseFail.count,
+        lastAt: altTextParseFail.lastAt,
+      },
+      rateLimitCleanup: {
+        lastRunAt: rateLimitCleanup.lastRunAt,
+        lastErrorAt: rateLimitCleanup.lastErrorAt,
+        rowsDeletedTotal: rateLimitCleanup.rowsDeletedTotal,
+      },
     });
   });
 
