@@ -346,6 +346,70 @@ export async function registerRoutes(
     },
   });
 
+  // Magic-byte / embedded-zip-entry signatures for the binary document formats
+  // that are unambiguous to detect. Used to catch a document uploaded with a
+  // mismatched extension/MIME type (e.g. a real PDF renamed to .docx, or a
+  // real DOCX renamed to .pdf) before it silently reaches extraction and
+  // fails deep in the pipeline with only a generic "could not be read" error.
+  // Mirrors the renamed-document detection added for /api/upload-syllabus in
+  // instructional-designer/server/routes.ts (detectKnownBinaryDocumentType).
+  const PDF_MAGIC = Buffer.from("%PDF");
+  const OLE_MAGIC = Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]); // legacy .doc/.xls/.ppt
+  const ZIP_MAGIC = Buffer.from([0x50, 0x4b, 0x03, 0x04]);
+
+  type DetectedDocCategory = "pdf" | "docx" | "xlsx" | "pptx" | "doc";
+
+  const DETECTED_DOC_TYPES: Record<DetectedDocCategory, { label: string; extension: string }> = {
+    pdf: { label: "PDF", extension: ".pdf" },
+    docx: { label: "Word document (.docx)", extension: ".docx" },
+    xlsx: { label: "Excel spreadsheet (.xlsx)", extension: ".xlsx" },
+    pptx: { label: "PowerPoint presentation (.pptx)", extension: ".pptx" },
+    doc: { label: "legacy Word document (.doc)", extension: ".doc" },
+  };
+
+  /**
+   * Identifies the true document format from magic bytes / embedded zip entry
+   * names, independent of the client-reported extension or MIME type. Returns
+   * null if the buffer doesn't match one of the binary formats checked here
+   * (plain text, RTF, HTML, CSV, or a zip-based format we don't distinguish,
+   * like ODF/EPUB).
+   */
+  function detectActualDocCategory(buffer: Buffer): DetectedDocCategory | null {
+    if (buffer.length >= PDF_MAGIC.length && buffer.subarray(0, PDF_MAGIC.length).equals(PDF_MAGIC)) {
+      return "pdf";
+    }
+    if (buffer.length >= OLE_MAGIC.length && buffer.subarray(0, OLE_MAGIC.length).equals(OLE_MAGIC)) {
+      return "doc";
+    }
+    if (buffer.length >= ZIP_MAGIC.length && buffer.subarray(0, ZIP_MAGIC.length).equals(ZIP_MAGIC)) {
+      // Office Open XML part names are stored uncompressed in the zip's local
+      // file headers, so a substring scan of the leading bytes is enough to
+      // tell docx/xlsx/pptx apart without a full unzip.
+      const head = buffer.subarray(0, Math.min(buffer.length, 65536));
+      if (head.includes("word/document.xml")) return "docx";
+      if (head.includes("xl/workbook.xml")) return "xlsx";
+      if (head.includes("ppt/presentation.xml")) return "pptx";
+      return null;
+    }
+    return null;
+  }
+
+  /**
+   * Maps a resolved sourceType to the doc category its bytes should match,
+   * for the formats where a magic-byte mismatch is unambiguous. Returns null
+   * for formats not checked here (text-based or ambiguous zip formats).
+   */
+  function expectedDocCategoryForSourceType(sourceType: string): DetectedDocCategory | null {
+    switch (sourceType) {
+      case "pdf": return "pdf";
+      case "docx": return "docx";
+      case "xlsx": return "xlsx";
+      case "pptx": return "pptx";
+      case "doc": return "doc";
+      default: return null;
+    }
+  }
+
   function getVisitorToken(req: Request): string | null {
     return (req.session as any)?.visitorToken ?? null;
   }
@@ -612,6 +676,21 @@ export async function registerRoutes(
                               : file.mimetype === "text/csv" || file.mimetype === "application/csv" || file.mimetype === "text/comma-separated-values" || fname.endsWith(".csv")
                                 ? "csv"
                                 : "pdf";
+
+      // Catch a document uploaded with a mismatched extension/MIME type
+      // (e.g. a real PDF renamed to .docx) before it's stored and later
+      // fails deep in extraction with only a generic "could not be read"
+      // error. Only checked for the unambiguous binary formats above.
+      const expectedCategory = expectedDocCategoryForSourceType(sourceType);
+      const actualCategory = detectActualDocCategory(file.buffer);
+      if (expectedCategory && actualCategory && actualCategory !== expectedCategory) {
+        const detected = DETECTED_DOC_TYPES[actualCategory];
+        res.status(400).json({
+          error: `This file looks like a ${detected.label} that was uploaded with the wrong file extension. Please re-upload it with its original ${detected.extension} extension, or select the correct file.`,
+          detectedType: detected.label,
+        });
+        return;
+      }
 
       const [created] = await db
         .insert(conversions)
