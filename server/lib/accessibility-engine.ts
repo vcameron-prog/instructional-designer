@@ -1911,28 +1911,66 @@ export function applyBypassBlocksFix(html: string): string {
 export const PAGE_TITLE_FALLBACK_NOTE =
   "A generic \"Document\" title was used because no usable <h1> or <h2> text could be found to build a descriptive page title. Review and edit the page title manually so it accurately describes your content.";
 
+export const PAGE_TITLE_LOW_QUALITY_NOTE =
+  "The extracted page title may not be descriptive enough (it's very short or looks like a generic placeholder). Review and edit the page title manually so it accurately describes your content.";
+
+const MIN_QUALITY_TITLE_LENGTH = 4;
+
+const GENERIC_TITLE_PATTERNS: RegExp[] = [
+  /^untitled( document| slide)?$/i,
+  /^slide\s*\d*$/i,
+  /^title$/i,
+  /^new document$/i,
+  /^document\s*\d*$/i,
+  /^page\s*\d*$/i,
+  /^section\s*\d*$/i,
+  /^tab\s*\d*$/i,
+  /^\d+$/,
+];
+
+/**
+ * Determines whether a title extracted from an <h1>/<h2> is too low-quality
+ * to be considered a descriptive page title, even though it's not the
+ * generic "Document" fallback. Flags very short titles and common generic
+ * placeholders (e.g. "Slide 1", "Untitled").
+ */
+export function isLowQualityExtractedTitle(title: string): boolean {
+  const trimmed = title.trim();
+  if (trimmed.length < MIN_QUALITY_TITLE_LENGTH) return true;
+  return GENERIC_TITLE_PATTERNS.some((pattern) => pattern.test(trimmed));
+}
+
 /**
  * When `applyPageTitleFix` had to fall back to the generic "Document" title
  * (i.e. `extractPageTitleInfo` found no usable <h1>/<h2> text to derive a
  * title from), attaches a `fixNotes` explanation to the "2.4.2 / Page Titled"
  * issue so faculty can see the title is a low-quality placeholder rather than
- * something meaningful extracted from their content.
+ * something meaningful extracted from their content. If a title was
+ * extracted but still looks low-quality (too short or a generic
+ * placeholder), a distinct note recommends manual review instead.
  */
 function applyPageTitleFixNotes(
   issues: ComplianceIssue[],
   pageTitleInfo: { title: string; headingLevel: "h1" | "h2" | null } | null
 ): void {
-  if (!pageTitleInfo || pageTitleInfo.headingLevel !== null) return;
+  if (!pageTitleInfo) return;
 
   const titleIssueIdx = issues.findIndex(
     (iss) => iss.criterion === "2.4.2" && iss.title === "Page Titled"
   );
   if (titleIssueIdx < 0) return;
 
-  issues[titleIssueIdx] = {
-    ...issues[titleIssueIdx],
-    fixNotes: PAGE_TITLE_FALLBACK_NOTE,
-  };
+  if (pageTitleInfo.headingLevel === null) {
+    issues[titleIssueIdx] = {
+      ...issues[titleIssueIdx],
+      fixNotes: PAGE_TITLE_FALLBACK_NOTE,
+    };
+  } else if (isLowQualityExtractedTitle(pageTitleInfo.title)) {
+    issues[titleIssueIdx] = {
+      ...issues[titleIssueIdx],
+      fixNotes: PAGE_TITLE_LOW_QUALITY_NOTE,
+    };
+  }
 }
 
 export function extractPageTitleInfo(html: string): { title: string; headingLevel: "h1" | "h2" | null } {
@@ -2421,6 +2459,9 @@ export function applyDeterministicReport(
           const { title, headingLevel } = extractPageTitleInfo(fixedHtml);
           if (headingLevel) {
             updated = { ...updated, details: `Title set to '${title}' from the first <${headingLevel}>` };
+            if (isLowQualityExtractedTitle(title)) {
+              updated = { ...updated, fixNotes: PAGE_TITLE_LOW_QUALITY_NOTE };
+            }
           } else {
             updated = { ...updated, fixNotes: PAGE_TITLE_FALLBACK_NOTE };
           }
