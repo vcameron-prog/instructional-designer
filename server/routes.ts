@@ -1757,9 +1757,11 @@ export async function registerRoutes(
               contentFidelity: result.contentFidelity ?? null,
               ocrApplied,
               pdfData: null,
-              extractionWarnings: extraction.warnings && extraction.warnings.length > 0
-                ? extraction.warnings
-                : null,
+              extractionWarnings: (() => {
+                const warnings = [...(extraction.warnings || [])];
+                if (result.truncationWarning) warnings.push(result.truncationWarning);
+                return warnings.length > 0 ? warnings : null;
+              })(),
               updatedAt: new Date(),
             })
             .where(eq(conversions.id, id));
@@ -2059,12 +2061,18 @@ export async function registerRoutes(
 
           if (aborted) throw new Error("aborted");
 
+          const mergedWarnings = [
+            ...((conversion.extractionWarnings as string[] | null) || []),
+            ...(result.truncationWarning ? [result.truncationWarning] : []),
+          ];
+
           await db.update(conversions).set({
             status: "completed",
             statusMessage: null,
             accessibleHtml: result.accessibleHtml,
             complianceReport: result.complianceReport,
             contentFidelity: result.contentFidelity ?? null,
+            extractionWarnings: mergedWarnings.length > 0 ? mergedWarnings : null,
             updatedAt: new Date(),
           }).where(eq(conversions.id, id));
 

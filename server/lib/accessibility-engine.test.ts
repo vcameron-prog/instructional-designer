@@ -42,6 +42,10 @@ import {
   summarizeHeadingStructure,
   buildContentFidelityReport,
   getTextCoverageWarningThreshold,
+  splitTextByPages,
+  findSplitPoint,
+  mergeChunksIntoDocument,
+  generateAccessibleDocument,
   type ComplianceIssue,
   type ComplianceReport,
 } from "./accessibility-engine.js";
@@ -7638,5 +7642,221 @@ describe("Content Fidelity Review", () => {
       const report = buildContentFidelityReport("", "", false);
       expect(report.overallStatus).toBeDefined();
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// splitTextByPages / findSplitPoint / mergeChunksIntoDocument
+// ---------------------------------------------------------------------------
+
+describe("findSplitPoint", () => {
+  it("prefers a paragraph break over a sentence or word boundary", () => {
+    const text = "X".repeat(300) + "\n\n" + "Y".repeat(300);
+    const maxEnd = text.length - 5;
+    const idx = findSplitPoint(text, 0, maxEnd);
+    expect(text.slice(0, idx)).toBe("X".repeat(300) + "\n\n");
+  });
+
+  it("finds a paragraph/sentence boundary even when it falls in the first half of the search window", () => {
+    // Regression: findSplitPoint must search the ENTIRE [start, maxEnd) window,
+    // not just the back half — otherwise a valid sentence boundary near the
+    // start of the window gets ignored in favor of a mid-sentence cut later on.
+    const text = "This is sentence one. " + "Y".repeat(180);
+    const maxEnd = text.length; // no natural boundary anywhere else in range
+    const idx = findSplitPoint(text, 0, maxEnd - 1);
+    expect(text.slice(0, idx)).toBe("This is sentence one. ");
+  });
+
+  it("falls back to a sentence boundary when there is no paragraph break", () => {
+    const text = "This is sentence one. This is sentence two. This is sentence three that runs long.";
+    const idx = findSplitPoint(text, 0, text.length - 3);
+    const before = text.slice(0, idx);
+    expect(before.endsWith(". ") || before.endsWith(".")).toBe(true);
+    expect(text.slice(idx)).not.toMatch(/^\s*$/);
+  });
+
+  it("never returns a point that splits a word when a sentence boundary is not available in range", () => {
+    const text = "supercalifragilisticexpialidocious ".repeat(50).trim();
+    const maxEnd = 400;
+    const idx = findSplitPoint(text, 0, maxEnd);
+    // The split must land on whitespace (end of a word), not mid-word.
+    expect(text[idx - 1] === " " || idx === text.length).toBe(true);
+  });
+
+  it("ignores a boundary that would produce a pathologically tiny chunk and prefers a later one", () => {
+    // A newline appears 1 character into the window, which is below the
+    // minimum-progress floor; a real sentence boundary later in the window
+    // should be preferred instead of the too-early newline.
+    const text = "A\nThis is a real sentence boundary. " + "Z".repeat(300);
+    const idx = findSplitPoint(text, 0, text.length - 1);
+    expect(text.slice(0, idx)).toBe("A\nThis is a real sentence boundary. ");
+  });
+
+  it("guarantees forward progress and falls back to the hard limit when no boundary exists", () => {
+    const text = "a".repeat(1000);
+    const idx = findSplitPoint(text, 0, 800);
+    expect(idx).toBe(800);
+  });
+});
+
+describe("splitTextByPages — boundary-aware hard splitting", () => {
+  function buildLongSentenceDocument(sentenceCount: number): string {
+    const sentences: string[] = [];
+    for (let i = 0; i < sentenceCount; i++) {
+      sentences.push(
+        `This is sentence number ${i} in a long document without any page markers, and it keeps going with enough words to add real length to the paragraph.`
+      );
+    }
+    return sentences.join(" ");
+  }
+
+  it("never cuts a sentence or word in half when hard-splitting a page-marker-free document", () => {
+    const longText = buildLongSentenceDocument(200);
+    const chunks = splitTextByPages(longText, 2000);
+
+    expect(chunks.length).toBeGreaterThan(1);
+
+    // Reassembling the chunk texts in order must reproduce the original text
+    // exactly (chunks are produced by simple slicing at whitespace/sentence
+    // boundaries, so no characters should be lost or duplicated).
+    const reassembled = chunks.map((c) => c.text).join(" ").replace(/\s+/g, " ").trim();
+    expect(reassembled).toBe(longText.replace(/\s+/g, " ").trim());
+
+    for (const chunk of chunks) {
+      // No chunk may start or end mid-word: the character immediately before
+      // the chunk's start (if any) and immediately after its end (if any)
+      // must be whitespace relative to the chunk boundary — verified above
+      // via lossless reassembly, but we also assert no chunk begins or ends
+      // with a partial word fragment lacking surrounding whitespace.
+      expect(chunk.text.length).toBeGreaterThan(0);
+      expect(chunk.text[0]).not.toBe(" ");
+    }
+  });
+
+  it("keeps a short page-marker-free document as a single chunk", () => {
+    const text = "A short document that does not need to be split at all.";
+    const chunks = splitTextByPages(text, 8000);
+    expect(chunks).toHaveLength(1);
+    expect(chunks[0].text).toBe(text);
+    expect(chunks[0].startsMidPage).toBe(false);
+  });
+
+  it("marks hard-split continuation chunks with startsMidPage=true", () => {
+    const longText = buildLongSentenceDocument(200);
+    const chunks = splitTextByPages(longText, 2000);
+    expect(chunks[0].startsMidPage).toBe(false);
+    expect(chunks.slice(1).some((c) => c.startsMidPage)).toBe(true);
+  });
+
+  it("does not mark chunks split at real page-break markers as startsMidPage", () => {
+    const text = "Page one content here.\n\fPage two content here.";
+    // Use a maxChunkSize small enough that the two pages can't be combined
+    // into a single final chunk, so the page-break boundary actually
+    // produces two separate PageChunks (rather than being merged together).
+    const chunks = splitTextByPages(text, 25);
+    expect(chunks.length).toBe(2);
+    expect(chunks.every((c) => !c.startsMidPage)).toBe(true);
+  });
+});
+
+describe("mergeChunksIntoDocument — reassembly correctness", () => {
+  function wrapBody(body: string, lang = "en"): string {
+    return `<!DOCTYPE html><html lang="${lang}"><head><title>Doc</title></head><body>${body}</body></html>`;
+  }
+
+  it("joins chunk bodies without losing or duplicating text", () => {
+    const chunk1 = wrapBody("<p>First part of the document.</p>");
+    const chunk2 = "<p>Second part of the document.</p>";
+    const merged = mergeChunksIntoDocument([chunk1, chunk2], { title: "Doc" }, [false, false]);
+
+    expect(merged).toContain("First part of the document.");
+    expect(merged).toContain("Second part of the document.");
+    // Each sentence should appear exactly once.
+    expect(merged.match(/First part of the document\./g)?.length).toBe(1);
+    expect(merged.match(/Second part of the document\./g)?.length).toBe(1);
+  });
+
+  it("inserts a visual <hr> separator between true page/section breaks", () => {
+    const chunk1 = wrapBody("<p>Page one.</p>");
+    const chunk2 = "<p>Page two.</p>";
+    const merged = mergeChunksIntoDocument([chunk1, chunk2], { title: "Doc" }, [false, false]);
+    expect(merged).toMatch(/Page one\.<\/p>\s*\n\n<hr aria-hidden="true">\n\n\s*<p>Page two\./);
+  });
+
+  it("does NOT insert an <hr> between chunks that are a hard-split continuation of the same page", () => {
+    const chunk1 = wrapBody("<p>Start of a long paragraph that continues</p>");
+    const chunk2 = "<p>into the next chunk seamlessly.</p>";
+    const merged = mergeChunksIntoDocument([chunk1, chunk2], { title: "Doc" }, [false, true]);
+    expect(merged).not.toContain("<hr");
+    expect(merged).toContain("Start of a long paragraph that continues");
+    expect(merged).toContain("into the next chunk seamlessly.");
+  });
+
+  it("preserves the lang attribute detected from any chunk", () => {
+    const chunk1 = wrapBody("<p>Hola.</p>", "es");
+    const chunk2 = "<p>Mundo.</p>";
+    const merged = mergeChunksIntoDocument([chunk1, chunk2], { title: "Doc" }, [false, false]);
+    expect(merged).toContain('lang="es"');
+  });
+
+  it("returns the single chunk unchanged when there is only one chunk", () => {
+    const chunk1 = wrapBody("<p>Only chunk.</p>");
+    const merged = mergeChunksIntoDocument([chunk1], { title: "Doc" });
+    expect(merged).toBe(chunk1);
+  });
+});
+
+describe("generateAccessibleDocument — image/table assignment across hard-split chunks", () => {
+  beforeEach(() => {
+    mockCreate.mockReset();
+  });
+
+  it("assigns an oversized page's image to exactly one chunk when the page is hard-split across chunks", async () => {
+    // One "page" (no page-break markers) long enough that it must be
+    // hard-split into multiple chunks under a small CHUNK_THRESHOLD-like
+    // maxChunkSize. Both resulting chunks report the same page number
+    // (pageNumber 1), so a naive inclusive page-range filter would attach
+    // the single image on page 1 to BOTH chunks.
+    const sentences: string[] = [];
+    for (let i = 0; i < 300; i++) {
+      sentences.push(
+        `This is sentence number ${i} of a long single page document with no page break markers at all.`
+      );
+    }
+    const longSinglePageText = sentences.join(" ");
+
+    const image: ExtractedImage = {
+      name: "diagram.png",
+      dataUrl: "data:image/png;base64,diagram",
+      pageNumber: 1,
+      width: 100,
+      height: 100,
+    };
+
+    // Every chunk response omits the image entirely, forcing
+    // ensureMissingImages() to inject it based on the chunk's assigned
+    // image list — the exact code path where duplication would occur.
+    mockCreate.mockImplementation(async () =>
+      ({ content: [{ type: "text", text: "<h1>Section</h1><p>Some converted text.</p>" }] })
+    );
+
+    const result = await generateAccessibleDocument(
+      longSinglePageText,
+      "test.pdf",
+      { title: "Test Document" },
+      [image],
+      []
+    );
+
+    // splitTextByPages with the real CHUNK_THRESHOLD (12000) should have
+    // produced more than one chunk for this document; sanity-check that
+    // the mock was actually invoked more than once (i.e. chunking occurred)
+    // before asserting on duplication.
+    expect(mockCreate.mock.calls.length).toBeGreaterThan(1);
+
+    const imgOccurrences = (
+      result.accessibleHtml.match(/data:image\/png;base64,diagram/g) || []
+    ).length;
+    expect(imgOccurrences).toBe(1);
   });
 });

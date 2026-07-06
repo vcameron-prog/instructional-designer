@@ -171,6 +171,8 @@ export interface AccessibilityResult {
   wasRetried?: boolean;
   elementsFixed?: number;
   noFixReason?: string;
+  /** Set when the source document exceeded the chunk cap and trailing content was not converted. */
+  truncationWarning?: string;
 }
 
 function buildStructuralSummary(
@@ -2508,9 +2510,70 @@ interface PageChunk {
   text: string;
   startPage: number;
   endPage: number;
+  /**
+   * True when this chunk is a hard-split continuation of the same original
+   * page/part as the previous chunk (i.e. the split exists only because the
+   * text exceeded maxChunkSize, not because of a real page/section break).
+   * Used by mergeChunksIntoDocument to avoid inserting a visual <hr> break
+   * in the middle of what was originally one continuous page.
+   */
+  startsMidPage: boolean;
 }
 
-function splitTextByPages(text: string, maxChunkSize: number = 8000): PageChunk[] {
+/**
+ * Find the best place at or before `maxEnd` (and at or after `start`) to end a
+ * chunk without cutting a word or sentence in half. Searches the entire
+ * [start, maxEnd) window and prefers, in order: a paragraph break, the end of
+ * a sentence, a line break, then any whitespace — so a boundary near the
+ * start of the window is still chosen over cutting mid-sentence near the end.
+ * A small minimum-progress floor prevents pathologically tiny chunks or
+ * infinite loops on dense text; only when no boundary meets that floor do we
+ * fall back to the hard `maxEnd` limit.
+ */
+export function findSplitPoint(text: string, start: number, maxEnd: number): number {
+  if (maxEnd >= text.length) return text.length;
+
+  const window = text.slice(start, maxEnd);
+  // Search the ENTIRE [start, maxEnd) window — a sentence/paragraph boundary
+  // near the start of the window is still strongly preferable to cutting
+  // mid-sentence near the end. `minProgress` only exists as a floor to avoid
+  // pathological tiny chunks (e.g. a stray blank line one character into the
+  // window); it does not restrict which half of the window we search.
+  const minProgress = Math.min(200, Math.floor(window.length * 0.1));
+
+  const paragraphIdx = window.lastIndexOf("\n\n");
+  if (paragraphIdx !== -1 && paragraphIdx + 2 >= minProgress) {
+    return start + paragraphIdx + 2;
+  }
+
+  const sentenceRegex = /[.!?]["')\]]?\s/g;
+  let lastSentenceEnd = -1;
+  let sentenceMatch: RegExpExecArray | null;
+  while ((sentenceMatch = sentenceRegex.exec(window)) !== null) {
+    const end = sentenceMatch.index + sentenceMatch[0].length;
+    if (end >= minProgress) lastSentenceEnd = end;
+  }
+  if (lastSentenceEnd !== -1) {
+    return start + lastSentenceEnd;
+  }
+
+  const newlineIdx = window.lastIndexOf("\n");
+  if (newlineIdx !== -1 && newlineIdx + 1 >= minProgress) {
+    return start + newlineIdx + 1;
+  }
+
+  const spaceIdx = window.lastIndexOf(" ");
+  if (spaceIdx !== -1 && spaceIdx + 1 >= minProgress) {
+    return start + spaceIdx + 1;
+  }
+
+  // No safe boundary found anywhere in the search window that meets the
+  // minimum-progress floor — fall back to the hard limit rather than
+  // producing a pathologically tiny chunk or looping forever.
+  return maxEnd;
+}
+
+export function splitTextByPages(text: string, maxChunkSize: number = 8000): PageChunk[] {
   const pageBreakRegex = /(?:^|\n)(?:[-=]{3,}|Page\s+\d+|---\s*Page\s*\d+\s*---|\f)/gi;
   const rawParts: { pageNum: number; text: string }[] = [];
   let lastIdx = 0;
@@ -2533,16 +2596,23 @@ function splitTextByPages(text: string, maxChunkSize: number = 8000): PageChunk[
   }
 
   // Hard-split any individual part that exceeds maxChunkSize so that a
-  // document without page markers cannot become one unbounded chunk.
-  const parts: { pageNum: number; text: string }[] = [];
+  // document without page markers cannot become one unbounded chunk. Splits
+  // land on a paragraph/sentence/whitespace boundary whenever possible so no
+  // word or sentence is cut in half.
+  const parts: { pageNum: number; text: string; isSplitContinuation: boolean }[] = [];
   for (const part of rawParts) {
     if (part.text.length <= maxChunkSize) {
-      parts.push(part);
+      parts.push({ ...part, isSplitContinuation: false });
     } else {
       let offset = 0;
+      let isContinuation = false;
       while (offset < part.text.length) {
-        parts.push({ pageNum: part.pageNum, text: part.text.slice(offset, offset + maxChunkSize) });
-        offset += maxChunkSize;
+        const hardEnd = Math.min(offset + maxChunkSize, part.text.length);
+        let end = hardEnd < part.text.length ? findSplitPoint(part.text, offset, hardEnd) : hardEnd;
+        if (end <= offset) end = hardEnd; // safety net: guarantee forward progress
+        parts.push({ pageNum: part.pageNum, text: part.text.slice(offset, end), isSplitContinuation: isContinuation });
+        offset = end;
+        isContinuation = true;
       }
     }
   }
@@ -2550,16 +2620,19 @@ function splitTextByPages(text: string, maxChunkSize: number = 8000): PageChunk[
   const chunks: PageChunk[] = [];
   let currentChunk = "";
   let chunkStartPage = parts[0]?.pageNum ?? 1;
+  let chunkStartsMidPage = parts[0]?.isSplitContinuation ?? false;
 
   for (const part of parts) {
     if (currentChunk.length + part.text.length > maxChunkSize && currentChunk.length > 0) {
       chunks.push({
         text: currentChunk.trim(),
         startPage: chunkStartPage,
-        endPage: part.pageNum - 1,
+        endPage: part.isSplitContinuation ? part.pageNum : part.pageNum - 1,
+        startsMidPage: chunkStartsMidPage,
       });
       currentChunk = part.text;
       chunkStartPage = part.pageNum;
+      chunkStartsMidPage = part.isSplitContinuation;
     } else {
       currentChunk += (currentChunk ? "\n" : "") + part.text;
     }
@@ -2569,18 +2642,43 @@ function splitTextByPages(text: string, maxChunkSize: number = 8000): PageChunk[
       text: currentChunk.trim(),
       startPage: chunkStartPage,
       endPage: parts[parts.length - 1]?.pageNum ?? 1,
+      startsMidPage: chunkStartsMidPage,
     });
   }
 
   return chunks;
 }
 
-function filterImagesForChunk(images: ExtractedImage[], startPage: number, endPage: number): ExtractedImage[] {
-  return images.filter((img) => img.pageNumber >= startPage && img.pageNumber <= endPage);
-}
-
-function filterTablesForChunk(tables: ExtractedTable[], startPage: number, endPage: number): ExtractedTable[] {
-  return tables.filter((t) => t.pageNumber >= startPage && t.pageNumber <= endPage);
+/**
+ * Assigns each image/table to exactly ONE chunk, in chunk order.
+ *
+ * Chunk `startPage`/`endPage` ranges can legitimately overlap by one page
+ * number when a single oversized page is hard-split across multiple chunks
+ * (`startsMidPage`): the closing chunk's `endPage` and the next chunk's
+ * `startPage` are both that same page. A naive per-chunk page-range filter
+ * would therefore attach that page's images/tables to BOTH chunks, causing
+ * duplicated structural content in the merged output. Assigning greedily in
+ * chunk order and removing already-assigned items guarantees each image or
+ * table appears in exactly one chunk's structural data.
+ */
+function assignItemsToChunks<T extends { pageNumber: number }>(
+  items: T[],
+  chunks: { startPage: number; endPage: number }[]
+): T[][] {
+  const remaining = [...items];
+  const assigned: T[][] = [];
+  for (const chunk of chunks) {
+    const forThisChunk: T[] = [];
+    for (let i = remaining.length - 1; i >= 0; i--) {
+      const item = remaining[i];
+      if (item.pageNumber >= chunk.startPage && item.pageNumber <= chunk.endPage) {
+        forThisChunk.unshift(item);
+        remaining.splice(i, 1);
+      }
+    }
+    assigned.push(forThisChunk);
+  }
+  return assigned;
 }
 
 function tableContentSignature(rows: string[][]): string {
@@ -2728,17 +2826,19 @@ async function generateVisionAltText(
   });
 }
 
-function mergeChunksIntoDocument(
+export function mergeChunksIntoDocument(
   chunks: string[],
-  metadata: { title?: string; author?: string; subject?: string }
+  metadata: { title?: string; author?: string; subject?: string },
+  startsMidPageFlags: boolean[] = []
 ): string {
   if (chunks.length === 1) return chunks[0];
 
-  const bodyContents: string[] = [];
+  const bodyContents: { content: string; startsMidPage: boolean }[] = [];
   let headContent = "";
   let lang = "en";
 
-  for (const chunk of chunks) {
+  chunks.forEach((chunk, i) => {
+    const startsMidPage = startsMidPageFlags[i] ?? false;
     const langMatch = chunk.match(new RegExp(`<html${ATTR_PATTERN}\\slang=["']([^"']+)["']`, "i"));
     if (langMatch) lang = langMatch[1];
 
@@ -2747,7 +2847,7 @@ function mergeChunksIntoDocument(
 
     const bodyMatch = chunk.match(new RegExp(`<body${ATTR_PATTERN}>([\\s\\S]*?)<\\/body>`, "i"));
     if (bodyMatch) {
-      bodyContents.push(bodyMatch[1]);
+      bodyContents.push({ content: bodyMatch[1], startsMidPage });
     } else {
       const cleaned = chunk
         .replace(new RegExp(`<!DOCTYPE${ATTR_PATTERN}>`, "i"), "")
@@ -2757,13 +2857,30 @@ function mergeChunksIntoDocument(
         .replace(new RegExp(`<body${ATTR_PATTERN}>`, "i"), "")
         .replace(/<\/body>/i, "")
         .trim();
-      if (cleaned) bodyContents.push(cleaned);
+      bodyContents.push({ content: cleaned, startsMidPage });
     }
-  }
+  });
 
   const documentTitle = metadata.title || "Accessible Document";
   if (!headContent) {
     headContent = `<meta charset="utf-8"><title>${escapeHtmlText(documentTitle)}</title>`;
+  }
+
+  // Only insert a visual <hr> between chunks that represent a real
+  // page/section break. Chunks produced by hard-splitting one oversized
+  // page (startsMidPage) are joined with plain whitespace so the reader
+  // doesn't see a spurious divider in the middle of continuous prose.
+  let mergedBody = "";
+  let isFirst = true;
+  for (const item of bodyContents) {
+    if (!item.content.trim()) continue;
+    if (isFirst) {
+      mergedBody = item.content;
+      isFirst = false;
+    } else {
+      const separator = item.startsMidPage ? "\n\n" : "\n\n<hr aria-hidden=\"true\">\n\n";
+      mergedBody += separator + item.content;
+    }
   }
 
   return `<!DOCTYPE html>
@@ -2773,7 +2890,7 @@ ${headContent}
 </head>
 <body>
 <main id="main-content">
-${bodyContents.join("\n\n<hr aria-hidden=\"true\">\n\n")}
+${mergedBody}
 </main>
 </body>
 </html>`;
@@ -2793,10 +2910,16 @@ export async function generateAccessibleDocument(
   const documentTitle = metadata.title || originalFilename.replace(/\.pdf$/i, "");
 
   const CHUNK_THRESHOLD = 12000;
-  const MAX_CHUNKS = 20;
+  // Large enough that virtually no real document gets silently truncated;
+  // if a document still exceeds this, we surface a warning instead of
+  // dropping content without telling the user (see truncationWarning below).
+  const MAX_CHUNKS = 60;
   const allChunks = splitTextByPages(extractedText, CHUNK_THRESHOLD);
+  let truncationWarning: string | undefined;
   if (allChunks.length > MAX_CHUNKS) {
-    console.warn(`[accessibility-engine] Document split into ${allChunks.length} chunks; capping at ${MAX_CHUNKS} to limit AI API usage.`);
+    const droppedChars = allChunks.slice(MAX_CHUNKS).reduce((sum, c) => sum + c.text.length, 0);
+    truncationWarning = `This document was very large (${allChunks.length} sections). Only the first ${MAX_CHUNKS} sections were converted; approximately ${droppedChars.toLocaleString()} characters at the end of the document were not processed.`;
+    console.warn(`[accessibility-engine] Document split into ${allChunks.length} chunks; capping at ${MAX_CHUNKS} to limit AI API usage. ${droppedChars} trailing characters were dropped.`);
   }
   const chunks = allChunks.slice(0, MAX_CHUNKS);
   const needsChunking = chunks.length > 1;
@@ -2833,11 +2956,19 @@ Include inline CSS for basic readable styling that meets contrast requirements.`
 
   const chunkLimit = pLimit(4);
 
-  async function processChunk(chunk: PageChunk, index: number, headingOutline: string): Promise<string> {
+  // Precompute a strict partition of images/tables across chunks so that a
+  // page split mid-way across two chunks (startsMidPage) never causes the
+  // same image or table to be injected into both chunks. See
+  // assignItemsToChunks() for why per-chunk page-range filtering alone is
+  // unsafe here.
+  const imagesByChunk = assignItemsToChunks(images, chunks);
+  const tablesByChunk = assignItemsToChunks(tables, chunks);
+
+  async function processChunk(chunk: PageChunk, index: number, headingOutline: string, previousTail: string): Promise<string> {
     if (signal?.aborted) throw new Error("aborted");
 
-    const chunkImages = filterImagesForChunk(images, chunk.startPage, chunk.endPage);
-    const chunkTables = filterTablesForChunk(tables, chunk.startPage, chunk.endPage);
+    const chunkImages = imagesByChunk[index] ?? [];
+    const chunkTables = tablesByChunk[index] ?? [];
     const structuralSummary = buildStructuralSummary(chunkImages, chunkTables);
     const isFirst = index === 0;
 
@@ -2857,11 +2988,12 @@ Follow the same WCAG 2.1 Level AA rules:
 - CONTRAST: Use #1a1a1a on #ffffff for body text. NEVER use light gray (#888, #999, #aaa, #777) on white.
 - PARSING: All ids must be unique. Elements must be properly nested and closed.
 - INTERACTIVE ELEMENTS: Every <button> needs descriptive text or aria-label. Every <input> needs a <label> or aria-label.
+- FIDELITY: Convert every word of the text under "EXTRACTED TEXT (CONTINUATION)" below, from its very first word to its very last word. Do NOT drop, summarize, or truncate the first or last sentence of the chunk, and do not insert ellipses or "content omitted" markers.
 
 ${headingOutline}
-
+${previousTail ? `\nThe previous section ended with this text (shown ONLY so you know where continuity picks up — do NOT repeat, rephrase, or output this text again):\n"...${previousTail}"\n` : ""}
 Output ONLY the <body> content (no <!DOCTYPE>, no <html>, no <head>).
-Do NOT repeat any content from previous sections.`;
+Do not repeat content that was already converted in previous sections, but make sure every word of the new EXTRACTED TEXT (CONTINUATION) below appears in your output exactly once.`;
 
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-5",
@@ -2904,10 +3036,15 @@ ${structuralSummary}`,
 
   let chunkHtmlParts: string[];
 
+  // A short trailing snippet of each chunk's raw extracted text, used as
+  // read-only context for the next chunk so the model can pick up the
+  // narrative thread correctly without being told to repeat it verbatim.
+  const trailingContext = (text: string) => text.slice(-400).trim();
+
   if (needsChunking) {
     // Process chunk 0 first so we can extract the heading tree as context for all subsequent chunks
     if (onProgress) await onProgress(`Converting section 1 of ${chunks.length}…`);
-    const chunk0Html = await processChunk(chunks[0], 0, "");
+    const chunk0Html = await processChunk(chunks[0], 0, "", "");
     const headingOutline = extractHeadingOutline(chunk0Html);
 
     // Signal start of parallel phase before launching remaining chunks
@@ -2918,7 +3055,8 @@ ${structuralSummary}`,
     const remainingParts = await Promise.all(
       chunks.slice(1).map((chunk, idx) =>
         chunkLimit(async () => {
-          const result = await processChunk(chunk, idx + 1, headingOutline);
+          const previousTail = trailingContext(chunks[idx].text);
+          const result = await processChunk(chunk, idx + 1, headingOutline, previousTail);
           completedSections++;
           if (onProgress && completedSections <= chunks.length) {
             await onProgress(`Converting section ${completedSections} of ${chunks.length}…`);
@@ -2931,11 +3069,11 @@ ${structuralSummary}`,
     chunkHtmlParts = [chunk0Html, ...remainingParts];
   } else {
     if (onProgress) await onProgress("Converting document…");
-    chunkHtmlParts = [await processChunk(chunks[0], 0, "")];
+    chunkHtmlParts = [await processChunk(chunks[0], 0, "", "")];
   }
 
   let accessibleHtml = needsChunking
-    ? mergeChunksIntoDocument(chunkHtmlParts, metadata)
+    ? mergeChunksIntoDocument(chunkHtmlParts, metadata, chunks.map((c) => c.startsMidPage))
     : chunkHtmlParts[0];
 
   // Auto-apply deterministic fixes so users start with a clean baseline
@@ -2963,5 +3101,6 @@ ${structuralSummary}`,
     accessibleHtml,
     complianceReport: buildComplianceReport(allIssues),
     contentFidelity: buildContentFidelityReport(extractedText, accessibleHtml, ocrApplied),
+    ...(truncationWarning ? { truncationWarning } : {}),
   };
 }
