@@ -1816,8 +1816,40 @@ export function isAllLandmarksNoContent(html: string): boolean {
   return nonLandmarkContent === "";
 }
 
+/**
+ * Returns true when the document already has a <main> element or an
+ * element with role="main". Used alongside `applyBypassBlocksFix` to detect
+ * (without changing its logic) whether that fixer will actually restructure
+ * the body, so the change can be surfaced to faculty in the compliance
+ * report.
+ */
+function hasMainElement(html: string): boolean {
+  return /<main[\s>]/i.test(html) || /role\s*=\s*["']main["']/i.test(html);
+}
+
+/**
+ * When `applyBypassBlocksFix` grouped the document's non-landmark content
+ * into a new <main> element (i.e. the document had no <main> already and
+ * had actual content to wrap), attaches a `fixNotes` explanation to the
+ * "2.4.1 / Bypass Blocks" issue so faculty can see that the auto-fixer
+ * restructured their page body, rather than only seeing a silent "pass".
+ */
+function applyBypassBlocksFixNotes(issues: ComplianceIssue[], wasWrapped: boolean): void {
+  if (!wasWrapped) return;
+
+  const bypassIssueIdx = issues.findIndex(
+    (iss) => iss.criterion === "2.4.1" && iss.title === "Bypass Blocks"
+  );
+  if (bypassIssueIdx < 0) return;
+
+  issues[bypassIssueIdx] = {
+    ...issues[bypassIssueIdx],
+    fixNotes: `A <main> landmark was automatically added around your page content because none existed. If your document has a header, nav, or footer, that content was kept outside the new <main> region; everything else was grouped inside it. Review the page structure to confirm the grouping still matches your intended layout.`,
+  };
+}
+
 export function applyBypassBlocksFix(html: string): string {
-  if (/<main[\s>]/i.test(html) || /role\s*=\s*["']main["']/i.test(html)) return html;
+  if (hasMainElement(html)) return html;
 
   const landmarkTags = BYPASS_LANDMARK_TAGS;
   const landmarkRoles = BYPASS_LANDMARK_ROLES;
@@ -2426,10 +2458,18 @@ export async function fixComplianceIssue(
         : undefined;
 
     const allLandmarksEdgeCase = isBypassFix && isAllLandmarksNoContent(currentHtml);
+    const bypassBlocksFixWrapped = isBypassFix && !hasMainElement(currentHtml) && !allLandmarksEdgeCase;
 
     const fixedHtml = deterministicFixer(currentHtml);
     const updatedIssues = [...existingReport.issues];
     applyDeterministicReport(fixedHtml, issue, issueIndex, updatedIssues);
+
+    if (bypassBlocksFixWrapped && issueIndex >= 0 && issueIndex < updatedIssues.length) {
+      updatedIssues[issueIndex] = {
+        ...updatedIssues[issueIndex],
+        fixNotes: `A <main> landmark was automatically added around your page content because none existed. If your document has a header, nav, or footer, that content was kept outside the new <main> region; everything else was grouped inside it. Review the page structure to confirm the grouping still matches your intended layout.`,
+      };
+    }
 
     if (isHeadingFix && headingFallbackAnalysis && issueIndex >= 0 && issueIndex < updatedIssues.length) {
       const { fallbackCount, inferredCount } = headingFallbackAnalysis;
@@ -3137,7 +3177,10 @@ ${structuralSummary}`,
   const preHeadingHierarchyFixLevel = getFirstHeadingLevel(accessibleHtml);
   accessibleHtml = applyHeadingHierarchyFix(accessibleHtml);
   accessibleHtml = applyPageTitleFix(accessibleHtml);
+  const preBypassHadMain = hasMainElement(accessibleHtml);
+  const preBypassAllLandmarksNoContent = isAllLandmarksNoContent(accessibleHtml);
   accessibleHtml = applyBypassBlocksFix(accessibleHtml);
+  const bypassBlocksFixWrapped = !preBypassHadMain && !preBypassAllLandmarksNoContent;
 
   // Run vision alt-text enhancement and compliance audit in parallel — they are independent
   const hasImages = images.some((img) => img.dataUrl.startsWith("data:image/"));
@@ -3145,6 +3188,7 @@ ${structuralSummary}`,
 
   const deterministicIssues = runDeterministicChecks(accessibleHtml);
   applyHeadingHierarchyFixNotes(deterministicIssues, preHeadingHierarchyFixLevel);
+  applyBypassBlocksFixNotes(deterministicIssues, bypassBlocksFixWrapped);
   const [enhancedHtml, aiIssues] = await Promise.all([
     hasImages
       ? generateVisionAltText(accessibleHtml, images, signal)

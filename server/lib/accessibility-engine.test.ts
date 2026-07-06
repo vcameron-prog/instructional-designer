@@ -3711,6 +3711,56 @@ describe("fixComplianceIssue – fixture-based regression tests", () => {
     expect(fixedIssue.fixNotes).toBeUndefined();
   });
 
+  it("adds a fixNotes explanation when fixing 2.4.1 wraps content in a new <main>", async () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><h1>Title</h1><p>Some content</p></body></html>`;
+    const issues = runDeterministicChecks(html);
+    const bypassIssue = issues.find((i) => i.criterion === "2.4.1" && i.title === "Bypass Blocks")!;
+    expect(["fail", "warning"]).toContain(bypassIssue.status);
+
+    const report = makeReport(issues);
+    mockCreate.mockClear();
+    const result = await fixComplianceIssue(html, bypassIssue, issues.indexOf(bypassIssue), report);
+    expect(mockCreate).not.toHaveBeenCalled();
+
+    const fixedIssue = result.complianceReport.issues.find(
+      (i) => i.criterion === "2.4.1" && i.title === "Bypass Blocks"
+    )!;
+    expect(fixedIssue.status).toBe("fixed");
+    expect(fixedIssue.fixNotes).toBeDefined();
+    expect(fixedIssue.fixNotes).toContain("<main>");
+    expect(result.accessibleHtml).toContain("<main>");
+  });
+
+  it("does not add fixNotes when fixing 2.4.1 for a document that already has a <main>", async () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>Title</h1></main></body></html>`;
+    const issues = runDeterministicChecks(html);
+    const bypassIssue = issues.find((i) => i.criterion === "2.4.1" && i.title === "Bypass Blocks")!;
+    expect(bypassIssue.status).toBe("pass");
+
+    const report = makeReport(issues);
+    const result = await fixComplianceIssue(html, bypassIssue, issues.indexOf(bypassIssue), report);
+
+    const fixedIssue = result.complianceReport.issues.find(
+      (i) => i.criterion === "2.4.1" && i.title === "Bypass Blocks"
+    )!;
+    expect(fixedIssue.fixNotes).toBeUndefined();
+  });
+
+  it("does not add fixNotes when fixing 2.4.1 for the all-landmarks-no-content edge case", async () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><header><h1>Site</h1></header><footer><p>Footer</p></footer></body></html>`;
+    const issues = runDeterministicChecks(html);
+    const bypassIssue = issues.find((i) => i.criterion === "2.4.1" && i.title === "Bypass Blocks")!;
+
+    const report = makeReport(issues);
+    const result = await fixComplianceIssue(html, bypassIssue, issues.indexOf(bypassIssue), report);
+
+    const fixedIssue = result.complianceReport.issues.find(
+      (i) => i.criterion === "2.4.1" && i.title === "Bypass Blocks"
+    )!;
+    expect(fixedIssue.fixNotes).toBeUndefined();
+    expect(result.accessibleHtml).not.toContain("<main>");
+  });
+
   it("fixes criterion 1.1.1 (Image Descriptions): returned HTML passes the alt-text check", async () => {
     const issues = runDeterministicChecks(fixtureHtml);
     const altIssue = issues.find((i) => i.criterion === "1.1.1")!;
