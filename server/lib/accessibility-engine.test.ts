@@ -7412,7 +7412,7 @@ describe("Content Fidelity Review", () => {
     it("removes tags, scripts, and styles and normalizes whitespace", () => {
       const html =
         '<html><head><style>.a{color:red}</style></head><body><p>Hello   world.</p><script>evil()</script><p>Second   paragraph.</p></body></html>';
-      expect(stripHtmlToPlainText(html)).toBe("Hello world.Second paragraph.");
+      expect(stripHtmlToPlainText(html)).toBe("Hello world. Second paragraph.");
     });
 
     it("falls back to a regex strip if parsing throws", () => {

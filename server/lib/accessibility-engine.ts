@@ -1362,7 +1362,15 @@ export function getTextCoverageWarningThreshold(): number {
 /** Strips HTML tags/scripts/styles down to plain, whitespace-normalised text. */
 export function stripHtmlToPlainText(html: string): string {
   try {
-    const root = parseHtml(html);
+    // Insert a newline after common block-level closing tags before parsing so
+    // that adjacent blocks (e.g. "</p><p>") don't get their text concatenated
+    // without a separator once tags are stripped — that would silently
+    // undercount words and skew the text-coverage ratio.
+    const withBlockBreaks = html.replace(
+      /<\/(p|div|li|h[1-6]|tr|td|th|section|article|blockquote|ul|ol|table)>/gi,
+      "</$1>\n"
+    );
+    const root = parseHtml(withBlockBreaks);
     root.querySelectorAll("script, style").forEach((el) => el.remove());
     return root.textContent.replace(/\s+/g, " ").trim();
   } catch {
