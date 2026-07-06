@@ -31,9 +31,13 @@ import {
   SHARED_ANON_UPLOAD_RATE_LIMIT,
   checkAnonRateLimit,
   getRateLimitCleanupMetrics,
+  checkHeavyOpRateLimit,
+  SHARED_HEAVY_OP_RATE_LIMIT,
+  HEAVY_OP_RATE_WINDOW_MS,
 } from "./lib/rateLimiters.js";
 import { buildContentDocx } from "./lib/content-docx.js";
 import { fixHtmlTableCaption, editHtmlTableCaption, fixHtmlTableThead } from "./lib/table-fixers.js";
+import { getDeterministicFixerKeys } from "./lib/accessibility-engine";
 
 /** Maximum image upload size for vision tools (alt-text, math-ocr).
  *  Override at runtime via IMAGE_UPLOAD_MAX_MB env var (integer MB). */
@@ -44,6 +48,16 @@ const IMAGE_UPLOAD_MAX_BYTES =
  *  Override at runtime via DOCUMENT_UPLOAD_MAX_MB env var (integer MB). */
 const DOCUMENT_UPLOAD_MAX_BYTES =
   (parseInt(process.env.DOCUMENT_UPLOAD_MAX_MB ?? "", 10) || 10) * 1024 * 1024;
+
+let activeDocxExports = 0;
+// Exported so the 503 concurrency-cap test can derive its slot count from the
+// actual constant rather than hardcoding a magic number. If this value ever
+// changes, the test stays correct automatically.
+export const MAX_CONCURRENT_DOCX_EXPORTS = parseInt(process.env.MAX_CONCURRENT_DOCX_EXPORTS ?? "3", 10) || 3;
+// Per-conversion export dedup keys — prevent the same completed document from
+// being exported multiple times concurrently on the same instance, which would
+// duplicate DOCX-builder work and exhaust concurrency slots.
+const activeDocxExportKeys = new Set<string>();
 
 function getUserId(req: Request): string | null {
   return (req.user as any)?.claims?.sub ?? null;
@@ -2905,6 +2919,15 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     },
   );
 
+  // List of deterministic (non-AI) fixer keys the client can offer without
+  // an AI round-trip.
+  app.get(
+    "/api/deterministic-fixers",
+    (_req: Request, res: Response) => {
+      res.json({ keys: getDeterministicFixerKeys().sort() });
+    },
+  );
+
   // Restore content to a previous version (used for undo accessibility fix)
   app.post(
     "/api/content/:id/restore-version",
@@ -3256,6 +3279,124 @@ Please generate an IMPROVED version that incorporates the requested changes whil
       } catch (error) {
         console.error("Error exporting to Word:", error);
         res.status(500).json({ error: "Failed to export to Word" });
+      }
+    },
+  );
+
+  // Download the accessible DOCX for a converted document (accessibility
+  // converter flow). This app does not have a full conversions feature, but
+  // the route is exposed with the same ownership/rate-limit/concurrency
+  // safeguards as the reference implementation so any conversions data that
+  // does exist can be exported consistently.
+  app.get(
+    "/api/conversions/:id/download-docx",
+    optionalAuth,
+    async (req: Request, res: Response) => {
+      const userId = getUserId(req);
+      const id = parseInt(req.params.id as string);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid id" });
+        return;
+      }
+
+      const visitorToken = getVisitorToken(req);
+      const ownerFilter = userId
+        ? sql`id = ${id} AND user_id = ${userId}`
+        : visitorToken
+          ? sql`id = ${id} AND user_id IS NULL AND visitor_token = ${visitorToken}`
+          : sql`FALSE`;
+
+      const [conversion] = await (db as any)
+        .select({
+          accessibleHtml: sql`accessible_html`,
+          originalFilename: sql`original_filename`,
+          status: sql`status`,
+          updatedAt: sql`updated_at`,
+        })
+        .from(sql`conversions`)
+        .where(ownerFilter);
+
+      if (!conversion) {
+        res.status(404).json({ error: "Conversion not found" });
+        return;
+      }
+      if (conversion.status !== "completed" || !conversion.accessibleHtml) {
+        res.status(400).json({ error: "HTML not available" });
+        return;
+      }
+
+      if (!userId) {
+        ensureVisitorToken(req);
+        const ip = req.ip || req.socket.remoteAddress || "unknown";
+        if (!await checkSharedRateLimit(
+          `ip:${ip}`, "docx_export", SHARED_HEAVY_OP_RATE_LIMIT, HEAVY_OP_RATE_WINDOW_MS,
+          () => checkHeavyOpRateLimit(`docx:ip:${ip}`),
+        )) {
+          res.status(429).json({ error: "Too many DOCX export requests. Please wait before trying again." });
+          return;
+        }
+      } else {
+        if (!await checkSharedRateLimit(
+          `user:${userId}`, "docx_export", SHARED_HEAVY_OP_RATE_LIMIT, HEAVY_OP_RATE_WINDOW_MS,
+          () => checkHeavyOpRateLimit(`docx:user:${userId}`),
+        )) {
+          res.status(429).json({ error: "Too many DOCX export requests. Please wait before trying again." });
+          return;
+        }
+      }
+
+      const docxExportKey = String(id);
+      if (activeDocxExportKeys.has(docxExportKey)) {
+        res.status(409).json({ error: "A DOCX export for this document is already in progress. Please wait." });
+        return;
+      }
+      activeDocxExportKeys.add(docxExportKey);
+
+      if (activeDocxExports >= MAX_CONCURRENT_DOCX_EXPORTS) {
+        activeDocxExportKeys.delete(docxExportKey);
+        res.status(503).json({ error: "Server is busy generating DOCX files. Please try again shortly." });
+        return;
+      }
+      activeDocxExports++;
+
+      try {
+        const html = conversion.accessibleHtml;
+        const titleMatch = html.match(/<title[^>]*>(.*?)<\/title>/i);
+        const docTitle = titleMatch
+          ? titleMatch[1]
+          : conversion.originalFilename.replace(/\.pdf$/i, "");
+        const langMatch = html.match(/<html[^>]*\slang=["']([^"']+)["']/i);
+        const docLang = langMatch ? langMatch[1] : "en";
+
+        const { buildDocx } = await import("./lib/docx-builder");
+        const docxBuffer = await buildDocx(html, {
+          title: docTitle,
+          filename: conversion.originalFilename,
+          lang: docLang,
+          author: "Accessibility Converter",
+        });
+
+        const filename = sanitizeHeaderFilename(
+          conversion.originalFilename
+            .replace(/\.pdf$/i, "")
+            .replace(/[^\w\s.-]/g, "_") + "-accessible.docx"
+        );
+        res.setHeader(
+          "Content-Type",
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        );
+        res.setHeader(
+          "Content-Disposition",
+          `attachment; filename="${filename}"`,
+        );
+        res.setHeader("Content-Length", docxBuffer.length);
+        res.end(docxBuffer);
+      } catch (err) {
+        console.error("DOCX conversion error:", err);
+        res.status(500).json({ error: "Failed to generate DOCX file" });
+      } finally {
+        activeDocxExports--;
+        activeDocxExportKeys.delete(docxExportKey);
       }
     },
   );
