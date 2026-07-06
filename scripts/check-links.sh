@@ -33,7 +33,7 @@ fi
 # Extract unique https:// URLs from href= attributes in non-test .tsx/.ts source files
 # across client/src/, server/, and shared/.
 # Excludes placeholder="https://..." values (those are UX hints, not real links).
-mapfile -t URLS < <(
+mapfile -t HREF_URLS < <(
   grep -roh \
     --include="*.tsx" \
     --include="*.ts" \
@@ -41,14 +41,40 @@ mapfile -t URLS < <(
     --exclude="*.test.ts" \
     'href="https://[^"]*"' \
     "${SEARCH_DIRS[@]}" \
-  | grep -oP 'https://[^"]+' \
-  | sort -u
+  | grep -oP 'https://[^"]+'
 )
+
+# Also extract bare https:// URLs anywhere else in the source (comments, error
+# messages, log output, string literals, etc.), not just href="..." attributes.
+# This catches things like `// see https://example.com/docs` or
+# `throw new Error("Invalid config, see https://example.com")`.
+# - Skips placeholder="https://..." values, same as the href scan (UX hints, not real links).
+# - Skips URLs containing template-literal interpolation (e.g. `${docId}`), since
+#   those aren't a single resolvable URL.
+# - Skips URLs ending in a literal "..." — an illustrative/truncated example, not a real link.
+# - Strips a stray trailing escaped newline (`\n`) picked up from template literals.
+mapfile -t BARE_URLS < <(
+  grep -rhP \
+    --include="*.tsx" \
+    --include="*.ts" \
+    --exclude="*.test.tsx" \
+    --exclude="*.test.ts" \
+    'https://' \
+    "${SEARCH_DIRS[@]}" \
+  | grep -v 'placeholder="https://' \
+  | grep -oP 'https://[^\s"'"'"'`)>,;]+' \
+  | grep -vF '${' \
+  | grep -vE '\.\.\.$' \
+  | sed -E 's/\\+n$//' \
+  | sed -E 's/[.,;:)]+$//'
+)
+
+mapfile -t URLS < <(printf '%s\n' "${HREF_URLS[@]}" "${BARE_URLS[@]}" | sed '/^$/d' | sort -u)
 
 DIRS_LABEL="${SEARCH_DIRS[*]}"
 
 if [[ ${#URLS[@]} -eq 0 ]]; then
-  echo "No external hrefs found in ${DIRS_LABEL} — nothing to check."
+  echo "No external links found in ${DIRS_LABEL} — nothing to check."
   exit 0
 fi
 
