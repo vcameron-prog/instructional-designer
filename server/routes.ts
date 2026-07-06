@@ -17,7 +17,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import multer from "multer";
 import { db } from "./db";
 import { eq, and, isNull, sql, desc, inArray } from "drizzle-orm";
-import { getDeterministicFixerKeys, getAiFixRetryMetrics, getPersistAiFixRetryLastFailed, applyHeadingHierarchyFix, getContextLeakMetrics, applyCustomPageTitle } from "./lib/accessibility-engine";
+import { getDeterministicFixerKeys, getAiFixRetryMetrics, getPersistAiFixRetryLastFailed, applyHeadingHierarchyFix, getContextLeakMetrics, applyCustomPageTitle, getFirstHeadingLevel, buildHeadingRenumberedNoteHtml } from "./lib/accessibility-engine";
 import {
   SHARED_ANON_UPLOAD_RATE_LIMIT,
   SHARED_HEAVY_OP_RATE_LIMIT,
@@ -2719,6 +2719,7 @@ export async function registerRoutes(
         return;
       }
 
+      const preHeadingFixLevel = getFirstHeadingLevel(conversion.accessibleHtml);
       let html = applyHeadingHierarchyFix(conversion.accessibleHtml);
       const updatedDate = conversion.updatedAt
         ? new Date(conversion.updatedAt)
@@ -2739,6 +2740,15 @@ export async function registerRoutes(
           html.slice(0, headCloseIdx) +
           `  ${metaTag}\n` +
           html.slice(headCloseIdx);
+      }
+
+      if (preHeadingFixLevel && preHeadingFixLevel !== 1) {
+        const noteHtml = buildHeadingRenumberedNoteHtml(preHeadingFixLevel);
+        const bodyOpenMatch = html.match(/<body[^>]*>/i);
+        if (bodyOpenMatch) {
+          const insertAt = html.indexOf(bodyOpenMatch[0]) + bodyOpenMatch[0].length;
+          html = html.slice(0, insertAt) + "\n" + noteHtml + html.slice(insertAt);
+        }
       }
 
       const timestampFooter = `\n<footer style="margin-top:2rem;padding:1rem 0;border-top:1px solid #e0e0e0;font-size:0.85rem;color:#666;text-align:center;" role="contentinfo" aria-label="Document timestamp">\n  <p>This accessible document was last updated on ${readableDate}</p>\n</footer>`;
@@ -2838,6 +2848,7 @@ export async function registerRoutes(
       }
       activeDocxExports++;
 
+      const preHeadingFixLevel = getFirstHeadingLevel(conversion.accessibleHtml);
       let html = applyHeadingHierarchyFix(conversion.accessibleHtml);
       const updatedDate = conversion.updatedAt
         ? new Date(conversion.updatedAt)
@@ -2850,6 +2861,15 @@ export async function registerRoutes(
         minute: "2-digit",
         hour12: true,
       });
+
+      if (preHeadingFixLevel && preHeadingFixLevel !== 1) {
+        const noteHtml = buildHeadingRenumberedNoteHtml(preHeadingFixLevel);
+        const bodyOpenMatch = html.match(/<body[^>]*>/i);
+        if (bodyOpenMatch) {
+          const insertAt = html.indexOf(bodyOpenMatch[0]) + bodyOpenMatch[0].length;
+          html = html.slice(0, insertAt) + "\n" + noteHtml + html.slice(insertAt);
+        }
+      }
 
       const timestampFooter = `\n<footer style="margin-top:2rem;padding:1rem 0;border-top:1px solid #e0e0e0;font-size:0.85rem;color:#666;text-align:center;" role="contentinfo" aria-label="Document timestamp">\n  <p>This accessible document was last updated on ${readableDate}</p>\n</footer>`;
       const bodyCloseIdx = html.lastIndexOf("</body>");
@@ -3081,6 +3101,7 @@ export async function registerRoutes(
       }
       activePdfExports++;
 
+      const preHeadingFixLevel = getFirstHeadingLevel(conversion.accessibleHtml);
       let html = applyHeadingHierarchyFix(conversion.accessibleHtml);
       const updatedDate = conversion.updatedAt
         ? new Date(conversion.updatedAt)
@@ -3102,6 +3123,15 @@ export async function registerRoutes(
           html.slice(0, headCloseIdx) +
           `  ${metaTag}\n` +
           html.slice(headCloseIdx);
+      }
+
+      if (preHeadingFixLevel && preHeadingFixLevel !== 1) {
+        const noteHtml = buildHeadingRenumberedNoteHtml(preHeadingFixLevel);
+        const bodyOpenMatch = html.match(/<body[^>]*>/i);
+        if (bodyOpenMatch) {
+          const insertAt = html.indexOf(bodyOpenMatch[0]) + bodyOpenMatch[0].length;
+          html = html.slice(0, insertAt) + "\n" + noteHtml + html.slice(insertAt);
+        }
       }
 
       const timestampFooter = `\n<footer style="margin-top:2rem;padding:1rem 0;border-top:1px solid #e0e0e0;font-size:0.85rem;color:#666;text-align:center;" role="contentinfo" aria-label="Document timestamp">\n  <p>This accessible document was last updated on ${readableDate}</p>\n</footer>`;

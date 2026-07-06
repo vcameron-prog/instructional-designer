@@ -1752,9 +1752,25 @@ export function applyHeadingHierarchyFix(html: string): string {
  * that fixer actually renumbered anything, so the change can be surfaced to
  * faculty in the compliance report.
  */
-function getFirstHeadingLevel(html: string): number | null {
+export function getFirstHeadingLevel(html: string): number | null {
   const firstHeadingMatch = html.match(/<h([1-6])(?=[\s>/])/i);
   return firstHeadingMatch ? parseInt(firstHeadingMatch[1], 10) : null;
+}
+
+/**
+ * Builds a visible callout explaining that heading levels were automatically
+ * renumbered by `applyHeadingHierarchyFix`. This is meant to be inserted near
+ * the top of exported HTML/DOCX/PDF documents so faculty who download the
+ * file (and lose the in-app banner context) can still discover the change
+ * while reviewing the document itself.
+ */
+export function buildHeadingRenumberedNoteHtml(
+  preFixFirstHeadingLevel: number
+): string {
+  const delta = preFixFirstHeadingLevel - 1;
+  return `<div role="note" aria-label="Heading levels renumbered notice" style="margin:0 0 1.5rem 0;padding:0.75rem 1rem;border:1px solid #d1a300;border-left:4px solid #d1a300;background:#fff8e1;color:#4a3b00;font-size:0.9rem;border-radius:4px;">
+  <p style="margin:0;"><strong>Note:</strong> Heading levels in this document were automatically renumbered for accessibility. The original document's topmost heading was an H${preFixFirstHeadingLevel} instead of H1, so every heading was shifted by ${delta} level${delta === 1 ? "" : "s"} to restore a valid hierarchy. Please review the heading levels to confirm they still reflect your intended document structure.</p>
+</div>`;
 }
 
 /**
