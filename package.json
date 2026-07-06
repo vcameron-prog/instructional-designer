@@ -93,6 +93,7 @@
     "framer-motion": "^11.13.1",
     "http-proxy-middleware": "^3.0.7",
     "input-otp": "^1.4.2",
+    "jimp": "^1.6.1",
     "jsdom": "^29.1.1",
     "jszip": "^3.10.1",
     "lucide-react": "^0.453.0",

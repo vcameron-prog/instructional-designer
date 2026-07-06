@@ -6,6 +6,15 @@ import { BookOpen, ArrowRight, Users, GraduationCap, FileText, Shield, Zap, Layo
 import { HeaderControls } from "@/components/header-controls";
 import { usePageTitle } from "@/hooks/use-page-title";
 import caiLogoWhite from "@assets/Center_for_AI_Apparel_&_Promotional_Items-WHITE_(1)_1775653892158.png";
+import caiLogoDarkInk from "@assets/cai-logo-dark-ink.png";
+
+// The logo banner's background is intentionally hardcoded dark (see below) and
+// does not currently follow the app's light/dark theme toggle, so this is
+// pinned to "dark" rather than read from useTheme(). If the banner background
+// is ever changed to follow the site theme, replace this constant with the
+// `theme` value from useTheme() and the correct logo variant will follow
+// automatically.
+const LOGO_BANNER_BACKGROUND: "light" | "dark" = "dark";
 
 export default function CaiLandingPage() {
   useEffect(() => { window.scrollTo(0, 0); }, []);
@@ -33,10 +42,11 @@ export default function CaiLandingPage() {
 
       <main id="main-content" tabIndex={-1} className="flex-1">
 
-      {/* CAI logo banner — always dark so the white logo stays legible */}
+      {/* CAI logo banner — background is hardcoded dark, so the logo is
+           selected based on LOGO_BANNER_BACKGROUND rather than the site theme */}
       <div className="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 py-8 flex justify-center">
         <img
-          src={caiLogoWhite}
+          src={LOGO_BANNER_BACKGROUND === "dark" ? caiLogoWhite : caiLogoDarkInk}
           alt="Center for Artificial Intelligence"
           className="h-20 md:h-24 w-auto"
           data-testid="img-cai-logo"

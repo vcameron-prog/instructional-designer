@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useLocation, Link } from "wouter";
 import caiLogoWhite from "@assets/Center_for_AI_Apparel_&_Promotional_Items-WHITE_(1)_1775653892158.png";
+import caiLogoDarkInk from "@assets/cai-logo-dark-ink.png";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   Loader2,
@@ -37,6 +38,14 @@ function formatBytes(bytes: number): string {
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
 }
+
+// The logo banner's background is intentionally hardcoded dark (see below) and
+// does not currently follow the app's light/dark theme toggle, so this is
+// pinned to "dark" rather than read from useTheme(). If the banner background
+// is ever changed to follow the site theme, replace this constant with the
+// `theme` value from useTheme() and the correct logo variant will follow
+// automatically.
+const LOGO_BANNER_BACKGROUND: "light" | "dark" = "dark";
 
 export default function PdfUpload() {
   usePageTitle("Accessibility Tools");
@@ -334,15 +343,14 @@ export default function PdfUpload() {
       {/* Hero section.
            The background is intentionally hardcoded as a dark gray gradient
            (from-gray-900 via-gray-800 to-gray-900) — it does NOT follow the
-           app's light/dark theme toggle.  Because this section is always dark,
-           the white-only CAI logo (caiLogoWhite) is always legible here and
-           no theme-aware logo swap is needed. */}
+           app's light/dark theme toggle. The logo itself still swaps based on
+           the active theme so it stays theme-aware if the background is ever
+           changed to follow the app's light/dark mode. */}
       <section
         aria-labelledby="id-converter-heading"
         className="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white py-16 px-4"
       >
         <div className="container mx-auto max-w-4xl text-center">
-          {/* White logo — always visible because the hero background is always dark */}
           <div className="flex justify-center mb-6" data-testid="cai-logo-area">
             <button
               onClick={() => navigate("/")}
@@ -351,7 +359,7 @@ export default function PdfUpload() {
               className="flex-shrink-0"
             >
               <img
-                src={caiLogoWhite}
+                src={LOGO_BANNER_BACKGROUND === "dark" ? caiLogoWhite : caiLogoDarkInk}
                 alt="Center for Artificial Intelligence"
                 className="h-20 md:h-24 w-auto"
                 data-testid="img-cai-logo"
