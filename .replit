@@ -65,6 +65,10 @@ args = "playwright-integration"
 task = "workflow.run"
 args = "Instructional Designer"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "unit-tests-instructional-designer"
+
 [[workflows.workflow]]
 name = "Start application"
 author = "agent"
@@ -83,7 +87,7 @@ isValidation = true
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npx vitest run && cd instructional-designer && npx vitest run --config vitest.config.ts"
+args = "npx vitest run"
 
 [[workflows.workflow]]
 name = "typecheck"
@@ -151,6 +155,17 @@ waitForPort = 3001
 
 [workflows.workflow.metadata]
 outputType = "console"
+
+[[workflows.workflow]]
+name = "unit-tests-instructional-designer"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd instructional-designer && npx vitest run --config vitest.config.ts"
+
+[workflows.workflow.metadata]
+isValidation = true
 
 [agent]
 integrations = ["javascript_anthropic_ai_integrations:2.0.0", "javascript_log_in_with_replit:2.0.0", "github:1.0.0"]

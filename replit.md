@@ -99,6 +99,10 @@ The `scripts/post-merge.sh` post-merge hook also runs `npm run db:migrate` follo
 
 Run `bash scripts/test-pre-start-gate.sh` to verify the gate exits non-zero before the server starts in simulated failure scenarios (missing DATABASE_URL, unreachable DB).
 
+## Unit Test Validation Split
+
+The `unit-tests` validation check only runs the root app's vitest suite (`npx vitest run`). The nested `instructional-designer/` app has its own separate validation check, `unit-tests-instructional-designer` (`cd instructional-designer && npx vitest run --config vitest.config.ts`), so a failure in one project's tests never masks the other project's pass/fail signal. Both checks are included in the `Project` run-button workflow.
+
 ## Checking External Links
 
 `scripts/check-links.sh` scans `client/src/`, `server/`, and `shared/` for hardcoded external `href="https://..."` URLs (excluding test files and `placeholder=` attributes) and verifies each one resolves with a 2xx status. It runs automatically as part of `scripts/post-merge.sh`, but you can also run it on demand during local development, before pushing a change that adds or edits an external link:
