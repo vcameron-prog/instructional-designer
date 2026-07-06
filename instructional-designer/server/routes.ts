@@ -113,6 +113,43 @@ async function guardSsrf(hostname: string): Promise<string | null> {
 const SYLLABUS_UPLOAD_MIME_TYPES = /^(text\/plain|application\/pdf|application\/msword|application\/vnd\.openxmlformats-officedocument\.wordprocessingml\.document)$/;
 const SYLLABUS_UPLOAD_EXTENSIONS = /\.(txt|pdf|doc|docx)$/i;
 
+// Magic-byte signatures for the binary document formats we otherwise trust the
+// client's extension/MIME type to identify. Used to catch a PDF/DOC/DOCX that's
+// been renamed to .txt (or mislabeled with a text/plain MIME) before its bytes
+// are read as UTF-8 and stored/returned as plain-text syllabus content.
+const PDF_MAGIC = Buffer.from("%PDF");
+const ZIP_MAGIC = Buffer.from([0x50, 0x4b, 0x03, 0x04]); // .docx (and any zip-based OOXML)
+const OLE_MAGIC = Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]); // legacy .doc
+
+function looksLikeKnownBinaryDocument(buffer: Buffer): boolean {
+  return (
+    (buffer.length >= PDF_MAGIC.length && buffer.subarray(0, PDF_MAGIC.length).equals(PDF_MAGIC)) ||
+    (buffer.length >= ZIP_MAGIC.length && buffer.subarray(0, ZIP_MAGIC.length).equals(ZIP_MAGIC)) ||
+    (buffer.length >= OLE_MAGIC.length && buffer.subarray(0, OLE_MAGIC.length).equals(OLE_MAGIC))
+  );
+}
+
+/**
+ * Heuristic check for whether a buffer looks like binary data rather than
+ * plain UTF-8/ASCII text: a NUL byte anywhere in the sample, or a high ratio
+ * of non-printable control bytes, strongly indicates the content is not text.
+ */
+function looksLikeBinaryContent(buffer: Buffer): boolean {
+  if (looksLikeKnownBinaryDocument(buffer)) return true;
+  const sampleSize = Math.min(buffer.length, 8000);
+  if (sampleSize === 0) return false;
+  let suspicious = 0;
+  for (let i = 0; i < sampleSize; i++) {
+    const byte = buffer[i];
+    if (byte === 0) return true;
+    // Allow common whitespace control chars (tab, LF, CR); flag other control bytes and DEL.
+    if ((byte < 32 && byte !== 9 && byte !== 10 && byte !== 13) || byte === 127) {
+      suspicious++;
+    }
+  }
+  return suspicious / sampleSize > 0.05;
+}
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: DOCUMENT_UPLOAD_MAX_BYTES, files: 1 },
@@ -2638,6 +2675,12 @@ Please generate an IMPROVED version that incorporates the requested changes whil
         const fileName = file.originalname.toLowerCase();
 
         if (mimeType === "text/plain" || fileName.endsWith(".txt")) {
+          if (looksLikeBinaryContent(file.buffer)) {
+            return res.status(400).json({
+              error:
+                "This file looks like a PDF or Word document renamed as .txt. Please upload it with its original file type, or paste the text content directly.",
+            });
+          }
           content = file.buffer.toString("utf-8");
         } else if (
           mimeType === "application/pdf" ||

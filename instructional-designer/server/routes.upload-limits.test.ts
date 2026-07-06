@@ -251,5 +251,71 @@ describe("Upload size-limit error handling", () => {
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty("content");
     });
+
+    it("rejects a PDF renamed to .txt (magic-byte sniff)", async () => {
+      const fakePdf = Buffer.concat([
+        Buffer.from("%PDF-1.4\n"),
+        Buffer.alloc(50, 0x01),
+      ]);
+      const res = await request(app)
+        .post("/api/upload-syllabus")
+        .attach("file", fakePdf, {
+          filename: "syllabus.txt",
+          contentType: "text/plain",
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body).toHaveProperty("error");
+      expect(res.body.error).toMatch(/renamed/i);
+    });
+
+    it("rejects a DOCX (zip) renamed to .txt (magic-byte sniff)", async () => {
+      const fakeDocx = Buffer.concat([
+        Buffer.from([0x50, 0x4b, 0x03, 0x04]),
+        Buffer.alloc(50, 0x02),
+      ]);
+      const res = await request(app)
+        .post("/api/upload-syllabus")
+        .attach("file", fakeDocx, {
+          filename: "syllabus.txt",
+          contentType: "text/plain",
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body).toHaveProperty("error");
+      expect(res.body.error).toMatch(/renamed/i);
+    });
+
+    it("rejects a legacy .doc (OLE) renamed to .txt (magic-byte sniff)", async () => {
+      const fakeDoc = Buffer.concat([
+        Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]),
+        Buffer.alloc(50, 0x03),
+      ]);
+      const res = await request(app)
+        .post("/api/upload-syllabus")
+        .attach("file", fakeDoc, {
+          filename: "syllabus.txt",
+          contentType: "text/plain",
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body).toHaveProperty("error");
+      expect(res.body.error).toMatch(/renamed/i);
+    });
+
+    it("rejects arbitrary binary content mislabeled as .txt", async () => {
+      const randomBinary = Buffer.from(
+        Array.from({ length: 200 }, (_, i) => (i * 37) % 256),
+      );
+      const res = await request(app)
+        .post("/api/upload-syllabus")
+        .attach("file", randomBinary, {
+          filename: "syllabus.txt",
+          contentType: "text/plain",
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body).toHaveProperty("error");
+    });
   });
 });
