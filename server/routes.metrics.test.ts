@@ -317,6 +317,7 @@ describe("GET /api/metrics – sessionSaveFail field", () => {
     expect(response.body).toHaveProperty("aiFixRetry");
     expect(response.body).toHaveProperty("sessionSaveFail");
     expect(response.body).toHaveProperty("rateLimitCleanup");
+    expect(response.body).toHaveProperty("contextLeak");
   });
 });
 

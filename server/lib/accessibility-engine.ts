@@ -2907,6 +2907,53 @@ function ensureMissingTables(html: string, tables: ExtractedTable[]): string {
   return html + sectionHtml;
 }
 
+// In-memory counters for observability. Reset on server restart — see
+// getContextLeakMetrics() and the /api/metrics route, which mirrors the
+// aiFixRetry counters above for consistency.
+let contextLeakCount = 0;
+let contextLeakLastAt: string | null = null;
+
+/** Returns how many times a continuation chunk's output has leaked the previous-chunk tail snippet since last restart. */
+export function getContextLeakMetrics(): { count: number; lastAt: string | null } {
+  return { count: contextLeakCount, lastAt: contextLeakLastAt };
+}
+
+/** Resets the in-memory context-leak counters. Test-only helper. */
+export function resetContextLeakMetricsForTesting(): void {
+  contextLeakCount = 0;
+  contextLeakLastAt = null;
+}
+
+/**
+ * Detects whether a continuation chunk's rendered HTML echoes the read-only
+ * "previous chunk tail" context snippet that was included in the prompt
+ * purely to help the model pick up the narrative thread. The prompt tells
+ * the model not to repeat this text, but since that's prompt-following
+ * rather than a code-level guarantee, this check makes any regression
+ * observable (via logs + an in-memory/metrics counter) instead of silently
+ * shipping duplicated text into the final document.
+ *
+ * This intentionally does not attempt to strip the leak automatically:
+ * doing so risks corrupting legitimately overlapping content (e.g. a
+ * heading or quote that coincidentally matches the tail). Flagging it lets
+ * a human notice via /api/metrics or server logs when prompt/model changes
+ * cause leakage, without risking silent data loss in the other direction.
+ */
+function detectContextLeak(chunkHtml: string, previousTail: string, chunkIndex: number): void {
+  if (!previousTail || previousTail.length < 20) return;
+
+  const plainChunkText = stripHtmlToPlainText(chunkHtml);
+  if (plainChunkText.includes(previousTail)) {
+    contextLeakCount++;
+    contextLeakLastAt = new Date().toISOString();
+    console.warn(
+      `[accessibility-engine] Continuation chunk ${chunkIndex} output appears to contain the previous-chunk ` +
+        `context snippet verbatim — the model may have repeated read-only continuation context instead of ` +
+        `treating it as context only. contextLeakCount=${contextLeakCount}`
+    );
+  }
+}
+
 /** Extract a heading outline from generated HTML to pass as context to continuation chunks. */
 function extractHeadingOutline(html: string): string {
   const headingRegex = new RegExp(`<h([1-6])(?:${ATTR_PATTERN})>([\\s\\S]*?)<\\/h[1-6]>`, "gi");
@@ -3206,6 +3253,10 @@ ${structuralSummary}`,
     chunkHtml = ensureMissingImages(chunkHtml, chunkImages);
     chunkHtml = ensureAltText(chunkHtml, chunkImages);
     chunkHtml = ensureMissingTables(chunkHtml, chunkTables);
+
+    if (!isFirst) {
+      detectContextLeak(chunkHtml, previousTail, index);
+    }
 
     return chunkHtml;
   }

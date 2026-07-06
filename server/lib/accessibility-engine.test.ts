@@ -48,6 +48,8 @@ import {
   generateAccessibleDocument,
   isHeadingLikeLine,
   findLastConvertedMarker,
+  getContextLeakMetrics,
+  resetContextLeakMetricsForTesting,
   type ComplianceIssue,
   type ComplianceReport,
   type PageChunk,
@@ -8138,5 +8140,102 @@ describe("findLastConvertedMarker", () => {
 
   it("returns undefined for an empty chunk list", () => {
     expect(findLastConvertedMarker([])).toBeUndefined();
+  });
+});
+
+describe("continuation chunk context-leak detection", () => {
+  beforeEach(() => {
+    mockCreate.mockReset();
+    resetContextLeakMetricsForTesting();
+  });
+
+  it("flags (logs + increments the counter) when a continuation chunk echoes the previous-chunk tail context verbatim", async () => {
+    // 150 sentences of this shape hard-splits into exactly 2 chunks under
+    // the real CHUNK_THRESHOLD (12000) — one initial chunk + exactly one
+    // continuation chunk — so the mock below can respond deterministically
+    // without racing against pLimit's concurrency for a 3rd+ chunk.
+    const sentences: string[] = [];
+    for (let i = 0; i < 150; i++) {
+      sentences.push(
+        `This is sentence number ${i} of a long single page document with no page break markers at all.`
+      );
+    }
+    const longSinglePageText = sentences.join(" ");
+    const chunks = splitTextByPages(longSinglePageText, 12000);
+    expect(chunks.length).toBe(2);
+    const expectedPreviousTail = chunks[0].text.slice(-400).trim();
+
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    // Call 1 (chunk 0) returns normal, non-leaking HTML. Call 2 (the lone
+    // continuation chunk) echoes back the exact tail of chunk 0's text that
+    // was passed into its prompt as read-only continuation context —
+    // simulating a prompt-following failure where the model repeats
+    // context it was told not to repeat. Any further calls (e.g. the
+    // post-merge AI compliance audit, which runs after chunking) return
+    // safe, unrelated content so they don't interfere with this assertion.
+    let callCount = 0;
+    mockCreate.mockImplementation(async () => {
+      callCount++;
+      if (callCount === 1) {
+        return { content: [{ type: "text", text: "<h1>Section</h1><p>First section content.</p>" }] };
+      }
+      if (callCount === 2) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `<p>${expectedPreviousTail}</p><p>New continuation content.</p>`,
+            },
+          ],
+        };
+      }
+      return { content: [{ type: "text", text: "[]" }] };
+    });
+
+    expect(getContextLeakMetrics().count).toBe(0);
+
+    await generateAccessibleDocument(
+      longSinglePageText,
+      "test.pdf",
+      { title: "Test Document" },
+      [],
+      []
+    );
+
+    expect(mockCreate.mock.calls.length).toBeGreaterThanOrEqual(2);
+
+    expect(getContextLeakMetrics().count).toBeGreaterThan(0);
+    expect(getContextLeakMetrics().lastAt).not.toBeNull();
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("context snippet verbatim"));
+
+    warnSpy.mockRestore();
+  });
+
+  it("does not flag a continuation chunk that produces genuinely new content", async () => {
+    const sentences: string[] = [];
+    for (let i = 0; i < 300; i++) {
+      sentences.push(
+        `This is sentence number ${i} of a long single page document with no page break markers at all.`
+      );
+    }
+    const longSinglePageText = sentences.join(" ");
+
+    mockCreate.mockImplementation(async () =>
+      ({ content: [{ type: "text", text: "<h1>Section</h1><p>Some brand new converted text.</p>" }] })
+    );
+
+    expect(getContextLeakMetrics().count).toBe(0);
+
+    await generateAccessibleDocument(
+      longSinglePageText,
+      "test.pdf",
+      { title: "Test Document" },
+      [],
+      []
+    );
+
+    expect(mockCreate.mock.calls.length).toBeGreaterThan(1);
+    expect(getContextLeakMetrics().count).toBe(0);
   });
 });

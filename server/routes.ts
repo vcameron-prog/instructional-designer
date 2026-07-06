@@ -17,7 +17,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import multer from "multer";
 import { db } from "./db";
 import { eq, and, isNull, sql, desc, inArray } from "drizzle-orm";
-import { getDeterministicFixerKeys, getAiFixRetryMetrics, getPersistAiFixRetryLastFailed, applyHeadingHierarchyFix } from "./lib/accessibility-engine";
+import { getDeterministicFixerKeys, getAiFixRetryMetrics, getPersistAiFixRetryLastFailed, applyHeadingHierarchyFix, getContextLeakMetrics } from "./lib/accessibility-engine";
 import {
   SHARED_ANON_UPLOAD_RATE_LIMIT,
   SHARED_HEAVY_OP_RATE_LIMIT,
@@ -252,6 +252,7 @@ export async function registerRoutes(
         lastErrorAt: cleanupMetrics.lastErrorAt,
         rowsDeletedTotal: cleanupMetrics.rowsDeletedTotal,
       },
+      contextLeak: getContextLeakMetrics(),
       thresholds: {
         warnCount:     isNaN(warnCount)    ? 10   : warnCount,
         warnRate:      isNaN(warnRate)     ? 0.05 : warnRate,
