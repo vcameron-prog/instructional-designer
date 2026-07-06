@@ -32,6 +32,7 @@ import {
   checkAnonRateLimit,
 } from "./lib/rateLimiters.js";
 import { buildContentDocx } from "./lib/content-docx.js";
+import { fixHtmlTableCaption, editHtmlTableCaption, fixHtmlTableThead } from "./lib/table-fixers.js";
 
 /** Maximum image upload size for vision tools (alt-text, math-ocr).
  *  Override at runtime via IMAGE_UPLOAD_MAX_MB env var (integer MB). */
@@ -65,6 +66,89 @@ const anthropic = new Anthropic({
   timeout: 5 * 60 * 1000,
   maxRetries: 2,
 });
+
+/**
+ * Uses AI to rewrite vague link text (e.g. "click here", "read more") into
+ * short, descriptive labels that reflect the link destination. Bare links
+ * with no URL are replaced with an editorial placeholder instead.
+ */
+async function fixVagueLinkTextAI(text: string): Promise<string> {
+  const message = await anthropic.messages.create({
+    model: "claude-sonnet-4-5",
+    max_tokens: 8192,
+    messages: [
+      {
+        role: "user",
+        content: `You are an accessibility editor. Your task is to fix vague link text in the following markdown content.
+
+Vague link text includes phrases like "click here", "here", "link", "read more", "learn more", "go here", "this page", "more info", "more", "click", "this link", "this article", "this resource", "view here", "find out more", "see here", "details", "info", or similar non-descriptive labels.
+
+Rules:
+1. For each vague link that has a URL, replace ONLY the link label with a short, descriptive phrase that accurately reflects the link destination based on surrounding context. Preserve the URL exactly as-is.
+   - Example: \`[click here](https://bsu.edu/calendar)\` → \`[BSU Academic Calendar](https://bsu.edu/calendar)\`
+2. For vague links with NO URL (bare links like \`[click here]\` or \`[here]\`), replace the entire link with the editorial placeholder: \`[** Describe link destination **]\`
+3. Do NOT change any other content — only fix the vague link labels.
+4. Return the complete updated markdown with no additional commentary, explanations, or code fences.
+
+Here is the markdown content to fix:
+
+${text}`,
+      },
+    ],
+  });
+
+  const result = message.content
+    .filter((item): item is Anthropic.TextBlock => item.type === "text")
+    .map((item) => item.text)
+    .join("");
+
+  const trimmed = result.trim();
+  if (!trimmed) {
+    throw new Error("AI returned an empty response for vague link fix; original content preserved.");
+  }
+  return trimmed;
+}
+
+/** Downcases runs of 10+ consecutive uppercase letters (retaining the first letter's case) to fix "shouting" all-caps text that screen readers may spell out letter-by-letter. */
+function fixAllCaps(text: string): string {
+  return text.replace(/\b[A-Z]{10,}\b/g, (match) => {
+    return match.charAt(0).toUpperCase() + match.slice(1).toLowerCase();
+  });
+}
+
+/**
+ * Finds the first heading level skip in the content and inserts a placeholder
+ * heading at the missing level to maintain a logical hierarchy.
+ */
+function fixHeadingSkip(text: string): string {
+  const lines = text.split("\n");
+  const headings: Array<{ lineIdx: number; level: number }> = [];
+  let insideCodeFence = false;
+
+  lines.forEach((line, lineIdx) => {
+    if (/^```/.test(line.trim())) insideCodeFence = !insideCodeFence;
+    if (!insideCodeFence) {
+      const match = line.match(/^(#{1,6})\s/);
+      if (match) headings.push({ lineIdx, level: match[1].length });
+    }
+  });
+
+  if (headings.length <= 1) return text;
+
+  let prevLevel = headings[0].level;
+  for (let h = 1; h < headings.length; h++) {
+    const { level, lineIdx } = headings[h];
+    if (level > prevLevel + 1) {
+      const missingLevel = prevLevel + 1;
+      const hashes = "#".repeat(missingLevel);
+      lines.splice(lineIdx, 0, `${hashes} Section`);
+      break;
+    }
+    prevLevel = level;
+  }
+
+  return lines.join("\n");
+}
 
 // ── SSRF guard ────────────────────────────────────────────────────────────────
 // Blocks requests to private/loopback/link-local IP ranges so the url-scanner
@@ -2582,6 +2666,182 @@ Please generate an IMPROVED version that incorporates the requested changes whil
       } catch (error) {
         console.error("Error refining content:", error);
         res.status(500).json({ error: "Failed to refine content" });
+      }
+    },
+  );
+
+  // Preview what an accessibility fix will change (dry-run, no save)
+  app.post(
+    "/api/content/:id/preview-fix",
+    optionalAuth,
+    async (req: Request, res: Response) => {
+      try {
+        const id = parseInt(req.params.id as string);
+        const { fixType } = req.body;
+        if (!fixType) {
+          return res.status(400).json({ error: "fixType is required" });
+        }
+
+        const content = await storage.getContent(id);
+        if (!content) {
+          return res.status(404).json({ error: "Content not found" });
+        }
+
+        const userId = getUserId(req);
+        if (content.courseId) {
+          if (!userId) return res.status(403).json({ error: "Unauthorized" });
+          const course = await storage.getCourse(content.courseId, userId);
+          if (!course) return res.status(404).json({ error: "Content not found" });
+        } else if (content.userId) {
+          if (content.userId !== userId) return res.status(403).json({ error: "Unauthorized" });
+        } else {
+          const vToken = getVisitorToken(req);
+          if (!vToken || vToken !== content.visitorToken) {
+            return res.status(403).json({ error: "Unauthorized" });
+          }
+        }
+
+        let fixedContent = content.content;
+
+        if (fixType === "convert-markdown-tables") {
+          fixedContent = convertMarkdownTablesToHtml(content.content);
+        } else if (fixType === "fix-heading-skip") {
+          fixedContent = fixHeadingSkip(content.content);
+        } else if (fixType === "fix-vague-link-text") {
+          const ip = req.ip || req.socket.remoteAddress || "unknown";
+          let allowed: boolean;
+          if (userId) {
+            allowed = await checkSharedRateLimit(userId, "ai-gen", AI_GEN_RATE_LIMIT, AI_GEN_RATE_WINDOW_MS, () => checkAiGenRateLimit(userId));
+          } else {
+            ensureVisitorToken(req);
+            allowed = await checkSharedRateLimit(`ip:${ip}`, "ai-gen", ANON_RATE_LIMIT, ANON_RATE_WINDOW_MS, () => checkAnonRateLimit(ip));
+          }
+          if (!allowed) {
+            return res.status(429).json({ error: "Rate limit exceeded. Please try again later." });
+          }
+          fixedContent = await fixVagueLinkTextAI(content.content);
+        } else if (fixType === "fix-all-caps") {
+          fixedContent = fixAllCaps(content.content);
+        } else if (fixType === "fix-html-table-caption") {
+          fixedContent = fixHtmlTableCaption(content.content).html;
+        } else if (fixType === "edit-html-table-caption") {
+          const { captionText, captionIndex } = req.body;
+          fixedContent = editHtmlTableCaption(content.content, captionText ?? "Table summary", captionIndex !== undefined ? Number(captionIndex) : undefined);
+        } else if (fixType === "fix-html-table-thead") {
+          fixedContent = fixHtmlTableThead(content.content).html;
+        } else if (fixType === "fix-aria-combobox") {
+          const { applyAriaComboboxRoleFix } = await import("./lib/accessibility-engine");
+          fixedContent = applyAriaComboboxRoleFix(content.content);
+        } else if (fixType === "fix-aria-grid") {
+          const { applyAriaGridRoleFix } = await import("./lib/accessibility-engine");
+          fixedContent = applyAriaGridRoleFix(content.content);
+        } else if (fixType === "fix-aria-tab") {
+          const { applyAriaTabRoleFix } = await import("./lib/accessibility-engine");
+          fixedContent = applyAriaTabRoleFix(content.content);
+        } else {
+          return res.status(400).json({ error: "Unknown fix type" });
+        }
+
+        res.json({ before: content.content, after: fixedContent });
+      } catch (error) {
+        console.error("Error previewing accessibility fix:", error);
+        res.status(500).json({ error: "Failed to preview fix" });
+      }
+    },
+  );
+
+  // Fix accessibility issue in-place
+  app.post(
+    "/api/content/:id/fix-accessibility",
+    optionalAuth,
+    async (req: Request, res: Response) => {
+      try {
+        const id = parseInt(req.params.id as string);
+        const { fixType, captionText, captionTexts, captionIndex } = req.body;
+        if (!fixType) {
+          return res.status(400).json({ error: "fixType is required" });
+        }
+
+        const content = await storage.getContent(id);
+        if (!content) {
+          return res.status(404).json({ error: "Content not found" });
+        }
+
+        const userId = getUserId(req);
+        if (content.courseId) {
+          if (!userId) return res.status(403).json({ error: "Unauthorized" });
+          const course = await storage.getCourse(content.courseId, userId);
+          if (!course) return res.status(404).json({ error: "Content not found" });
+        } else if (content.userId) {
+          if (content.userId !== userId) return res.status(403).json({ error: "Unauthorized" });
+        } else {
+          const vToken = getVisitorToken(req);
+          if (!vToken || vToken !== content.visitorToken) {
+            return res.status(403).json({ error: "Unauthorized" });
+          }
+        }
+
+        let fixedContent = content.content;
+        let tablesFixed: number | undefined;
+
+        if (fixType === "convert-markdown-tables") {
+          fixedContent = convertMarkdownTablesToHtml(content.content);
+        } else if (fixType === "fix-heading-skip") {
+          fixedContent = fixHeadingSkip(content.content);
+        } else if (fixType === "fix-vague-link-text") {
+          const ip = req.ip || req.socket.remoteAddress || "unknown";
+          let allowed: boolean;
+          if (userId) {
+            allowed = await checkSharedRateLimit(userId, "ai-gen", AI_GEN_RATE_LIMIT, AI_GEN_RATE_WINDOW_MS, () => checkAiGenRateLimit(userId));
+          } else {
+            ensureVisitorToken(req);
+            allowed = await checkSharedRateLimit(`ip:${ip}`, "ai-gen", ANON_RATE_LIMIT, ANON_RATE_WINDOW_MS, () => checkAnonRateLimit(ip));
+          }
+          if (!allowed) {
+            return res.status(429).json({ error: "Rate limit exceeded. Please try again later." });
+          }
+          fixedContent = await fixVagueLinkTextAI(content.content);
+        } else if (fixType === "fix-all-caps") {
+          fixedContent = fixAllCaps(content.content);
+        } else if (fixType === "fix-html-table-caption") {
+          const result = fixHtmlTableCaption(content.content, captionTexts ?? captionText);
+          fixedContent = result.html;
+          tablesFixed = result.tablesFixed;
+        } else if (fixType === "edit-html-table-caption") {
+          fixedContent = editHtmlTableCaption(content.content, captionText ?? "Table summary", captionIndex !== undefined ? Number(captionIndex) : undefined);
+        } else if (fixType === "fix-html-table-thead") {
+          const result = fixHtmlTableThead(content.content);
+          fixedContent = result.html;
+          tablesFixed = result.tablesFixed;
+        } else if (fixType === "fix-aria-combobox") {
+          const { applyAriaComboboxRoleFix } = await import("./lib/accessibility-engine");
+          fixedContent = applyAriaComboboxRoleFix(content.content);
+        } else if (fixType === "fix-aria-grid") {
+          const { applyAriaGridRoleFix } = await import("./lib/accessibility-engine");
+          fixedContent = applyAriaGridRoleFix(content.content);
+        } else if (fixType === "fix-aria-tab") {
+          const { applyAriaTabRoleFix } = await import("./lib/accessibility-engine");
+          fixedContent = applyAriaTabRoleFix(content.content);
+        } else {
+          return res.status(400).json({ error: "Unknown fix type" });
+        }
+
+        if (fixedContent === content.content) {
+          return res.json({ ...content, preFixVersionId: null, tablesFixed: 0 });
+        }
+
+        const savedVersion = await storage.createVersion({
+          generatedContentId: id,
+          content: content.content,
+          refinementRequest: "accessibility-fix-snapshot",
+        });
+        await storage.pruneOldVersions(id, VERSION_HISTORY_LIMIT);
+
+        const updated = await storage.updateContent(id, fixedContent);
+        res.json({ ...updated, preFixVersionId: savedVersion.id, tablesFixed });
+      } catch (error) {
+        console.error("Error fixing accessibility issue:", error);
+        res.status(500).json({ error: "Failed to apply fix" });
       }
     },
   );
