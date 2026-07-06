@@ -8,7 +8,7 @@ import { WelcomeModal } from "./welcome-modal";
 const WELCOME_KEY = "bsu_id_welcome_shown";
 
 const STEP_TITLES = [
-  "Welcome to Accessibility Tool",
+  "Welcome to Instructional Designer",
   "Enter Your Course Information",
   "Choose Your Design Tools",
   "Universal Design for Learning",
