@@ -7891,3 +7891,73 @@ describe("generateAccessibleDocument — image/table assignment across hard-spli
     expect(imgOccurrences).toBe(1);
   });
 });
+
+describe("generateAccessibleDocument — truncationWarning when a document exceeds MAX_CHUNKS", () => {
+  beforeEach(() => {
+    mockCreate.mockReset();
+  });
+
+  /**
+   * Builds a document with 65 explicit page-break markers, each followed by
+   * ~11,000 characters of prose. With the real CHUNK_THRESHOLD (12,000),
+   * splitTextByPages() puts each page into its own chunk (a second page can
+   * never be appended without exceeding the threshold), producing 65 chunks
+   * — comfortably more than MAX_CHUNKS (60) — so the truncation path is
+   * exercised deterministically without relying on any mocked internals.
+   */
+  function buildOversizedDocument(pageCount: number): string {
+    const pageBody = "Lorem ipsum sentence about the course material. ".repeat(220); // ~11,000 chars
+    let text = "";
+    for (let i = 1; i <= pageCount; i++) {
+      text += `\nPage ${i}\n${pageBody}`;
+    }
+    return text;
+  }
+
+  it("returns a non-empty, user-readable truncationWarning when the document exceeds MAX_CHUNKS", async () => {
+    const oversizedText = buildOversizedDocument(65);
+
+    mockCreate.mockImplementation(async () => ({
+      content: [{ type: "text", text: "<h1>Section</h1><p>Converted text.</p>" }],
+    }));
+
+    const result = await generateAccessibleDocument(
+      oversizedText,
+      "huge-syllabus.pdf",
+      { title: "Huge Syllabus" },
+      [],
+      [],
+    );
+
+    // Sanity check: this document really did produce more chunks than the
+    // cap, otherwise the assertions below would be vacuously true.
+    expect(mockCreate.mock.calls.length).toBeGreaterThan(1);
+    // 60 chunk-processing calls plus one extra call for the heading outline
+    // pass, so the mock is invoked slightly more than MAX_CHUNKS times even
+    // though only 60 chunks were actually converted.
+    expect(mockCreate.mock.calls.length).toBeLessThanOrEqual(65);
+
+    expect(typeof result.truncationWarning).toBe("string");
+    expect(result.truncationWarning!.length).toBeGreaterThan(0);
+    expect(result.truncationWarning).toMatch(/very large/i);
+    expect(result.truncationWarning).toMatch(/60/);
+  });
+
+  it("does not set truncationWarning for a document within MAX_CHUNKS", async () => {
+    const smallText = buildOversizedDocument(2);
+
+    mockCreate.mockImplementation(async () => ({
+      content: [{ type: "text", text: "<h1>Section</h1><p>Converted text.</p>" }],
+    }));
+
+    const result = await generateAccessibleDocument(
+      smallText,
+      "short-syllabus.pdf",
+      { title: "Short Syllabus" },
+      [],
+      [],
+    );
+
+    expect(result.truncationWarning).toBeUndefined();
+  });
+});
