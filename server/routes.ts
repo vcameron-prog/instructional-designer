@@ -903,6 +903,20 @@ export async function registerRoutes(
             });
         }
 
+        // Catch an unexpected export format from Google's export API (e.g.
+        // if Google ever returns a different container for this doc type)
+        // before it's stored and later fails deep in extraction with only a
+        // generic "could not be read" error.
+        const expectedDocCategory = expectedDocCategoryForSourceType("docx");
+        const actualDocCategory = detectActualDocCategory(buffer);
+        if (expectedDocCategory && actualDocCategory && actualDocCategory !== expectedDocCategory) {
+          const detected = DETECTED_DOC_TYPES[actualDocCategory];
+          return res.status(400).json({
+            error: `This Google Doc exported as a ${detected.label} instead of the expected Word document format. Please try again or download it manually and upload the file directly.`,
+            detectedType: detected.label,
+          });
+        }
+
         const titleHeader = response.headers.get("content-disposition");
         let filename = "Google Doc.docx";
         if (titleHeader) {
@@ -1139,6 +1153,20 @@ export async function registerRoutes(
             });
         }
 
+        // Catch an unexpected export format from Google's export API (e.g.
+        // if Google ever returns a different container for this doc type)
+        // before it's stored and later fails deep in extraction with only a
+        // generic "could not be read" error.
+        const expectedSheetCategory = expectedDocCategoryForSourceType("xlsx");
+        const actualSheetCategory = detectActualDocCategory(buffer);
+        if (expectedSheetCategory && actualSheetCategory && actualSheetCategory !== expectedSheetCategory) {
+          const detected = DETECTED_DOC_TYPES[actualSheetCategory];
+          return res.status(400).json({
+            error: `This Google Sheet exported as a ${detected.label} instead of the expected spreadsheet format. Please try again or download it manually and upload the file directly.`,
+            detectedType: detected.label,
+          });
+        }
+
         const titleHeader = response.headers.get("content-disposition");
         let filename = "Google Sheet.xlsx";
         if (titleHeader) {
@@ -1371,6 +1399,20 @@ export async function registerRoutes(
               error:
                 "The downloaded file is not a valid presentation. The Google Slides presentation may not be publicly shared.",
             });
+        }
+
+        // Catch an unexpected export format from Google's export API (e.g.
+        // if Google ever returns a different container for this doc type)
+        // before it's stored and later fails deep in extraction with only a
+        // generic "could not be read" error.
+        const expectedSlideCategory = expectedDocCategoryForSourceType("pptx");
+        const actualSlideCategory = detectActualDocCategory(buffer);
+        if (expectedSlideCategory && actualSlideCategory && actualSlideCategory !== expectedSlideCategory) {
+          const detected = DETECTED_DOC_TYPES[actualSlideCategory];
+          return res.status(400).json({
+            error: `This Google Slides presentation exported as a ${detected.label} instead of the expected presentation format. Please try again or download it manually and upload the file directly.`,
+            detectedType: detected.label,
+          });
         }
 
         const titleHeader = response.headers.get("content-disposition");
