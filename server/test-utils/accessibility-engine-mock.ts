@@ -42,6 +42,7 @@ export const ACCESSIBILITY_ENGINE_EXPORTS_USED_BY_ROUTES = [
   "fixComplianceIssue",
   "fixAllAriaRoleMisuse",
   "buildComplianceReport",
+  "predictTruncationWarning",
 ] as const;
 
 export type AccessibilityEngineMockOverrides = Partial<
@@ -76,6 +77,7 @@ export function createAccessibilityEngineMock(
     fixAllAriaRoleMisuse: vi.fn(),
     buildComplianceReport: vi.fn((issues: unknown[]) => ({ issues })),
     registerDeterministicFixer: vi.fn(),
+    predictTruncationWarning: vi.fn().mockReturnValue(undefined),
     ...overrides,
   };
 }

@@ -111,6 +111,7 @@ vi.mock("./lib/accessibility-engine", async () => {
   return createAccessibilityEngineMock({
     generateAccessibleDocument: mockGenerateAccessibleDocument,
     evaluateOriginalDocument: vi.fn().mockReturnValue(null),
+    predictTruncationWarning: vi.fn().mockReturnValue(undefined),
   });
 });
 
@@ -121,6 +122,7 @@ vi.mock("./lib/accessibility-engine.js", async () => {
   return createAccessibilityEngineMock({
     generateAccessibleDocument: mockGenerateAccessibleDocument,
     evaluateOriginalDocument: vi.fn().mockReturnValue(null),
+    predictTruncationWarning: vi.fn().mockReturnValue(undefined),
   });
 });
 

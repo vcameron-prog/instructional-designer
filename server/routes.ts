@@ -1680,7 +1680,7 @@ export async function registerRoutes(
         }
 
         const innerWorkPromise = (async () => {
-          const { generateAccessibleDocument, evaluateOriginalDocument } =
+          const { generateAccessibleDocument, evaluateOriginalDocument, predictTruncationWarning } =
             await import("./lib/accessibility-engine");
           const fileBuffer = Buffer.from(conversion.pdfData!, "base64");
           const srcType = conversion.sourceType || "pdf";
@@ -1805,6 +1805,27 @@ export async function registerRoutes(
 
           // Bail out before the most expensive AI step if already timed out.
           if (aborted) throw new Error("aborted");
+
+          // Warn the user up front — before the multi-minute AI conversion
+          // step runs — if the extracted text is large enough to hit the
+          // MAX_CHUNKS cap. Without this, faculty uploading a very large
+          // document (e.g. a full course reader) only find out at the very
+          // end that the tail of their document was dropped. This early
+          // warning is superseded by the authoritative post-hoc
+          // truncationWarning once conversion completes.
+          const earlyTruncationWarning = predictTruncationWarning(finalText);
+          if (earlyTruncationWarning) {
+            await db
+              .update(conversions)
+              .set({
+                extractionWarnings: [
+                  ...(extraction.warnings || []),
+                  earlyTruncationWarning,
+                ],
+                updatedAt: new Date(),
+              })
+              .where(eq(conversions.id, id));
+          }
 
           await updateStatusMessage(buildExtractionSummary(srcType, extraction, finalText));
 
@@ -2130,7 +2151,24 @@ export async function registerRoutes(
         };
 
         try {
-          const { generateAccessibleDocument } = await import("./lib/accessibility-engine.js");
+          const { generateAccessibleDocument, predictTruncationWarning } = await import("./lib/accessibility-engine.js");
+
+          // Warn up front, before the multi-minute AI step runs, if the
+          // stored extracted text is large enough to hit the MAX_CHUNKS cap.
+          // Superseded by the authoritative post-hoc truncationWarning below
+          // once re-conversion completes.
+          const earlyTruncationWarning = predictTruncationWarning(conversion.extractedText!);
+          if (earlyTruncationWarning) {
+            const existingWarnings = (conversion.extractionWarnings as string[] | null) || [];
+            await db
+              .update(conversions)
+              .set({
+                extractionWarnings: [...existingWarnings, earlyTruncationWarning],
+                updatedAt: new Date(),
+              })
+              .where(eq(conversions.id, id));
+          }
+
           const result = await generateAccessibleDocument(
             conversion.extractedText!,
             conversion.originalFilename,

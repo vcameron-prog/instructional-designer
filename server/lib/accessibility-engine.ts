@@ -3191,6 +3191,49 @@ ${mergedBody}
 </html>`;
 }
 
+// Large enough that virtually no real document gets silently truncated; if a
+// document still exceeds this, we surface a warning instead of dropping
+// content without telling the user. Exported so callers (e.g. the upload
+// route) can predict truncation from extracted text before the expensive AI
+// conversion step runs, and warn the user up front.
+export const CHUNK_THRESHOLD = 12000;
+export const MAX_CHUNKS = 60;
+
+/**
+ * Splits `extractedText` into the same chunks `generateAccessibleDocument`
+ * will use, and reports whether the document will be truncated (i.e. has
+ * more chunks than MAX_CHUNKS). Shared by the AI conversion step (for the
+ * post-hoc truncationWarning) and by the upload/process route (for an
+ * up-front warning before conversion runs).
+ */
+export function chunkDocumentText(extractedText: string): {
+  allChunks: PageChunk[];
+  chunks: PageChunk[];
+  truncated: boolean;
+  droppedChars: number;
+} {
+  const allChunks = splitTextByPages(extractedText, CHUNK_THRESHOLD);
+  const truncated = allChunks.length > MAX_CHUNKS;
+  const droppedChars = truncated
+    ? allChunks.slice(MAX_CHUNKS).reduce((sum, c) => sum + c.text.length, 0)
+    : 0;
+  const chunks = allChunks.slice(0, MAX_CHUNKS);
+  return { allChunks, chunks, truncated, droppedChars };
+}
+
+/**
+ * Predicts, from extracted (pre-AI) text alone, whether a document is likely
+ * to hit the MAX_CHUNKS cap, and returns a user-facing warning if so. This is
+ * intentionally computed the same way as the post-hoc truncationWarning so
+ * the two never disagree; wording differs only in tense since this fires
+ * before conversion runs.
+ */
+export function predictTruncationWarning(extractedText: string): string | undefined {
+  const { allChunks, truncated, droppedChars } = chunkDocumentText(extractedText);
+  if (!truncated) return undefined;
+  return `This document is very large (${allChunks.length} sections, limit ${MAX_CHUNKS}). Only the first ${MAX_CHUNKS} sections will be converted — approximately ${droppedChars.toLocaleString()} characters at the end will likely not be processed. This may take several minutes.`;
+}
+
 export async function generateAccessibleDocument(
   extractedText: string,
   originalFilename: string,
@@ -3204,15 +3247,9 @@ export async function generateAccessibleDocument(
 ): Promise<AccessibilityResult> {
   const documentTitle = metadata.title || originalFilename.replace(/\.pdf$/i, "");
 
-  const CHUNK_THRESHOLD = 12000;
-  // Large enough that virtually no real document gets silently truncated;
-  // if a document still exceeds this, we surface a warning instead of
-  // dropping content without telling the user (see truncationWarning below).
-  const MAX_CHUNKS = 60;
-  const allChunks = splitTextByPages(extractedText, CHUNK_THRESHOLD);
+  const { allChunks, chunks, truncated, droppedChars } = chunkDocumentText(extractedText);
   let truncationWarning: string | undefined;
-  if (allChunks.length > MAX_CHUNKS) {
-    const droppedChars = allChunks.slice(MAX_CHUNKS).reduce((sum, c) => sum + c.text.length, 0);
+  if (truncated) {
     const lastMarker = findLastConvertedMarker(allChunks.slice(0, MAX_CHUNKS));
     const cutoffNote = lastMarker
       ? lastMarker.isHeading
@@ -3222,7 +3259,6 @@ export async function generateAccessibleDocument(
     truncationWarning = `This document was very large (${allChunks.length} sections). Only the first ${MAX_CHUNKS} sections were converted; approximately ${droppedChars.toLocaleString()} characters at the end of the document were not processed.${cutoffNote}`;
     console.warn(`[accessibility-engine] Document split into ${allChunks.length} chunks; capping at ${MAX_CHUNKS} to limit AI API usage. ${droppedChars} trailing characters were dropped.`);
   }
-  const chunks = allChunks.slice(0, MAX_CHUNKS);
   const needsChunking = chunks.length > 1;
 
   const systemPrompt = `You are an accessibility expert specializing in ADA Title II compliance and WCAG 2.1 Level AA standards.
