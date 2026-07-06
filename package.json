@@ -9,6 +9,7 @@
     "prestart": "npm run db:migrate && npx tsx scripts/assert-migrations-applied.ts",
     "start": "NODE_ENV=production node dist/index.cjs",
     "check": "tsc",
+    "check:links": "bash scripts/check-links.sh",
     "db:push": "drizzle-kit push",
     "db:migrate": "drizzle-kit migrate"
   },

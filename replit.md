@@ -99,6 +99,16 @@ The `scripts/post-merge.sh` post-merge hook also runs `npm run db:migrate` follo
 
 Run `bash scripts/test-pre-start-gate.sh` to verify the gate exits non-zero before the server starts in simulated failure scenarios (missing DATABASE_URL, unreachable DB).
 
+## Checking External Links
+
+`scripts/check-links.sh` scans `client/src/`, `server/`, and `shared/` for hardcoded external `href="https://..."` URLs (excluding test files and `placeholder=` attributes) and verifies each one resolves with a 2xx status. It runs automatically as part of `scripts/post-merge.sh`, but you can also run it on demand during local development, before pushing a change that adds or edits an external link:
+
+```
+npm run check:links
+```
+
+This is equivalent to running `bash scripts/check-links.sh` directly. A dedicated `check-links` Replit workflow is also available and runs the same script. The check exits 0 (and skips gracefully) if there is no outbound network access in the current environment, and exits 1 if any link returns a non-2xx status or is unreachable.
+
 ## External Dependencies
 
 ### AI Services
