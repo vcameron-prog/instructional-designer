@@ -86,6 +86,7 @@ vi.mock("./lib/accessibility-engine", () => ({
   applyAriaComboboxRoleFix: (html: string) => html,
   applyAriaGridRoleFix: (html: string) => html,
   applyAriaTabRoleFix: (html: string) => html,
+  applyHeadingHierarchyFix: (html: string) => html,
 }));
 
 // ---------------------------------------------------------------------------

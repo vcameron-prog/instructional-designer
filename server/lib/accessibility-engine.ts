@@ -476,15 +476,19 @@ export function runDeterministicChecks(html: string): ComplianceIssue[] {
 
   const hasH1 = /<h1[\s>]/i.test(html);
   const h1Count = (html.match(/<h1[\s>]/gi) || []).length;
+  const headingOrderInfo = checkHeadingOrder(html);
+  const firstHeadingIsH1 = headingOrderInfo.levels.length === 0 || headingOrderInfo.levels[0] === 1;
   issues.push({
     criterion: "2.4.6",
     title: "Headings and Labels",
     level: "AA",
-    status: hasH1 ? "pass" : "fail",
-    description: "The document needs clear headings to help users navigate and find information.",
-    details: hasH1
-      ? `The document has ${h1Count} main heading(s) providing clear structure.`
-      : "The document is missing a main heading, making it harder to navigate.",
+    status: !hasH1 ? "fail" : !firstHeadingIsH1 ? "warning" : "pass",
+    description: "The document needs clear headings to help users navigate and find information, and the topmost heading must be an H1 so the hierarchy starts correctly.",
+    details: !hasH1
+      ? "The document is missing a main heading, making it harder to navigate."
+      : !firstHeadingIsH1
+        ? `The document's first heading is an H${headingOrderInfo.levels[0]}, not an H1. The heading hierarchy should start at H1 so the main title is properly identified.`
+        : `The document has ${h1Count} main heading(s) providing clear structure.`,
   });
 
   const hasMain =
@@ -1110,7 +1114,7 @@ export function runDeterministicChecks(html: string): ComplianceIssue[] {
   }
 
   // 2.4.6 / 1.3.1 – Heading order: detect skipped heading levels
-  const headingOrder = checkHeadingOrder(html);
+  const headingOrder = headingOrderInfo;
   if (headingOrder.levels.length > 0) {
     issues.push({
       criterion: "1.3.1",
@@ -1715,6 +1719,30 @@ export function applyLangAttributeFix(html: string): string {
   return html.replace(new RegExp(`<html(${ATTR_PATTERN})>`, "i"), (_match, attrs: string) => `<html${attrs} lang="en">`);
 }
 
+/**
+ * Ensures the document's heading hierarchy starts at H1. If the topmost
+ * heading is anything else (e.g. H2), every heading in the document is
+ * shifted down by the same offset so the first heading becomes H1 and the
+ * relative structure of subsequent headings is preserved (no new skips are
+ * introduced relative to the corrected top level). Levels are clamped to the
+ * valid 1–6 range. Documents that already start at H1, or that have no
+ * headings at all, are returned unchanged.
+ */
+export function applyHeadingHierarchyFix(html: string): string {
+  const firstHeadingMatch = html.match(/<h([1-6])(?=[\s>/])/i);
+  if (!firstHeadingMatch) return html;
+
+  const firstLevel = parseInt(firstHeadingMatch[1], 10);
+  if (firstLevel === 1) return html;
+
+  const delta = firstLevel - 1;
+
+  return html.replace(/<(\/?)h([1-6])(?=[\s>/])/gi, (_match, closing: string, level: string) => {
+    const newLevel = Math.max(1, Math.min(6, parseInt(level, 10) - delta));
+    return `<${closing}h${newLevel}`;
+  });
+}
+
 const BYPASS_LANDMARK_TAGS = new Set(["header", "nav", "footer"]);
 const BYPASS_LANDMARK_ROLES = new Set(["banner", "navigation", "contentinfo"]);
 
@@ -2243,6 +2271,7 @@ const deterministicFixerRegistry: Record<string, DeterministicFixer> = {
   "3.1.1::Language of Page": applyLangAttributeFix,
   "2.4.1::Bypass Blocks": applyBypassBlocksFix,
   "2.4.2::Page Titled": applyPageTitleFix,
+  "2.4.6::Headings and Labels": applyHeadingHierarchyFix,
   "1.3.1::ARIA Combobox Role on Non-Combobox Element": applyAriaComboboxRoleFix,
   "1.3.1::ARIA Grid Role on Non-Table Element": applyAriaGridRoleFix,
   "1.3.1::ARIA Tab Role on Non-Interactive Element": applyAriaTabRoleFix,
@@ -2912,6 +2941,7 @@ ${structuralSummary}`,
   // Auto-apply deterministic fixes so users start with a clean baseline
   if (onProgress) await onProgress("Applying accessibility fixes…");
   accessibleHtml = applyLangAttributeFix(accessibleHtml);
+  accessibleHtml = applyHeadingHierarchyFix(accessibleHtml);
   accessibleHtml = applyPageTitleFix(accessibleHtml);
   accessibleHtml = applyBypassBlocksFix(accessibleHtml);
 

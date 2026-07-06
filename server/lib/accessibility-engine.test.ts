@@ -24,6 +24,7 @@ import {
   applyBypassBlocksFix,
   applyLangAttributeFix,
   applyPageTitleFix,
+  applyHeadingHierarchyFix,
   extractPageTitleInfo,
   parseHexColor,
   relativeLuminance,
@@ -162,11 +163,79 @@ describe("runDeterministicChecks", () => {
       expect(headings!.details).toContain("2");
     });
 
+    it("warns when an h1 exists but the topmost heading is an h2", () => {
+      const html = `<html lang="en"><body><h2>Intro</h2><h1>Main</h1></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const headings = issues.find((i) => i.criterion === "2.4.6");
+      expect(headings!.status).toBe("warning");
+      expect(headings!.details).toContain("H2");
+    });
+
+    it("passes when the document has no headings other than a valid h1-first order", () => {
+      const html = `<html lang="en"><body><h1>Main</h1><h2>Sub</h2></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const headings = issues.find((i) => i.criterion === "2.4.6");
+      expect(headings!.status).toBe("pass");
+    });
+
     it("correctly detects a non-empty h1 whose open tag contains an attribute value with '>'", () => {
       const html = `<html lang="en"><body><h1 data-cmp="x>y">Real Heading</h1></body></html>`;
       const issues = runDeterministicChecks(html);
       const headings = issues.find((i) => i.criterion === "2.4.6");
       expect(headings!.status).toBe("pass");
+    });
+  });
+
+  // applyHeadingHierarchyFix
+  describe("applyHeadingHierarchyFix", () => {
+    it("leaves a document unchanged when it already starts at h1", () => {
+      const html = `<h1>Title</h1><h2>Section</h2><h3>Sub</h3>`;
+      expect(applyHeadingHierarchyFix(html)).toBe(html);
+    });
+
+    it("leaves a document with no headings unchanged", () => {
+      const html = `<p>No headings here</p>`;
+      expect(applyHeadingHierarchyFix(html)).toBe(html);
+    });
+
+    it("promotes an h2-first document to start at h1 and shifts subsequent headings", () => {
+      const html = `<h2>Title</h2><h3>Section</h3><h4>Sub</h4>`;
+      const result = applyHeadingHierarchyFix(html);
+      expect(result).toBe(`<h1>Title</h1><h2>Section</h2><h3>Sub</h3>`);
+    });
+
+    it("promotes an h3-first document by shifting every heading down by the same offset", () => {
+      const html = `<h3>Title</h3><h4>Section</h4><h5>Sub</h5>`;
+      const result = applyHeadingHierarchyFix(html);
+      expect(result).toBe(`<h1>Title</h1><h2>Section</h2><h3>Sub</h3>`);
+    });
+
+    it("handles multiple top-level headings by shifting them all consistently", () => {
+      const html = `<h2>Part One</h2><h2>Part Two</h2><h3>Detail</h3>`;
+      const result = applyHeadingHierarchyFix(html);
+      expect(result).toBe(`<h1>Part One</h1><h1>Part Two</h1><h2>Detail</h2>`);
+    });
+
+    it("clamps heading levels at a minimum of h1 when a later heading is already lower than the first", () => {
+      const html = `<h2>Intro</h2><h1>Main</h1>`;
+      const result = applyHeadingHierarchyFix(html);
+      expect(result).toBe(`<h1>Intro</h1><h1>Main</h1>`);
+    });
+
+    it("preserves attributes on heading tags", () => {
+      const html = `<h2 id="title" class="foo">Title</h2><h3>Section</h3>`;
+      const result = applyHeadingHierarchyFix(html);
+      expect(result).toBe(`<h1 id="title" class="foo">Title</h1><h2>Section</h2>`);
+    });
+
+    it("makes the topmost heading pass the 2.4.6 check after being applied", () => {
+      const html = `<html lang="en"><body><h2>Title</h2><h3>Section</h3><h1 style="display:none">Hidden</h1></body></html>`;
+      const before = runDeterministicChecks(html);
+      expect(before.find((i) => i.criterion === "2.4.6")!.status).toBe("warning");
+
+      const fixed = applyHeadingHierarchyFix(html);
+      const after = runDeterministicChecks(fixed);
+      expect(after.find((i) => i.criterion === "2.4.6")!.status).toBe("pass");
     });
   });
 
@@ -3677,8 +3746,10 @@ describe("fixComplianceIssue – fixture-based regression tests", () => {
   });
 
   it("throws when the AI returns output that does not start with <!DOCTYPE html> (both attempts fail)", async () => {
+    // Uses 1.1.1 (Image Descriptions) instead of 2.4.6 because 2.4.6 now has a registered
+    // deterministic fixer (applyHeadingHierarchyFix) and would short-circuit before the AI call.
     const issues = runDeterministicChecks(fixtureHtml);
-    const headingIssue = issues.find((i) => i.criterion === "2.4.6")!;
+    const altIssue = issues.find((i) => i.criterion === "1.1.1")!;
 
     mockCreate.mockResolvedValueOnce({
       content: [{ type: "text", text: "Sorry, I cannot fix that." }],
@@ -3689,7 +3760,7 @@ describe("fixComplianceIssue – fixture-based regression tests", () => {
 
     const report = makeReport(issues);
     await expect(
-      fixComplianceIssue(fixtureHtml, headingIssue, issues.indexOf(headingIssue), report)
+      fixComplianceIssue(fixtureHtml, altIssue, issues.indexOf(altIssue), report)
     ).rejects.toThrow("AI failed to produce a valid HTML fix");
   });
 
@@ -3710,12 +3781,14 @@ describe("fixComplianceIssue – fixture-based regression tests", () => {
   });
 
   it("strips and restores data URIs so the AI never receives large base64 blobs", async () => {
+    // The image has no alt text, so 1.1.1 (Image Descriptions) fails; this criterion has no
+    // registered deterministic fixer, so the fix still goes through the AI path being tested.
     const dataUri = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
-    const htmlWithDataUri = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><img src="${dataUri}" alt="Pixel"></main></body></html>`;
+    const htmlWithDataUri = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><img src="${dataUri}"></main></body></html>`;
 
     const issues = runDeterministicChecks(htmlWithDataUri);
-    const headingIssue = issues.find((i) => i.criterion === "2.4.6")!;
-    expect(headingIssue.status).toBe("fail");
+    const altIssue = issues.find((i) => i.criterion === "1.1.1")!;
+    expect(altIssue.status).toBe("fail");
 
     let capturedInput = "";
     mockCreate.mockImplementationOnce(async ({ messages }: { messages: Array<{ content: string }> }) => {
@@ -3724,7 +3797,7 @@ describe("fixComplianceIssue – fixture-based regression tests", () => {
     });
 
     const report = makeReport(issues);
-    await fixComplianceIssue(htmlWithDataUri, headingIssue, issues.indexOf(headingIssue), report);
+    await fixComplianceIssue(htmlWithDataUri, altIssue, issues.indexOf(altIssue), report);
 
     expect(capturedInput).not.toContain("data:image/png;base64,iVBOR");
     expect(capturedInput).toContain("__IMG_PLACEHOLDER_");
@@ -3889,18 +3962,20 @@ describe("deterministicFixerRegistry – dispatch", () => {
   });
 
   it("falls through to AI for an unregistered criterion+title key", async () => {
-    const html = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><div><h2>Sub</h2></div></body></html>`;
+    // 1.1.1 (Image Descriptions) has no registered deterministic fixer, unlike 2.4.6, which
+    // is now handled by applyHeadingHierarchyFix.
+    const html = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>Sub</h1><img src="photo.jpg"></main></body></html>`;
     const issues = runDeterministicChecks(html);
-    const headingIssue = issues.find((i) => i.criterion === "2.4.6" && i.title === "Headings and Labels")!;
-    expect(headingIssue.status).toBe("fail");
+    const altIssue = issues.find((i) => i.criterion === "1.1.1" && i.title === "Image Descriptions")!;
+    expect(altIssue.status).toBe("fail");
 
-    const fixedHtml = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><div><h1>Main</h1><h2>Sub</h2></div></body></html>`;
+    const fixedHtml = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>Sub</h1><img src="photo.jpg" alt="A photo"></main></body></html>`;
     mockCreate.mockResolvedValueOnce({
       content: [{ type: "text", text: `<!DOCTYPE html>\n${fixedHtml}` }],
     });
 
     const report = makeReport(issues);
-    await fixComplianceIssue(html, headingIssue, issues.indexOf(headingIssue), report);
+    await fixComplianceIssue(html, altIssue, issues.indexOf(altIssue), report);
 
     expect(mockCreate).toHaveBeenCalledTimes(1);
   });
@@ -6211,18 +6286,20 @@ describe("fixComplianceIssue – partial AI response propagation in multi-fix ch
     // via the normal execution path.
     // Note: the engine retries once on an invalid response, so both the first attempt
     // and the retry must return truncated HTML for the throw to be reached.
-    const html = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h2>Section</h2></main></body></html>`;
+    // Uses 1.1.1 (missing alt text) rather than a heading issue because 2.4.6 now has a
+    // registered deterministic fixer (applyHeadingHierarchyFix) and would short-circuit.
+    const html = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>Section</h1><img src="photo.jpg"></main></body></html>`;
     const issues = runDeterministicChecks(html);
     const report = makeReport(issues);
 
-    const headingIssue = issues.find((i) => i.criterion === "2.4.6")!;
+    const altIssue = issues.find((i) => i.criterion === "1.1.1")!;
 
-    const truncatedResponse = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>Section</h1></main>`;
+    const truncatedResponse = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>Section</h1><img src="photo.jpg" alt="Photo"></main>`;
     mockCreate.mockResolvedValueOnce({ content: [{ type: "text", text: truncatedResponse }] });
     mockCreate.mockResolvedValueOnce({ content: [{ type: "text", text: truncatedResponse }] });
 
     await expect(
-      fixComplianceIssue(html, headingIssue, issues.indexOf(headingIssue), report)
+      fixComplianceIssue(html, altIssue, issues.indexOf(altIssue), report)
     ).rejects.toThrow("AI failed to produce a valid HTML fix");
   });
 
@@ -6230,18 +6307,20 @@ describe("fixComplianceIssue – partial AI response propagation in multi-fix ch
     // Same boundary test for the head-only shape: the caller never receives a result and
     // therefore cannot feed a corrupted document into a subsequent fixComplianceIssue call.
     // Both the initial attempt and the retry return head-only HTML to reach the throw.
-    const html = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h2>Section</h2></main></body></html>`;
+    // Uses 1.1.1 (missing alt text) rather than a heading issue because 2.4.6 now has a
+    // registered deterministic fixer (applyHeadingHierarchyFix) and would short-circuit.
+    const html = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>Section</h1><img src="photo.jpg"></main></body></html>`;
     const issues = runDeterministicChecks(html);
     const report = makeReport(issues);
 
-    const headingIssue = issues.find((i) => i.criterion === "2.4.6")!;
+    const altIssue = issues.find((i) => i.criterion === "1.1.1")!;
 
     const headOnlyResponse = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head></html>`;
     mockCreate.mockResolvedValueOnce({ content: [{ type: "text", text: headOnlyResponse }] });
     mockCreate.mockResolvedValueOnce({ content: [{ type: "text", text: headOnlyResponse }] });
 
     await expect(
-      fixComplianceIssue(html, headingIssue, issues.indexOf(headingIssue), report)
+      fixComplianceIssue(html, altIssue, issues.indexOf(altIssue), report)
     ).rejects.toThrow("AI failed to produce a valid HTML fix");
   });
 
@@ -6284,60 +6363,64 @@ describe("fixComplianceIssue – partial AI response propagation in multi-fix ch
   });
 
   it("round 2 throws when its AI returns truncated HTML, consistent with single-call behaviour (chain with valid round 1)", async () => {
-    // Use HTML that has a heading issue (AI path) AND an image without alt (AI path for round 2).
-    const htmlWithImg = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h2>Section</h2><img src="photo.jpg"></main></body></html>`;
+    // Use HTML that has an image without alt (AI path for round 1) AND a vague link (AI
+    // path for round 2). 2.4.6 is intentionally avoided here since it now has a registered
+    // deterministic fixer (applyHeadingHierarchyFix) that would short-circuit the AI call.
+    const htmlWithImg = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>Section</h1><img src="photo.jpg"><a href="/x">click here</a></main></body></html>`;
     const initialIssues = runDeterministicChecks(htmlWithImg);
     const initialReport = makeReport(initialIssues);
 
-    // Round 1: AI fixes the heading issue (2.4.6) and returns VALID, complete HTML.
-    const validAfterRound1 = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>Section</h1><img src="photo.jpg"></main></body></html>`;
+    // Round 1: AI fixes the alt-text issue (1.1.1) and returns VALID, complete HTML.
+    const validAfterRound1 = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>Section</h1><img src="photo.jpg" alt="Photo"><a href="/x">click here</a></main></body></html>`;
     mockCreate.mockResolvedValueOnce({ content: [{ type: "text", text: validAfterRound1 }] });
 
-    const headingIssue = initialIssues.find((i) => i.criterion === "2.4.6")!;
-    const result1 = await fixComplianceIssue(htmlWithImg, headingIssue, initialIssues.indexOf(headingIssue), initialReport);
+    const altIssue = initialIssues.find((i) => i.criterion === "1.1.1")!;
+    const result1 = await fixComplianceIssue(htmlWithImg, altIssue, initialIssues.indexOf(altIssue), initialReport);
     expect(result1.accessibleHtml).toBe(validAfterRound1);
 
-    // Round 2: AI fix for alt text (1.1.1) — AI path; AI returns truncated HTML on both
+    // Round 2: AI fix for link purpose (2.4.4) — AI path; AI returns truncated HTML on both
     // the initial attempt and the retry, causing the engine to throw.
-    const truncatedRound2Response = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>Section</h1><img src="photo.jpg" alt="Photo"></main>`;
+    const truncatedRound2Response = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>Section</h1><img src="photo.jpg" alt="Photo"><a href="/x">Download the guide</a></main>`;
     mockCreate.mockResolvedValueOnce({ content: [{ type: "text", text: truncatedRound2Response }] });
     mockCreate.mockResolvedValueOnce({ content: [{ type: "text", text: truncatedRound2Response }] });
 
-    const altIssue = result1.complianceReport.issues.find((i) => i.criterion === "1.1.1")!;
-    const altIndex = result1.complianceReport.issues.indexOf(altIssue);
+    const linkIssue = result1.complianceReport.issues.find((i) => i.criterion === "2.4.4")!;
+    const linkIndex = result1.complianceReport.issues.indexOf(linkIssue);
 
     // Round 2 must reject the truncated AI response, consistent with single-call behaviour.
     await expect(
-      fixComplianceIssue(result1.accessibleHtml, altIssue, altIndex, result1.complianceReport)
+      fixComplianceIssue(result1.accessibleHtml, linkIssue, linkIndex, result1.complianceReport)
     ).rejects.toThrow("AI failed to produce a valid HTML fix");
   });
 
   it("round 2 throws when its AI returns head-only HTML, consistent with single-call behaviour (chain with valid round 1)", async () => {
-    // Use HTML that has a heading issue (AI path) AND an image without alt (AI path for round 2).
-    const htmlWithImg = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h2>Section</h2><img src="photo.jpg"></main></body></html>`;
+    // Use HTML that has an image without alt (AI path for round 1) AND a vague link (AI
+    // path for round 2). 2.4.6 is intentionally avoided here since it now has a registered
+    // deterministic fixer (applyHeadingHierarchyFix) that would short-circuit the AI call.
+    const htmlWithImg = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>Section</h1><img src="photo.jpg"><a href="/x">click here</a></main></body></html>`;
     const initialIssues = runDeterministicChecks(htmlWithImg);
     const initialReport = makeReport(initialIssues);
 
-    // Round 1: AI fixes the heading issue (2.4.6) and returns VALID, complete HTML.
-    const validAfterRound1 = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>Section</h1><img src="photo.jpg"></main></body></html>`;
+    // Round 1: AI fixes the alt-text issue (1.1.1) and returns VALID, complete HTML.
+    const validAfterRound1 = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>Section</h1><img src="photo.jpg" alt="Photo"><a href="/x">click here</a></main></body></html>`;
     mockCreate.mockResolvedValueOnce({ content: [{ type: "text", text: validAfterRound1 }] });
 
-    const headingIssue = initialIssues.find((i) => i.criterion === "2.4.6")!;
-    const result1 = await fixComplianceIssue(htmlWithImg, headingIssue, initialIssues.indexOf(headingIssue), initialReport);
+    const altIssue = initialIssues.find((i) => i.criterion === "1.1.1")!;
+    const result1 = await fixComplianceIssue(htmlWithImg, altIssue, initialIssues.indexOf(altIssue), initialReport);
     expect(result1.accessibleHtml).toBe(validAfterRound1);
 
-    // Round 2: AI fix for alt text (1.1.1) — AI returns head-only HTML on both the initial
+    // Round 2: AI fix for link purpose (2.4.4) — AI returns head-only HTML on both the initial
     // attempt and the retry, causing the engine to throw.
     const headOnlyRound2Response = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head></html>`;
     mockCreate.mockResolvedValueOnce({ content: [{ type: "text", text: headOnlyRound2Response }] });
     mockCreate.mockResolvedValueOnce({ content: [{ type: "text", text: headOnlyRound2Response }] });
 
-    const altIssue = result1.complianceReport.issues.find((i) => i.criterion === "1.1.1")!;
-    const altIndex = result1.complianceReport.issues.indexOf(altIssue);
+    const linkIssue = result1.complianceReport.issues.find((i) => i.criterion === "2.4.4")!;
+    const linkIndex = result1.complianceReport.issues.indexOf(linkIssue);
 
     // Round 2 must reject the head-only AI response, consistent with single-call behaviour.
     await expect(
-      fixComplianceIssue(result1.accessibleHtml, altIssue, altIndex, result1.complianceReport)
+      fixComplianceIssue(result1.accessibleHtml, linkIssue, linkIndex, result1.complianceReport)
     ).rejects.toThrow("AI failed to produce a valid HTML fix");
   });
 });
@@ -6346,7 +6429,10 @@ describe("fixComplianceIssue – partial AI response propagation in multi-fix ch
 // ---------------------------------------------------------------------------
 
 describe("fixComplianceIssue – partial or truncated AI HTML responses", () => {
-  const baseHtml = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h2>No H1 Here</h2></main></body></html>`;
+  // Uses a missing-alt-text image (1.1.1) rather than a heading issue here because
+  // 2.4.6 now has a registered deterministic fixer (applyHeadingHierarchyFix) and would
+  // short-circuit before ever reaching the AI call path these tests exercise.
+  const baseHtml = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>Photos</h1><img src="photo.jpg"></main></body></html>`;
 
   beforeEach(() => {
     mockCreate.mockReset();
@@ -6354,10 +6440,10 @@ describe("fixComplianceIssue – partial or truncated AI HTML responses", () => 
 
   it("throws when the AI returns a valid HTML fragment that is missing the DOCTYPE declaration (both attempts fail)", async () => {
     const issues = runDeterministicChecks(baseHtml);
-    const headingIssue = issues.find((i) => i.criterion === "2.4.6")!;
+    const headingIssue = issues.find((i) => i.criterion === "1.1.1")!;
     expect(headingIssue.status).toBe("fail");
 
-    const noDoctype = `<html lang="en"><head><title>Test</title></head><body><main><h1>No H1 Here</h1></main></body></html>`;
+    const noDoctype = `<html lang="en"><head><title>Test</title></head><body><main><h1>Photos</h1><img src="photo.jpg" alt="A photo"></main></body></html>`;
     mockCreate.mockResolvedValueOnce({ content: [{ type: "text", text: noDoctype }] });
     mockCreate.mockResolvedValueOnce({ content: [{ type: "text", text: noDoctype }] });
 
@@ -6370,10 +6456,10 @@ describe("fixComplianceIssue – partial or truncated AI HTML responses", () => 
 
   it("throws when AI returns truncated HTML on both attempts (missing closing </body> and </html> tags)", async () => {
     const issues = runDeterministicChecks(baseHtml);
-    const headingIssue = issues.find((i) => i.criterion === "2.4.6")!;
+    const headingIssue = issues.find((i) => i.criterion === "1.1.1")!;
     expect(headingIssue.status).toBe("fail");
 
-    const truncatedHtml = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>No H1 Here</h1></main>`;
+    const truncatedHtml = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>Photos</h1><img src="photo.jpg" alt="A photo"></main>`;
     mockCreate.mockResolvedValueOnce({ content: [{ type: "text", text: truncatedHtml }] });
     mockCreate.mockResolvedValueOnce({ content: [{ type: "text", text: truncatedHtml }] });
 
@@ -6386,7 +6472,7 @@ describe("fixComplianceIssue – partial or truncated AI HTML responses", () => 
 
   it("throws when AI returns head-only HTML on both attempts (no <body>)", async () => {
     const issues = runDeterministicChecks(baseHtml);
-    const headingIssue = issues.find((i) => i.criterion === "2.4.6")!;
+    const headingIssue = issues.find((i) => i.criterion === "1.1.1")!;
     expect(headingIssue.status).toBe("fail");
 
     const headOnlyHtml = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head></html>`;
@@ -6402,11 +6488,11 @@ describe("fixComplianceIssue – partial or truncated AI HTML responses", () => 
 
   it("succeeds on retry when the first AI response is incomplete but the second is valid", async () => {
     const issues = runDeterministicChecks(baseHtml);
-    const headingIssue = issues.find((i) => i.criterion === "2.4.6")!;
+    const headingIssue = issues.find((i) => i.criterion === "1.1.1")!;
     expect(headingIssue.status).toBe("fail");
 
-    const truncatedHtml = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>No H1 Here</h1></main>`;
-    const validHtml = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>No H1 Here</h1></main></body></html>`;
+    const truncatedHtml = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>Photos</h1><img src="photo.jpg" alt="A photo"></main>`;
+    const validHtml = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>Photos</h1><img src="photo.jpg" alt="A photo"></main></body></html>`;
     mockCreate.mockResolvedValueOnce({ content: [{ type: "text", text: truncatedHtml }] });
     mockCreate.mockResolvedValueOnce({ content: [{ type: "text", text: validHtml }] });
 
@@ -6424,11 +6510,11 @@ describe("fixComplianceIssue – partial or truncated AI HTML responses", () => 
     // a valid document. The result must carry wasRetried: true so the route layer can surface
     // the toast notice to the user.
     const issues = runDeterministicChecks(baseHtml);
-    const headingIssue = issues.find((i) => i.criterion === "2.4.6")!;
+    const headingIssue = issues.find((i) => i.criterion === "1.1.1")!;
     expect(headingIssue.status).toBe("fail");
 
-    const incompleteHtml = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>No H1 Here</h1></main>`;
-    const validHtml = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>No H1 Here</h1></main></body></html>`;
+    const incompleteHtml = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>Photos</h1><img src="photo.jpg" alt="A photo"></main>`;
+    const validHtml = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>Photos</h1><img src="photo.jpg" alt="A photo"></main></body></html>`;
 
     mockCreate.mockResolvedValueOnce({ content: [{ type: "text", text: incompleteHtml }] });
     mockCreate.mockResolvedValueOnce({ content: [{ type: "text", text: validHtml }] });
@@ -6446,10 +6532,10 @@ describe("fixComplianceIssue – partial or truncated AI HTML responses", () => 
     // The wasRetried flag must remain false (or undefined) on the happy path where no retry
     // was needed. This prevents a spurious toast from appearing to the user.
     const issues = runDeterministicChecks(baseHtml);
-    const headingIssue = issues.find((i) => i.criterion === "2.4.6")!;
+    const headingIssue = issues.find((i) => i.criterion === "1.1.1")!;
     expect(headingIssue.status).toBe("fail");
 
-    const validHtml = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>No H1 Here</h1></main></body></html>`;
+    const validHtml = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>Photos</h1><img src="photo.jpg" alt="A photo"></main></body></html>`;
     mockCreate.mockResolvedValueOnce({ content: [{ type: "text", text: validHtml }] });
 
     const report = makeReport(issues);
@@ -6461,10 +6547,10 @@ describe("fixComplianceIssue – partial or truncated AI HTML responses", () => 
 
   it("uses the strict completeness prompt on the retry call", async () => {
     const issues = runDeterministicChecks(baseHtml);
-    const headingIssue = issues.find((i) => i.criterion === "2.4.6")!;
+    const headingIssue = issues.find((i) => i.criterion === "1.1.1")!;
 
-    const truncatedHtml = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>No H1 Here</h1></main>`;
-    const validHtml = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>No H1 Here</h1></main></body></html>`;
+    const truncatedHtml = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>Photos</h1><img src="photo.jpg" alt="A photo"></main>`;
+    const validHtml = `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><h1>Photos</h1><img src="photo.jpg" alt="A photo"></main></body></html>`;
     mockCreate.mockResolvedValueOnce({ content: [{ type: "text", text: truncatedHtml }] });
     mockCreate.mockResolvedValueOnce({ content: [{ type: "text", text: validHtml }] });
 

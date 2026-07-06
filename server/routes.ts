@@ -17,7 +17,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import multer from "multer";
 import { db } from "./db";
 import { eq, and, isNull, sql, desc, inArray } from "drizzle-orm";
-import { getDeterministicFixerKeys, getAiFixRetryMetrics, getPersistAiFixRetryLastFailed } from "./lib/accessibility-engine";
+import { getDeterministicFixerKeys, getAiFixRetryMetrics, getPersistAiFixRetryLastFailed, applyHeadingHierarchyFix } from "./lib/accessibility-engine";
 import {
   SHARED_ANON_UPLOAD_RATE_LIMIT,
   SHARED_HEAVY_OP_RATE_LIMIT,
@@ -2522,7 +2522,7 @@ export async function registerRoutes(
         return;
       }
 
-      let html = conversion.accessibleHtml;
+      let html = applyHeadingHierarchyFix(conversion.accessibleHtml);
       const updatedDate = conversion.updatedAt
         ? new Date(conversion.updatedAt)
         : new Date();
@@ -2641,7 +2641,7 @@ export async function registerRoutes(
       }
       activeDocxExports++;
 
-      let html = conversion.accessibleHtml;
+      let html = applyHeadingHierarchyFix(conversion.accessibleHtml);
       const updatedDate = conversion.updatedAt
         ? new Date(conversion.updatedAt)
         : new Date();
@@ -2884,7 +2884,7 @@ export async function registerRoutes(
       }
       activePdfExports++;
 
-      let html = conversion.accessibleHtml;
+      let html = applyHeadingHierarchyFix(conversion.accessibleHtml);
       const updatedDate = conversion.updatedAt
         ? new Date(conversion.updatedAt)
         : new Date();

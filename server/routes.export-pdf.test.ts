@@ -98,6 +98,7 @@ vi.mock("./lib/accessibility-engine", () => ({
   fixComplianceIssue: vi.fn(),
   fixAllAriaRoleMisuse: vi.fn(),
   getAiFixRetryMetrics: () => ({ count: 0, lastAt: null }),
+  applyHeadingHierarchyFix: (html: string) => html,
 }));
 
 // ---------------------------------------------------------------------------
