@@ -374,6 +374,7 @@ export async function registerRoutes(
           pageCount: conversions.pageCount,
           ocrApplied: conversions.ocrApplied,
           complianceReport: conversions.complianceReport,
+          contentFidelity: conversions.contentFidelity,
           createdAt: conversions.createdAt,
           updatedAt: conversions.updatedAt,
         })
@@ -408,6 +409,7 @@ export async function registerRoutes(
           accessibleHtml: conversions.accessibleHtml,
           complianceReport: conversions.complianceReport,
           originalComplianceReport: conversions.originalComplianceReport,
+          contentFidelity: conversions.contentFidelity,
           statusMessage: conversions.statusMessage,
           errorMessage: conversions.errorMessage,
           ocrApplied: conversions.ocrApplied,
@@ -1729,6 +1731,7 @@ export async function registerRoutes(
             extraction.pageCount,
             updateStatusMessage,
             abortController.signal,
+            ocrApplied,
           );
 
           // Guard the success write: if the timeout fired while
@@ -1746,6 +1749,7 @@ export async function registerRoutes(
               accessibleHtml: result.accessibleHtml,
               complianceReport: result.complianceReport,
               originalComplianceReport: originalReport,
+              contentFidelity: result.contentFidelity ?? null,
               ocrApplied,
               pdfData: null,
               extractionWarnings: extraction.warnings && extraction.warnings.length > 0
@@ -2045,6 +2049,7 @@ export async function registerRoutes(
             conversion.pageCount ?? undefined,
             updateStatus,
             abortController.signal,
+            conversion.ocrApplied ?? false,
           );
 
           if (aborted) throw new Error("aborted");
@@ -2054,6 +2059,7 @@ export async function registerRoutes(
             statusMessage: null,
             accessibleHtml: result.accessibleHtml,
             complianceReport: result.complianceReport,
+            contentFidelity: result.contentFidelity ?? null,
             updatedAt: new Date(),
           }).where(eq(conversions.id, id));
 
@@ -3212,6 +3218,7 @@ export async function registerRoutes(
         originalComplianceReport,
         accessibleHtml,
         manualFixItems,
+        contentFidelity,
       } = req.body as {
         userId?: string;
         originalFilename?: string;
@@ -3222,13 +3229,16 @@ export async function registerRoutes(
         originalComplianceReport?: unknown;
         accessibleHtml?: string;
         manualFixItems?: unknown;
+        contentFidelity?: unknown;
       };
 
       try {
+        const visitorToken = userId ? null : ensureVisitorToken(req);
         const [row] = await db
           .insert(conversions)
           .values({
             userId: userId ?? null,
+            visitorToken,
             originalFilename: originalFilename ?? "test-document.pdf",
             fileSize: 1024,
             sourceType: sourceType ?? "pdf",
@@ -3238,6 +3248,7 @@ export async function registerRoutes(
             originalComplianceReport: originalComplianceReport ?? complianceReport ?? null,
             accessibleHtml: accessibleHtml ?? null,
             manualFixItems: manualFixItems ?? null,
+            contentFidelity: contentFidelity ?? null,
           })
           .returning({ id: conversions.id });
 

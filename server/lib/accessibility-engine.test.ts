@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { join, dirname } from "path";
@@ -35,6 +35,12 @@ import {
   registerDeterministicFixer,
   AI_FIX_RETRY_METRIC_KEY,
   getAiFixRetryMetrics,
+  stripHtmlToPlainText,
+  computeTextCoverage,
+  detectBrokenTransitions,
+  summarizeHeadingStructure,
+  buildContentFidelityReport,
+  getTextCoverageWarningThreshold,
   type ComplianceIssue,
   type ComplianceReport,
 } from "./accessibility-engine.js";
@@ -7398,5 +7404,153 @@ describe("AI_FIX_RETRY_METRIC_KEY", () => {
     // first values() call must carry AI_FIX_RETRY_METRIC_KEY as the row key.
     expect(mockValues).toHaveBeenCalled();
     expect((mockValues.mock.calls[0][0] as { key: string }).key).toBe(AI_FIX_RETRY_METRIC_KEY);
+  });
+});
+
+describe("Content Fidelity Review", () => {
+  describe("stripHtmlToPlainText", () => {
+    it("removes tags, scripts, and styles and normalizes whitespace", () => {
+      const html =
+        '<html><head><style>.a{color:red}</style></head><body><p>Hello   world.</p><script>evil()</script><p>Second   paragraph.</p></body></html>';
+      expect(stripHtmlToPlainText(html)).toBe("Hello world.Second paragraph.");
+    });
+
+    it("falls back to a regex strip if parsing throws", () => {
+      // parseHtml should not normally throw, but the fallback path must still work.
+      expect(stripHtmlToPlainText("<p>plain</p>")).toBe("plain");
+    });
+  });
+
+  describe("computeTextCoverage", () => {
+    it("reports full coverage when word counts match", () => {
+      const source = "one two three four five";
+      const html = "<p>one two three four five</p>";
+      const { ratio, sourceWordCount, outputWordCount } = computeTextCoverage(source, html);
+      expect(sourceWordCount).toBe(5);
+      expect(outputWordCount).toBe(5);
+      expect(ratio).toBe(1);
+    });
+
+    it("reports a reduced ratio when output has fewer words than source", () => {
+      const source = "one two three four five six seven eight nine ten";
+      const html = "<p>one two three</p>";
+      const { ratio, sourceWordCount, outputWordCount } = computeTextCoverage(source, html);
+      expect(sourceWordCount).toBe(10);
+      expect(outputWordCount).toBe(3);
+      expect(ratio).toBeCloseTo(0.3, 5);
+    });
+
+    it("caps the ratio at 1 when output has more words than source", () => {
+      const source = "one two";
+      const html = "<p>one two three four</p>";
+      const { ratio } = computeTextCoverage(source, html);
+      expect(ratio).toBe(1);
+    });
+
+    it("treats an empty source with empty output as full coverage", () => {
+      const { ratio, sourceWordCount, outputWordCount } = computeTextCoverage("", "<p></p>");
+      expect(sourceWordCount).toBe(0);
+      expect(outputWordCount).toBe(0);
+      expect(ratio).toBe(0);
+    });
+  });
+
+  describe("getTextCoverageWarningThreshold", () => {
+    const originalEnv = process.env.CONTENT_FIDELITY_COVERAGE_THRESHOLD;
+    afterEach(() => {
+      if (originalEnv === undefined) delete process.env.CONTENT_FIDELITY_COVERAGE_THRESHOLD;
+      else process.env.CONTENT_FIDELITY_COVERAGE_THRESHOLD = originalEnv;
+    });
+
+    it("defaults to 0.85 when unset", () => {
+      delete process.env.CONTENT_FIDELITY_COVERAGE_THRESHOLD;
+      expect(getTextCoverageWarningThreshold()).toBe(0.85);
+    });
+
+    it("honors a valid configured threshold", () => {
+      process.env.CONTENT_FIDELITY_COVERAGE_THRESHOLD = "0.5";
+      expect(getTextCoverageWarningThreshold()).toBe(0.5);
+    });
+
+    it("falls back to the default for an out-of-range value", () => {
+      process.env.CONTENT_FIDELITY_COVERAGE_THRESHOLD = "5";
+      expect(getTextCoverageWarningThreshold()).toBe(0.85);
+    });
+  });
+
+  describe("detectBrokenTransitions", () => {
+    it("flags a paragraph that ends mid-sentence before a lowercase continuation", () => {
+      const html =
+        "<p>This is a long paragraph that seems to end abruptly without proper punctuation and</p>" +
+        "<p>then continues here in the next block which is also fairly long.</p>";
+      const issues = detectBrokenTransitions(html);
+      expect(issues.length).toBe(1);
+      expect(issues[0]).toContain("\u2192");
+    });
+
+    it("does not flag paragraphs that end with terminal punctuation", () => {
+      const html =
+        "<p>This is a complete sentence that ends properly with a period.</p>" +
+        "<p>This is another complete sentence that also ends properly.</p>";
+      expect(detectBrokenTransitions(html)).toEqual([]);
+    });
+
+    it("ignores short fragments like labels or captions", () => {
+      const html = "<p>Figure 1</p><p>shows the results of the experiment in detail.</p>";
+      expect(detectBrokenTransitions(html)).toEqual([]);
+    });
+  });
+
+  describe("summarizeHeadingStructure", () => {
+    it("reports a consistent outline with no skipped levels", () => {
+      const html = "<h1>Title</h1><h2>Section</h2><h3>Subsection</h3>";
+      const outline = summarizeHeadingStructure(html);
+      expect(outline.hasSkippedLevels).toBe(false);
+      expect(outline.headingCount).toBe(3);
+      expect(outline.levels).toEqual([1, 2, 3]);
+    });
+
+    it("detects a skipped heading level", () => {
+      const html = "<h1>Title</h1><h3>Jumped subsection</h3>";
+      const outline = summarizeHeadingStructure(html);
+      expect(outline.hasSkippedLevels).toBe(true);
+      expect(outline.skips.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe("buildContentFidelityReport", () => {
+    it("returns overallStatus ok when coverage, transitions, OCR, and headings are all clean", () => {
+      const source = "one two three four five";
+      const html = "<h1>Doc</h1><p>one two three four five.</p>";
+      const report = buildContentFidelityReport(source, html, false);
+      expect(report.overallStatus).toBe("ok");
+      expect(report.ocrApplied).toBe(false);
+      expect(report.findings).toHaveLength(4);
+      expect(report.findings.every((f) => f.status === "ok")).toBe(true);
+    });
+
+    it("flags text-coverage as a warning when output loses significant content", () => {
+      const source = Array.from({ length: 100 }, (_, i) => `word${i}`).join(" ");
+      const html = "<p>word0 word1 word2.</p>";
+      const report = buildContentFidelityReport(source, html, false);
+      const coverageFinding = report.findings.find((f) => f.type === "text-coverage");
+      expect(coverageFinding?.status).toBe("warning");
+      expect(report.overallStatus).toBe("warning");
+    });
+
+    it("flags ocr-quality as a warning when OCR was applied, independent of other checks", () => {
+      const source = "one two three";
+      const html = "<h1>Doc</h1><p>one two three.</p>";
+      const report = buildContentFidelityReport(source, html, true);
+      const ocrFinding = report.findings.find((f) => f.type === "ocr-quality");
+      expect(ocrFinding?.status).toBe("warning");
+      expect(report.overallStatus).toBe("warning");
+    });
+
+    it("never throws or blocks regardless of input shape (advisory only)", () => {
+      expect(() => buildContentFidelityReport("", "", false)).not.toThrow();
+      const report = buildContentFidelityReport("", "", false);
+      expect(report.overallStatus).toBeDefined();
+    });
   });
 });

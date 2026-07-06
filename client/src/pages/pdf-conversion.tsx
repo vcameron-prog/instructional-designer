@@ -10,6 +10,7 @@ import {
   ArrowLeft,
   Loader2,
   FileCheck2,
+  CheckCircle2,
   AlertTriangle,
   ShieldCheck,
   Cpu,
@@ -1348,6 +1349,19 @@ export default function PdfConversion() {
 
   const report = conversion.complianceReport;
   const originalReport = conversion.originalComplianceReport;
+  const contentFidelity = (conversion as any)?.contentFidelity as
+    | {
+        textCoverageRatio: number;
+        sourceWordCount: number;
+        outputWordCount: number;
+        ocrApplied: boolean;
+        overallStatus: "ok" | "warning";
+        brokenTransitions: string[];
+        headingOutline: { levels: number[]; hasSkippedLevels: boolean };
+        findings: Array<{ type: string; status: "ok" | "warning"; message: string; details?: string }>;
+      }
+    | null
+    | undefined;
   const improvement =
     report && originalReport
       ? report.overallScore - originalReport.overallScore
@@ -2216,6 +2230,88 @@ export default function PdfConversion() {
                   )}
                 </div>
               </section>
+
+              {contentFidelity && (
+                <section
+                  className="bg-card border rounded-2xl overflow-hidden"
+                  data-testid="section-content-fidelity"
+                >
+                  <div className="bg-secondary/50 border-b px-6 py-4">
+                    <h2 className="flex items-center gap-2 font-bold">
+                      <FileCheck2 className="w-5 h-5" />
+                      Content Fidelity
+                    </h2>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Advisory review of content accuracy — separate from the
+                      WCAG compliance score above and never blocks export.
+                    </p>
+                  </div>
+                  <div className="p-4 space-y-3">
+                    <div
+                      className={cn(
+                        "flex items-center gap-2 rounded-xl border p-2.5",
+                        contentFidelity.overallStatus === "ok"
+                          ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800"
+                          : "bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800",
+                      )}
+                      data-testid="status-content-fidelity-overall"
+                    >
+                      {contentFidelity.overallStatus === "ok" ? (
+                        <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
+                      ) : (
+                        <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                      )}
+                      <p className="text-sm font-semibold">
+                        {contentFidelity.overallStatus === "ok"
+                          ? "No content fidelity concerns detected"
+                          : "Some items may need a quick review"}
+                      </p>
+                    </div>
+
+                    <ul className="space-y-2">
+                      {contentFidelity.findings.map((finding, idx) => (
+                        <li
+                          key={`${finding.type}-${idx}`}
+                          className="flex items-start gap-2 text-sm"
+                          data-testid={`finding-content-fidelity-${finding.type}`}
+                        >
+                          {finding.status === "ok" ? (
+                            <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0 mt-0.5" />
+                          ) : (
+                            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                          )}
+                          <div>
+                            <p className="text-foreground/90">{finding.message}</p>
+                            {finding.details && (
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                {finding.details}
+                              </p>
+                            )}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+
+                    {contentFidelity.brokenTransitions.length > 0 && (
+                      <div className="rounded-xl border bg-secondary/30 p-2.5">
+                        <p className="text-xs font-bold uppercase text-muted-foreground mb-1.5">
+                          Possible cut-off sections
+                        </p>
+                        <ul className="space-y-1">
+                          {contentFidelity.brokenTransitions.slice(0, 5).map((snippet, idx) => (
+                            <li
+                              key={idx}
+                              className="text-xs text-muted-foreground font-mono break-words"
+                            >
+                              {snippet}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                </section>
+              )}
             </div>
 
             <div className="lg:col-span-2 space-y-6">

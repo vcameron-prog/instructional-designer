@@ -167,6 +167,7 @@ export interface ComplianceReport {
 export interface AccessibilityResult {
   accessibleHtml: string;
   complianceReport: ComplianceReport;
+  contentFidelity?: ContentFidelityReport;
   wasRetried?: boolean;
   elementsFixed?: number;
   noFixReason?: string;
@@ -1292,6 +1293,224 @@ export function evaluateOriginalDocument(extractedText: string): ComplianceRepor
   const wrappedHtml = extractedText;
   const issues = runDeterministicChecks(wrappedHtml);
   return buildComplianceReport(issues);
+}
+
+// ---------------------------------------------------------------------------
+// Content Fidelity Review
+//
+// The compliance report above measures WCAG conformance, not whether the
+// underlying academic content survived the conversion intact. This section
+// adds a separate, advisory-only review that checks for text loss, broken
+// sentence transitions introduced during chunked remediation, OCR/source
+// quality concerns, and a plain-language summary of the heading structure.
+// It never blocks export/download — it only surfaces findings for faculty.
+// ---------------------------------------------------------------------------
+
+export interface ContentFidelityFinding {
+  type: "text-coverage" | "sentence-continuity" | "ocr-quality" | "heading-structure";
+  status: "ok" | "warning";
+  message: string;
+  details?: string;
+}
+
+export interface ContentFidelityReport {
+  textCoverageRatio: number;
+  sourceWordCount: number;
+  outputWordCount: number;
+  ocrApplied: boolean;
+  headingOutline: {
+    levels: number[];
+    hasSkippedLevels: boolean;
+    skips: Array<{ from: number; to: number }>;
+  };
+  brokenTransitions: string[];
+  overallStatus: "ok" | "warning";
+  findings: ContentFidelityFinding[];
+}
+
+const contentFidelityFindingSchema = z.object({
+  type: z.enum(["text-coverage", "sentence-continuity", "ocr-quality", "heading-structure"]),
+  status: z.enum(["ok", "warning"]),
+  message: z.string(),
+  details: z.string().optional(),
+});
+
+export const contentFidelityReportSchema = z.object({
+  textCoverageRatio: z.number(),
+  sourceWordCount: z.number(),
+  outputWordCount: z.number(),
+  ocrApplied: z.boolean(),
+  headingOutline: z.object({
+    levels: z.array(z.number()),
+    hasSkippedLevels: z.boolean(),
+    skips: z.array(z.object({ from: z.number(), to: z.number() })),
+  }),
+  brokenTransitions: z.array(z.string()),
+  overallStatus: z.enum(["ok", "warning"]),
+  findings: z.array(contentFidelityFindingSchema),
+});
+
+const DEFAULT_TEXT_COVERAGE_WARNING_THRESHOLD = 0.85;
+
+/** Reads the minimum acceptable text-coverage ratio (0-1) from the
+ *  CONTENT_FIDELITY_COVERAGE_THRESHOLD env var, falling back to a sane default. */
+export function getTextCoverageWarningThreshold(): number {
+  const v = parseFloat(process.env.CONTENT_FIDELITY_COVERAGE_THRESHOLD ?? "");
+  return isNaN(v) || v <= 0 || v > 1 ? DEFAULT_TEXT_COVERAGE_WARNING_THRESHOLD : v;
+}
+
+/** Strips HTML tags/scripts/styles down to plain, whitespace-normalised text. */
+export function stripHtmlToPlainText(html: string): string {
+  try {
+    const root = parseHtml(html);
+    root.querySelectorAll("script, style").forEach((el) => el.remove());
+    return root.textContent.replace(/\s+/g, " ").trim();
+  } catch {
+    return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  }
+}
+
+function countWords(text: string): number {
+  const trimmed = text.trim();
+  return trimmed ? trimmed.split(/\s+/).length : 0;
+}
+
+/**
+ * Compares the word count of the originally-extracted source text against the
+ * word count of the final accessible HTML to estimate how much content may
+ * have been lost or truncated during AI remediation.
+ */
+export function computeTextCoverage(
+  sourceText: string,
+  accessibleHtml: string
+): { ratio: number; sourceWordCount: number; outputWordCount: number } {
+  const outputText = stripHtmlToPlainText(accessibleHtml);
+  const sourceWordCount = countWords(sourceText);
+  const outputWordCount = countWords(outputText);
+  const ratio =
+    sourceWordCount > 0
+      ? Math.min(1, outputWordCount / sourceWordCount)
+      : outputWordCount > 0
+        ? 1
+        : 0;
+  return { ratio, sourceWordCount, outputWordCount };
+}
+
+/**
+ * Heuristically flags block-level elements (paragraphs, list items, table
+ * cells) that end without terminal punctuation immediately before a block
+ * that begins with a lowercase letter — a common signature of a sentence
+ * that was cut off or split awkwardly across a chunk boundary during
+ * remediation. Short fragments (labels, captions) are ignored to reduce
+ * false positives.
+ */
+export function detectBrokenTransitions(html: string): string[] {
+  let blocks: string[] = [];
+  try {
+    const root = parseHtml(html);
+    blocks = root
+      .querySelectorAll("p, li, td, th, blockquote")
+      .map((el) => el.textContent.replace(/\s+/g, " ").trim())
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+
+  const endsMidSentence = /[a-z,;:\-]$/;
+  const startsLowercaseContinuation = /^[a-z]/;
+  const issues: string[] = [];
+
+  for (let i = 0; i < blocks.length - 1; i++) {
+    const cur = blocks[i];
+    const next = blocks[i + 1];
+    if (cur.length < 20 || next.length < 5) continue;
+    if (endsMidSentence.test(cur) && startsLowercaseContinuation.test(next)) {
+      issues.push(`"...${cur.slice(-40)}" \u2192 "${next.slice(0, 40)}..."`);
+    }
+    if (issues.length >= 10) break;
+  }
+
+  return issues;
+}
+
+/** Produces a full heading outline (not just pass/fail) for a plain-language summary. */
+export function summarizeHeadingStructure(html: string): {
+  levels: number[];
+  hasSkippedLevels: boolean;
+  skips: Array<{ from: number; to: number }>;
+  headingCount: number;
+} {
+  const order = checkHeadingOrder(html);
+  return { ...order, headingCount: order.levels.length };
+}
+
+/**
+ * Builds the advisory Content Fidelity report for a completed conversion.
+ * This is separate from — and never affects — the WCAG compliance report or
+ * the ability to export/download the document.
+ */
+export function buildContentFidelityReport(
+  sourceText: string,
+  accessibleHtml: string,
+  ocrApplied: boolean
+): ContentFidelityReport {
+  const findings: ContentFidelityFinding[] = [];
+
+  const { ratio, sourceWordCount, outputWordCount } = computeTextCoverage(sourceText, accessibleHtml);
+  const threshold = getTextCoverageWarningThreshold();
+  const coverageOk = sourceWordCount === 0 || ratio >= threshold;
+  findings.push({
+    type: "text-coverage",
+    status: coverageOk ? "ok" : "warning",
+    message: coverageOk
+      ? "The converted document appears to contain all of the original text."
+      : `The converted document may be missing some content — it contains about ${Math.round(ratio * 100)}% of the original word count. Please review the full document.`,
+    details: `Source: ~${sourceWordCount} words. Converted output: ~${outputWordCount} words.`,
+  });
+
+  const brokenTransitions = detectBrokenTransitions(accessibleHtml);
+  findings.push({
+    type: "sentence-continuity",
+    status: brokenTransitions.length > 0 ? "warning" : "ok",
+    message:
+      brokenTransitions.length > 0
+        ? `Found ${brokenTransitions.length} spot(s) where a sentence may have been cut off or split awkwardly during conversion. Please review these sections.`
+        : "No obvious broken sentence transitions were detected.",
+  });
+
+  findings.push({
+    type: "ocr-quality",
+    status: ocrApplied ? "warning" : "ok",
+    message: ocrApplied
+      ? "This document appeared to be a scanned/image-based file, so text was extracted using OCR. Please double-check the converted text for accuracy, especially on pages with complex layouts, handwriting, or unusual fonts."
+      : "This document's text was extracted directly from the source file (no OCR was needed).",
+  });
+
+  const headingOutline = summarizeHeadingStructure(accessibleHtml);
+  findings.push({
+    type: "heading-structure",
+    status: headingOutline.hasSkippedLevels ? "warning" : "ok",
+    message: headingOutline.hasSkippedLevels
+      ? `The document has ${headingOutline.headingCount} heading(s), but some heading levels are skipped (e.g. jumping from an H${headingOutline.skips[0]?.from} to an H${headingOutline.skips[0]?.to}), which can be confusing for screen reader users.`
+      : `The document has ${headingOutline.headingCount} heading(s) with a consistent structure.`,
+  });
+
+  const overallStatus = findings.some((f) => f.status === "warning") ? "warning" : "ok";
+
+  return {
+    textCoverageRatio: ratio,
+    sourceWordCount,
+    outputWordCount,
+    ocrApplied,
+    headingOutline: {
+      levels: headingOutline.levels,
+      hasSkippedLevels: headingOutline.hasSkippedLevels,
+      skips: headingOutline.skips,
+    },
+    brokenTransitions,
+    overallStatus,
+    findings,
+  };
 }
 
 export function applyAriaLinkRoleFix(html: string): string {
@@ -2531,7 +2750,8 @@ export async function generateAccessibleDocument(
   tables: ExtractedTable[] = [],
   _pageCount?: number,
   onProgress?: ProgressCallback,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  ocrApplied = false
 ): Promise<AccessibilityResult> {
   const documentTitle = metadata.title || originalFilename.replace(/\.pdf$/i, "");
 
@@ -2704,5 +2924,6 @@ ${structuralSummary}`,
   return {
     accessibleHtml,
     complianceReport: buildComplianceReport(allIssues),
+    contentFidelity: buildContentFidelityReport(extractedText, accessibleHtml, ocrApplied),
   };
 }
