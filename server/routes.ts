@@ -357,7 +357,7 @@ export async function registerRoutes(
   const OLE_MAGIC = Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]); // legacy .doc/.xls/.ppt
   const ZIP_MAGIC = Buffer.from([0x50, 0x4b, 0x03, 0x04]);
 
-  type DetectedDocCategory = "pdf" | "docx" | "xlsx" | "pptx" | "doc";
+  type DetectedDocCategory = "pdf" | "docx" | "xlsx" | "pptx" | "doc" | "odt" | "ods" | "odp" | "epub";
 
   const DETECTED_DOC_TYPES: Record<DetectedDocCategory, { label: string; extension: string }> = {
     pdf: { label: "PDF", extension: ".pdf" },
@@ -365,14 +365,28 @@ export async function registerRoutes(
     xlsx: { label: "Excel spreadsheet (.xlsx)", extension: ".xlsx" },
     pptx: { label: "PowerPoint presentation (.pptx)", extension: ".pptx" },
     doc: { label: "legacy Word document (.doc)", extension: ".doc" },
+    odt: { label: "OpenDocument text file (.odt)", extension: ".odt" },
+    ods: { label: "OpenDocument spreadsheet (.ods)", extension: ".ods" },
+    odp: { label: "OpenDocument presentation (.odp)", extension: ".odp" },
+    epub: { label: "EPUB e-book (.epub)", extension: ".epub" },
+  };
+
+  // ODF and EPUB store a "mimetype" entry as the FIRST zip entry, uncompressed,
+  // whose contents are exactly this string. Substring-matching the leading bytes
+  // is enough to disambiguate these zip-based formats without a full unzip,
+  // the same trick used for the OOXML part names below.
+  const ODF_EPUB_MIMETYPES: Record<string, DetectedDocCategory> = {
+    "application/vnd.oasis.opendocument.text": "odt",
+    "application/vnd.oasis.opendocument.spreadsheet": "ods",
+    "application/vnd.oasis.opendocument.presentation": "odp",
+    "application/epub+zip": "epub",
   };
 
   /**
    * Identifies the true document format from magic bytes / embedded zip entry
    * names, independent of the client-reported extension or MIME type. Returns
    * null if the buffer doesn't match one of the binary formats checked here
-   * (plain text, RTF, HTML, CSV, or a zip-based format we don't distinguish,
-   * like ODF/EPUB).
+   * (plain text, RTF, HTML, or CSV).
    */
   function detectActualDocCategory(buffer: Buffer): DetectedDocCategory | null {
     if (buffer.length >= PDF_MAGIC.length && buffer.subarray(0, PDF_MAGIC.length).equals(PDF_MAGIC)) {
@@ -389,6 +403,9 @@ export async function registerRoutes(
       if (head.includes("word/document.xml")) return "docx";
       if (head.includes("xl/workbook.xml")) return "xlsx";
       if (head.includes("ppt/presentation.xml")) return "pptx";
+      for (const [mimetype, category] of Object.entries(ODF_EPUB_MIMETYPES)) {
+        if (head.includes(mimetype)) return category;
+      }
       return null;
     }
     return null;
@@ -397,7 +414,7 @@ export async function registerRoutes(
   /**
    * Maps a resolved sourceType to the doc category its bytes should match,
    * for the formats where a magic-byte mismatch is unambiguous. Returns null
-   * for formats not checked here (text-based or ambiguous zip formats).
+   * for formats not checked here (text-based formats).
    */
   function expectedDocCategoryForSourceType(sourceType: string): DetectedDocCategory | null {
     switch (sourceType) {
@@ -406,6 +423,10 @@ export async function registerRoutes(
       case "xlsx": return "xlsx";
       case "pptx": return "pptx";
       case "doc": return "doc";
+      case "odt": return "odt";
+      case "ods": return "ods";
+      case "odp": return "odp";
+      case "epub": return "epub";
       default: return null;
     }
   }

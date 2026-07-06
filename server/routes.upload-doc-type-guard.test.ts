@@ -178,6 +178,22 @@ function fakeLegacyDocBuffer(): Buffer {
   ]);
 }
 
+/** Minimal valid ODF bytes: zip magic + the uncompressed "mimetype" entry content. */
+function fakeOdfBuffer(mimetype: string): Buffer {
+  return Buffer.concat([
+    Buffer.from([0x50, 0x4b, 0x03, 0x04]),
+    Buffer.from(`mimetype${mimetype}`),
+  ]);
+}
+
+/** Minimal valid EPUB bytes: zip magic + the uncompressed "mimetype" entry content. */
+function fakeEpubBuffer(): Buffer {
+  return Buffer.concat([
+    Buffer.from([0x50, 0x4b, 0x03, 0x04]),
+    Buffer.from("mimetypeapplication/epub+zip"),
+  ]);
+}
+
 describe("POST /api/conversions/upload — renamed-document guard", () => {
   let app: express.Express;
 
@@ -264,6 +280,86 @@ describe("POST /api/conversions/upload — renamed-document guard", () => {
       .attach("file", fakeDocxBuffer(), {
         filename: "syllabus.docx",
         contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      });
+
+    expect(res.status).toBe(200);
+    expect(mockDbInsertReturning).toHaveBeenCalled();
+  });
+
+  it("rejects a real ODT uploaded with a .pdf extension with a format-specific message", async () => {
+    const res = await request(app)
+      .post("/api/conversions/upload")
+      .attach("file", fakeOdfBuffer("application/vnd.oasis.opendocument.text"), {
+        filename: "notes.pdf",
+        contentType: "application/pdf",
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/OpenDocument text file \(\.odt\)/i);
+    expect(res.body.detectedType).toBe("OpenDocument text file (.odt)");
+    expect(mockDbInsertReturning).not.toHaveBeenCalled();
+  });
+
+  it("rejects a real ODS uploaded with a .docx extension with a format-specific message", async () => {
+    const res = await request(app)
+      .post("/api/conversions/upload")
+      .attach("file", fakeOdfBuffer("application/vnd.oasis.opendocument.spreadsheet"), {
+        filename: "grades.docx",
+        contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/OpenDocument spreadsheet \(\.ods\)/i);
+    expect(res.body.detectedType).toBe("OpenDocument spreadsheet (.ods)");
+    expect(mockDbInsertReturning).not.toHaveBeenCalled();
+  });
+
+  it("rejects a real ODP uploaded with a .pdf extension with a format-specific message", async () => {
+    const res = await request(app)
+      .post("/api/conversions/upload")
+      .attach("file", fakeOdfBuffer("application/vnd.oasis.opendocument.presentation"), {
+        filename: "slides.pdf",
+        contentType: "application/pdf",
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/OpenDocument presentation \(\.odp\)/i);
+    expect(res.body.detectedType).toBe("OpenDocument presentation (.odp)");
+    expect(mockDbInsertReturning).not.toHaveBeenCalled();
+  });
+
+  it("rejects a real EPUB uploaded with a .pdf extension with a format-specific message", async () => {
+    const res = await request(app)
+      .post("/api/conversions/upload")
+      .attach("file", fakeEpubBuffer(), {
+        filename: "reading.pdf",
+        contentType: "application/pdf",
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/EPUB e-book \(\.epub\)/i);
+    expect(res.body.detectedType).toBe("EPUB e-book (.epub)");
+    expect(mockDbInsertReturning).not.toHaveBeenCalled();
+  });
+
+  it("accepts a real ODT uploaded with a .odt extension", async () => {
+    const res = await request(app)
+      .post("/api/conversions/upload")
+      .attach("file", fakeOdfBuffer("application/vnd.oasis.opendocument.text"), {
+        filename: "notes.odt",
+        contentType: "application/vnd.oasis.opendocument.text",
+      });
+
+    expect(res.status).toBe(200);
+    expect(mockDbInsertReturning).toHaveBeenCalled();
+  });
+
+  it("accepts a real EPUB uploaded with a .epub extension", async () => {
+    const res = await request(app)
+      .post("/api/conversions/upload")
+      .attach("file", fakeEpubBuffer(), {
+        filename: "reading.epub",
+        contentType: "application/epub+zip",
       });
 
     expect(res.status).toBe(200);
