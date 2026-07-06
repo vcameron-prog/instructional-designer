@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,6 +7,8 @@ import { ArrowLeft, Calculator, AlertCircle, RefreshCw, Upload, Copy, Check } fr
 import { HeaderControls, BackButton } from "@/components/header-controls";
 import { PoweredByFooter } from "@/components/powered-by-footer";
 import { usePageTitle } from "@/hooks/use-page-title";
+
+const DEFAULT_MAX_UPLOAD_MB = 5;
 
 interface MathOcrResult {
   plainText: string;
@@ -59,13 +62,18 @@ export default function MathOcrPage() {
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const { data: config } = useQuery<{ imageUploadMaxMB?: number }>({
+    queryKey: ["/api/config"],
+  });
+  const maxUploadMB = config?.imageUploadMaxMB ?? DEFAULT_MAX_UPLOAD_MB;
+
   function handleFile(f: File) {
     if (!f.type.startsWith("image/")) {
       setError("Please upload an image file (JPEG, PNG, GIF, or WebP).");
       return;
     }
-    if (f.size > 5 * 1024 * 1024) {
-      setError("Image must be under 5 MB.");
+    if (f.size > maxUploadMB * 1024 * 1024) {
+      setError(`Image must be under ${maxUploadMB} MB.`);
       return;
     }
     setFile(f);
@@ -142,7 +150,7 @@ export default function MathOcrPage() {
           <CardHeader>
             <CardTitle className="text-lg">Upload a Math Image</CardTitle>
             <CardDescription>
-              Equations, formulas, expressions from textbooks, slides, or handwriting — JPEG, PNG, GIF, or WebP up to 5 MB
+              Equations, formulas, expressions from textbooks, slides, or handwriting — JPEG, PNG, GIF, or WebP up to {maxUploadMB} MB
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">

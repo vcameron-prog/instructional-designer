@@ -216,6 +216,10 @@ export async function registerRoutes(
     res.json({ keys: getDeterministicFixerKeys().sort() });
   });
 
+  app.get("/api/config", (_req: Request, res: Response) => {
+    res.json({ imageUploadMaxMB: IMAGE_UPLOAD_MAX_BYTES / (1024 * 1024) });
+  });
+
   app.get("/api/metrics", async (_req: Request, res: Response) => {
     const { retryCount, lastRetryAt } = await getAiFixRetryMetrics();
     const dbStats = await storage.getAiFixRetryStats().catch(() => ({ lifetimeCount: 0, thisMonthCount: 0 }));

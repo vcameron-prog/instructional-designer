@@ -1297,7 +1297,10 @@ export async function registerRoutes(
   };
 
   app.get("/api/config", (_req: Request, res: Response) => {
-    res.json({ versionHistoryLimit: VERSION_HISTORY_LIMIT });
+    res.json({
+      versionHistoryLimit: VERSION_HISTORY_LIMIT,
+      imageUploadMaxMB: IMAGE_UPLOAD_MAX_BYTES / (1024 * 1024),
+    });
   });
 
   if (process.env.NODE_ENV !== "production") {
