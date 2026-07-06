@@ -110,9 +110,28 @@ async function guardSsrf(hostname: string): Promise<string | null> {
   return null; // allowed
 }
 
+const SYLLABUS_UPLOAD_MIME_TYPES = /^(text\/plain|application\/pdf|application\/msword|application\/vnd\.openxmlformats-officedocument\.wordprocessingml\.document)$/;
+const SYLLABUS_UPLOAD_EXTENSIONS = /\.(txt|pdf|doc|docx)$/i;
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: DOCUMENT_UPLOAD_MAX_BYTES, files: 1 },
+  fileFilter: (_req, file, cb) => {
+    const fileName = file.originalname.toLowerCase();
+    if (
+      SYLLABUS_UPLOAD_MIME_TYPES.test(file.mimetype) ||
+      file.mimetype.includes("word") ||
+      SYLLABUS_UPLOAD_EXTENSIONS.test(fileName)
+    ) {
+      cb(null, true);
+    } else {
+      const err: any = new Error(
+        "Unsupported file type. Please upload a PDF, Word document, or text file.",
+      );
+      err.isFileFilterError = true;
+      cb(err);
+    }
+  },
 });
 
 const VERSION_HISTORY_LIMIT: number = parseVersionHistoryLimit(process.env.VERSION_HISTORY_LIMIT);

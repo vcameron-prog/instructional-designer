@@ -101,6 +101,9 @@ async function buildApp() {
     if (err.code === "LIMIT_FILE_COUNT" || err.code === "LIMIT_UNEXPECTED_FILE") {
       return res.status(400).json({ error: "Invalid file upload request." });
     }
+    if (err.isFileFilterError) {
+      return res.status(400).json({ error: err.message });
+    }
     const status = err.status || err.statusCode || 500;
     return res.status(status).json({ message: err.message || "Internal Server Error" });
   });
@@ -125,6 +128,9 @@ const TINY_JPEG = Buffer.from(
 
 // Build a buffer that is guaranteed to exceed the 5 MB limit.
 const OVER_LIMIT_BUFFER = Buffer.alloc(6 * 1024 * 1024, 0xff);
+
+// Build a buffer that is guaranteed to exceed the 10 MB syllabus upload limit.
+const OVER_SYLLABUS_LIMIT_BUFFER = Buffer.alloc(11 * 1024 * 1024, 0xff);
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -200,6 +206,50 @@ describe("Upload size-limit error handling", () => {
 
       expect(res.status).toBe(400);
       expect(res.body).toHaveProperty("error");
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // POST /api/upload-syllabus
+  // -------------------------------------------------------------------------
+
+  describe("POST /api/upload-syllabus", () => {
+    it("returns 400 (not 500) when an unsupported file type is uploaded", async () => {
+      const res = await request(app)
+        .post("/api/upload-syllabus")
+        .attach("file", Buffer.from("PK\x03\x04fakezip"), {
+          filename: "malware.exe",
+          contentType: "application/x-msdownload",
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body).toHaveProperty("error");
+      expect(typeof res.body.error).toBe("string");
+      expect(res.body.error.length).toBeGreaterThan(0);
+    });
+
+    it("returns 413 with a user-friendly error when the uploaded file exceeds the size limit", async () => {
+      const res = await request(app)
+        .post("/api/upload-syllabus")
+        .attach("file", OVER_SYLLABUS_LIMIT_BUFFER, {
+          filename: "big.txt",
+          contentType: "text/plain",
+        });
+
+      expect(res.status).toBe(413);
+      expect(res.body).toHaveProperty("error");
+    });
+
+    it("accepts a supported .txt file", async () => {
+      const res = await request(app)
+        .post("/api/upload-syllabus")
+        .attach("file", Buffer.from("Hello syllabus"), {
+          filename: "syllabus.txt",
+          contentType: "text/plain",
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty("content");
     });
   });
 });
