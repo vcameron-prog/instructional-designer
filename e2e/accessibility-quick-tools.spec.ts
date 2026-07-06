@@ -368,6 +368,34 @@ test.describe("Alt Text Generator (/accessibility-tools/alt-text)", () => {
     });
   });
 
+  test("uploading a file with an unsupported image mimetype passes the client check but is rejected by the server with a visible error", async ({
+    page,
+  }) => {
+    // "image/bmp" starts with "image/" so the client-side check in
+    // handleFile() lets it through; the server's multer fileFilter only
+    // accepts jpeg/png/gif/webp and rejects this with a 400. This exercises
+    // the real, unmocked /api/tools/alt-text route.
+    await page.getByTestId("input-image-file").setInputFiles({
+      name: "test.bmp",
+      mimeType: "image/bmp",
+      buffer: Buffer.from([
+        0x42, 0x4d, 0x3a, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x36,
+        0x00, 0x00, 0x00,
+      ]),
+    });
+
+    await expect(page.getByTestId("button-generate-alt")).toBeEnabled({
+      timeout: 5_000,
+    });
+    await page.getByTestId("button-generate-alt").click();
+
+    const errorEl = page.getByTestId("text-alt-error");
+    await expect(errorEl).toBeVisible({ timeout: 10_000 });
+    await expect(errorEl).toContainText(
+      "Only JPEG, PNG, GIF, and WebP images are supported",
+    );
+  });
+
   test("back button is present", async ({ page }) => {
     await expect(page.getByTestId("button-back")).toBeVisible();
   });
@@ -510,6 +538,34 @@ test.describe("Math OCR (/accessibility-tools/math-ocr)", () => {
     await expect(page.getByTestId("text-math-error")).toBeVisible({
       timeout: 5_000,
     });
+  });
+
+  test("uploading a file with an unsupported image mimetype passes the client check but is rejected by the server with a visible error", async ({
+    page,
+  }) => {
+    // "image/bmp" starts with "image/" so the client-side check in
+    // handleFile() lets it through; the server's multer fileFilter only
+    // accepts jpeg/png/gif/webp and rejects this with a 400. This exercises
+    // the real, unmocked /api/tools/math-ocr route.
+    await page.getByTestId("input-math-file").setInputFiles({
+      name: "math.bmp",
+      mimeType: "image/bmp",
+      buffer: Buffer.from([
+        0x42, 0x4d, 0x3a, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x36,
+        0x00, 0x00, 0x00,
+      ]),
+    });
+
+    await expect(page.getByTestId("button-extract-math")).toBeEnabled({
+      timeout: 5_000,
+    });
+    await page.getByTestId("button-extract-math").click();
+
+    const errorEl = page.getByTestId("text-math-error");
+    await expect(errorEl).toBeVisible({ timeout: 10_000 });
+    await expect(errorEl).toContainText(
+      "Only JPEG, PNG, GIF, and WebP images are supported",
+    );
   });
 
   test("back button is present", async ({ page }) => {

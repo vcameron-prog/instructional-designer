@@ -795,6 +795,77 @@ test.describe("Accessibility Tools — Alt Text Generator page", () => {
       "result card shows the 'Decorative Image' label",
     ).toBeVisible({ timeout: 10_000 });
   });
+
+  test("uploading a non-image file shows a visible client-side error", async ({ page }) => {
+    await page.goto("/faculty/accessibility-tools/alt-text");
+    await expect(page).toHaveURL(/\/accessibility-tools\/alt-text/, { timeout: 10_000 });
+
+    await expect(
+      page.getByRole("heading", { name: "Alt Text Generator", exact: true }),
+      "Alt Text Generator heading is visible",
+    ).toBeVisible({ timeout: 15_000 });
+
+    const fileInput = page.getByTestId("input-image-file");
+    await expect(fileInput, "hidden file input is present in DOM").toBeAttached({
+      timeout: 10_000,
+    });
+
+    await fileInput.setInputFiles({
+      name: "test.txt",
+      mimeType: "text/plain",
+      buffer: Buffer.from("hello"),
+    });
+
+    const errorEl = page.getByTestId("text-alt-error");
+    await expect(errorEl, "client-side wrong-file-type error is visible").toBeVisible({
+      timeout: 5_000,
+    });
+    await expect(errorEl).toContainText("Please upload an image file");
+  });
+
+  test("uploading a file with an unsupported image mimetype passes the client check but is rejected by the server with a visible error", async ({
+    page,
+  }) => {
+    // "image/bmp" starts with "image/" so the client-side check in
+    // handleFile() lets it through; the server's multer fileFilter only
+    // accepts jpeg/png/gif/webp and rejects this with a 400. This exercises
+    // the real, unmocked /api/tools/alt-text route.
+    await page.goto("/faculty/accessibility-tools/alt-text");
+    await expect(page).toHaveURL(/\/accessibility-tools\/alt-text/, { timeout: 10_000 });
+
+    await expect(
+      page.getByRole("heading", { name: "Alt Text Generator", exact: true }),
+      "Alt Text Generator heading is visible",
+    ).toBeVisible({ timeout: 15_000 });
+
+    const bmpFileInput = page.getByTestId("input-image-file");
+    await expect(bmpFileInput, "hidden file input is present in DOM").toBeAttached({
+      timeout: 10_000,
+    });
+
+    await bmpFileInput.setInputFiles({
+      name: "test.bmp",
+      mimeType: "image/bmp",
+      buffer: Buffer.from([
+        0x42, 0x4d, 0x3a, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x36,
+        0x00, 0x00, 0x00,
+      ]),
+    });
+
+    const generateBtn = page.getByTestId("button-generate-alt");
+    await expect(generateBtn, "generate button is enabled after selecting the file").toBeEnabled({
+      timeout: 5_000,
+    });
+    await generateBtn.click();
+
+    const errorEl = page.getByTestId("text-alt-error");
+    await expect(errorEl, "server-side rejection error is visible").toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(errorEl).toContainText(
+      "Only JPEG, PNG, GIF, and WebP images are supported",
+    );
+  });
 });
 
 // ===========================================================================
@@ -867,6 +938,77 @@ test.describe("Accessibility Tools — Math OCR page", () => {
       page.getByTestId("button-copy-plain"),
       "copy plain-text button is visible in math-result card",
     ).toBeVisible({ timeout: 10_000 });
+  });
+
+  test("uploading a non-image file shows a visible client-side error", async ({ page }) => {
+    await page.goto("/faculty/accessibility-tools/math-ocr");
+    await expect(page).toHaveURL(/\/accessibility-tools\/math-ocr/, { timeout: 10_000 });
+
+    await expect(
+      page.getByRole("heading", { name: "Math OCR", exact: true }),
+      "Math OCR heading is visible",
+    ).toBeVisible({ timeout: 15_000 });
+
+    const fileInput = page.getByTestId("input-math-file");
+    await expect(fileInput, "hidden file input is present in DOM").toBeAttached({
+      timeout: 10_000,
+    });
+
+    await fileInput.setInputFiles({
+      name: "math.txt",
+      mimeType: "text/plain",
+      buffer: Buffer.from("hello"),
+    });
+
+    const errorEl = page.getByTestId("text-math-error");
+    await expect(errorEl, "client-side wrong-file-type error is visible").toBeVisible({
+      timeout: 5_000,
+    });
+    await expect(errorEl).toContainText("Please upload an image file");
+  });
+
+  test("uploading a file with an unsupported image mimetype passes the client check but is rejected by the server with a visible error", async ({
+    page,
+  }) => {
+    // "image/bmp" starts with "image/" so the client-side check in
+    // handleFile() lets it through; the server's multer fileFilter only
+    // accepts jpeg/png/gif/webp and rejects this with a 400. This exercises
+    // the real, unmocked /api/tools/math-ocr route.
+    await page.goto("/faculty/accessibility-tools/math-ocr");
+    await expect(page).toHaveURL(/\/accessibility-tools\/math-ocr/, { timeout: 10_000 });
+
+    await expect(
+      page.getByRole("heading", { name: "Math OCR", exact: true }),
+      "Math OCR heading is visible",
+    ).toBeVisible({ timeout: 15_000 });
+
+    const bmpFileInput = page.getByTestId("input-math-file");
+    await expect(bmpFileInput, "hidden file input is present in DOM").toBeAttached({
+      timeout: 10_000,
+    });
+
+    await bmpFileInput.setInputFiles({
+      name: "math.bmp",
+      mimeType: "image/bmp",
+      buffer: Buffer.from([
+        0x42, 0x4d, 0x3a, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x36,
+        0x00, 0x00, 0x00,
+      ]),
+    });
+
+    const extractBtn = page.getByTestId("button-extract-math");
+    await expect(extractBtn, "extract button is enabled after selecting the file").toBeEnabled({
+      timeout: 5_000,
+    });
+    await extractBtn.click();
+
+    const errorEl = page.getByTestId("text-math-error");
+    await expect(errorEl, "server-side rejection error is visible").toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(errorEl).toContainText(
+      "Only JPEG, PNG, GIF, and WebP images are supported",
+    );
   });
 });
 
