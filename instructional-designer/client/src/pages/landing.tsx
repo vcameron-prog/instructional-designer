@@ -40,12 +40,6 @@ function isBsuEmail(email?: string | null): boolean {
   return !!email && email.toLowerCase().endsWith("@bridgew.edu");
 }
 
-function getConverterUrl(): string {
-  if (import.meta.env.DEV) {
-    return `${window.location.protocol}//${window.location.hostname}/accessibility`;
-  }
-  return import.meta.env.VITE_CONVERTER_APP_URL || `${window.location.protocol}//${window.location.hostname}/accessibility`;
-}
 
 export default function LandingPage() {
   const [, navigate] = useLocation();
@@ -185,8 +179,8 @@ export default function LandingPage() {
                 <div className="grid gap-4 md:grid-cols-3">
                   <Card
                     className="group cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl bg-card border border-emerald-200/60 dark:border-emerald-800/40"
-                    onClick={() => { window.open(getConverterUrl(), "_blank", "noopener noreferrer"); }}
-                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); window.open(getConverterUrl(), "_blank", "noopener noreferrer"); } }}
+                    onClick={() => navigate("/pdf-accessibility")}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate("/pdf-accessibility"); } }}
                     tabIndex={0}
                     role="button"
                     aria-label="Accessibility Converter — open to everyone"
@@ -304,8 +298,8 @@ export default function LandingPage() {
                   {/* Accessibility Converter — always accessible */}
                   <Card
                     className="group cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl bg-card border border-emerald-200/60 dark:border-emerald-800/40"
-                    onClick={() => { window.open(getConverterUrl(), "_blank", "noopener noreferrer"); }}
-                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); window.open(getConverterUrl(), "_blank", "noopener noreferrer"); } }}
+                    onClick={() => navigate("/pdf-accessibility")}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate("/pdf-accessibility"); } }}
                     tabIndex={0}
                     role="button"
                     aria-label="Accessibility Converter — open to everyone"
