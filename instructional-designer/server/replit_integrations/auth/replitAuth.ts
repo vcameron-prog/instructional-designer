@@ -9,10 +9,11 @@ import connectPg from "connect-pg-simple";
 import { createHmac, timingSafeEqual } from "crypto";
 import { authStorage } from "./storage";
 
+const REPLIT_OIDC_HOST = "replit.com/oidc";
 const getOidcConfig = memoize(
   async () => {
     return await client.discovery(
-      new URL(process.env.ISSUER_URL ?? "https://replit.com/oidc"),
+      new URL(process.env.ISSUER_URL ?? `https://${REPLIT_OIDC_HOST}`),
       process.env.REPL_ID!
     );
   },

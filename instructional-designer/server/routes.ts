@@ -1,5 +1,6 @@
 import type { Express, Request, Response, NextFunction } from "express";
-import { createServer, type Server } from "http";
+import http, { createServer, type Server } from "http";
+import https from "https";
 import { randomUUID } from "crypto";
 import dns from "dns";
 import { storage } from "./storage";
@@ -246,22 +247,98 @@ function isPrivateIp(addr: string): boolean {
   );
 }
 
-async function guardSsrf(hostname: string): Promise<string | null> {
+async function guardSsrf(
+  hostname: string,
+): Promise<{ error: string; address: null } | { error: null; address: string }> {
   // Block bare "localhost" without a DNS round-trip
-  if (hostname === "localhost") return "Requests to localhost are not allowed";
+  if (hostname === "localhost") return { error: "Requests to localhost are not allowed", address: null };
 
   let address: string;
   try {
     const result = await dns.promises.lookup(hostname, { all: false });
     address = result.address;
   } catch {
-    return "Could not resolve hostname";
+    return { error: "Could not resolve hostname", address: null };
   }
 
   if (isPrivateIp(address)) {
-    return "Requests to private/internal IP addresses are not allowed";
+    return { error: "Requests to private/internal IP addresses are not allowed", address: null };
   }
-  return null; // allowed
+  return { error: null, address };
+}
+
+/**
+ * Fetch a URL by connecting directly to the pre-validated IP address, preventing
+ * DNS rebinding / TOCTOU attacks.  The original hostname is preserved in the
+ * Host header and TLS SNI field so TLS verification is unaffected.
+ * Redirects are not followed — any redirect response is treated as an error.
+ */
+async function fetchHtmlWithIpPin(
+  url: string,
+  resolvedIp: string,
+): Promise<{ ok: true; html: string } | { ok: false; error: string; status: number }> {
+  const parsedUrl = new URL(url);
+  const isHttps = parsedUrl.protocol === "https:";
+  const port = parsedUrl.port ? parseInt(parsedUrl.port, 10) : (isHttps ? 443 : 80);
+  const pathAndQuery = (parsedUrl.pathname || "/") + parsedUrl.search;
+
+  return new Promise((resolve) => {
+    let settled = false;
+    function done(result: { ok: true; html: string } | { ok: false; error: string; status: number }) {
+      if (!settled) { settled = true; resolve(result); }
+    }
+
+    const timer = setTimeout(() => {
+      req.destroy();
+      done({ ok: false, error: "The URL took too long to respond (15s timeout)", status: 400 });
+    }, 15_000);
+
+    const baseOptions = {
+      host: resolvedIp,
+      port,
+      path: pathAndQuery,
+      method: "GET" as const,
+      headers: {
+        "Host": parsedUrl.host,
+        "User-Agent": "BSU-Accessibility-Scanner/1.0",
+      },
+    };
+
+    const handleResponse = (res: http.IncomingMessage) => {
+      clearTimeout(timer);
+      const sc = res.statusCode ?? 0;
+      if (sc >= 300 && sc < 400) {
+        res.resume();
+        done({ ok: false, error: "Failed to fetch URL. Make sure it is publicly accessible.", status: 400 });
+        return;
+      }
+      if (sc < 200 || sc >= 300) {
+        res.resume();
+        done({ ok: false, error: `Could not fetch URL: HTTP ${sc}`, status: 400 });
+        return;
+      }
+      const ct = (res.headers["content-type"] as string | undefined) ?? "";
+      if (!ct.includes("text/html")) {
+        res.resume();
+        done({ ok: false, error: "URL does not return an HTML page", status: 400 });
+        return;
+      }
+      const chunks: Buffer[] = [];
+      res.on("data", (chunk: Buffer) => chunks.push(chunk));
+      res.on("end", () => done({ ok: true, html: Buffer.concat(chunks).toString("utf8") }));
+      res.on("error", () => done({ ok: false, error: "Failed to fetch URL. Make sure it is publicly accessible.", status: 400 }));
+    };
+
+    const req = isHttps
+      ? https.request({ ...baseOptions, servername: parsedUrl.hostname, rejectUnauthorized: true }, handleResponse)
+      : http.request(baseOptions, handleResponse);
+
+    req.on("error", () => {
+      clearTimeout(timer);
+      done({ ok: false, error: "Failed to fetch URL. Make sure it is publicly accessible.", status: 400 });
+    });
+    req.end();
+  });
 }
 
 const SYLLABUS_UPLOAD_MIME_TYPES = /^(text\/plain|application\/pdf|application\/msword|application\/vnd\.openxmlformats-officedocument\.wordprocessingml\.document)$/;
@@ -3637,35 +3714,24 @@ Please generate an IMPROVED version that incorporates the requested changes whil
       return res.status(400).json({ error: "Only http and https URLs are supported" });
     }
 
-    // Block SSRF: reject private/loopback/link-local destinations
-    const ssrfError = await guardSsrf(parsedUrl.hostname);
-    if (ssrfError) {
-      return res.status(400).json({ error: ssrfError });
+    const ip = req.ip || req.socket.remoteAddress || "unknown";
+    if (!await checkSharedRateLimit(`ip:${ip}`, "ai-gen", ANON_RATE_LIMIT, ANON_RATE_WINDOW_MS, () => checkAnonRateLimit(ip))) {
+      return res.status(429).json({ error: "Rate limit exceeded. Please try again later." });
     }
 
-    let html: string;
-    try {
-      const response = await fetch(url, {
-        headers: { "User-Agent": "BSU-Accessibility-Scanner/1.0" },
-        signal: AbortSignal.timeout(15_000),
-      });
-      if (!response.ok) {
-        return res.status(400).json({ error: `Could not fetch URL: HTTP ${response.status}` });
-      }
-      const contentType = response.headers.get("content-type") || "";
-      if (!contentType.includes("text/html")) {
-        return res.status(400).json({ error: "URL does not return an HTML page" });
-      }
-      html = await response.text();
-    } catch (err: any) {
-      if (err?.name === "TimeoutError") {
-        return res.status(400).json({ error: "The URL took too long to respond (15s timeout)" });
-      }
-      return res.status(400).json({ error: "Failed to fetch URL. Make sure it is publicly accessible." });
+    // Block SSRF: reject private/loopback/link-local destinations; pin resolved IP
+    const ssrfResult = await guardSsrf(parsedUrl.hostname);
+    if (ssrfResult.error !== null) {
+      return res.status(400).json({ error: ssrfResult.error });
+    }
+
+    const fetchResult = await fetchHtmlWithIpPin(url, ssrfResult.address);
+    if (!fetchResult.ok) {
+      return res.status(fetchResult.status).json({ error: fetchResult.error });
     }
 
     // Truncate HTML to avoid huge prompts; focus on head + first ~15 KB of body
-    const truncated = html.slice(0, 20_000);
+    const truncated = fetchResult.html.slice(0, 20_000);
 
     const systemPrompt = `You are a WCAG 2.1 AA accessibility expert. Analyze the provided HTML snippet and identify accessibility issues. For each issue, provide: a short title, severity (critical/major/minor), WCAG criterion (e.g. 1.1.1), a one-sentence description, and a concrete recommendation. Return valid JSON only — no markdown fences.
 
@@ -3771,6 +3837,10 @@ IMPORTANT: Your previous response could not be parsed as JSON. Respond with NOTH
     "/api/tools/alt-text",
     altTextUpload.single("image"),
     async (req: Request, res: Response) => {
+      const ip = req.ip || req.socket.remoteAddress || "unknown";
+      if (!await checkSharedRateLimit(`ip:${ip}`, "ai-gen", ANON_RATE_LIMIT, ANON_RATE_WINDOW_MS, () => checkAnonRateLimit(ip))) {
+        return res.status(429).json({ error: "Rate limit exceeded. Please try again later." });
+      }
       if (!req.file) return res.status(400).json({ error: "No image file provided" });
       const { context } = req.body as { context?: string };
 
@@ -3870,6 +3940,10 @@ IMPORTANT: Your previous response could not be parsed as JSON. Respond with NOTH
     "/api/tools/math-ocr",
     mathOcrUpload.single("image"),
     async (req: Request, res: Response) => {
+      const ip = req.ip || req.socket.remoteAddress || "unknown";
+      if (!await checkSharedRateLimit(`ip:${ip}`, "ai-gen", ANON_RATE_LIMIT, ANON_RATE_WINDOW_MS, () => checkAnonRateLimit(ip))) {
+        return res.status(429).json({ error: "Rate limit exceeded. Please try again later." });
+      }
       if (!req.file) return res.status(400).json({ error: "No image file provided" });
 
       const base64 = req.file.buffer.toString("base64");

@@ -231,7 +231,9 @@ export async function sendConversionCompleteEmail(
   });
 
   const name = firstName ?? "there";
-  const appUrl = process.env.APP_URL || "https://bsu-accessibility-converter.replit.app";
+  const REPLIT_DEV_DOMAIN = process.env.REPLIT_DEV_DOMAIN;
+  const appUrl = process.env.APP_URL ||
+    (REPLIT_DEV_DOMAIN ? `https://${REPLIT_DEV_DOMAIN}` : "");
   const scoreHtml = score !== null
     ? `<p style="margin:0 0 12px">Compliance score: <strong style="color:${score >= 90 ? "#16a34a" : score >= 70 ? "#d97706" : "#dc2626"}">${score}%</strong></p>`
     : "";

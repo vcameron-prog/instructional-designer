@@ -142,6 +142,9 @@ test.describe("[integration] URL Scanner — real server + AI response", () => {
       data: { url: "https://example.com" },
     });
     const status = probe.status();
+    if (status === 429) {
+      test.skip(true, "Rate limit exceeded — skipping AI-dependent test");
+    }
     if (status === 500) {
       const body = await probe.json().catch(() => ({}));
       const msg = (body?.error ?? "") as string;
