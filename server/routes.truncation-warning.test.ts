@@ -242,11 +242,15 @@ describe("truncationWarning propagation into extractionWarnings", () => {
     const conversion = makeConversion();
 
     // db.select(...).from(...).where(...):
-    //   call 1 — ownership / existence check → the conversion row
-    //   call 2 — global concurrency count    → 0 active jobs
+    //   call 1 — ownership / existence check          → the conversion row
+    //   call 2 — global concurrency count             → 0 active jobs
+    //   calls 3-5 — checkCancelledByDb at each checkpoint → still "processing"
     mockDbSelectWhere
       .mockResolvedValueOnce([conversion])
-      .mockResolvedValueOnce([{ count: 0 }]);
+      .mockResolvedValueOnce([{ count: 0 }])
+      .mockResolvedValueOnce([{ status: "processing" }])
+      .mockResolvedValueOnce([{ status: "processing" }])
+      .mockResolvedValueOnce([{ status: "processing" }]);
 
     mockExtractPdfContent.mockResolvedValueOnce({
       text: "Some extracted document text.",
@@ -283,7 +287,11 @@ describe("truncationWarning propagation into extractionWarnings", () => {
       extractionWarnings: ["Some pages required OCR and may be less accurate."],
     });
 
-    mockDbSelectWhere.mockResolvedValueOnce([conversion]);
+    // db.select calls: ownership check, then checkCancelledByDb (pre-AI + post-AI)
+    mockDbSelectWhere
+      .mockResolvedValueOnce([conversion])
+      .mockResolvedValueOnce([{ status: "processing" }])
+      .mockResolvedValueOnce([{ status: "processing" }]);
     mockDbUpdateReturning.mockResolvedValue([{ id: 1 }]);
 
     mockGenerateAccessibleDocument.mockResolvedValueOnce({

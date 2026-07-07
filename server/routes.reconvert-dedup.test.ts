@@ -213,9 +213,13 @@ describe("POST /api/conversions/:id/reprocess — 409 deduplication guard", () =
   beforeEach(async () => {
     vi.clearAllMocks();
 
-    // DB select always returns the fake conversion (the mock ignores
-    // the WHERE predicate — ownership checks are irrelevant here).
-    mockDbSelect.mockReturnValue(makeChain([fakeConversion]));
+    // DB select routing:
+    //   - ownership check (no fields arg) → full fake conversion row
+    //   - checkCancelledByDb polls ({ status: ... }) → "processing" so the job proceeds
+    mockDbSelect.mockImplementation((fields?: any) => {
+      const isStatusPoll = fields && typeof fields === "object" && "status" in fields;
+      return makeChain(isStatusPoll ? [{ status: "processing" }] : [fakeConversion]);
+    });
 
     // DB update (claiming the conversion) returns success.
     mockDbUpdate.mockReturnValue(makeChain([{ id: CONV_ID }]));

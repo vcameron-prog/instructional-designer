@@ -1782,6 +1782,25 @@ export async function registerRoutes(
         // identically regardless of what triggered the abort.
         abortController.signal.addEventListener("abort", () => { aborted = true; }, { once: true });
 
+        // Polls the DB status at each expensive checkpoint so a cancel request
+        // that landed on a different server instance (where activeAbortControllers
+        // has no entry for this job) is still noticed promptly.  Calling this at
+        // a handful of checkpoints rather than on a tight loop keeps round-trips
+        // low while still terminating wasted AI work within one pipeline stage.
+        const checkCancelledByDb = async () => {
+          if (aborted) throw new Error("aborted");
+          const [row] = await db
+            .select({ status: conversions.status })
+            .from(conversions)
+            .where(eq(conversions.id, id));
+          if (row?.status !== "processing") {
+            // Status was flipped externally (e.g. cancel from another instance).
+            // Firing abort triggers the signal listener which sets aborted = true.
+            abortController.abort();
+            throw new Error("aborted");
+          }
+        };
+
         const timeoutPromise = new Promise<never>((_, reject) => {
           timeoutId = setTimeout(() => {
             aborted = true;
@@ -1924,8 +1943,9 @@ export async function registerRoutes(
             throw new Error(friendly);
           }
 
-          // Bail out early if the timeout already fired during extraction.
-          if (aborted) throw new Error("aborted");
+          // Bail out early if the timeout fired during extraction, or if a
+          // cancel from another server instance already flipped the DB status.
+          await checkCancelledByDb();
 
           let finalText = extraction.text;
           if (ocrApplied) {
@@ -1967,8 +1987,9 @@ export async function registerRoutes(
             }
           }
 
-          // Bail out before the most expensive AI step if already timed out.
-          if (aborted) throw new Error("aborted");
+          // Bail out before the most expensive AI step if already timed out or
+          // if a cancel from another server instance flipped the DB status.
+          await checkCancelledByDb();
 
           // Warn the user up front — before the multi-minute AI conversion
           // step runs — if the extracted text is large enough to hit the
@@ -2010,10 +2031,11 @@ export async function registerRoutes(
             ocrApplied ? undefined : extraction.headingLines,
           );
 
-          // Guard the success write: if the timeout fired while
-          // generateAccessibleDocument was running, the DB row was already
-          // marked failed; writing completed here would corrupt that state.
-          if (aborted) throw new Error("aborted");
+          // Guard the success write: if the timeout fired (or a cancel from
+          // another server instance flipped the DB status) while
+          // generateAccessibleDocument was running, bail out now rather than
+          // overwriting the externally-written "failed" status.
+          await checkCancelledByDb();
 
           // Only write "completed" if the row is still in "processing" state.
           // A user-cancel may have already flipped it to "failed"; this
@@ -2338,6 +2360,21 @@ export async function registerRoutes(
         // Mirror any abort (timeout OR user-cancel) into the local flag so
         // post-completion write guards behave identically regardless of trigger.
         abortController.signal.addEventListener("abort", () => { aborted = true; }, { once: true });
+
+        // Polls the DB status before the expensive AI step so a cancel request
+        // that landed on a different server instance is still noticed promptly.
+        const checkCancelledByDb = async () => {
+          if (aborted) throw new Error("aborted");
+          const [row] = await db
+            .select({ status: conversions.status })
+            .from(conversions)
+            .where(eq(conversions.id, id));
+          if (row?.status !== "processing") {
+            abortController.abort();
+            throw new Error("aborted");
+          }
+        };
+
         const timeoutId = setTimeout(() => {
           aborted = true;
           abortController.abort();
@@ -2368,6 +2405,10 @@ export async function registerRoutes(
               .where(eq(conversions.id, id));
           }
 
+          // Check before starting the expensive AI step — catches a cross-instance
+          // cancel that arrived while the early-truncation-warning DB write ran.
+          await checkCancelledByDb();
+
           const result = await generateAccessibleDocument(
             conversion.extractedText!,
             conversion.originalFilename,
@@ -2381,7 +2422,9 @@ export async function registerRoutes(
             reprocessMinQualityTitleLength,
           );
 
-          if (aborted) throw new Error("aborted");
+          // Check again after AI generation: another instance may have cancelled
+          // while the multi-minute model call was in flight.
+          await checkCancelledByDb();
 
           const mergedWarnings = [
             ...((conversion.extractionWarnings as string[] | null) || []),
