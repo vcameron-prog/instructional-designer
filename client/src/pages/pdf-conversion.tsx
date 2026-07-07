@@ -368,6 +368,23 @@ export default function PdfConversion() {
     },
   });
 
+  const cancelMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiRequest("POST", `/api/conversions/${id}/cancel`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/conversions", numericId] });
+    },
+    onError: (err: any) => {
+      toast({
+        title: "Could not cancel",
+        description: err?.message ?? "The conversion may have already finished or been cancelled. Please refresh the page.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const reprocessMutation = useMutation({
     mutationFn: async (id: number) => {
       const res = await apiRequest("POST", `/api/conversions/${id}/reprocess`);
@@ -1941,7 +1958,7 @@ export default function PdfConversion() {
               data-testid="extraction-warnings-banner"
             >
               <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" aria-hidden="true" />
-              <div>
+              <div className="flex-1 min-w-0">
                 <p className="text-sm font-bold text-amber-800 dark:text-amber-200 mb-1">
                   {conversion.status === "processing" ? "Large Document Notice" : "Source File Warning"}
                 </p>
@@ -1958,6 +1975,31 @@ export default function PdfConversion() {
                     )
                   )}
                 </ul>
+                {conversion.status === "processing" && (
+                  <div className="mt-3">
+                    <p className="text-xs text-amber-700 dark:text-amber-300 mb-2">
+                      You can cancel now, split the document into smaller pieces, and re-upload each part separately.
+                    </p>
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-md border border-amber-400 dark:border-amber-600 text-amber-800 dark:text-amber-200 bg-amber-100 dark:bg-amber-900/40 hover:bg-amber-200 dark:hover:bg-amber-900/70 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      data-testid="button-cancel-processing"
+                      disabled={cancelMutation.isPending}
+                      onClick={() => {
+                        if (window.confirm("Cancel processing? The document will not be converted. You can split it into smaller pieces and re-upload each part.")) {
+                          cancelMutation.mutate(numericId);
+                        }
+                      }}
+                    >
+                      {cancelMutation.isPending ? (
+                        <Loader2 className="w-3 h-3 animate-spin" aria-hidden="true" />
+                      ) : (
+                        <X className="w-3 h-3" aria-hidden="true" />
+                      )}
+                      {cancelMutation.isPending ? "Cancelling…" : "Cancel Processing"}
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           )}

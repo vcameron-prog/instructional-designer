@@ -84,6 +84,9 @@ const MAX_CONCURRENT_PROCESSING = parseInt(process.env.MAX_CONCURRENT_PROCESSING
 // Per-conversion in-flight deduplication — prevents the same document from
 // being processed multiple times in parallel across concurrent requests.
 const activeProcessingKeys = new Set<string>();
+// Maps a conversion ID to the AbortController of its active background job.
+// Used by the cancel endpoint to terminate in-flight AI work on demand.
+const activeAbortControllers = new Map<number, AbortController>();
 
 // Concurrency cap for concurrent file uploads and imports to limit transient
 // RAM pressure. Each upload/import holds the full file buffer in memory plus a
@@ -1772,6 +1775,12 @@ export async function registerRoutes(
         // the model response even after the slot has been released, allowing
         // zombie jobs to consume AI quota and CPU concurrently with new work.
         const abortController = new AbortController();
+        // Register so the cancel endpoint can abort this job by conversion ID.
+        activeAbortControllers.set(id, abortController);
+        // Mirror any abort (timeout OR user-cancel) into the local flag so
+        // post-completion write guards and concurrency accounting behave
+        // identically regardless of what triggered the abort.
+        abortController.signal.addEventListener("abort", () => { aborted = true; }, { once: true });
 
         const timeoutPromise = new Promise<never>((_, reject) => {
           timeoutId = setTimeout(() => {
@@ -2006,7 +2015,10 @@ export async function registerRoutes(
           // marked failed; writing completed here would corrupt that state.
           if (aborted) throw new Error("aborted");
 
-          await db
+          // Only write "completed" if the row is still in "processing" state.
+          // A user-cancel may have already flipped it to "failed"; this
+          // conditional WHERE prevents that cancel from being silently undone.
+          const completionWrite = await db
             .update(conversions)
             .set({
               status: "completed",
@@ -2026,7 +2038,13 @@ export async function registerRoutes(
               })(),
               updatedAt: new Date(),
             })
-            .where(eq(conversions.id, id));
+            .where(and(eq(conversions.id, id), eq(conversions.status, "processing")))
+            .returning({ id: conversions.id });
+
+          // If 0 rows were updated the status was flipped externally (e.g. by
+          // a user-cancel) while AI work was still running. Skip success-only
+          // side effects (completion email, success log) — the job is not done.
+          if (completionWrite.length === 0) return;
 
           // Send completion email to authenticated users for multi-page documents.
           // Fire-and-forget — never block the success response path.
@@ -2058,17 +2076,23 @@ export async function registerRoutes(
         } catch (err: any) {
           const elapsed = Math.round((Date.now() - conversionStart) / 1000);
           console.error(`[conversion #${id}] failed after ${elapsed}s: ${err.message}`);
-          await db
-            .update(conversions)
-            .set({
-              status: "failed",
-              statusMessage: null,
-              errorMessage: err.message || "Processing failed",
-              updatedAt: new Date(),
-            })
-            .where(eq(conversions.id, id));
+          // Skip the error write when aborted: the timeout handler already wrote
+          // a "failed" status, and a user-cancel may have written a friendly
+          // cancel message — overwriting either with "aborted" would corrupt state.
+          if (!aborted) {
+            await db
+              .update(conversions)
+              .set({
+                status: "failed",
+                statusMessage: null,
+                errorMessage: err.message || "Processing failed",
+                updatedAt: new Date(),
+              })
+              .where(eq(conversions.id, id));
+          }
         } finally {
           clearTimeout(timeoutId);
+          activeAbortControllers.delete(id);
           // Release the per-conversion dedup key so the same document can be
           // reprocessed after a failure (e.g. to retry after a timeout).
           activeProcessingKeys.delete(processingKey);
@@ -2308,7 +2332,12 @@ export async function registerRoutes(
       (async () => {
         const conversionStart = Date.now();
         const abortController = new AbortController();
+        // Register so the cancel endpoint can abort this job by conversion ID.
+        activeAbortControllers.set(id, abortController);
         let aborted = false;
+        // Mirror any abort (timeout OR user-cancel) into the local flag so
+        // post-completion write guards behave identically regardless of trigger.
+        abortController.signal.addEventListener("abort", () => { aborted = true; }, { once: true });
         const timeoutId = setTimeout(() => {
           aborted = true;
           abortController.abort();
@@ -2359,6 +2388,9 @@ export async function registerRoutes(
             ...(result.truncationWarning ? [result.truncationWarning] : []),
           ];
 
+          // Only write "completed" if the row is still in "processing" state.
+          // A user-cancel may have already flipped it to "failed"; this
+          // conditional WHERE prevents that cancel from being silently undone.
           await db.update(conversions).set({
             status: "completed",
             statusMessage: null,
@@ -2367,7 +2399,7 @@ export async function registerRoutes(
             contentFidelity: result.contentFidelity ?? null,
             extractionWarnings: mergedWarnings.length > 0 ? mergedWarnings : null,
             updatedAt: new Date(),
-          }).where(eq(conversions.id, id));
+          }).where(and(eq(conversions.id, id), eq(conversions.status, "processing")));
 
           const elapsed = Math.round((Date.now() - conversionStart) / 1000);
           console.log(`[reprocess #${id}] completed in ${elapsed}s`);
@@ -2384,10 +2416,71 @@ export async function registerRoutes(
           }
         } finally {
           clearTimeout(timeoutId);
+          activeAbortControllers.delete(id);
           activeProcessingJobs = Math.max(0, activeProcessingJobs - 1);
           activeProcessingKeys.delete(reprocessKey);
         }
       })();
+    },
+  );
+
+  // Cancel an in-flight conversion that has the early large-document warning.
+  // Marks the conversion as failed so the faculty member can split the document
+  // and re-upload smaller pieces rather than waiting for a partial result.
+  app.post(
+    "/api/conversions/:id/cancel",
+    optionalAuth,
+    async (req: Request, res: Response) => {
+      const userId = getUserId(req);
+      const id = parseInt(req.params.id as string);
+      if (isNaN(id)) {
+        res.status(400).json({ error: INVALID_ID_ERROR });
+        return;
+      }
+
+      const [conversion] = await db
+        .select({ id: conversions.id, status: conversions.status })
+        .from(conversions)
+        .where(conversionOwnerFilter(id, userId, getVisitorToken(req)));
+
+      if (!conversion) {
+        res.status(404).json({ error: "Conversion not found." });
+        return;
+      }
+
+      if (conversion.status !== "processing") {
+        res.status(409).json({ error: "Conversion is not currently processing." });
+        return;
+      }
+
+      // Atomically flip the status to "failed" so the background job will
+      // notice it has been superseded and suppress its own status write.
+      const cancelled = await db
+        .update(conversions)
+        .set({
+          status: "failed",
+          statusMessage: null,
+          errorMessage: "Cancelled by user. You can split the document and re-upload smaller pieces.",
+          updatedAt: new Date(),
+        })
+        .where(and(eq(conversions.id, id), eq(conversions.status, "processing")))
+        .returning({ id: conversions.id });
+
+      if (cancelled.length === 0) {
+        // Status was no longer "processing" when we arrived — already completed,
+        // failed, or another request beat us to the cancel.
+        res.status(409).json({ error: "Conversion is no longer processing and cannot be cancelled." });
+        return;
+      }
+
+      // Signal the background job (if still running on this instance) to stop
+      // all in-flight Anthropic requests immediately.
+      const ctrl = activeAbortControllers.get(id);
+      if (ctrl) {
+        ctrl.abort();
+      }
+
+      res.json({ id, status: "failed" });
     },
   );
 
