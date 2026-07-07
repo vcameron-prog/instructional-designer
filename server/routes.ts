@@ -1787,12 +1787,29 @@ export async function registerRoutes(
         // has no entry for this job) is still noticed promptly.  Calling this at
         // a handful of checkpoints rather than on a tight loop keeps round-trips
         // low while still terminating wasted AI work within one pipeline stage.
+        //
+        // Failure mode: if the DB read itself throws (e.g. transient connection
+        // loss), we log a warning and return normally so the job is not failed on
+        // a fleeting infrastructure hiccup.  Deliberate cancels still reach the
+        // job via the in-process AbortController signal, so user-initiated stops
+        // still work even when the DB poll is degraded.
         const checkCancelledByDb = async () => {
           if (aborted) throw new Error("aborted");
-          const [row] = await db
-            .select({ status: conversions.status })
-            .from(conversions)
-            .where(eq(conversions.id, id));
+          let row: { status: string } | undefined;
+          try {
+            const [r] = await db
+              .select({ status: conversions.status })
+              .from(conversions)
+              .where(eq(conversions.id, id));
+            row = r;
+          } catch (pollErr) {
+            console.warn(
+              `[conversion ${id}] checkCancelledByDb: transient DB read failure — ` +
+                `continuing job rather than failing on a poll error:`,
+              pollErr,
+            );
+            return; // let the job continue; the timeout guard still applies
+          }
           if (row?.status !== "processing") {
             // Status was flipped externally (e.g. cancel from another instance).
             // Firing abort triggers the signal listener which sets aborted = true.
@@ -2363,12 +2380,29 @@ export async function registerRoutes(
 
         // Polls the DB status before the expensive AI step so a cancel request
         // that landed on a different server instance is still noticed promptly.
+        //
+        // Failure mode: if the DB read itself throws (e.g. transient connection
+        // loss), we log a warning and return normally so the job is not failed on
+        // a fleeting infrastructure hiccup.  Deliberate cancels still reach the
+        // job via the in-process AbortController signal, so user-initiated stops
+        // still work even when the DB poll is degraded.
         const checkCancelledByDb = async () => {
           if (aborted) throw new Error("aborted");
-          const [row] = await db
-            .select({ status: conversions.status })
-            .from(conversions)
-            .where(eq(conversions.id, id));
+          let row: { status: string } | undefined;
+          try {
+            const [r] = await db
+              .select({ status: conversions.status })
+              .from(conversions)
+              .where(eq(conversions.id, id));
+            row = r;
+          } catch (pollErr) {
+            console.warn(
+              `[conversion ${id}] checkCancelledByDb: transient DB read failure — ` +
+                `continuing job rather than failing on a poll error:`,
+              pollErr,
+            );
+            return; // let the job continue; the timeout guard still applies
+          }
           if (row?.status !== "processing") {
             abortController.abort();
             throw new Error("aborted");

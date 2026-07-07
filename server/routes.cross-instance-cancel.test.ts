@@ -363,6 +363,89 @@ describe("cross-instance cancel — DB status poll terminates the background job
   );
 
   it(
+    "POST /api/conversions/:id/process: job continues and completes when a " +
+      "checkCancelledByDb DB read throws a transient error",
+    async () => {
+      const conversion = makeConversion();
+
+      // DB select call sequence:
+      //   1. ownership / existence check      → returns the conversion row
+      //   2. global concurrency count         → 0 active jobs
+      //   3. checkCancelledByDb (post-extract) → transient DB error (should be swallowed)
+      //   4. checkCancelledByDb (pre-AI gen)   → still "processing"
+      //   5. checkCancelledByDb (post-AI gen)  → still "processing"
+      mockDbSelectWhere
+        .mockResolvedValueOnce([conversion])
+        .mockResolvedValueOnce([{ count: 0 }])
+        .mockRejectedValueOnce(new Error("connection timeout"))
+        .mockResolvedValueOnce([{ status: "processing" }])
+        .mockResolvedValueOnce([{ status: "processing" }]);
+
+      mockDbUpdateReturning.mockResolvedValue([{ id: 1 }]);
+
+      mockExtractPdfContent.mockResolvedValueOnce({
+        text: "Some document text.",
+        images: [],
+        tables: [],
+        metadata: {},
+        pageCount: 2,
+        warnings: [],
+      });
+
+      mockGenerateAccessibleDocument.mockResolvedValueOnce({
+        accessibleHtml: "<html lang=\"en\"><body><h1>Doc</h1></body></html>",
+        complianceReport: null,
+        truncationWarning: undefined,
+      });
+
+      const res = await request(app).post("/api/conversions/1/process");
+      expect(res.status).toBe(200);
+
+      // Job must complete successfully despite the transient poll error.
+      const completedPayload = await waitForUpdate((d) => d?.status === "completed");
+      expect(completedPayload.status).toBe("completed");
+    },
+  );
+
+  it(
+    "POST /api/conversions/:id/reprocess: job continues and completes when a " +
+      "checkCancelledByDb DB read throws a transient error",
+    async () => {
+      const conversion = makeConversion({
+        status: "completed",
+        extractedText: "Some document text.",
+        extractionWarnings: null,
+      });
+
+      // DB select call sequence for reprocess:
+      //   1. ownership / existence check    → returns the conversion row
+      //   2. checkCancelledByDb (pre-AI)    → transient DB error (should be swallowed)
+      //   3. checkCancelledByDb (post-AI)   → still "processing"
+      mockDbSelectWhere
+        .mockResolvedValueOnce([conversion])
+        .mockRejectedValueOnce(new Error("connection timeout"))
+        .mockResolvedValueOnce([{ status: "processing" }]);
+
+      mockDbUpdateReturning.mockResolvedValue([{ id: 1 }]);
+
+      mockGenerateAccessibleDocument.mockResolvedValueOnce({
+        accessibleHtml: "<html lang=\"en\"><body><h1>Doc</h1></body></html>",
+        complianceReport: null,
+        truncationWarning: undefined,
+      });
+
+      const res = await request(app).post("/api/conversions/1/reprocess").send({});
+      expect(res.status).toBe(200);
+
+      // Job must complete successfully despite the transient poll error.
+      const completedPayload = await waitForUpdate((d) => d?.status === "completed");
+      expect(completedPayload.status).toBe("completed");
+
+      _testDeleteReprocessKey(1);
+    },
+  );
+
+  it(
     "POST /api/conversions/:id/process: job completes normally when DB status " +
       "stays 'processing' through all checkpoints (no cross-instance cancel)",
     async () => {
