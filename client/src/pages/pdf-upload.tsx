@@ -18,6 +18,7 @@ import {
   Globe,
   Eye,
   Calculator,
+  TriangleAlert,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { ConverterHeader } from "@/components/header-controls";
@@ -39,6 +40,24 @@ function formatBytes(bytes: number): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
 }
 
+// Client-side heuristic: flag files that are very likely to exceed the
+// server's section cap (60 sections × 12,000 chars = ~720,000 chars).
+// This is a rough estimate — the authoritative warning comes from the server
+// after extraction. Threshold is intentionally conservative to avoid
+// false-positives on image-heavy documents.
+const LARGE_FILE_THRESHOLD_BYTES = 5 * 1024 * 1024; // 5 MB
+
+function getLargeSizeWarning(files: File[]): string | null {
+  const large = files.filter((f) => f.size >= LARGE_FILE_THRESHOLD_BYTES);
+  if (large.length === 0) return null;
+  if (large.length === 1) {
+    const mb = (large[0].size / (1024 * 1024)).toFixed(1);
+    return `"${large[0].name}" is ${mb} MB. Very large documents are processed up to ~60 sections — content beyond that limit will be skipped. If your document is truncated, try splitting it before uploading.`;
+  }
+  const names = large.map((f) => `"${f.name}"`).join(", ");
+  return `${names} are each over 5 MB. Very large documents are processed up to ~60 sections — content beyond that limit will be skipped. Consider splitting oversized files before uploading.`;
+}
+
 // The logo banner's background is intentionally hardcoded dark (see below) and
 // does not currently follow the app's light/dark theme toggle, so this is
 // pinned to "dark" rather than read from useTheme(). If the banner background
@@ -56,6 +75,10 @@ export default function PdfUpload() {
   const [, navigate] = useLocation();
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [copiedUploadError, setCopiedUploadError] = useState(false);
+  // Pre-upload size heuristic: files held here are waiting for user confirmation
+  // before the upload actually starts. null means no preflight in progress.
+  const [pendingFiles, setPendingFiles] = useState<File[] | null>(null);
+  const [sizeWarning, setSizeWarning] = useState<string | null>(null);
   const [googleDocUrl, setGoogleDocUrl] = useState("");
   const [googleSheetUrl, setGoogleSheetUrl] = useState("");
   const [googleSlideUrl, setGoogleSlideUrl] = useState("");
@@ -279,9 +302,11 @@ export default function PdfUpload() {
     googleSlideMutation.mutate(trimmed);
   };
 
-  const handleFileDrop = (files: File[]) => {
-    setUploadError(null);
-    if (files.length === 0) return;
+  // Actually kick off the upload for the given files.
+  // Called either immediately (no size warning) or after user confirmation.
+  const startUpload = (files: File[]) => {
+    setSizeWarning(null);
+    setPendingFiles(null);
 
     if (files.length === 1 && fileQueue.length === 0) {
       // Single file, no existing queue: use the direct-navigate flow.
@@ -296,6 +321,33 @@ export default function PdfUpload() {
       status: "pending" as const,
     }));
     setFileQueue((prev) => [...prev, ...newItems]);
+  };
+
+  const handleFileDrop = (files: File[]) => {
+    setUploadError(null);
+    if (files.length === 0) return;
+
+    // Pre-upload heuristic: if any file is large, hold the files and show a
+    // confirmation prompt. Upload only starts after the user explicitly
+    // confirms. This lets faculty decide whether to proceed or split the doc
+    // before spending time on a long upload + extraction.
+    const warning = getLargeSizeWarning(files);
+    if (warning) {
+      setSizeWarning(warning);
+      setPendingFiles(files);
+      return; // do NOT upload yet — wait for user confirmation
+    }
+
+    startUpload(files);
+  };
+
+  const handleConfirmUpload = () => {
+    if (pendingFiles) startUpload(pendingFiles);
+  };
+
+  const handleCancelPending = () => {
+    setSizeWarning(null);
+    setPendingFiles(null);
   };
 
   if (authLoading) {
@@ -537,11 +589,46 @@ export default function PdfUpload() {
               </p>
             </div>
           </div>
-          <div className="p-6">
+          <div className="p-6 space-y-3">
             <UploadDropzone
               onUpload={handleFileDrop}
               isUploading={uploadMutation.isPending}
             />
+            {sizeWarning && (
+              <div
+                className="rounded-xl border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/40 px-4 py-3 text-sm text-amber-800 dark:text-amber-300"
+                role="alertdialog"
+                aria-live="assertive"
+                aria-label="Large file warning"
+                data-testid="text-size-warning"
+              >
+                <div className="flex items-start gap-2 mb-3">
+                  <TriangleAlert className="w-4 h-4 flex-shrink-0 mt-0.5" aria-hidden="true" />
+                  <p>
+                    <span className="font-semibold">Heads up (rough estimate): </span>
+                    {sizeWarning}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 ml-6">
+                  <button
+                    type="button"
+                    onClick={handleConfirmUpload}
+                    className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+                    data-testid="button-confirm-large-upload"
+                  >
+                    Upload anyway
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCancelPending}
+                    className="px-3 py-1.5 rounded-lg border border-amber-400 dark:border-amber-600 bg-transparent hover:bg-amber-100 dark:hover:bg-amber-900/30 text-amber-800 dark:text-amber-300 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+                    data-testid="button-cancel-large-upload"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -556,7 +643,7 @@ export default function PdfUpload() {
                 </h3>
                 {fileQueue.every((f) => f.status === "done" || f.status === "error") && (
                   <button
-                    onClick={() => setFileQueue([])}
+                    onClick={() => { setFileQueue([]); setSizeWarning(null); }}
                     className="text-xs text-muted-foreground hover:text-foreground transition-colors"
                     data-testid="button-clear-queue"
                   >
@@ -616,6 +703,12 @@ export default function PdfUpload() {
                       )}
                       {item.status === "pending" && (
                         <p className="text-xs text-muted-foreground mt-0.5">Waiting…</p>
+                      )}
+                      {item.file.size >= LARGE_FILE_THRESHOLD_BYTES && item.status !== "done" && item.status !== "error" && (
+                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5 flex items-center gap-1">
+                          <TriangleAlert className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
+                          Large file — may be partially processed
+                        </p>
                       )}
                     </div>
                     {item.status === "done" && item.conversionId && (
