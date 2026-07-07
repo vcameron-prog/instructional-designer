@@ -1,2 +1,13 @@
 User-agent: *
-Disallow: /
+Allow: /
+Allow: /accessibility
+Allow: /pdf-accessibility
+Allow: /pdf-accessibility/faq
+Allow: /accessibility-tools/
+Allow: /help
+Disallow: /api/
+Disallow: /pdf-accessibility/history
+Disallow: /settings
+Disallow: /admin
+
+Sitemap: https://accessibility.bridgew.edu/sitemap.xml

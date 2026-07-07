@@ -1,0 +1,29 @@
+# BSU Accessibility Tool
+
+> AI-powered accessibility and instructional design platform for Bridgewater State University faculty and staff.
+
+This site helps BSU faculty create WCAG 2.1 AA-compliant course materials, convert documents to accessible formats, and use a suite of accessibility tools. It also provides an AI-powered instructional design workspace for building UDL-aligned course content.
+
+## Public sections
+
+- [Home](https://accessibility.bridgew.edu/): Landing page with an overview of the accessibility platform.
+- [Accessibility Converter](https://accessibility.bridgew.edu/accessibility): Upload PDF, Word (.docx), or Google Docs links for conversion to accessible HTML, DOCX, or tagged PDF with WCAG 2.1 AA compliance reporting.
+- [PDF Accessibility](https://accessibility.bridgew.edu/pdf-accessibility): Dedicated PDF-to-accessible-HTML conversion pipeline with AI extraction and compliance checks.
+- [PDF Accessibility FAQ](https://accessibility.bridgew.edu/pdf-accessibility/faq): Frequently asked questions about the PDF accessibility conversion process.
+- [Help](https://accessibility.bridgew.edu/help): Guidance on using the accessibility tools and understanding accessibility requirements.
+
+## Accessibility Tools
+
+- [URL Scanner](https://accessibility.bridgew.edu/accessibility-tools/url-scanner): Scan any public URL for WCAG 2.1 AA accessibility issues.
+- [Color Contrast Checker](https://accessibility.bridgew.edu/accessibility-tools/color-contrast): Check foreground/background color combinations against WCAG contrast ratios.
+- [Alt Text Generator](https://accessibility.bridgew.edu/accessibility-tools/alt-text): AI-powered alt text generation for images.
+- [Math OCR](https://accessibility.bridgew.edu/accessibility-tools/math-ocr): Convert mathematical expressions in images to accessible LaTeX or MathML.
+
+## Faculty Instructional Design (BSU faculty)
+
+- [Faculty Landing Page](https://accessibility.bridgew.edu/faculty/): Entry point for the AI-powered instructional design workspace.
+- [Quick Tools](https://accessibility.bridgew.edu/faculty/quick-tools): Standalone AI tools for generating assignments, rubrics, syllabi, and course policies without a full course setup.
+- [Faculty Help](https://accessibility.bridgew.edu/faculty/help): Documentation and guidance for using the instructional design tools.
+- [Research](https://accessibility.bridgew.edu/faculty/research): Background research on UDL, SEL, Cultural Relevance & Inclusivity frameworks used in content generation.
+- [Content Library](https://accessibility.bridgew.edu/faculty/library): Browse and reuse saved course material templates.
+- [Faculty Accessibility Tools](https://accessibility.bridgew.edu/faculty/accessibility-tools): Accessibility tools integrated into the faculty workflow.

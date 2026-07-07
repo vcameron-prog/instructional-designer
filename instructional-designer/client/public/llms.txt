@@ -1,0 +1,21 @@
+# BSU Faculty Instructional Designer
+
+> AI-powered instructional design workspace for Bridgewater State University faculty.
+
+This app helps BSU faculty build high-quality, UDL-aligned course materials — including assignments, rubrics, syllabi, learning modules, and grading policies — using AI. It integrates Universal Design for Learning (UDL), Cultural Relevance & Inclusivity, and Social-Emotional Learning (SEL) frameworks into every generated content item.
+
+## Public sections
+
+- [Faculty Landing Page](https://accessibility.bridgew.edu/faculty/): Overview of the instructional design platform and entry point for BSU faculty.
+- [Quick Tools](https://accessibility.bridgew.edu/faculty/quick-tools): Use individual AI tools (assignment generator, rubric builder, syllabus creator, AI policy generator, etc.) without creating a full course.
+- [Help](https://accessibility.bridgew.edu/faculty/help): Step-by-step guidance for using the instructional design tools.
+- [Research](https://accessibility.bridgew.edu/faculty/research): Background on the UDL, SEL, and Cultural Relevance frameworks that inform content generation, with citations.
+- [Content Library](https://accessibility.bridgew.edu/faculty/library): Browse saved content templates and reuse them across courses.
+
+## Faculty Accessibility Tools
+
+- [Accessibility Tools Hub](https://accessibility.bridgew.edu/faculty/accessibility-tools): Overview of accessibility tools available within the faculty workspace.
+- [URL Scanner](https://accessibility.bridgew.edu/faculty/accessibility-tools/url-scanner): Scan any URL for WCAG 2.1 AA compliance issues.
+- [Color Contrast Checker](https://accessibility.bridgew.edu/faculty/accessibility-tools/color-contrast): Verify color contrast ratios for accessible course materials.
+- [Alt Text Generator](https://accessibility.bridgew.edu/faculty/accessibility-tools/alt-text): AI-generated alt text for images used in course content.
+- [Math OCR](https://accessibility.bridgew.edu/faculty/accessibility-tools/math-ocr): Convert math expressions from images to accessible LaTeX or MathML for course materials.

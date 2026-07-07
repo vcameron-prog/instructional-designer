@@ -1,2 +1,21 @@
 User-agent: *
-Disallow: /
+Allow: /faculty/
+Allow: /faculty/help
+Allow: /faculty/research
+Allow: /faculty/accessibility-tools
+Allow: /faculty/accessibility-tools/
+Allow: /faculty/quick-tools
+Allow: /
+Allow: /help
+Allow: /research
+Allow: /accessibility-tools
+Allow: /accessibility-tools/
+Allow: /quick-tools
+Disallow: /api/
+Disallow: /faculty/api/
+Disallow: /faculty/settings
+Disallow: /faculty/admin
+Disallow: /settings
+Disallow: /admin
+
+Sitemap: https://accessibility.bridgew.edu/sitemap.xml
