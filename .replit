@@ -196,7 +196,6 @@ timeoutMs = 120000
 [userenv]
 
 [userenv.shared]
-STATS_API_KEY = "re_7gpkYLFz_Ebv8HJhCyGVRe8q6AMUj7YYX"
 ADMIN_USER_IDS = "53962781,vcameron@bridgew.edu"
 SUMMARY_EMAIL_TO = "vcameron@bridgew.edu"
 SUMMARY_CRON = "0 7 * * *"
