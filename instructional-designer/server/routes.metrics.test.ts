@@ -153,11 +153,16 @@ describe("GET /api/metrics", () => {
     const res = await request(app).get("/api/metrics").expect(200);
 
     expect(res.body).toEqual({
-      altTextParseFail: { count: 0, lastAt: null },
+      altTextParseFail: { count: 0, lastAt: null, status: "ok" },
       rateLimitCleanup: {
         lastRunAt: null,
         lastErrorAt: null,
         rowsDeletedTotal: 0,
+        status: "ok",
+      },
+      thresholds: {
+        altTextParseFailWarnCount: 5,
+        altTextParseFailCriticalCount: 15,
       },
     });
   });
@@ -176,12 +181,68 @@ describe("GET /api/metrics", () => {
     const res = await request(app).get("/api/metrics").expect(200);
 
     expect(res.body).toEqual({
-      altTextParseFail: { count: 3, lastAt: "2026-07-01T12:00:00.000Z" },
+      altTextParseFail: { count: 3, lastAt: "2026-07-01T12:00:00.000Z", status: "ok" },
       rateLimitCleanup: {
         lastRunAt: "2026-07-06T09:00:00.000Z",
         lastErrorAt: "2026-07-05T08:00:00.000Z",
         rowsDeletedTotal: 42,
+        status: "warn",
+      },
+      thresholds: {
+        altTextParseFailWarnCount: 5,
+        altTextParseFailCriticalCount: 15,
       },
     });
+  });
+
+  it("sets altTextParseFail.status to warn when count reaches the warn threshold", async () => {
+    mockGetAltTextParseFailMetrics.mockReturnValue({
+      count: 5,
+      lastAt: "2026-07-01T12:00:00.000Z",
+    });
+    mockGetRateLimitCleanupMetrics.mockReturnValue({
+      lastRunAt: null,
+      lastErrorAt: null,
+      rowsDeletedTotal: 0,
+    });
+
+    const res = await request(app).get("/api/metrics").expect(200);
+
+    expect(res.body.altTextParseFail.status).toBe("warn");
+  });
+
+  it("sets altTextParseFail.status to critical when count reaches the critical threshold", async () => {
+    mockGetAltTextParseFailMetrics.mockReturnValue({
+      count: 15,
+      lastAt: "2026-07-01T12:00:00.000Z",
+    });
+    mockGetRateLimitCleanupMetrics.mockReturnValue({
+      lastRunAt: null,
+      lastErrorAt: null,
+      rowsDeletedTotal: 0,
+    });
+
+    const res = await request(app).get("/api/metrics").expect(200);
+
+    expect(res.body.altTextParseFail.status).toBe("critical");
+  });
+
+  it("echoes configured thresholds in the thresholds object", async () => {
+    mockGetAltTextParseFailMetrics.mockReturnValue({ count: 0, lastAt: null });
+    mockGetRateLimitCleanupMetrics.mockReturnValue({
+      lastRunAt: null,
+      lastErrorAt: null,
+      rowsDeletedTotal: 0,
+    });
+
+    const res = await request(app).get("/api/metrics").expect(200);
+
+    expect(res.body.thresholds).toMatchObject({
+      altTextParseFailWarnCount: expect.any(Number),
+      altTextParseFailCriticalCount: expect.any(Number),
+    });
+    expect(res.body.thresholds.altTextParseFailCriticalCount).toBeGreaterThan(
+      res.body.thresholds.altTextParseFailWarnCount,
+    );
   });
 });

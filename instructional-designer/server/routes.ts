@@ -1544,19 +1544,53 @@ export async function registerRoutes(
   // /api/metrics pattern. No auth required. Counters reset on server
   // restart (persisted values are re-seeded from the app_metrics table on
   // startup via initAltTextParseFailMetrics/initRateLimitCleanupMetrics).
+  //
+  // Threshold env vars (all optional; defaults shown):
+  //   ALT_TEXT_PARSE_FAIL_WARN_COUNT     (default 5)  – warn when altTextParseFail.count >= this
+  //   ALT_TEXT_PARSE_FAIL_CRITICAL_COUNT (default 15) – critical when altTextParseFail.count >= this
+  //
+  // altTextParseFail.status values:
+  //   "ok"       – count < warn threshold; confidence parsing is working normally
+  //   "warn"     – count >= warn threshold; AI JSON parsing is degraded; investigate Claude response format
+  //   "critical" – count >= critical threshold; confidence field is routinely dropped; urgent attention needed
+  //
+  // rateLimitCleanup.status values:
+  //   "ok"   – no cleanup errors recorded since last server start
+  //   "warn" – at least one cleanup error recorded; DB advisory lock or delete may be failing
   app.get("/api/metrics", (_req: Request, res: Response) => {
     const altTextParseFail = getAltTextParseFailMetrics();
     const rateLimitCleanup = getRateLimitCleanupMetrics();
+
+    const altTextWarnCount    = parseInt(process.env.ALT_TEXT_PARSE_FAIL_WARN_COUNT    ?? "5",  10);
+    const altTextCriticalCount = parseInt(process.env.ALT_TEXT_PARSE_FAIL_CRITICAL_COUNT ?? "15", 10);
+
+    const safeWarnCount    = isNaN(altTextWarnCount)    ? 5  : altTextWarnCount;
+    const safeCriticalCount = isNaN(altTextCriticalCount) ? 15 : altTextCriticalCount;
+
+    let altTextStatus: "ok" | "warn" | "critical" = "ok";
+    if (altTextParseFail.count >= safeCriticalCount) {
+      altTextStatus = "critical";
+    } else if (altTextParseFail.count >= safeWarnCount) {
+      altTextStatus = "warn";
+    }
+
+    const cleanupStatus: "ok" | "warn" = rateLimitCleanup.lastErrorAt !== null ? "warn" : "ok";
 
     res.json({
       altTextParseFail: {
         count: altTextParseFail.count,
         lastAt: altTextParseFail.lastAt,
+        status: altTextStatus,
       },
       rateLimitCleanup: {
         lastRunAt: rateLimitCleanup.lastRunAt,
         lastErrorAt: rateLimitCleanup.lastErrorAt,
         rowsDeletedTotal: rateLimitCleanup.rowsDeletedTotal,
+        status: cleanupStatus,
+      },
+      thresholds: {
+        altTextParseFailWarnCount:     safeWarnCount,
+        altTextParseFailCriticalCount: safeCriticalCount,
       },
     });
   });
