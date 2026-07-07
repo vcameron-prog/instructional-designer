@@ -906,12 +906,15 @@ export async function registerRoutes(
               error: `Could not download the document (status ${lastStatus}). The document may not be publicly shared.`,
             });
         }
-        if (buffer.length < 100) {
+        // A real DOCX export from Google is always at least several kilobytes.
+        // Anything smaller is either an empty response or a truncated /
+        // authentication-interstitial HTML page from Google — not a real file.
+        if (buffer.length < 1024) {
           return res
             .status(502)
             .json({
               error:
-                "Downloaded file appears empty. The document may not be publicly shared.",
+                "The exported file is too small to be a real document — Google may have returned an authentication page or an empty response. Make sure the document is set to \"Anyone with the link\" and try again.",
             });
         }
 
@@ -923,6 +926,23 @@ export async function registerRoutes(
               error:
                 "The downloaded file is not a valid document. The Google Doc may not be publicly shared.",
             });
+        }
+
+        // Verify the buffer is a complete ZIP archive by looking for the
+        // end-of-central-directory (EOCD) record (signature 50 4B 05 06).
+        // A truncated export — e.g. the download was cut short or Google
+        // returned an interstitial that coincidentally starts with the ZIP
+        // magic bytes — will be missing this record at the end of the file.
+        {
+          const EOCD_SIG = Buffer.from([0x50, 0x4b, 0x05, 0x06]);
+          const searchStart = Math.max(0, buffer.length - 65557);
+          const tail = buffer.slice(searchStart);
+          if (tail.lastIndexOf(EOCD_SIG) === -1) {
+            return res.status(502).json({
+              error:
+                "The exported document appears to be incomplete or truncated. Google may have cut off the download early. Please try again, or download the file manually from Google Docs and upload it directly.",
+            });
+          }
         }
 
         // Catch an unexpected export format from Google's export API (e.g.
@@ -1156,12 +1176,15 @@ export async function registerRoutes(
               error: `Could not download the spreadsheet (status ${lastStatus}). The spreadsheet may not be publicly shared.`,
             });
         }
-        if (buffer.length < 100) {
+        // A real XLSX export from Google is always at least several kilobytes.
+        // Anything smaller is either an empty response or a truncated /
+        // authentication-interstitial HTML page from Google — not a real file.
+        if (buffer.length < 1024) {
           return res
             .status(502)
             .json({
               error:
-                "Downloaded file appears empty. The spreadsheet may not be publicly shared.",
+                "The exported file is too small to be a real spreadsheet — Google may have returned an authentication page or an empty response. Make sure the spreadsheet is set to \"Anyone with the link\" and try again.",
             });
         }
 
@@ -1173,6 +1196,23 @@ export async function registerRoutes(
               error:
                 "The downloaded file is not a valid spreadsheet. The Google Sheet may not be publicly shared.",
             });
+        }
+
+        // Verify the buffer is a complete ZIP archive by looking for the
+        // end-of-central-directory (EOCD) record (signature 50 4B 05 06).
+        // A truncated export — e.g. the download was cut short or Google
+        // returned an interstitial that coincidentally starts with the ZIP
+        // magic bytes — will be missing this record at the end of the file.
+        {
+          const EOCD_SIG = Buffer.from([0x50, 0x4b, 0x05, 0x06]);
+          const searchStart = Math.max(0, buffer.length - 65557);
+          const tail = buffer.slice(searchStart);
+          if (tail.lastIndexOf(EOCD_SIG) === -1) {
+            return res.status(502).json({
+              error:
+                "The exported spreadsheet appears to be incomplete or truncated. Google may have cut off the download early. Please try again, or download the file manually from Google Sheets and upload it directly.",
+            });
+          }
         }
 
         // Catch an unexpected export format from Google's export API (e.g.
@@ -1404,12 +1444,15 @@ export async function registerRoutes(
               error: `Could not download the presentation (status ${lastStatus}). The presentation may not be publicly shared.`,
             });
         }
-        if (buffer.length < 100) {
+        // A real PPTX export from Google is always at least several kilobytes.
+        // Anything smaller is either an empty response or a truncated /
+        // authentication-interstitial HTML page from Google — not a real file.
+        if (buffer.length < 1024) {
           return res
             .status(502)
             .json({
               error:
-                "Downloaded file appears empty. The presentation may not be publicly shared.",
+                "The exported file is too small to be a real presentation — Google may have returned an authentication page or an empty response. Make sure the presentation is set to \"Anyone with the link\" and try again.",
             });
         }
 
@@ -1421,6 +1464,23 @@ export async function registerRoutes(
               error:
                 "The downloaded file is not a valid presentation. The Google Slides presentation may not be publicly shared.",
             });
+        }
+
+        // Verify the buffer is a complete ZIP archive by looking for the
+        // end-of-central-directory (EOCD) record (signature 50 4B 05 06).
+        // A truncated export — e.g. the download was cut short or Google
+        // returned an interstitial that coincidentally starts with the ZIP
+        // magic bytes — will be missing this record at the end of the file.
+        {
+          const EOCD_SIG = Buffer.from([0x50, 0x4b, 0x05, 0x06]);
+          const searchStart = Math.max(0, buffer.length - 65557);
+          const tail = buffer.slice(searchStart);
+          if (tail.lastIndexOf(EOCD_SIG) === -1) {
+            return res.status(502).json({
+              error:
+                "The exported presentation appears to be incomplete or truncated. Google may have cut off the download early. Please try again, or download the file manually from Google Slides and upload it directly.",
+            });
+          }
         }
 
         // Catch an unexpected export format from Google's export API (e.g.

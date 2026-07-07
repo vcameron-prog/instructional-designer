@@ -153,30 +153,52 @@ async function buildApp() {
   return app;
 }
 
-/** Padding to keep fake buffers above the route's 100-byte "empty file" floor. */
-const PADDING = "x".repeat(100);
+/**
+ * Minimal ZIP end-of-central-directory (EOCD) record (22 bytes).
+ * Its presence proves the archive is complete; its absence triggers the new
+ * truncation guard added in task #1137.
+ */
+const EOCD_RECORD = Buffer.from([
+  0x50, 0x4b, 0x05, 0x06, // EOCD signature
+  0x00, 0x00,             // disk number
+  0x00, 0x00,             // start disk
+  0x01, 0x00,             // local entries
+  0x01, 0x00,             // total entries
+  0x00, 0x00, 0x00, 0x00, // central dir size
+  0x00, 0x00, 0x00, 0x00, // central dir offset
+  0x00, 0x00,             // comment length
+]);
 
-/** Minimal valid docx bytes: zip magic + an embedded word/document.xml part name. */
+/**
+ * Padding to satisfy the 1 KB minimum-size guard (task #1137).
+ * Buffers smaller than 1024 bytes are rejected as "too small to be real".
+ */
+const PADDING = "x".repeat(1024);
+
+/** Minimal valid docx bytes: zip magic + an embedded word/document.xml part name + EOCD. */
 function fakeDocxBuffer(): Buffer {
   return Buffer.concat([
     Buffer.from([0x50, 0x4b, 0x03, 0x04]),
     Buffer.from(`word/document.xml some xml content here ${PADDING}`),
+    EOCD_RECORD,
   ]);
 }
 
-/** Minimal valid xlsx bytes: zip magic + an embedded xl/workbook.xml part name. */
+/** Minimal valid xlsx bytes: zip magic + an embedded xl/workbook.xml part name + EOCD. */
 function fakeXlsxBuffer(): Buffer {
   return Buffer.concat([
     Buffer.from([0x50, 0x4b, 0x03, 0x04]),
     Buffer.from(`xl/workbook.xml some xml content here ${PADDING}`),
+    EOCD_RECORD,
   ]);
 }
 
-/** Minimal valid pptx bytes: zip magic + an embedded ppt/presentation.xml part name. */
+/** Minimal valid pptx bytes: zip magic + an embedded ppt/presentation.xml part name + EOCD. */
 function fakePptxBuffer(): Buffer {
   return Buffer.concat([
     Buffer.from([0x50, 0x4b, 0x03, 0x04]),
     Buffer.from(`ppt/presentation.xml some xml content here ${PADDING}`),
+    EOCD_RECORD,
   ]);
 }
 
