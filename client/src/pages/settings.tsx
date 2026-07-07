@@ -16,8 +16,12 @@ const SKIP_PREVIEW_KEY = "a11y-skip-preview";
 const AUTO_EXPAND_KEY = "bsu-auto-expand-sections";
 const DEFAULT_LANGUAGE_KEY = "bsu-default-language";
 const PREFERRED_TOOL_KEY = "bsu-preferred-quick-tool";
+const TITLE_QUALITY_MIN_LENGTH_KEY = "bsu-title-quality-min-length";
 
 const QUICK_TOOL_IDS = ["assignment", "rubric", "alignment", "airesistant", "accessibility", "aistudent"];
+
+const DEFAULT_TITLE_QUALITY_MIN_LENGTH = 4;
+const TITLE_QUALITY_MIN_LENGTH_BOUNDS = { min: 1, max: 20 };
 
 const LANGUAGE_OPTIONS = [
   { value: "English", label: "English" },
@@ -32,6 +36,7 @@ interface UserPreferences {
   autoExpand?: boolean;
   defaultLanguage?: string;
   preferredTool?: string;
+  titleQualityMinLength?: number;
 }
 
 export default function SettingsPage() {
@@ -55,6 +60,12 @@ export default function SettingsPage() {
   const [preferredTool, setPreferredTool] = useState(
     () => localStorage.getItem(PREFERRED_TOOL_KEY) || ""
   );
+  const [titleQualityMinLength, setTitleQualityMinLength] = useState(() => {
+    const stored = parseInt(localStorage.getItem(TITLE_QUALITY_MIN_LENGTH_KEY) || "", 10);
+    return Number.isFinite(stored) && stored >= TITLE_QUALITY_MIN_LENGTH_BOUNDS.min && stored <= TITLE_QUALITY_MIN_LENGTH_BOUNDS.max
+      ? stored
+      : DEFAULT_TITLE_QUALITY_MIN_LENGTH;
+  });
   const [hydrated, setHydrated] = useState(false);
 
   const { data: serverPrefs, isLoading: prefsLoading } = useQuery<UserPreferences>({
@@ -92,6 +103,10 @@ export default function SettingsPage() {
       } else {
         localStorage.removeItem(PREFERRED_TOOL_KEY);
       }
+    }
+    if (serverPrefs.titleQualityMinLength !== undefined) {
+      setTitleQualityMinLength(serverPrefs.titleQualityMinLength);
+      localStorage.setItem(TITLE_QUALITY_MIN_LENGTH_KEY, String(serverPrefs.titleQualityMinLength));
     }
     setHydrated(true);
   }, [serverPrefs, prefsLoading, isAuthenticated, hydrated]);
@@ -152,6 +167,16 @@ export default function SettingsPage() {
       localStorage.removeItem(PREFERRED_TOOL_KEY);
     }
     persist({ preferredTool: value });
+  };
+
+  const handleTitleQualityMinLengthChange = (value: number) => {
+    const clamped = Math.min(
+      TITLE_QUALITY_MIN_LENGTH_BOUNDS.max,
+      Math.max(TITLE_QUALITY_MIN_LENGTH_BOUNDS.min, value)
+    );
+    setTitleQualityMinLength(clamped);
+    localStorage.setItem(TITLE_QUALITY_MIN_LENGTH_KEY, String(clamped));
+    persist({ titleQualityMinLength: clamped });
   };
 
   const quickTools = TOOLS.filter(t => QUICK_TOOL_IDS.includes(t.id));
@@ -344,6 +369,34 @@ export default function SettingsPage() {
                 <p className="text-sm text-muted-foreground mt-0.5">
                   When enabled, clicking "Fix this" on an accessibility issue will apply the fix immediately instead of showing a before/after preview first.
                 </p>
+              </div>
+            </div>
+
+            <div className="space-y-1.5 pt-2 border-t">
+              <label
+                htmlFor="settings-title-quality-min-length"
+                className="text-sm font-medium"
+              >
+                Minimum page title length
+              </label>
+              <p className="text-sm text-muted-foreground">
+                Extracted page titles shorter than this many characters (or generic placeholders like "Slide 1") are flagged for manual review. Lower this if you have legitimate short titles like "FAQ".
+              </p>
+              <div className="flex items-center gap-2">
+                <input
+                  id="settings-title-quality-min-length"
+                  type="number"
+                  min={TITLE_QUALITY_MIN_LENGTH_BOUNDS.min}
+                  max={TITLE_QUALITY_MIN_LENGTH_BOUNDS.max}
+                  value={titleQualityMinLength}
+                  onChange={(e) => {
+                    const parsed = parseInt(e.target.value, 10);
+                    if (Number.isFinite(parsed)) handleTitleQualityMinLengthChange(parsed);
+                  }}
+                  className="mt-1 w-24 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  data-testid="input-settings-title-quality-min-length"
+                />
+                <span className="text-sm text-muted-foreground">characters (default: {DEFAULT_TITLE_QUALITY_MIN_LENGTH})</span>
               </div>
             </div>
           </CardContent>

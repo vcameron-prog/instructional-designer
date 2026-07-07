@@ -92,6 +92,7 @@ vi.mock("./storage", () => ({
     createVersion: vi.fn(),
     updateContent: vi.fn(),
     pruneOldVersions: vi.fn(),
+    getUserPreferences: vi.fn().mockResolvedValue({}),
   },
 }));
 

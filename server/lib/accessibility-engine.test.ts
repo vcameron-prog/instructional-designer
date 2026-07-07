@@ -50,6 +50,10 @@ import {
   findLastConvertedMarker,
   getContextLeakMetrics,
   resetContextLeakMetricsForTesting,
+  isLowQualityExtractedTitle,
+  resolveMinQualityTitleLength,
+  DEFAULT_MIN_QUALITY_TITLE_LENGTH,
+  MIN_QUALITY_TITLE_LENGTH_BOUNDS,
   type ComplianceIssue,
   type ComplianceReport,
   type PageChunk,
@@ -3837,6 +3841,72 @@ describe("fixComplianceIssue – fixture-based regression tests", () => {
     expect(fixedIssue.status).toBe("fixed");
     expect(fixedIssue.fixNotes).toBeDefined();
     expect(fixedIssue.fixNotes).toContain("descriptive enough");
+  });
+
+  describe("configurable title-quality threshold", () => {
+    it("uses the default minimum length (4) when no threshold is provided", () => {
+      expect(isLowQualityExtractedTitle("Hi")).toBe(true);
+      expect(isLowQualityExtractedTitle("FAQ")).toBe(true);
+      expect(isLowQualityExtractedTitle("Intro")).toBe(false);
+    });
+
+    it("allows a lower custom minimum length so short-but-legitimate titles pass", () => {
+      expect(isLowQualityExtractedTitle("FAQ", 3)).toBe(false);
+      expect(isLowQualityExtractedTitle("Hi", 3)).toBe(true);
+    });
+
+    it("still flags generic placeholder patterns regardless of length threshold", () => {
+      expect(isLowQualityExtractedTitle("Slide 1", 1)).toBe(true);
+      expect(isLowQualityExtractedTitle("Untitled", 1)).toBe(true);
+    });
+
+    it("resolveMinQualityTitleLength falls back to the default for missing/invalid input", () => {
+      expect(resolveMinQualityTitleLength(undefined)).toBe(DEFAULT_MIN_QUALITY_TITLE_LENGTH);
+      expect(resolveMinQualityTitleLength(null)).toBe(DEFAULT_MIN_QUALITY_TITLE_LENGTH);
+      expect(resolveMinQualityTitleLength(NaN)).toBe(DEFAULT_MIN_QUALITY_TITLE_LENGTH);
+    });
+
+    it("resolveMinQualityTitleLength clamps out-of-range values to the configured bounds", () => {
+      expect(resolveMinQualityTitleLength(0)).toBe(MIN_QUALITY_TITLE_LENGTH_BOUNDS.min);
+      expect(resolveMinQualityTitleLength(-5)).toBe(MIN_QUALITY_TITLE_LENGTH_BOUNDS.min);
+      expect(resolveMinQualityTitleLength(1000)).toBe(MIN_QUALITY_TITLE_LENGTH_BOUNDS.max);
+    });
+
+    it("resolveMinQualityTitleLength rounds fractional values", () => {
+      expect(resolveMinQualityTitleLength(3.6)).toBe(4);
+    });
+
+    it("does not flag a short title as low quality when fixComplianceIssue is given a lower threshold", async () => {
+      const html = `<!DOCTYPE html><html lang="en"><head></head><body><h1>FAQ</h1><p>Some content</p></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const titleIssue = issues.find((i) => i.criterion === "2.4.2" && i.title === "Page Titled")!;
+      const report = makeReport(issues);
+
+      const result = await fixComplianceIssue(html, titleIssue, issues.indexOf(titleIssue), report, 3);
+
+      const fixedIssue = result.complianceReport.issues.find(
+        (i) => i.criterion === "2.4.2" && i.title === "Page Titled"
+      )!;
+      expect(fixedIssue.status).toBe("fixed");
+      expect(fixedIssue.fixNotes).toBeUndefined();
+      expect(result.accessibleHtml).toContain("<title>FAQ</title>");
+    });
+
+    it("flags a title as low quality when fixComplianceIssue is given a higher threshold", async () => {
+      const html = `<!DOCTYPE html><html lang="en"><head></head><body><h1>Intro</h1><p>Some content</p></body></html>`;
+      const issues = runDeterministicChecks(html);
+      const titleIssue = issues.find((i) => i.criterion === "2.4.2" && i.title === "Page Titled")!;
+      const report = makeReport(issues);
+
+      const result = await fixComplianceIssue(html, titleIssue, issues.indexOf(titleIssue), report, 10);
+
+      const fixedIssue = result.complianceReport.issues.find(
+        (i) => i.criterion === "2.4.2" && i.title === "Page Titled"
+      )!;
+      expect(fixedIssue.status).toBe("fixed");
+      expect(fixedIssue.fixNotes).toBeDefined();
+      expect(fixedIssue.fixNotes).toContain("descriptive enough");
+    });
   });
 
   it("fixes criterion 1.1.1 (Image Descriptions): returned HTML passes the alt-text check", async () => {

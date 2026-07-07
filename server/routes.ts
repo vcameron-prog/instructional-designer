@@ -271,6 +271,7 @@ export async function registerRoutes(
     autoExpand: z.boolean().optional(),
     defaultLanguage: z.string().max(64).optional(),
     preferredTool: z.string().max(64).optional(),
+    titleQualityMinLength: z.number().int().min(1).max(20).optional(),
   });
 
   app.get("/api/preferences", isAuthenticated, async (req: Request, res: Response) => {
@@ -1664,6 +1665,19 @@ export async function registerRoutes(
         }
       };
 
+      // Faculty can tighten or loosen the "is this title too generic/short?"
+      // heuristic via their preferences; anonymous users get the default.
+      const { resolveMinQualityTitleLength } = await import("./lib/accessibility-engine.js");
+      let minQualityTitleLength = resolveMinQualityTitleLength();
+      if (userId) {
+        try {
+          const prefs = await storage.getUserPreferences(userId);
+          minQualityTitleLength = resolveMinQualityTitleLength(prefs.titleQualityMinLength);
+        } catch (e) {
+          console.error("Failed to load user preferences for title quality threshold:", e);
+        }
+      }
+
       (async () => {
         const conversionStart = Date.now();
         const TIMEOUT_MS = 10 * 60 * 1000;
@@ -1905,6 +1919,7 @@ export async function registerRoutes(
             updateStatusMessage,
             abortController.signal,
             ocrApplied,
+            minQualityTitleLength,
           );
 
           // Guard the success write: if the timeout fired while
@@ -2195,6 +2210,19 @@ export async function registerRoutes(
 
       res.json({ id, status: "processing", statusMessage: "Starting re-conversion…", processingStartedAt: new Date() });
 
+      // Faculty can tighten or loosen the "is this title too generic/short?"
+      // heuristic via their preferences; anonymous users get the default.
+      const { resolveMinQualityTitleLength } = await import("./lib/accessibility-engine.js");
+      let reprocessMinQualityTitleLength = resolveMinQualityTitleLength();
+      if (userId) {
+        try {
+          const prefs = await storage.getUserPreferences(userId);
+          reprocessMinQualityTitleLength = resolveMinQualityTitleLength(prefs.titleQualityMinLength);
+        } catch (e) {
+          console.error("Failed to load user preferences for title quality threshold:", e);
+        }
+      }
+
       // Background work — same pattern as the main /process route.
       const REPROCESS_TIMEOUT_MS = 10 * 60 * 1000;
       activeProcessingJobs++;
@@ -2242,6 +2270,7 @@ export async function registerRoutes(
             updateStatus,
             abortController.signal,
             conversion.ocrApplied ?? false,
+            reprocessMinQualityTitleLength,
           );
 
           if (aborted) throw new Error("aborted");
@@ -2372,14 +2401,24 @@ export async function registerRoutes(
       activeFixJobs++;
       activeFixKeys.add(fixDedupeKey);
       try {
-        const { fixComplianceIssue } = await import(
+        const { fixComplianceIssue, resolveMinQualityTitleLength } = await import(
           "./lib/accessibility-engine"
         );
+        let fixMinQualityTitleLength = resolveMinQualityTitleLength();
+        if (userId) {
+          try {
+            const prefs = await storage.getUserPreferences(userId);
+            fixMinQualityTitleLength = resolveMinQualityTitleLength(prefs.titleQualityMinLength);
+          } catch (e) {
+            console.error("Failed to load user preferences for title quality threshold:", e);
+          }
+        }
         const result = await fixComplianceIssue(
           conversion.accessibleHtml,
           report.issues[issueIndex],
           issueIndex,
           report,
+          fixMinQualityTitleLength,
         );
 
         const [updated] = await db

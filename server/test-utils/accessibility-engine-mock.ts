@@ -43,6 +43,7 @@ export const ACCESSIBILITY_ENGINE_EXPORTS_USED_BY_ROUTES = [
   "fixAllAriaRoleMisuse",
   "buildComplianceReport",
   "predictTruncationWarning",
+  "resolveMinQualityTitleLength",
 ] as const;
 
 export type AccessibilityEngineMockOverrides = Partial<
@@ -78,6 +79,11 @@ export function createAccessibilityEngineMock(
     buildComplianceReport: vi.fn((issues: unknown[]) => ({ issues })),
     registerDeterministicFixer: vi.fn(),
     predictTruncationWarning: vi.fn().mockReturnValue(undefined),
+    resolveMinQualityTitleLength: vi.fn((preferred?: number) =>
+      typeof preferred === "number" && Number.isFinite(preferred)
+        ? Math.min(20, Math.max(1, Math.round(preferred)))
+        : 4,
+    ),
     ...overrides,
   };
 }

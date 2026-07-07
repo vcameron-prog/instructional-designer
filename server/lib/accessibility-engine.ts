@@ -1927,7 +1927,8 @@ export function applyBypassBlocksFix(html: string): string {
 import { PAGE_TITLE_FALLBACK_NOTE, PAGE_TITLE_LOW_QUALITY_NOTE } from "@shared/page-title-messages";
 export { PAGE_TITLE_FALLBACK_NOTE, PAGE_TITLE_LOW_QUALITY_NOTE };
 
-const MIN_QUALITY_TITLE_LENGTH = 4;
+export const DEFAULT_MIN_QUALITY_TITLE_LENGTH = 4;
+export const MIN_QUALITY_TITLE_LENGTH_BOUNDS = { min: 1, max: 20 } as const;
 
 const GENERIC_TITLE_PATTERNS: RegExp[] = [
   /^untitled( document| slide)?$/i,
@@ -1942,14 +1943,36 @@ const GENERIC_TITLE_PATTERNS: RegExp[] = [
 ];
 
 /**
+ * Clamps a faculty-configured minimum-title-length preference to a sane
+ * range, falling back to the default when the value is missing or invalid.
+ * Keeping this in one place ensures every call site (initial generation,
+ * manual re-fix, notes) applies the same effective threshold.
+ */
+export function resolveMinQualityTitleLength(preferred?: number | null): number {
+  if (typeof preferred !== "number" || !Number.isFinite(preferred)) {
+    return DEFAULT_MIN_QUALITY_TITLE_LENGTH;
+  }
+  const rounded = Math.round(preferred);
+  return Math.min(
+    MIN_QUALITY_TITLE_LENGTH_BOUNDS.max,
+    Math.max(MIN_QUALITY_TITLE_LENGTH_BOUNDS.min, rounded)
+  );
+}
+
+/**
  * Determines whether a title extracted from an <h1>/<h2> is too low-quality
  * to be considered a descriptive page title, even though it's not the
  * generic "Document" fallback. Flags very short titles and common generic
- * placeholders (e.g. "Slide 1", "Untitled").
+ * placeholders (e.g. "Slide 1", "Untitled"). `minLength` defaults to
+ * `DEFAULT_MIN_QUALITY_TITLE_LENGTH` but faculty can tighten or loosen it
+ * via their user preferences (see `resolveMinQualityTitleLength`).
  */
-export function isLowQualityExtractedTitle(title: string): boolean {
+export function isLowQualityExtractedTitle(
+  title: string,
+  minLength: number = DEFAULT_MIN_QUALITY_TITLE_LENGTH
+): boolean {
   const trimmed = title.trim();
-  if (trimmed.length < MIN_QUALITY_TITLE_LENGTH) return true;
+  if (trimmed.length < minLength) return true;
   return GENERIC_TITLE_PATTERNS.some((pattern) => pattern.test(trimmed));
 }
 
@@ -1964,7 +1987,8 @@ export function isLowQualityExtractedTitle(title: string): boolean {
  */
 function applyPageTitleFixNotes(
   issues: ComplianceIssue[],
-  pageTitleInfo: { title: string; headingLevel: "h1" | "h2" | null } | null
+  pageTitleInfo: { title: string; headingLevel: "h1" | "h2" | null } | null,
+  minQualityTitleLength: number = DEFAULT_MIN_QUALITY_TITLE_LENGTH
 ): void {
   if (!pageTitleInfo) return;
 
@@ -1978,7 +2002,7 @@ function applyPageTitleFixNotes(
       ...issues[titleIssueIdx],
       fixNotes: PAGE_TITLE_FALLBACK_NOTE,
     };
-  } else if (isLowQualityExtractedTitle(pageTitleInfo.title)) {
+  } else if (isLowQualityExtractedTitle(pageTitleInfo.title, minQualityTitleLength)) {
     issues[titleIssueIdx] = {
       ...issues[titleIssueIdx],
       fixNotes: PAGE_TITLE_LOW_QUALITY_NOTE,
@@ -2467,7 +2491,8 @@ export function applyDeterministicReport(
   fixedHtml: string,
   issue: ComplianceIssue,
   issueIndex: number,
-  updatedIssues: ComplianceIssue[]
+  updatedIssues: ComplianceIssue[],
+  minQualityTitleLength: number = DEFAULT_MIN_QUALITY_TITLE_LENGTH
 ): void {
   const deterministicIssues = runDeterministicChecks(fixedHtml);
   const deterministicMap = new Map<string, ComplianceIssue>();
@@ -2493,7 +2518,7 @@ export function applyDeterministicReport(
           const { title, headingLevel } = extractPageTitleInfo(fixedHtml);
           if (headingLevel) {
             updated = { ...updated, details: `Title set to '${title}' from the first <${headingLevel}>` };
-            if (isLowQualityExtractedTitle(title)) {
+            if (isLowQualityExtractedTitle(title, minQualityTitleLength)) {
               updated = { ...updated, fixNotes: PAGE_TITLE_LOW_QUALITY_NOTE };
             }
           } else {
@@ -2535,7 +2560,8 @@ export async function fixComplianceIssue(
   currentHtml: string,
   issue: ComplianceIssue,
   issueIndex: number,
-  existingReport: ComplianceReport
+  existingReport: ComplianceReport,
+  minQualityTitleLength: number = DEFAULT_MIN_QUALITY_TITLE_LENGTH
 ): Promise<AccessibilityResult> {
   if (issue.title === "Fix all ARIA role misuse") {
     return fixAllAriaRoleMisuse(currentHtml, existingReport);
@@ -2566,7 +2592,7 @@ export async function fixComplianceIssue(
 
     const fixedHtml = deterministicFixer(currentHtml);
     const updatedIssues = [...existingReport.issues];
-    applyDeterministicReport(fixedHtml, issue, issueIndex, updatedIssues);
+    applyDeterministicReport(fixedHtml, issue, issueIndex, updatedIssues, minQualityTitleLength);
 
     if (bypassBlocksFixWrapped && issueIndex >= 0 && issueIndex < updatedIssues.length) {
       updatedIssues[issueIndex] = {
@@ -2699,7 +2725,7 @@ ${stripped}`,
   const fixedHtml = restoreDataUris(rawOutput, uris);
 
   const updatedIssues = [...existingReport.issues];
-  applyDeterministicReport(fixedHtml, issue, issueIndex, updatedIssues);
+  applyDeterministicReport(fixedHtml, issue, issueIndex, updatedIssues, minQualityTitleLength);
   return { accessibleHtml: fixedHtml, complianceReport: buildComplianceReport(updatedIssues), wasRetried };
 }
 
@@ -3240,7 +3266,8 @@ export async function generateAccessibleDocument(
   _pageCount?: number,
   onProgress?: ProgressCallback,
   signal?: AbortSignal,
-  ocrApplied = false
+  ocrApplied = false,
+  minQualityTitleLength: number = DEFAULT_MIN_QUALITY_TITLE_LENGTH
 ): Promise<AccessibilityResult> {
   const documentTitle = metadata.title || originalFilename.replace(/\.pdf$/i, "");
 
@@ -3434,7 +3461,7 @@ ${structuralSummary}`,
   const deterministicIssues = runDeterministicChecks(accessibleHtml);
   applyHeadingHierarchyFixNotes(deterministicIssues, preHeadingHierarchyFixLevel);
   applyBypassBlocksFixNotes(deterministicIssues, bypassBlocksFixWrapped);
-  applyPageTitleFixNotes(deterministicIssues, pageTitleInfoUsed);
+  applyPageTitleFixNotes(deterministicIssues, pageTitleInfoUsed, minQualityTitleLength);
   const [enhancedHtml, aiIssues] = await Promise.all([
     hasImages
       ? generateVisionAltText(accessibleHtml, images, signal)

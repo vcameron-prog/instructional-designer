@@ -13,6 +13,7 @@ export interface UserPreferences {
   autoExpand?: boolean;
   defaultLanguage?: string;
   preferredTool?: string;
+  titleQualityMinLength?: number;
 }
 
 export interface GeneratedContentOwnership {
