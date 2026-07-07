@@ -1849,7 +1849,15 @@ function hasMainElement(html: string): boolean {
  * had actual content to wrap), attaches a `fixNotes` explanation to the
  * "2.4.1 / Bypass Blocks" issue so faculty can see that the auto-fixer
  * restructured their page body, rather than only seeing a silent "pass".
+ *
+ * The exact fixNotes string set on the 2.4.1 Bypass Blocks issue when
+ * `applyBypassBlocksFix` auto-wrapped the document body. Exported so that
+ * download routes can detect the fix without re-running the pipeline, and so
+ * `applyBypassBlocksFixNotes` and `buildMainLandmarkNoteHtml` stay in sync.
  */
+export const BYPASS_BLOCKS_FIX_NOTE =
+  "A <main> landmark was automatically added around your page content because none existed. If your document has a header, nav, or footer, that content was kept outside the new <main> region; everything else was grouped inside it. Review the page structure to confirm the grouping still matches your intended layout.";
+
 function applyBypassBlocksFixNotes(issues: ComplianceIssue[], wasWrapped: boolean): void {
   if (!wasWrapped) return;
 
@@ -1860,8 +1868,44 @@ function applyBypassBlocksFixNotes(issues: ComplianceIssue[], wasWrapped: boolea
 
   issues[bypassIssueIdx] = {
     ...issues[bypassIssueIdx],
-    fixNotes: `A <main> landmark was automatically added around your page content because none existed. If your document has a header, nav, or footer, that content was kept outside the new <main> region; everything else was grouped inside it. Review the page structure to confirm the grouping still matches your intended layout.`,
+    fixNotes: BYPASS_BLOCKS_FIX_NOTE,
   };
+}
+
+/**
+ * Builds a visible callout explaining that a `<main>` landmark region was
+ * automatically added to wrap the document's body content. Meant to be
+ * inserted near the top of exported HTML/DOCX/PDF documents so faculty who
+ * download the file can discover the structural change before distributing it.
+ */
+export function buildMainLandmarkNoteHtml(): string {
+  return `<div role="note" aria-label="Main landmark added notice" style="margin:0 0 1.5rem 0;padding:0.75rem 1rem;border:1px solid #d1a300;border-left:4px solid #d1a300;background:#fff8e1;color:#4a3b00;font-size:0.9rem;border-radius:4px;">
+  <p style="margin:0;"><strong>Note:</strong> A &lt;main&gt; landmark region was automatically added around your page content because the document had none. If your document includes a header, nav, or footer, that content was kept outside the new &lt;main&gt; region; all other content was grouped inside it. Review the page structure to confirm the grouping matches your intended layout.</p>
+</div>`;
+}
+
+/**
+ * Builds a visible callout explaining that the page title was set to a
+ * generic fallback ("Document") because no usable heading text was found.
+ * Meant to be inserted near the top of exported HTML/DOCX/PDF documents so
+ * faculty who download the file know the title needs manual review.
+ */
+export function buildPageTitleFallbackNoteHtml(): string {
+  return `<div role="note" aria-label="Page title notice" style="margin:0 0 1.5rem 0;padding:0.75rem 1rem;border:1px solid #d1a300;border-left:4px solid #d1a300;background:#fff8e1;color:#4a3b00;font-size:0.9rem;border-radius:4px;">
+  <p style="margin:0;"><strong>Note:</strong> A generic &ldquo;Document&rdquo; page title was used automatically because no usable heading text could be found to build a descriptive title. Please update the page title so it accurately describes your content.</p>
+</div>`;
+}
+
+/**
+ * Builds a visible callout explaining that the automatically extracted page
+ * title may not be descriptive enough (very short or looks like a placeholder).
+ * Meant to be inserted near the top of exported HTML/DOCX/PDF documents so
+ * faculty who download the file know the title warrants review.
+ */
+export function buildPageTitleLowQualityNoteHtml(): string {
+  return `<div role="note" aria-label="Page title quality notice" style="margin:0 0 1.5rem 0;padding:0.75rem 1rem;border:1px solid #d1a300;border-left:4px solid #d1a300;background:#fff8e1;color:#4a3b00;font-size:0.9rem;border-radius:4px;">
+  <p style="margin:0;"><strong>Note:</strong> The automatically extracted page title may not be descriptive enough &mdash; it appears very short or looks like a generic placeholder. Please review and update the page title so it accurately describes your content.</p>
+</div>`;
 }
 
 export function applyBypassBlocksFix(html: string): string {

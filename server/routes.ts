@@ -17,7 +17,8 @@ import Anthropic from "@anthropic-ai/sdk";
 import multer from "multer";
 import { db } from "./db";
 import { eq, and, isNull, sql, desc, inArray } from "drizzle-orm";
-import { getDeterministicFixerKeys, getAiFixRetryMetrics, getPersistAiFixRetryLastFailed, applyHeadingHierarchyFix, getContextLeakMetrics, applyCustomPageTitle, getFirstHeadingLevel, buildHeadingRenumberedNoteHtml } from "./lib/accessibility-engine";
+import { getDeterministicFixerKeys, getAiFixRetryMetrics, getPersistAiFixRetryLastFailed, applyHeadingHierarchyFix, getContextLeakMetrics, applyCustomPageTitle, getFirstHeadingLevel, buildHeadingRenumberedNoteHtml, buildMainLandmarkNoteHtml, buildPageTitleFallbackNoteHtml, buildPageTitleLowQualityNoteHtml, BYPASS_BLOCKS_FIX_NOTE } from "./lib/accessibility-engine";
+import { PAGE_TITLE_FALLBACK_NOTE, PAGE_TITLE_LOW_QUALITY_NOTE } from "@shared/page-title-messages";
 import {
   SHARED_ANON_UPLOAD_RATE_LIMIT,
   SHARED_HEAVY_OP_RATE_LIMIT,
@@ -2924,6 +2925,7 @@ export async function registerRoutes(
           originalFilename: conversions.originalFilename,
           status: conversions.status,
           updatedAt: conversions.updatedAt,
+          complianceReport: conversions.complianceReport,
         })
         .from(conversions)
         .where(conversionOwnerFilter(id, userId, getVisitorToken(req)));
@@ -2960,12 +2962,29 @@ export async function registerRoutes(
           html.slice(headCloseIdx);
       }
 
-      if (preHeadingFixLevel && preHeadingFixLevel !== 1) {
-        const noteHtml = buildHeadingRenumberedNoteHtml(preHeadingFixLevel);
-        const bodyOpenMatch = html.match(/<body[^>]*>/i);
-        if (bodyOpenMatch) {
-          const insertAt = html.indexOf(bodyOpenMatch[0]) + bodyOpenMatch[0].length;
-          html = html.slice(0, insertAt) + "\n" + noteHtml + html.slice(insertAt);
+      {
+        const autoFixNotes: string[] = [];
+        if (preHeadingFixLevel && preHeadingFixLevel !== 1) {
+          autoFixNotes.push(buildHeadingRenumberedNoteHtml(preHeadingFixLevel));
+        }
+        const reportIssues: Array<{ criterion?: string; fixNotes?: string }> =
+          (conversion.complianceReport as any)?.issues ?? [];
+        if (reportIssues.some((iss) => iss.criterion === "2.4.1" && iss.fixNotes === BYPASS_BLOCKS_FIX_NOTE)) {
+          autoFixNotes.push(buildMainLandmarkNoteHtml());
+        }
+        const pageTitleIssue = reportIssues.find((iss) => iss.criterion === "2.4.2" && iss.fixNotes);
+        if (pageTitleIssue?.fixNotes === PAGE_TITLE_FALLBACK_NOTE) {
+          autoFixNotes.push(buildPageTitleFallbackNoteHtml());
+        } else if (pageTitleIssue?.fixNotes === PAGE_TITLE_LOW_QUALITY_NOTE) {
+          autoFixNotes.push(buildPageTitleLowQualityNoteHtml());
+        }
+        if (autoFixNotes.length > 0) {
+          const notesHtml = autoFixNotes.join("\n");
+          const bodyOpenMatch = html.match(/<body[^>]*>/i);
+          if (bodyOpenMatch) {
+            const insertAt = html.indexOf(bodyOpenMatch[0]) + bodyOpenMatch[0].length;
+            html = html.slice(0, insertAt) + "\n" + notesHtml + html.slice(insertAt);
+          }
         }
       }
 
@@ -3008,6 +3027,7 @@ export async function registerRoutes(
           originalFilename: conversions.originalFilename,
           status: conversions.status,
           updatedAt: conversions.updatedAt,
+          complianceReport: conversions.complianceReport,
         })
         .from(conversions)
         .where(conversionOwnerFilter(id, userId, getVisitorToken(req)));
@@ -3080,12 +3100,29 @@ export async function registerRoutes(
         hour12: true,
       });
 
-      if (preHeadingFixLevel && preHeadingFixLevel !== 1) {
-        const noteHtml = buildHeadingRenumberedNoteHtml(preHeadingFixLevel);
-        const bodyOpenMatch = html.match(/<body[^>]*>/i);
-        if (bodyOpenMatch) {
-          const insertAt = html.indexOf(bodyOpenMatch[0]) + bodyOpenMatch[0].length;
-          html = html.slice(0, insertAt) + "\n" + noteHtml + html.slice(insertAt);
+      {
+        const autoFixNotes: string[] = [];
+        if (preHeadingFixLevel && preHeadingFixLevel !== 1) {
+          autoFixNotes.push(buildHeadingRenumberedNoteHtml(preHeadingFixLevel));
+        }
+        const reportIssues: Array<{ criterion?: string; fixNotes?: string }> =
+          (conversion.complianceReport as any)?.issues ?? [];
+        if (reportIssues.some((iss) => iss.criterion === "2.4.1" && iss.fixNotes === BYPASS_BLOCKS_FIX_NOTE)) {
+          autoFixNotes.push(buildMainLandmarkNoteHtml());
+        }
+        const pageTitleIssue = reportIssues.find((iss) => iss.criterion === "2.4.2" && iss.fixNotes);
+        if (pageTitleIssue?.fixNotes === PAGE_TITLE_FALLBACK_NOTE) {
+          autoFixNotes.push(buildPageTitleFallbackNoteHtml());
+        } else if (pageTitleIssue?.fixNotes === PAGE_TITLE_LOW_QUALITY_NOTE) {
+          autoFixNotes.push(buildPageTitleLowQualityNoteHtml());
+        }
+        if (autoFixNotes.length > 0) {
+          const notesHtml = autoFixNotes.join("\n");
+          const bodyOpenMatch = html.match(/<body[^>]*>/i);
+          if (bodyOpenMatch) {
+            const insertAt = html.indexOf(bodyOpenMatch[0]) + bodyOpenMatch[0].length;
+            html = html.slice(0, insertAt) + "\n" + notesHtml + html.slice(insertAt);
+          }
         }
       }
 
@@ -3261,6 +3298,7 @@ export async function registerRoutes(
           originalFilename: conversions.originalFilename,
           status: conversions.status,
           updatedAt: conversions.updatedAt,
+          complianceReport: conversions.complianceReport,
         })
         .from(conversions)
         .where(conversionOwnerFilter(id, userId, getVisitorToken(req)));
@@ -3343,12 +3381,29 @@ export async function registerRoutes(
           html.slice(headCloseIdx);
       }
 
-      if (preHeadingFixLevel && preHeadingFixLevel !== 1) {
-        const noteHtml = buildHeadingRenumberedNoteHtml(preHeadingFixLevel);
-        const bodyOpenMatch = html.match(/<body[^>]*>/i);
-        if (bodyOpenMatch) {
-          const insertAt = html.indexOf(bodyOpenMatch[0]) + bodyOpenMatch[0].length;
-          html = html.slice(0, insertAt) + "\n" + noteHtml + html.slice(insertAt);
+      {
+        const autoFixNotes: string[] = [];
+        if (preHeadingFixLevel && preHeadingFixLevel !== 1) {
+          autoFixNotes.push(buildHeadingRenumberedNoteHtml(preHeadingFixLevel));
+        }
+        const reportIssues: Array<{ criterion?: string; fixNotes?: string }> =
+          (conversion.complianceReport as any)?.issues ?? [];
+        if (reportIssues.some((iss) => iss.criterion === "2.4.1" && iss.fixNotes === BYPASS_BLOCKS_FIX_NOTE)) {
+          autoFixNotes.push(buildMainLandmarkNoteHtml());
+        }
+        const pageTitleIssue = reportIssues.find((iss) => iss.criterion === "2.4.2" && iss.fixNotes);
+        if (pageTitleIssue?.fixNotes === PAGE_TITLE_FALLBACK_NOTE) {
+          autoFixNotes.push(buildPageTitleFallbackNoteHtml());
+        } else if (pageTitleIssue?.fixNotes === PAGE_TITLE_LOW_QUALITY_NOTE) {
+          autoFixNotes.push(buildPageTitleLowQualityNoteHtml());
+        }
+        if (autoFixNotes.length > 0) {
+          const notesHtml = autoFixNotes.join("\n");
+          const bodyOpenMatch = html.match(/<body[^>]*>/i);
+          if (bodyOpenMatch) {
+            const insertAt = html.indexOf(bodyOpenMatch[0]) + bodyOpenMatch[0].length;
+            html = html.slice(0, insertAt) + "\n" + notesHtml + html.slice(insertAt);
+          }
         }
       }
 
