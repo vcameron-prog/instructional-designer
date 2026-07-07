@@ -1413,8 +1413,9 @@ export default function PdfConversion() {
             This conversion may have been deleted or does not exist.
           </p>
           <button
+            type="button"
             onClick={() => navigate("/pdf-accessibility/history")}
-            className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-xl font-bold"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-xl font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             data-testid="button-back-history"
           >
             <ArrowLeft className="w-4 h-4" /> Back to History
@@ -1464,10 +1465,11 @@ export default function PdfConversion() {
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
+              type="button"
               onClick={() => navigate("/")}
               aria-label="Home — CAI Tools"
               data-testid="button-home-logo"
-              className="flex-shrink-0"
+              className="flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
             >
               <img
                 src={caiLogo}
@@ -1482,8 +1484,9 @@ export default function PdfConversion() {
             </button>
             <div className="w-px h-6 bg-border" aria-hidden="true" />
             <button
+              type="button"
               onClick={() => navigate("/pdf-accessibility/history")}
-              className="text-muted-foreground hover:text-foreground transition-colors"
+              className="text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
               data-testid="button-back"
               aria-label="Back to conversion history"
             >
@@ -1522,15 +1525,17 @@ export default function PdfConversion() {
             </div>
             <div className="flex items-center gap-3">
               <button
+                type="button"
                 onClick={() => { setBannerDismissed(true); navigate("/pdf-accessibility/history"); }}
-                className="text-green-700 dark:text-green-400 font-semibold underline underline-offset-2 hover:opacity-80 transition-opacity whitespace-nowrap"
+                className="text-green-700 dark:text-green-400 font-semibold underline underline-offset-2 hover:opacity-80 transition-opacity whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
                 data-testid="link-view-history"
               >
                 View history →
               </button>
               <button
+                type="button"
                 onClick={() => setBannerDismissed(true)}
-                className="text-green-600 dark:text-green-500 hover:opacity-70 transition-opacity"
+                className="text-green-600 dark:text-green-500 hover:opacity-70 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
                 aria-label="Dismiss notification"
                 data-testid="button-dismiss-banner"
               >
@@ -1632,8 +1637,9 @@ export default function PdfConversion() {
                     processMutation.mutate(numericId);
                   }}
                   disabled={processMutation.isPending}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-xl text-sm font-bold shadow-sm disabled:opacity-50"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-xl text-sm font-bold shadow-sm disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   data-testid="button-retry"
+                  type="button"
                 >
                   {processMutation.isPending ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -1646,9 +1652,10 @@ export default function PdfConversion() {
               {conversion.status === "completed" && (
                 <>
                   <button
+                    type="button"
                     onClick={handleDownloadDocx}
                     disabled={isDownloadingDocx || !conversion.accessibleHtml}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-bold shadow-sm hover:-translate-y-0.5 transition-all disabled:opacity-50"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-bold shadow-sm hover:-translate-y-0.5 transition-all disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     data-testid="button-download-docx"
                   >
                     {isDownloadingDocx ? (
@@ -1659,9 +1666,10 @@ export default function PdfConversion() {
                     Download Word
                   </button>
                   <button
+                    type="button"
                     onClick={handleDownloadPdf}
                     disabled={isDownloadingPdf}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-red-700 hover:bg-red-800 text-white rounded-xl text-sm font-bold shadow-sm shadow-red-700/20 hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:transform-none"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-red-700 hover:bg-red-800 text-white rounded-xl text-sm font-bold shadow-sm shadow-red-700/20 hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:transform-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     data-testid="button-download-pdf"
                   >
                     {isDownloadingPdf ? (
@@ -1675,9 +1683,10 @@ export default function PdfConversion() {
                     Download PDF
                   </button>
                   <button
+                    type="button"
                     onClick={handleDownload}
                     disabled={isDownloading}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground rounded-xl text-sm font-bold shadow-sm hover:-translate-y-0.5 transition-all disabled:opacity-50"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground rounded-xl text-sm font-bold shadow-sm hover:-translate-y-0.5 transition-all disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     data-testid="button-download-html"
                   >
                     {isDownloading ? (
@@ -1690,8 +1699,9 @@ export default function PdfConversion() {
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <button
+                        type="button"
                         disabled={isDownloading || isDownloadingDocx || isDownloadingPdf}
-                        className="inline-flex items-center gap-2 px-4 py-2 border border-border bg-card text-foreground rounded-xl text-sm font-bold shadow-sm hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:transform-none"
+                        className="inline-flex items-center gap-2 px-4 py-2 border border-border bg-card text-foreground rounded-xl text-sm font-bold shadow-sm hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:transform-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         data-testid="button-download-as"
                         aria-label="Download as a different format"
                       >
@@ -1766,9 +1776,10 @@ export default function PdfConversion() {
                     </DropdownMenuContent>
                   </DropdownMenu>
                   <button
+                    type="button"
                     onClick={handleCopyHtml}
                     disabled={copyState === "copying"}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold shadow-sm hover:-translate-y-0.5 transition-all disabled:opacity-50"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold shadow-sm hover:-translate-y-0.5 transition-all disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     data-testid="button-copy-html"
                   >
                     {copyState === "copied" ? (
@@ -1779,9 +1790,10 @@ export default function PdfConversion() {
                     {copyState === "copied" ? "Copied!" : "Copy HTML"}
                   </button>
                   <button
+                    type="button"
                     onClick={() => reprocessMutation.mutate(numericId)}
                     disabled={reprocessMutation.isPending}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-sm font-bold shadow-sm hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:transform-none"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-sm font-bold shadow-sm hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:transform-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     data-testid="button-reprocess"
                     title="Re-run AI conversion using stored extracted text"
                   >
@@ -1793,8 +1805,9 @@ export default function PdfConversion() {
                     Re-convert
                   </button>
                   <button
+                    type="button"
                     onClick={() => navigate("/pdf-accessibility")}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground rounded-xl text-sm font-bold shadow-sm"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground rounded-xl text-sm font-bold shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     data-testid="button-convert-another"
                   >
                     <Upload className="w-4 h-4" />
@@ -1839,13 +1852,14 @@ export default function PdfConversion() {
                   </SelectContent>
                 </Select>
                 <button
+                  type="button"
                   onClick={() => switchSheetMutation.mutate({ id: numericId, selectedSheet: pendingSheet })}
                   disabled={
                     switchSheetMutation.isPending ||
                     conversion.status === "processing" ||
                     pendingSheet === (conversion.selectedSheet ?? sheetsData.sheets[0])
                   }
-                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-primary text-primary-foreground rounded-xl text-sm font-bold shadow-sm disabled:opacity-50 hover:-translate-y-0.5 transition-all disabled:transform-none"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-primary text-primary-foreground rounded-xl text-sm font-bold shadow-sm disabled:opacity-50 hover:-translate-y-0.5 transition-all disabled:transform-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   data-testid="button-switch-sheet"
                 >
                   {switchSheetMutation.isPending ? (
@@ -2008,7 +2022,7 @@ export default function PdfConversion() {
                     </p>
                     <button
                       type="button"
-                      className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-md border border-amber-400 dark:border-amber-600 text-amber-800 dark:text-amber-200 bg-amber-100 dark:bg-amber-900/40 hover:bg-amber-200 dark:hover:bg-amber-900/70 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-md border border-amber-400 dark:border-amber-600 text-amber-800 dark:text-amber-200 bg-amber-100 dark:bg-amber-900/40 hover:bg-amber-200 dark:hover:bg-amber-900/70 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       data-testid="button-cancel-processing"
                       disabled={cancelMutation.isPending}
                       onClick={() => {
@@ -2061,9 +2075,10 @@ export default function PdfConversion() {
                   key={tab}
                   role="tab"
                   aria-selected={activeInstructionTab === tab}
+                  type="button"
                   onClick={() => setActiveInstructionTab(tab)}
                   className={cn(
-                    "flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold transition-all",
+                    "flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     activeInstructionTab === tab
                       ? "bg-primary text-primary-foreground shadow-sm"
                       : "text-muted-foreground hover:text-foreground",
@@ -2444,7 +2459,7 @@ export default function PdfConversion() {
                                 .querySelector(`[data-testid="issue-toggle-${headingRenumberIssueIndex}"]`)
                                 ?.scrollIntoView({ behavior: "smooth", block: "center" });
                             }}
-                            className="underline font-semibold hover:text-blue-700 dark:hover:text-blue-300"
+                            className="underline font-semibold hover:text-blue-700 dark:hover:text-blue-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
                             data-testid="button-view-heading-renumber-note"
                           >
                             View details
@@ -2453,8 +2468,9 @@ export default function PdfConversion() {
                         </p>
                       </div>
                       <button
+                        type="button"
                         onClick={() => setHeadingRenumberBannerDismissed(true)}
-                        className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 shrink-0"
+                        className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
                         aria-label="Dismiss heading renumber notice"
                         data-testid="button-dismiss-heading-renumber-banner"
                       >
@@ -2469,9 +2485,10 @@ export default function PdfConversion() {
                     </h2>
                     <div className="flex items-center gap-1 bg-background/60 rounded-lg p-1">
                       <button
+                        type="button"
                         onClick={() => setHtmlViewMode("preview")}
                         className={cn(
-                          "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all",
+                          "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                           htmlViewMode === "preview"
                             ? "bg-primary text-primary-foreground"
                             : "text-muted-foreground",
@@ -2481,6 +2498,7 @@ export default function PdfConversion() {
                         <Eye className="w-3.5 h-3.5" /> Preview
                       </button>
                       <button
+                        type="button"
                         onClick={() => {
                           if (htmlViewMode !== "edit") {
                             setEditedHtml(conversion.accessibleHtml || "");
@@ -2489,7 +2507,7 @@ export default function PdfConversion() {
                           setHtmlViewMode("edit");
                         }}
                         className={cn(
-                          "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all",
+                          "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                           htmlViewMode === "edit"
                             ? "bg-primary text-primary-foreground"
                             : "text-muted-foreground",
@@ -2545,12 +2563,13 @@ export default function PdfConversion() {
                         </p>
                         <div className="flex items-center gap-2">
                           <button
+                            type="button"
                             onClick={() => {
                               setEditedHtml(conversion.accessibleHtml || "");
                               setHtmlDirty(false);
                             }}
                             disabled={!htmlDirty}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-muted-foreground bg-background border rounded-lg disabled:opacity-50"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-muted-foreground bg-background border rounded-lg disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                             data-testid="button-discard"
                           >
                             <X className="w-3.5 h-3.5" /> Discard
@@ -2579,10 +2598,11 @@ export default function PdfConversion() {
                                 },
                               );
                             }}
+                            type="button"
                             disabled={
                               !htmlDirty || updateHtmlMutation.isPending
                             }
-                            className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold bg-primary text-primary-foreground rounded-lg shadow-sm disabled:opacity-50"
+                            className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold bg-primary text-primary-foreground rounded-lg shadow-sm disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                             data-testid="button-save-html"
                           >
                             {updateHtmlMutation.isPending ? (
@@ -2614,9 +2634,10 @@ export default function PdfConversion() {
                     if (ariaIssueCount < 2) return null;
                     return (
                       <button
+                        type="button"
                         onClick={handleFixAllAria}
                         disabled={isFixingAllAria || isFixingAll || fixingIndex !== null}
-                        className="inline-flex items-center gap-2 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-bold shadow-sm disabled:opacity-50 transition-colors"
+                        className="inline-flex items-center gap-2 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-bold shadow-sm disabled:opacity-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         data-testid="button-fix-all-aria"
                         aria-label={`Fix all ${ariaIssueCount} ARIA role issues`}
                       >
@@ -2641,9 +2662,10 @@ export default function PdfConversion() {
                     if (fixableCount === 0) return null;
                     return (
                       <button
+                        type="button"
                         onClick={handleFixAll}
                         disabled={isFixingAll || isFixingAllAria || fixingIndex !== null}
-                        className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-sm font-bold shadow-sm disabled:opacity-50"
+                        className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-sm font-bold shadow-sm disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         data-testid="button-fix-all"
                         aria-label={`Fix all ${fixableCount} issues with AI`}
                       >
@@ -2684,7 +2706,7 @@ export default function PdfConversion() {
                             setCopiedFixError(false);
                           });
                         }}
-                        className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded border border-red-300 dark:border-red-700 bg-red-100 dark:bg-red-900/40 hover:bg-red-200 dark:hover:bg-red-800/50 text-red-600 dark:text-red-400 transition-colors flex-shrink-0"
+                        className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded border border-red-300 dark:border-red-700 bg-red-100 dark:bg-red-900/40 hover:bg-red-200 dark:hover:bg-red-800/50 text-red-600 dark:text-red-400 transition-colors flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
                         {copiedFixError ? (
                           <>
@@ -2732,7 +2754,8 @@ export default function PdfConversion() {
                                   toast({ title: "Copy failed", description: "Could not access the clipboard. Please try again.", variant: "destructive" });
                                 });
                               }}
-                              className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/30 hover:bg-amber-200 dark:hover:bg-amber-800/50 border border-amber-300 dark:border-amber-700 rounded-md transition-colors"
+                              type="button"
+                              className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/30 hover:bg-amber-200 dark:hover:bg-amber-800/50 border border-amber-300 dark:border-amber-700 rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                               aria-label="Copy manual fix list to clipboard"
                               data-testid="button-copy-manual-fix-list"
                             >
@@ -2754,8 +2777,9 @@ export default function PdfConversion() {
                           </TooltipContent>
                         </Tooltip>
                         <button
+                          type="button"
                           onClick={() => setManualFixSummary([])}
-                          className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-200 bg-transparent hover:bg-amber-100 dark:hover:bg-amber-900/30 border border-amber-300 dark:border-amber-700 rounded-md transition-colors"
+                          className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-200 bg-transparent hover:bg-amber-100 dark:hover:bg-amber-900/30 border border-amber-300 dark:border-amber-700 rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           aria-label="Dismiss manual fix list"
                           data-testid="button-dismiss-manual-fix-summary"
                         >
@@ -2814,12 +2838,13 @@ export default function PdfConversion() {
                         </p>
                         <div className="flex items-center gap-2 shrink-0">
                           <button
+                            type="button"
                             onClick={() => {
                               setBatchFixNotesSummary([]);
                               handleFixAll();
                             }}
                             disabled={isFixingAll || isFixingAllAria || fixingIndex !== null}
-                            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-800/50 border border-blue-300 dark:border-blue-700 rounded-md disabled:opacity-50 transition-colors"
+                            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-800/50 border border-blue-300 dark:border-blue-700 rounded-md disabled:opacity-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                             aria-label="Clear notes and run Fix All"
                             data-testid="button-clear-and-fix-all"
                           >
@@ -2827,8 +2852,9 @@ export default function PdfConversion() {
                             Clear &amp; Fix All
                           </button>
                           <button
+                            type="button"
                             onClick={() => setBatchFixNotesSummary([])}
-                            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 bg-transparent hover:bg-blue-100 dark:hover:bg-blue-900/30 border border-blue-300 dark:border-blue-700 rounded-md transition-colors"
+                            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 bg-transparent hover:bg-blue-100 dark:hover:bg-blue-900/30 border border-blue-300 dark:border-blue-700 rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                             aria-label={`Clear ${panelLabel.toLowerCase()}`}
                             data-testid="button-dismiss-batch-fix-notes"
                           >
@@ -2906,8 +2932,9 @@ export default function PdfConversion() {
                       >
                         <div className="flex items-center gap-2 pr-3">
                           <button
+                            type="button"
                             onClick={() => toggleIssue(key)}
-                            className="flex-1 flex items-center gap-3 p-3 text-left min-w-0"
+                            className="flex-1 flex items-center gap-3 p-3 text-left min-w-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-xl"
                             aria-expanded={isExpanded}
                             data-testid={`issue-toggle-${i}`}
                           >
@@ -3171,7 +3198,7 @@ export default function PdfConversion() {
                                       !((pageTitleDrafts[i] ?? "").trim()) ||
                                       (setPageTitleMutation.isPending && setPageTitleMutation.variables?.issueIndex === i)
                                     }
-                                    className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-semibold rounded-md bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white transition-colors shrink-0"
+                                    className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-semibold rounded-md bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                     data-testid={`button-set-page-title-${i}`}
                                   >
                                     {setPageTitleMutation.isPending && setPageTitleMutation.variables?.issueIndex === i
@@ -3194,8 +3221,9 @@ export default function PdfConversion() {
                                       <Tooltip open={copiedAllKeys.has(i)}>
                                         <TooltipTrigger asChild>
                                           <button
+                                            type="button"
                                             onClick={() => copyAllFilenames(issue.imageItems.map((item: any) => item.label), i)}
-                                            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-800/60 border border-amber-300 dark:border-amber-700 transition-colors"
+                                            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-800/60 border border-amber-300 dark:border-amber-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                             data-testid={`button-copy-all-filenames-${i}`}
                                             title={`Copy all ${issue.imageItems.length} filename${issue.imageItems.length === 1 ? "" : "s"}`}
                                             aria-label={`Copy all ${issue.imageItems.length} filename${issue.imageItems.length === 1 ? "" : "s"}`}
@@ -3213,6 +3241,7 @@ export default function PdfConversion() {
                                         </TooltipContent>
                                       </Tooltip>
                                       <button
+                                        type="button"
                                         onClick={() => {
                                           const text = issue.imageItems.map((item: any) => item.label).join("\n");
                                           const blob = new Blob([text], { type: "text/plain" });
@@ -3223,7 +3252,7 @@ export default function PdfConversion() {
                                           a.click();
                                           URL.revokeObjectURL(url);
                                         }}
-                                        className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-800/60 border border-amber-300 dark:border-amber-700 transition-colors"
+                                        className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-800/60 border border-amber-300 dark:border-amber-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                         data-testid={`button-download-filenames-${i}`}
                                         title={`Download list of ${issue.imageItems.length} filename${issue.imageItems.length === 1 ? "" : "s"} as .txt`}
                                         aria-label={`Download list of ${issue.imageItems.length} filename${issue.imageItems.length === 1 ? "" : "s"} as .txt`}
@@ -3284,8 +3313,9 @@ export default function PdfConversion() {
                                         <Tooltip open={copiedImageKeys.has(`${i}-${imgIdx}`)}>
                                           <TooltipTrigger asChild>
                                             <button
+                                              type="button"
                                               onClick={() => copyImageFilename(item.label, `${i}-${imgIdx}`)}
-                                              className="flex-shrink-0 inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-800/60 border border-amber-300 dark:border-amber-700 transition-colors"
+                                              className="flex-shrink-0 inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-800/60 border border-amber-300 dark:border-amber-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                               data-testid={`button-copy-filename-${imgIdx}`}
                                               title="Copy filename"
                                               aria-label={`Copy filename: ${item.label}`}
@@ -3305,8 +3335,9 @@ export default function PdfConversion() {
                                           </TooltipContent>
                                         </Tooltip>
                                         <button
+                                          type="button"
                                           onClick={() => jumpToImage(item.originalIndex)}
-                                          className="flex-shrink-0 inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-800/60 border border-amber-300 dark:border-amber-700 transition-colors"
+                                          className="flex-shrink-0 inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-800/60 border border-amber-300 dark:border-amber-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                           data-testid={`button-jump-to-image-${imgIdx}`}
                                         >
                                           <Eye className="w-3 h-3" />
@@ -3331,9 +3362,10 @@ export default function PdfConversion() {
                             {isFixable && (
                               <div className="flex items-center gap-2 flex-wrap">
                                 <button
+                                  type="button"
                                   onClick={() => handleFixIssue(i, issue.title)}
                                   disabled={isFixing || fixingIndex !== null || isFixingAll}
-                                  className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-bold shadow-sm disabled:opacity-50"
+                                  className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-bold shadow-sm disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                   data-testid={`button-fix-${i}`}
                                 >
                                   {isFixing ? (
@@ -3347,12 +3379,13 @@ export default function PdfConversion() {
                                 </button>
                                 {showAcceptForm !== i && (
                                   <button
+                                    type="button"
                                     onClick={() => {
                                       setShowAcceptForm(i);
                                       setJustificationText("");
                                     }}
                                     disabled={fixingIndex !== null || isFixingAll}
-                                    className="inline-flex items-center gap-2 px-4 py-2 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 border border-violet-200 dark:border-violet-800 rounded-lg text-sm font-bold disabled:opacity-50"
+                                    className="inline-flex items-center gap-2 px-4 py-2 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 border border-violet-200 dark:border-violet-800 rounded-lg text-sm font-bold disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                     data-testid={`button-accept-${i}`}
                                   >
                                     Mark as Accepted
@@ -3382,6 +3415,7 @@ export default function PdfConversion() {
                                 <Tooltip open={copiedNoFixKeys.has(i)}>
                                   <TooltipTrigger asChild>
                                     <button
+                                      type="button"
                                       onClick={() => {
                                         const copyText = issue.title
                                           ? `Manual fix needed — ${issue.title}${issue.criterion ? ` (WCAG ${issue.criterion})` : ""}: ${noFixReasons[i]}`
@@ -3401,7 +3435,7 @@ export default function PdfConversion() {
                                           }, 2000);
                                         });
                                       }}
-                                      className="flex-shrink-0 p-0.5 rounded text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-800/60 transition-colors"
+                                      className="flex-shrink-0 p-0.5 rounded text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-800/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                       aria-label="Copy manual fix guidance"
                                       data-testid={`button-copy-no-fix-${i}`}
                                       title="Copy guidance"
@@ -3418,6 +3452,7 @@ export default function PdfConversion() {
                                   </TooltipContent>
                                 </Tooltip>
                                 <button
+                                  type="button"
                                   onClick={() =>
                                     setNoFixReasons((prev) => {
                                       const next = { ...prev };
@@ -3425,7 +3460,7 @@ export default function PdfConversion() {
                                       return next;
                                     })
                                   }
-                                  className="flex-shrink-0 ml-1 p-0.5 rounded text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-800/60 transition-colors"
+                                  className="flex-shrink-0 ml-1 p-0.5 rounded text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-800/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                   aria-label="Dismiss manual fix notice"
                                   data-testid={`button-dismiss-no-fix-${i}`}
                                   title="Dismiss"
@@ -3451,12 +3486,13 @@ export default function PdfConversion() {
                                 />
                                 <div className="flex items-center gap-2">
                                   <button
+                                    type="button"
                                     onClick={() => handleAcceptIssue(i)}
                                     disabled={
                                       !justificationText.trim() ||
                                       acceptingIndex !== null
                                     }
-                                    className="inline-flex items-center gap-2 px-4 py-2 bg-violet-600 text-white rounded-lg text-sm font-bold disabled:opacity-50"
+                                    className="inline-flex items-center gap-2 px-4 py-2 bg-violet-600 text-white rounded-lg text-sm font-bold disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                     data-testid={`button-confirm-accept-${i}`}
                                   >
                                     {acceptingIndex === i ? (
@@ -3467,11 +3503,12 @@ export default function PdfConversion() {
                                       : "Confirm"}
                                   </button>
                                   <button
+                                    type="button"
                                     onClick={() => {
                                       setShowAcceptForm(null);
                                       setJustificationText("");
                                     }}
-                                    className="px-4 py-2 text-sm font-bold text-muted-foreground hover:text-foreground"
+                                    className="px-4 py-2 text-sm font-bold text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-lg"
                                   >
                                     Cancel
                                   </button>
@@ -3480,9 +3517,10 @@ export default function PdfConversion() {
                             )}
                             {issue.status === "accepted" && (
                               <button
+                                type="button"
                                 onClick={() => handleRevertIssue(i)}
                                 disabled={revertingIndex !== null}
-                                className="inline-flex items-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground border rounded-lg text-sm font-bold disabled:opacity-50"
+                                className="inline-flex items-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground border rounded-lg text-sm font-bold disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                 data-testid={`button-revert-${i}`}
                               >
                                 {revertingIndex === i ? (
