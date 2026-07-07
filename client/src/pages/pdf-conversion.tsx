@@ -2723,55 +2723,99 @@ export default function PdfConversion() {
                   </div>
                 )}
 
-                {batchFixNotesSummary.length > 0 && (
-                  <div
-                    className="mb-4 rounded-lg border bg-blue-50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800 p-3 space-y-2"
-                    role="note"
-                    data-testid="batch-fix-notes-summary"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="text-xs font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wide flex items-center gap-1.5">
-                        <Info className="w-3.5 h-3.5" aria-hidden="true" />
-                        Heading Level Notes
-                      </p>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <button
-                          onClick={() => {
-                            setBatchFixNotesSummary([]);
-                            handleFixAll();
-                          }}
-                          disabled={isFixingAll || isFixingAllAria || fixingIndex !== null}
-                          className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-800/50 border border-blue-300 dark:border-blue-700 rounded-md disabled:opacity-50 transition-colors"
-                          aria-label="Clear notes and run Fix All"
-                          data-testid="button-clear-and-fix-all"
-                        >
-                          <Zap className="w-3 h-3" aria-hidden="true" />
-                          Clear &amp; Fix All
-                        </button>
-                        <button
-                          onClick={() => setBatchFixNotesSummary([])}
-                          className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 bg-transparent hover:bg-blue-100 dark:hover:bg-blue-900/30 border border-blue-300 dark:border-blue-700 rounded-md transition-colors"
-                          aria-label="Clear heading level notes"
-                          data-testid="button-dismiss-batch-fix-notes"
-                        >
-                          <X className="w-3 h-3" aria-hidden="true" />
-                          Clear notes
-                        </button>
+                {batchFixNotesSummary.length > 0 && (() => {
+                  const pageTitleNoteSet = new Set([PAGE_TITLE_FALLBACK_NOTE, PAGE_TITLE_LOW_QUALITY_NOTE]);
+                  const pageTitleNotes = batchFixNotesSummary.filter(n => pageTitleNoteSet.has(n));
+                  const headingNotes = batchFixNotesSummary.filter(n => !pageTitleNoteSet.has(n));
+                  const hasBoth = pageTitleNotes.length > 0 && headingNotes.length > 0;
+                  const panelLabel = hasBoth
+                    ? "Fix-All Notes"
+                    : pageTitleNotes.length > 0
+                      ? "Page Title Notes"
+                      : "Heading Level Notes";
+                  return (
+                    <div
+                      className="mb-4 rounded-lg border bg-blue-50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800 p-3 space-y-2"
+                      role="note"
+                      data-testid="batch-fix-notes-summary"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-xs font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wide flex items-center gap-1.5">
+                          <Info className="w-3.5 h-3.5" aria-hidden="true" />
+                          {panelLabel}
+                        </p>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            onClick={() => {
+                              setBatchFixNotesSummary([]);
+                              handleFixAll();
+                            }}
+                            disabled={isFixingAll || isFixingAllAria || fixingIndex !== null}
+                            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-800/50 border border-blue-300 dark:border-blue-700 rounded-md disabled:opacity-50 transition-colors"
+                            aria-label="Clear notes and run Fix All"
+                            data-testid="button-clear-and-fix-all"
+                          >
+                            <Zap className="w-3 h-3" aria-hidden="true" />
+                            Clear &amp; Fix All
+                          </button>
+                          <button
+                            onClick={() => setBatchFixNotesSummary([])}
+                            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 bg-transparent hover:bg-blue-100 dark:hover:bg-blue-900/30 border border-blue-300 dark:border-blue-700 rounded-md transition-colors"
+                            aria-label={`Clear ${panelLabel.toLowerCase()}`}
+                            data-testid="button-dismiss-batch-fix-notes"
+                          >
+                            <X className="w-3 h-3" aria-hidden="true" />
+                            Clear notes
+                          </button>
+                        </div>
                       </div>
+                      {hasBoth ? (
+                        <div className="space-y-3">
+                          <div>
+                            <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 mb-1" data-testid="batch-fix-notes-heading-label">Heading Level Notes</p>
+                            <ul className="space-y-1">
+                              {headingNotes.map((note, idx) => (
+                                <li
+                                  key={`heading-${idx}`}
+                                  className="text-sm text-blue-900 dark:text-blue-200"
+                                  data-testid={`batch-fix-note-${idx}`}
+                                >
+                                  {note}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 mb-1" data-testid="batch-fix-notes-page-title-label">Page Title Notes</p>
+                            <ul className="space-y-1">
+                              {pageTitleNotes.map((note, idx) => (
+                                <li
+                                  key={`pt-${idx}`}
+                                  className="text-sm text-blue-900 dark:text-blue-200"
+                                  data-testid={`batch-fix-note-pt-${idx}`}
+                                >
+                                  {note}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        </div>
+                      ) : (
+                        <ul className="space-y-1">
+                          {batchFixNotesSummary.map((note, idx) => (
+                            <li
+                              key={idx}
+                              className="text-sm text-blue-900 dark:text-blue-200"
+                              data-testid={`batch-fix-note-${idx}`}
+                            >
+                              {note}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </div>
-                    <ul className="space-y-1">
-                      {batchFixNotesSummary.map((note, idx) => (
-                        <li
-                          key={idx}
-                          className="text-sm text-blue-900 dark:text-blue-200"
-                          data-testid={`batch-fix-note-${idx}`}
-                        >
-                          {note}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+                  );
+                })()}
 
                 <div className="space-y-3" data-testid="audit-issues">
                   {report.issues.map((issue: any, i: number) => {
