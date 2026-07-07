@@ -384,16 +384,6 @@ function applyHeadingHierarchyFix(html: string): string {
   return html;
 }
 
-let activeDocxExports = 0;
-// Exported so the 503 concurrency-cap test can derive its slot count from the
-// actual constant rather than hardcoding a magic number. If this value ever
-// changes, the test stays correct automatically.
-export const MAX_CONCURRENT_DOCX_EXPORTS = parseInt(process.env.MAX_CONCURRENT_DOCX_EXPORTS ?? "3", 10) || 3;
-// Per-conversion export dedup keys — prevent the same completed document from
-// being exported multiple times concurrently on the same instance, which would
-// duplicate DOCX-builder work and exhaust concurrency slots.
-const activeDocxExportKeys = new Set<string>();
-
 // Generate prompt based on tool and course info
 function generatePrompt(
   toolId: string,

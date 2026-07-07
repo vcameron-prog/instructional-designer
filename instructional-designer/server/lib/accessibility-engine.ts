@@ -43,25 +43,6 @@ function escapeRegex(s: string): string {
 const ATTR_PATTERN = "(?:[^>\"'`]|\"[^\"]*\"|'[^']*'|`[^`]*`)*";
 
 /**
- * The set of deterministic (non-AI) fixer keys supported by the
- * fix-accessibility / preview-fix routes. Exposed via GET /api/deterministic-fixers
- * so the client can decide which fixes to run without an AI round-trip.
- */
-export function getDeterministicFixerKeys(): string[] {
-  return [
-    "fix-heading-skip",
-    "fix-all-caps",
-    "convert-markdown-tables",
-    "fix-html-table-caption",
-    "fix-html-table-thead",
-    "edit-html-table-caption",
-    "fix-aria-tab",
-    "fix-aria-combobox",
-    "fix-aria-grid",
-  ];
-}
-
-/**
  * Generic helper that finds every element with `role="{roleValue}"` whose
  * tag is not already one of the semantically-correct tags (per
  * `isAllowedTag`), and rewrites its opening/closing tags to `newTag` while
