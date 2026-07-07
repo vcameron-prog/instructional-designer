@@ -1264,7 +1264,27 @@ export default function PdfConversion() {
       const resp = await fetch(`/api/conversions/${numericId}/download-docx`, {
         credentials: "include",
       });
-      if (!resp.ok) return;
+      if (!resp.ok) {
+        const errData = await resp
+          .json()
+          .catch(() => ({ error: "DOCX generation failed" }));
+        let description = errData.error || "Could not generate Word document";
+        if (resp.status === 429) {
+          description = "Too many requests — please wait a moment and try again";
+        } else if (resp.status === 409) {
+          description = "A Word export for this document is already in progress — please wait";
+        } else if (resp.status === 503) {
+          description = "Server is busy — please try again in a moment";
+        } else if (resp.status === 400) {
+          description = "Document is not ready for download yet";
+        }
+        toast({
+          title: "Download failed",
+          description,
+          variant: "destructive",
+        });
+        return;
+      }
       const blob = await resp.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -1275,6 +1295,12 @@ export default function PdfConversion() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+    } catch {
+      toast({
+        title: "Download failed",
+        description: "An unexpected error occurred generating the Word document",
+        variant: "destructive",
+      });
     } finally {
       setIsDownloadingDocx(false);
     }
@@ -1621,7 +1647,7 @@ export default function PdfConversion() {
                 <>
                   <button
                     onClick={handleDownloadDocx}
-                    disabled={isDownloadingDocx}
+                    disabled={isDownloadingDocx || !conversion.accessibleHtml}
                     className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-bold shadow-sm hover:-translate-y-0.5 transition-all disabled:opacity-50"
                     data-testid="button-download-docx"
                   >
@@ -1695,7 +1721,7 @@ export default function PdfConversion() {
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={handleDownloadDocx}
-                        disabled={isDownloadingDocx}
+                        disabled={isDownloadingDocx || !conversion.accessibleHtml}
                         data-testid="menu-download-docx"
                         className="gap-2 cursor-pointer"
                       >
