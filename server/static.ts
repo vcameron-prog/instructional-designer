@@ -259,8 +259,6 @@ const PUBLIC_ROUTE_META: Record<string, RouteMeta> = {
   },
 };
 
-const SITE_BASE_URL = "https://bsu-accessibility-tool.replit.app";
-
 function injectMeta(html: string, meta: RouteMeta, canonicalUrl: string): string {
   const headTags = `
     <title>${meta.title}</title>
@@ -311,7 +309,8 @@ export function serveStatic(app: Express) {
     const routePath = req.path || "/";
     if (routePath in PUBLIC_ROUTE_META) {
       const meta = PUBLIC_ROUTE_META[routePath]!;
-      const canonicalUrl = `${SITE_BASE_URL}${routePath}`;
+      const origin = `${req.protocol}://${req.get("host")}`;
+      const canonicalUrl = `${origin}${routePath}`;
       const enriched = injectMeta(getBaseHtml(), meta, canonicalUrl);
       res.setHeader("Content-Type", "text/html; charset=utf-8");
       res.send(enriched);

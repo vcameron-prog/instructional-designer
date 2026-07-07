@@ -252,8 +252,6 @@ const PUBLIC_ROUTE_META: Record<string, RouteMeta> = {
   },
 };
 
-const SITE_BASE_URL = "https://bsu-accessibility-tool.replit.app";
-
 function injectMeta(html: string, meta: RouteMeta, canonicalUrl: string): string {
   const headTags = `
     <title>${meta.title}</title>
@@ -297,10 +295,11 @@ export function serveStatic(app: Express) {
     return baseHtml;
   }
 
-  function sendEnrichedOrFallback(res: Response, facultyPath: string): void {
+  function sendEnrichedOrFallback(res: Response, facultyPath: string, req: Request): void {
     const meta = PUBLIC_ROUTE_META[facultyPath];
     if (meta) {
-      const canonicalUrl = `${SITE_BASE_URL}${facultyPath}`;
+      const origin = `${req.protocol}://${req.get("host")}`;
+      const canonicalUrl = `${origin}${facultyPath}`;
       const enriched = injectMeta(getBaseHtml(), meta, canonicalUrl);
       res.setHeader("Content-Type", "text/html; charset=utf-8");
       res.send(enriched);
@@ -316,7 +315,7 @@ export function serveStatic(app: Express) {
     const subPath = req.path === "/" ? "" : req.path;
     const facultyPath = `/faculty${subPath}`;
     if (facultyPath in PUBLIC_ROUTE_META) {
-      sendEnrichedOrFallback(res, facultyPath);
+      sendEnrichedOrFallback(res, facultyPath, req);
     } else {
       next();
     }
@@ -338,7 +337,7 @@ export function serveStatic(app: Express) {
     const subPath = req.path === "/" ? "" : req.path;
     const facultyPath = `/faculty${subPath}`;
     if (facultyPath in PUBLIC_ROUTE_META) {
-      sendEnrichedOrFallback(res, facultyPath);
+      sendEnrichedOrFallback(res, facultyPath, req);
     } else {
       next();
     }
