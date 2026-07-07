@@ -298,8 +298,8 @@ export default function LandingPage() {
                   {/* Accessibility Converter — always accessible */}
                   <Card
                     className="group cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl bg-card border border-emerald-200/60 dark:border-emerald-800/40"
-                    onClick={() => navigate("/pdf-accessibility")}
-                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate("/pdf-accessibility"); } }}
+                    onClick={() => { window.location.href = "/pdf-accessibility"; }}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); window.location.href = "/pdf-accessibility"; } }}
                     tabIndex={0}
                     role="button"
                     aria-label="Accessibility Converter — open to everyone"
