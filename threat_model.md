@@ -8,8 +8,8 @@ Production assumptions for this threat model:
 - The mockup sandbox is never deployed to production.
 - In production, `NODE_ENV` is `production`.
 - TLS between clients and the deployed app is handled by the platform.
-- The current deployment under review is **private** and autoscaled. Replit infrastructure is assumed to block public internet access to the app's endpoints, so unauthenticated internet-wide abuse paths are not production-reachable on this deployment.
-- Autoscaling still matters for any authenticated or deployment-reachable traffic: process-local counters are instance-local unless backed by the database.
+- The current deployment under review is **public** and autoscaled. Unauthenticated internet-origin traffic must be treated as production-reachable for any route that does not require auth.
+- Autoscaling still matters for any public, authenticated, or admin traffic: process-local counters are instance-local unless backed by the database.
 
 ## Assets
 
@@ -22,6 +22,7 @@ Production assumptions for this threat model:
 ## Trust Boundaries
 
 - **Browser to Express API** -- all client input is untrusted, including form fields, uploaded files, edited HTML, and URL parameters.
+- **Public internet to unauthenticated routes** -- the deployed app exposes public quick-tool and telemetry routes. Missing auth, rate limits, or abuse controls on those endpoints are production-relevant.
 - **Authenticated user to other authenticated users** -- the app is multi-user. User-owned courses, generated content, saved templates, and conversions must be isolated server-side.
 - **Anonymous user to anonymous user** -- some tools intentionally allow unauthenticated use. Anonymous records still require isolation; one anonymous visitor must not inherit access to another anonymous visitor's documents or results.
 - **Express server to PostgreSQL** -- the backend has direct access to all application data. Authorization failures or unsafe bulk reads at this boundary expose cross-tenant data.
@@ -31,13 +32,19 @@ Production assumptions for this threat model:
 
 ## Scan Anchors
 
-- **Production entry points**: `server/index.ts`, `server/routes.ts`, `server/replit_integrations/auth/`, `client/src/main.tsx`.
-- **Highest-risk code areas**: authentication/session setup, object ownership checks in `server/routes.ts` and `server/storage.ts`, document conversion flows, file upload handlers, HTML editing/export, and the course-content approval route.
+- **Production entry points**: `server/index.ts`, `server/routes.ts`, `instructional-designer/server/routes.ts`, both apps' `server/replit_integrations/auth/`, `client/src/main.tsx`, and `instructional-designer/client/src/main.tsx`.
+- **Highest-risk code areas**: authentication/session setup, object ownership checks in `server/routes.ts`, `server/storage.ts`, and `instructional-designer/server/storage.ts`, document conversion flows, file upload handlers, HTML editing/export, public Anthropic-backed quick tools, and the course-content approval route.
 - **Primary production surfaces in the built root app**:
   - Anonymous or optionally authenticated conversion flows under `/api/conversions/*`
   - Authenticated profile endpoint `/api/auth/user`
+  - Public quick-tool endpoints under `/api/tools/*`
+  - Unauthenticated runtime metrics endpoint `/api/metrics`
   - BSU-restricted content approval route `/api/content/:id/approval`
-- **Current deployment-scope calibration (June 2026)**: because the deployed app is private, prior public-internet DoS hypotheses should not be reported as production findings unless a reachable attacker path is demonstrated from within the deployment's allowed audience.
+- **Primary production surfaces in the proxied nested app**:
+  - Public quick-tool endpoints under `/faculty/api/tools/*`
+  - Unauthenticated telemetry endpoints `/faculty/api/metrics` and `/faculty/api/stats/public`
+  - BSU-authenticated course/content routes under `/faculty/api/courses/*` and `/faculty/api/content/*`
+- **Current deployment-scope calibration (July 2026)**: because the deployed app is public, internet-reachable abuse of unauthenticated endpoints is in scope when request cost, outbound access, or resource consumption is materially attacker-controlled.
 - **Current conversion-control calibration**:
   - `server/routes.ts` now applies shared DB-backed rate limits to upload/process/fix/export flows.
   - Google Docs/Sheets/Slides imports now use the same pre-buffer upload concurrency guard concept as direct uploads.
@@ -70,7 +77,7 @@ This application stores high-value document text, accessible HTML, course materi
 
 ### Denial of Service
 
-The application still contains expensive paths: file uploads, PDF/DOCX extraction, OCR, AI generation, and conversion/export steps. For this private deployment, report DoS issues only when they remain reachable to the deployment's allowed audience and materially bypass the DB-backed rate limits, concurrency caps, or request-size bounds already present in `server/routes.ts`.
+The application still contains expensive paths: file uploads, PDF/DOCX extraction, OCR, AI generation, and conversion/export steps. Because the deployment is public, unauthenticated abuse of those paths is reportable when a route lacks meaningful throttling or concurrency control and can burn Anthropic quota, tie up worker capacity, or otherwise degrade service for legitimate users.
 
 ### Elevation of Privilege
 
