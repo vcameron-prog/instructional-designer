@@ -162,7 +162,7 @@ test.describe("Library page — no conversions card", () => {
 // ===========================================================================
 
 test.describe("Landing page — Accessibility Converter link", () => {
-  test("card-pdf-accessibility is visible and opens /accessibility", async ({ page }) => {
+  test("card-pdf-accessibility is visible and navigates to /pdf-accessibility", async ({ page }) => {
     await page.goto(appPath("/"));
 
     const converterCard = page.getByTestId("card-pdf-accessibility");
@@ -175,41 +175,14 @@ test.describe("Landing page — Accessibility Converter link", () => {
     );
     await expect(converterCard).toHaveAttribute("role", "button");
 
-    // Capture the URL that window.open would be called with
-    let openedUrl: string | null = null;
-    await page.exposeFunction("__captureOpenUrl", (url: string) => {
-      openedUrl = url;
-    });
-    await page.addInitScript(() => {
-      const orig = window.open.bind(window);
-      window.open = (url?: string | URL, ...rest: any[]) => {
-        if (typeof (window as any).__captureOpenUrl === "function") {
-          (window as any).__captureOpenUrl(String(url ?? ""));
-        }
-        return orig(url, ...rest);
-      };
-    });
+    // Click the card and verify it navigates to the pdf-accessibility route
+    await converterCard.click();
+    await page.waitForURL(/\/pdf-accessibility/, { timeout: 10_000 });
 
-    // Re-navigate so the init script is active
-    await page.goto(appPath("/"));
-    const card = page.getByTestId("card-pdf-accessibility");
-    await expect(card).toBeVisible({ timeout: 10_000 });
-    await card.click();
-
-    // Give the click handler a moment to run
-    await page.waitForTimeout(300);
-
-    // The URL must not be the fallback "#"
-    expect(openedUrl, "window.open must receive a real URL, not '#'").not.toBe("#");
-    expect(openedUrl, "window.open URL must not be empty").toBeTruthy();
-
-    // The URL must end with /accessibility regardless of hostname (dev uses
-    // window.location.hostname; prod uses VITE_CONVERTER_APP_URL which should
-    // also end with /accessibility).
     expect(
-      openedUrl,
-      `window.open URL must end with /accessibility.\nReceived: ${openedUrl}`,
-    ).toMatch(/\/accessibility$/);
+      page.url(),
+      "clicking the card must navigate to /pdf-accessibility",
+    ).toMatch(/\/pdf-accessibility/);
   });
 });
 
