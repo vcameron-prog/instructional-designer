@@ -162,7 +162,7 @@ test.describe("Library page — no conversions card", () => {
 // ===========================================================================
 
 test.describe("Landing page — Accessibility Converter link", () => {
-  test("card-pdf-accessibility is visible and navigates to /pdf-accessibility", async ({ page }) => {
+  test("card-pdf-accessibility is visible and targets /pdf-accessibility", async ({ page }) => {
     await page.goto(appPath("/"));
 
     const converterCard = page.getByTestId("card-pdf-accessibility");
@@ -175,9 +175,13 @@ test.describe("Landing page — Accessibility Converter link", () => {
     );
     await expect(converterCard).toHaveAttribute("role", "button");
 
-    // Click the card and verify it navigates to the pdf-accessibility route
-    await converterCard.click();
-    await page.waitForURL(/\/pdf-accessibility/, { timeout: 10_000 });
+    // Clicking sets window.location.href = "/pdf-accessibility".
+    // The Vite SPA serves index.html for any path, so the URL changes even
+    // though the root app is not running alongside in this test environment.
+    await Promise.all([
+      page.waitForURL(/\/pdf-accessibility/, { timeout: 10_000 }),
+      converterCard.click(),
+    ]);
 
     expect(
       page.url(),
