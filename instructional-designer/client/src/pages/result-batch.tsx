@@ -763,8 +763,7 @@ function ContentPanel({ label, contentId, badgeColor, testIdPrefix, courseId, sk
                                     </Button>
                                     {!skipPreview && (
                                       <button
-                                        type="button"
-                                        className="text-[10px] text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors leading-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+                                        className="text-[10px] text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors leading-none"
                                         disabled={fixingIssue !== null || applyFixMutation.isPending || previewFixMutation.isPending}
                                         onClick={() => handleApplyFix(issue.fixType!)}
                                         data-testid={`button-fix-direct-${testIdPrefix}-${issue.fixType}`}

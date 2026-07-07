@@ -1118,8 +1118,7 @@ export default function ResultPage() {
                                 </Button>
                                 {!skipPreview && (
                                   <button
-                                    type="button"
-                                    className="text-[10px] text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors leading-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+                                    className="text-[10px] text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors leading-none"
                                     disabled={fixingIssue !== null || applyFixMutation.isPending || previewFixMutation.isPending}
                                     onClick={() => handleApplyFix(issue.fixType!)}
                                     data-testid={`button-fix-direct-${issue.fixType}`}
@@ -1210,9 +1209,8 @@ export default function ResultPage() {
                               const hasRemoved = (summary?.removed ?? 0) > 0;
                               return (
                               <button
-                                type="button"
                                 key={version.id}
-                                className={`w-full text-left rounded-md px-3 py-2.5 transition-colors border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                                className={`w-full text-left rounded-md px-3 py-2.5 transition-colors border ${
                                   selectedVersionId === version.id
                                     ? "bg-primary/10 border-primary/30"
                                     : "bg-background hover:bg-muted border-transparent hover:border-border"
@@ -1260,8 +1258,7 @@ export default function ResultPage() {
                             <div className="flex items-center gap-2">
                               <div className="flex items-center rounded-md border overflow-hidden">
                                 <button
-                                  type="button"
-                                  className={`px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset ${showDiff ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
+                                  className={`px-2.5 py-1 text-xs font-medium transition-colors ${showDiff ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
                                   onClick={() => setShowDiff(true)}
                                   data-testid="button-view-diff"
                                   aria-pressed={showDiff}
@@ -1269,8 +1266,7 @@ export default function ResultPage() {
                                   Changes
                                 </button>
                                 <button
-                                  type="button"
-                                  className={`px-2.5 py-1 text-xs font-medium transition-colors border-l focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset ${!showDiff ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
+                                  className={`px-2.5 py-1 text-xs font-medium transition-colors border-l ${!showDiff ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
                                   onClick={() => setShowDiff(false)}
                                   data-testid="button-view-raw"
                                   aria-pressed={!showDiff}
@@ -1280,8 +1276,7 @@ export default function ResultPage() {
                               </div>
                               {hasChanges && (
                                 <button
-                                  type="button"
-                                  className="px-2.5 py-1 text-xs font-medium transition-colors rounded-md border bg-background text-muted-foreground hover:bg-muted shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                  className="px-2.5 py-1 text-xs font-medium transition-colors rounded-md border bg-background text-muted-foreground hover:bg-muted shrink-0"
                                   onClick={jumpToFirstChange}
                                   data-testid="button-jump-to-first-change"
                                   aria-label="Jump to first change"
@@ -1541,8 +1536,7 @@ export default function ResultPage() {
                         <div className="flex items-center gap-2 mt-5 mb-2">
                           <CollapsibleTrigger asChild>
                             <button
-                              type="button"
-                              className="flex items-center gap-2 min-w-0 flex-1 text-left group cursor-pointer hover:bg-muted/50 rounded-md px-2 py-1 -mx-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                              className="flex items-center gap-2 min-w-0 flex-1 text-left group cursor-pointer hover:bg-muted/50 rounded-md px-2 py-1 -mx-2 transition-colors"
                               data-testid={`collapsible-trigger-${idx}`}
                             >
                               <ChevronRight className={`w-4 h-4 text-primary transition-transform shrink-0 ${isOpen ? "rotate-90" : ""}`} />

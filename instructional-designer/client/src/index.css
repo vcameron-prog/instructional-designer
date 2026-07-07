@@ -37,7 +37,7 @@
   --accent-foreground: 0 0% 100%;
   --destructive: 0 84% 42%;
   --destructive-foreground: 0 0% 98%;
-  --input: 0 0% 45%;
+  --input: 0 0% 75%;
   --ring: 350 75% 35%;
   --chart-1: 350 75% 35%;
   --chart-2: 0 0% 20%;
@@ -108,7 +108,7 @@
   --accent-foreground: 0 0% 10%;
   --destructive: 0 80% 40%;
   --destructive-foreground: 0 0% 98%;
-  --input: 0 0% 45%;
+  --input: 0 0% 25%;
   --ring: 350 70% 50%;
   --chart-1: 350 70% 55%;
   --chart-2: 0 0% 70%;

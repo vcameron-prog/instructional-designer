@@ -1176,15 +1176,14 @@ export default function AdminDashboard() {
               <p className="text-muted-foreground text-center py-8">No user activity yet</p>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm" aria-label="User activity">
-                  <caption className="sr-only">User activity — engagement counts per user</caption>
+                <table className="w-full text-sm" role="table">
                   <thead>
                     <tr className="border-b">
-                      <th scope="col" className="text-left py-3 px-4 font-medium text-muted-foreground">User</th>
-                      <th scope="col" className="text-right py-3 px-4 font-medium text-muted-foreground">Courses</th>
-                      <th scope="col" className="text-right py-3 px-4 font-medium text-muted-foreground">Content</th>
-                      <th scope="col" className="text-right py-3 px-4 font-medium text-muted-foreground">Conversions</th>
-                      <th scope="col" className="text-right py-3 px-4 font-medium text-muted-foreground">Total</th>
+                      <th className="text-left py-3 px-4 font-medium text-muted-foreground">User</th>
+                      <th className="text-right py-3 px-4 font-medium text-muted-foreground">Courses</th>
+                      <th className="text-right py-3 px-4 font-medium text-muted-foreground">Content</th>
+                      <th className="text-right py-3 px-4 font-medium text-muted-foreground">Conversions</th>
+                      <th className="text-right py-3 px-4 font-medium text-muted-foreground">Total</th>
                     </tr>
                   </thead>
                   <tbody>
