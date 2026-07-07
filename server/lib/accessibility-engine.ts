@@ -2814,6 +2814,10 @@ export function isHeadingLikeLine(line: string): boolean {
   return true;
 }
 
+function normalizeHeadingText(line: string): string {
+  return line.trim().replace(/\s+/g, " ");
+}
+
 /**
  * Finds the last heading-like line within the chunks that were actually
  * converted (i.e. before the truncation cutoff), searching backward from the
@@ -2821,14 +2825,32 @@ export function isHeadingLikeLine(line: string): boolean {
  * text when no heading-shaped line is found, so users always get some
  * indication of where the converted content ends — not just a character
  * count.
+ *
+ * When `knownHeadings` is provided (real structural metadata extracted from
+ * the source document — Word heading styles for DOCX, rendered font size for
+ * PDF — see pdf-processor.ts / docx-extractor.ts), it is used as the sole
+ * signal for this document instead of the text-shape heuristic, since it
+ * reflects the document's actual structure rather than a guess. When it is
+ * unavailable or empty (e.g. OCR'd text, other formats), this falls back to
+ * the previous shape-only heuristic unchanged.
  */
 export function findLastConvertedMarker(
   includedChunks: PageChunk[],
+  knownHeadings?: string[],
 ): { heading: string; isHeading: boolean } | undefined {
+  const headingSet =
+    knownHeadings && knownHeadings.length > 0
+      ? new Set(knownHeadings.map(normalizeHeadingText))
+      : undefined;
+  const lineIsHeading = (line: string): boolean =>
+    headingSet
+      ? headingSet.has(normalizeHeadingText(line))
+      : isHeadingLikeLine(line);
+
   for (let i = includedChunks.length - 1; i >= 0; i--) {
     const lines = includedChunks[i].text.split("\n");
     for (let j = lines.length - 1; j >= 0; j--) {
-      if (isHeadingLikeLine(lines[j])) {
+      if (lineIsHeading(lines[j])) {
         return { heading: lines[j].trim(), isHeading: true };
       }
     }
@@ -3267,14 +3289,15 @@ export async function generateAccessibleDocument(
   onProgress?: ProgressCallback,
   signal?: AbortSignal,
   ocrApplied = false,
-  minQualityTitleLength: number = DEFAULT_MIN_QUALITY_TITLE_LENGTH
+  minQualityTitleLength: number = DEFAULT_MIN_QUALITY_TITLE_LENGTH,
+  knownHeadings?: string[],
 ): Promise<AccessibilityResult> {
   const documentTitle = metadata.title || originalFilename.replace(/\.pdf$/i, "");
 
   const { allChunks, chunks, truncated, droppedChars } = chunkDocumentText(extractedText);
   let truncationWarning: string | undefined;
   if (truncated) {
-    const lastMarker = findLastConvertedMarker(allChunks.slice(0, MAX_CHUNKS));
+    const lastMarker = findLastConvertedMarker(allChunks.slice(0, MAX_CHUNKS), knownHeadings);
     const cutoffNote = lastMarker
       ? lastMarker.isHeading
         ? ` Conversion stopped after the section titled "${lastMarker.heading}" — re-upload the remaining content starting from there to convert the rest.`

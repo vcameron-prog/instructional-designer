@@ -26,6 +26,15 @@ export interface PdfExtraction {
   tables: ExtractedTable[];
   /** Non-fatal warnings about the source file that users should be aware of. */
   warnings?: string[];
+  /**
+   * Lines of text that are structurally known to be headings, based on real
+   * document metadata rather than a text-shape guess. For PDFs this comes
+   * from rendered font size relative to the document's body-text baseline;
+   * for DOCX this comes from Word's own paragraph heading styles (see
+   * docx-extractor.ts). Best-effort: may be empty when the source format or
+   * a given file doesn't expose this metadata.
+   */
+  headingLines?: string[];
 }
 
 export async function extractPdfContent(
@@ -80,6 +89,11 @@ export async function extractPdfContent(
     }
   }
 
+  const headingLines = await extractHeadingLinesFromFontMetadata(
+    parser,
+    effectivePageCount,
+  );
+
   parser.destroy();
 
   return {
@@ -88,7 +102,125 @@ export async function extractPdfContent(
     metadata,
     images: [],
     tables,
+    headingLines,
   };
+}
+
+/**
+ * Best-effort extraction of "real" headings from a PDF's rendered font
+ * metadata, rather than guessing from text shape alone.
+ *
+ * pdf-parse's public API (getText/getInfo/getTable) does not expose
+ * per-line font size, so this reaches into the underlying pdf.js document
+ * (`parser.doc`, populated once `getText()`/`getInfo()` has run) to read
+ * each text item's rendered `height`, which is a reliable proxy for font
+ * size. Lines whose height is meaningfully larger than the document's most
+ * common ("body text") line height are treated as true headings.
+ *
+ * This depends on pdf-parse's internal structure rather than a documented
+ * public contract, so every step is wrapped defensively: if the internals
+ * are unavailable or throw for any reason, this returns an empty array and
+ * callers fall back to the existing text-shape heuristic exactly as before.
+ */
+async function extractHeadingLinesFromFontMetadata(
+  parser: PDFParse,
+  effectivePageCount: number,
+): Promise<string[]> {
+  try {
+    const doc = (parser as any).doc;
+    if (!doc || typeof doc.getPage !== "function") return [];
+
+    type LineInfo = { text: string; height: number };
+    const allLines: LineInfo[] = [];
+
+    for (let pageNum = 1; pageNum <= effectivePageCount; pageNum++) {
+      try {
+        const page = await doc.getPage(pageNum);
+        const textContent = await page.getTextContent();
+        const items: any[] = textContent?.items || [];
+
+        let currentLine: { parts: string[]; maxHeight: number } | null = null;
+        let lastY: number | undefined;
+        const LINE_Y_THRESHOLD = 3;
+
+        const flushLine = () => {
+          if (currentLine && currentLine.parts.length > 0) {
+            const text = currentLine.parts.join("").trim();
+            if (text) allLines.push({ text, height: currentLine.maxHeight });
+          }
+          currentLine = null;
+        };
+
+        for (const item of items) {
+          if (typeof item?.str !== "string") continue;
+          const y = item.transform?.[5];
+          const height = typeof item.height === "number" && item.height > 0
+            ? item.height
+            : 0;
+
+          if (
+            lastY !== undefined &&
+            typeof y === "number" &&
+            Math.abs(lastY - y) > LINE_Y_THRESHOLD
+          ) {
+            flushLine();
+          }
+          if (!currentLine) currentLine = { parts: [], maxHeight: 0 };
+          currentLine.parts.push(item.str);
+          currentLine.maxHeight = Math.max(currentLine.maxHeight, height);
+          if (typeof y === "number") lastY = y;
+          if (item.hasEOL) flushLine();
+        }
+        flushLine();
+      } catch {
+        // Skip pages that fail to yield text content; heading detection is
+        // best-effort and should never block extraction.
+      }
+    }
+
+    if (allLines.length < 5) return [];
+
+    const heightBuckets = new Map<number, number>();
+    for (const line of allLines) {
+      const rounded = Math.round(line.height);
+      if (rounded <= 0) continue;
+      heightBuckets.set(
+        rounded,
+        (heightBuckets.get(rounded) || 0) + line.text.length,
+      );
+    }
+    if (heightBuckets.size === 0) return [];
+
+    let bodyHeight = 0;
+    let bodyWeight = -1;
+    for (const [height, weight] of heightBuckets) {
+      if (weight > bodyWeight) {
+        bodyWeight = weight;
+        bodyHeight = height;
+      }
+    }
+    if (bodyHeight <= 0) return [];
+
+    const HEADING_HEIGHT_RATIO = 1.15;
+    const MAX_HEADING_WORDS = 15;
+    const MAX_HEADING_LINES = 500;
+    const headingLines: string[] = [];
+    const seen = new Set<string>();
+    for (const line of allLines) {
+      if (line.height < bodyHeight * HEADING_HEIGHT_RATIO) continue;
+      const trimmed = line.text.trim();
+      if (trimmed.length < 2 || trimmed.length > 150) continue;
+      const wordCount = trimmed.split(/\s+/).filter(Boolean).length;
+      if (wordCount > MAX_HEADING_WORDS) continue;
+      if (seen.has(trimmed)) continue;
+      seen.add(trimmed);
+      headingLines.push(trimmed);
+      if (headingLines.length >= MAX_HEADING_LINES) break;
+    }
+    return headingLines;
+  } catch {
+    return [];
+  }
 }
 
 export function needsOcr(text: string, pageCount: number): boolean {

@@ -64,11 +64,26 @@ export async function extractDocxContent(
   const paragraphs = rawText.split(/\n/).filter((l) => l.trim().length > 0);
   const estimatedPages = Math.max(1, Math.ceil(paragraphs.length / 30));
 
+  // Word's own paragraph styles (Heading 1..6) are real structural metadata,
+  // not a shape guess — mammoth maps them to <h1>-<h6> in its HTML output.
+  // Use that instead of the text-shape heuristic in accessibility-engine.ts.
+  const headingLines: string[] = [];
+  const seenHeadings = new Set<string>();
+  const headingElements = root.querySelectorAll("h1, h2, h3, h4, h5, h6");
+  headingElements.forEach((el) => {
+    const text = (el.textContent || "").trim();
+    if (text && !seenHeadings.has(text)) {
+      seenHeadings.add(text);
+      headingLines.push(text);
+    }
+  });
+
   return {
     text: rawText.trim(),
     pageCount: estimatedPages,
     metadata,
     images,
     tables,
+    headingLines,
   };
 }

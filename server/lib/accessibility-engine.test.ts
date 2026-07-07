@@ -8247,6 +8247,50 @@ describe("findLastConvertedMarker", () => {
   it("returns undefined for an empty chunk list", () => {
     expect(findLastConvertedMarker([])).toBeUndefined();
   });
+
+  it("uses known-heading metadata instead of the shape heuristic when provided", () => {
+    const chunks: PageChunk[] = [
+      {
+        text: "Module 2: Grading Policy\nA short factual line with no punctuation\nMore prose after that.",
+        startPage: 1,
+        endPage: 1,
+        startsMidPage: false,
+      },
+    ];
+
+    // "A short factual line with no punctuation" is heading-shaped (short,
+    // capitalized, no trailing punctuation) but is NOT in the known-headings
+    // list, so with metadata available it must not be misidentified.
+    const marker = findLastConvertedMarker(chunks, ["Module 2: Grading Policy"]);
+    expect(marker?.isHeading).toBe(true);
+    expect(marker?.heading).toBe("Module 2: Grading Policy");
+  });
+
+  it("falls back to the shape heuristic when known headings is empty or absent", () => {
+    const chunks: PageChunk[] = [
+      { text: "Module 2: Grading Policy\nMore prose after the heading.", startPage: 1, endPage: 1, startsMidPage: false },
+    ];
+
+    expect(findLastConvertedMarker(chunks, [])?.isHeading).toBe(true);
+    expect(findLastConvertedMarker(chunks, undefined)?.isHeading).toBe(true);
+  });
+
+  it("does not treat a heading-shaped line as a heading when metadata says it isn't one", () => {
+    const chunks: PageChunk[] = [
+      {
+        text: "A short factual line with no punctuation\nSome trailing prose here.",
+        startPage: 1,
+        endPage: 1,
+        startsMidPage: false,
+      },
+    ];
+
+    // Metadata is available (non-empty) for this document but doesn't
+    // include this line, so it should be treated as body text, not a
+    // heading, and the function should fall back to the last-line branch.
+    const marker = findLastConvertedMarker(chunks, ["Some Other Real Heading"]);
+    expect(marker?.isHeading).toBe(false);
+  });
 });
 
 describe("continuation chunk context-leak detection", () => {

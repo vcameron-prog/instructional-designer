@@ -1920,6 +1920,7 @@ export async function registerRoutes(
             abortController.signal,
             ocrApplied,
             minQualityTitleLength,
+            ocrApplied ? undefined : extraction.headingLines,
           );
 
           // Guard the success write: if the timeout fired while
