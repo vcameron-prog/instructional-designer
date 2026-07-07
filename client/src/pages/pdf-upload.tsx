@@ -67,7 +67,10 @@ function getLargeSizeWarning(files: File[]): string | null {
 const LOGO_BANNER_BACKGROUND: "light" | "dark" = "dark";
 
 export default function PdfUpload() {
-  usePageTitle("Accessibility Tools");
+  usePageTitle(
+    "Accessibility Tools",
+    "Convert PDF, Word, PowerPoint, Excel, and Google Docs to WCAG 2.1 AA-compliant accessible HTML using AI-powered remediation. Free, no login required.",
+  );
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);

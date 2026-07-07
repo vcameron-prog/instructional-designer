@@ -54,7 +54,10 @@ export default function QuickTools() {
   const { isAuthenticated } = useAuth();
   const { toast } = useToast();
 
-  usePageTitle("Quick Tools");
+  usePageTitle(
+    "Quick Tools",
+    "Generate individual course materials quickly without creating a full course. Create a single assignment, rubric, syllabus component, or learning module on demand.",
+  );
   useEffect(() => { window.scrollTo(0, 0); }, []);
 
   const [preferredTool] = useState(() => localStorage.getItem("bsu-preferred-quick-tool") || "");

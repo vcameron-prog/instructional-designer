@@ -53,7 +53,10 @@ function CopyField({ label, value, testId }: { label: string; value: string; tes
 }
 
 export default function MathOcrPage() {
-  usePageTitle("Math OCR");
+  usePageTitle(
+    "Math OCR",
+    "Extract and convert mathematical equations from images into accessible LaTeX or plain-text representations using AI-powered optical character recognition.",
+  );
   const [, navigate] = useLocation();
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);

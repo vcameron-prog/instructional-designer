@@ -18,7 +18,10 @@ const LOGO_BANNER_BACKGROUND: "light" | "dark" = "dark";
 
 export default function CaiLandingPage() {
   useEffect(() => { window.scrollTo(0, 0); }, []);
-  usePageTitle("CAI Tools — Bridgewater State University");
+  usePageTitle(
+    "CAI Tools — Bridgewater State University",
+    "Free AI-powered accessibility converter and tools from the BSU Center for Artificial Intelligence. Convert PDF, Word, and Google Docs to WCAG 2.1 AA-compliant accessible HTML.",
+  );
   const [, navigate] = useLocation();
 
   const { data: isAdmin } = useQuery<boolean>({
@@ -41,6 +44,7 @@ export default function CaiLandingPage() {
       </header>
 
       <main id="main-content" tabIndex={-1} className="flex-1">
+      <h1 className="sr-only">CAI Tools — Bridgewater State University</h1>
 
       {/* CAI logo banner — background is hardcoded dark, so the logo is
            selected based on LOGO_BANNER_BACKGROUND rather than the site theme */}

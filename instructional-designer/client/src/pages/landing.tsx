@@ -105,7 +105,10 @@ export default function LandingPage() {
     },
   });
 
-  usePageTitle("Home");
+  usePageTitle(
+    "Home",
+    "AI-powered instructional design tool for Bridgewater State University faculty. Generate UDL-aligned assignments, rubrics, syllabi, and accessible course materials in minutes.",
+  );
 
   if (isAuthLoading) {
     return <LoadingScreen message="Loading..." />;

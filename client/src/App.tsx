@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef } from "react";
-import { Switch, Route, useLocation } from "wouter";
+import { Switch, Route, useLocation, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -33,9 +33,13 @@ const ColorContrastPage     = lazy(() => import("@/pages/color-contrast"));
 const AltTextGeneratorPage  = lazy(() => import("@/pages/alt-text-generator"));
 const MathOcrPage           = lazy(() => import("@/pages/math-ocr"));
 
+function AccessibilityRedirect() {
+  return <Redirect to="/pdf-accessibility" />;
+}
+
 const ROUTE_COMPONENTS: Record<string, React.ComponentType> = {
   "/":                          CaiLandingPage,
-  "/accessibility":             PdfUpload,
+  "/accessibility":             AccessibilityRedirect,
   "/pdf-accessibility":         PdfUpload,
   "/pdf-accessibility/history": PdfHistory,
   "/pdf-accessibility/faq":     PdfFaq,

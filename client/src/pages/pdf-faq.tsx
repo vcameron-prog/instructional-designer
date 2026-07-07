@@ -263,7 +263,10 @@ function FAQAccordionItem({ item, index }: { item: FAQItem; index: number }) {
 }
 
 export default function PdfFaq() {
-  usePageTitle("Accessibility Converter FAQ");
+  usePageTitle(
+    "Accessibility Converter FAQ",
+    "Answers to common questions about the BSU AI-powered accessibility converter: supported formats, how it works, WCAG compliance, and export options.",
+  );
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);

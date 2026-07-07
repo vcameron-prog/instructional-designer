@@ -201,6 +201,13 @@ export const TOOLKIT_REDIRECTS: Record<string, string> = {
   "/math-ocr":       "/accessibility-tools/math-ocr",
 };
 
+// ─── Canonical alias redirects ───────────────────────────────────────────────
+// /accessibility is a legacy alias for /pdf-accessibility. Redirect with 301
+// so link authority and crawl signals consolidate on the canonical URL.
+export const ALIAS_REDIRECTS: Record<string, string> = {
+  "/accessibility": "/pdf-accessibility",
+};
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express,
@@ -213,6 +220,13 @@ export async function registerRoutes(
   for (const [oldPath, idPath] of Object.entries(TOOLKIT_REDIRECTS)) {
     app.get(oldPath, (_req: Request, res: Response) => {
       res.redirect(301, idPath);
+    });
+  }
+
+  // Redirect canonical alias paths (duplicate public routes) with 301
+  for (const [oldPath, canonicalPath] of Object.entries(ALIAS_REDIRECTS)) {
+    app.get(oldPath, (_req: Request, res: Response) => {
+      res.redirect(301, canonicalPath);
     });
   }
 

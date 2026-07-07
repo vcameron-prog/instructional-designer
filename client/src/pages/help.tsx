@@ -111,7 +111,10 @@ export default function HelpPage() {
     navigate(fromPath || "/");
   };
 
-  usePageTitle("Help & Resources");
+  usePageTitle(
+    "Help & Resources",
+    "Get help using the BSU CAI accessibility tools. Find guides, tips, and resources for the document accessibility converter and built-in accessibility tools.",
+  );
 
   return (
     <main id="main-content" tabIndex={-1} className="min-h-screen bg-background">

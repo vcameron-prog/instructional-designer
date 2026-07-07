@@ -91,7 +91,10 @@ function ScoreMeter({ score }: { score: number }) {
 }
 
 export default function UrlScannerPage() {
-  usePageTitle("URL Accessibility Scanner");
+  usePageTitle(
+    "URL Accessibility Scanner",
+    "Scan any web page URL for WCAG 2.1 AA accessibility issues. Identify missing alt text, contrast failures, missing labels, and other barriers instantly.",
+  );
   const [, navigate] = useLocation();
   const [url, setUrl] = useState("");
   const [result, setResult] = useState<ScanResult | null>(null);

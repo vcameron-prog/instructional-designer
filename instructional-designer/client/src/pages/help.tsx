@@ -259,7 +259,10 @@ export default function HelpPage() {
     navigate(fromPath || "/");
   };
 
-  usePageTitle("Help & Resources");
+  usePageTitle(
+    "Help & Resources",
+    "Get help using the BSU Instructional Designer. Find guides, tips, and resources for creating AI-powered course materials, rubrics, syllabi, and UDL-aligned content.",
+  );
 
   return (
     <main id="main-content" tabIndex={-1} className="min-h-screen bg-background">

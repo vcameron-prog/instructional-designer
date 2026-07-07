@@ -78,7 +78,10 @@ const TOOLS = [
 ];
 
 export default function AccessibilityToolsPage() {
-  usePageTitle("Accessibility Tools");
+  usePageTitle(
+    "Accessibility Tools",
+    "Built-in accessibility tools for BSU faculty: check color contrast, generate alt text, scan web pages for WCAG issues, and extract math equations from images.",
+  );
   const [, navigate] = useLocation();
   const converterUrl = getConverterUrl();
 

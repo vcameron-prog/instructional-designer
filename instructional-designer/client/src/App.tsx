@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef } from "react";
-import { Router, Switch, Route, useParams, useLocation } from "wouter";
+import { Router, Switch, Route, useParams, useLocation, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -59,7 +59,7 @@ function AppRouter() {
     <Suspense fallback={<div aria-live="polite" aria-label="Loading page" />}>
     <Switch>
       <Route path="/" component={LandingPage} />
-      <Route path="/bsu" component={LandingPage} />
+      <Route path="/bsu"><Redirect to="/" /></Route>
       <Route path="/new-course" component={NewCourseWrapper} />
       <Route path="/course/:id/edit" component={EditCourseWrapper} />
       <Route path="/course/:id/tools" component={ToolSelection} />

@@ -247,7 +247,10 @@ export default function ResearchPage() {
     navigate(fromPath || "/");
   };
 
-  usePageTitle("Research & Theory");
+  usePageTitle(
+    "Research & Theory",
+    "Explore the research and theory behind Universal Design for Learning (UDL), Cultural Relevance & Inclusivity, and Social-Emotional Learning (SEL) in higher education course design.",
+  );
 
   return (
     <main id="main-content" tabIndex={-1} className="min-h-screen bg-background">

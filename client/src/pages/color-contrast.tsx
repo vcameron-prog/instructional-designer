@@ -47,7 +47,10 @@ function ratingSeverity(result: ContrastResult) {
 }
 
 export default function ColorContrastPage() {
-  usePageTitle("Color Contrast Checker");
+  usePageTitle(
+    "Color Contrast Checker",
+    "Check whether your foreground and background color combinations meet WCAG 2.1 AA and AAA contrast ratio requirements for accessible design.",
+  );
   const [, navigate] = useLocation();
   const [foreground, setForeground] = useState("#000000");
   const [background, setBackground] = useState("#ffffff");

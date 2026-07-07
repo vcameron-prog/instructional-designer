@@ -138,6 +138,11 @@ async function resetStaleProcessingJobs() {
   // Schedule the daily health summary email (7am ET by default)
   scheduleDailySummary();
 
+  // Redirect /faculty/bsu → /faculty (canonical alias for the ID landing page)
+  app.get("/faculty/bsu", (_req, res) => {
+    res.redirect(301, "/faculty");
+  });
+
   // Proxy /faculty/api/* → Instructional Designer API on port 3001
   // Must be registered before main app routes so /faculty namespace is isolated.
   // Express strips the mount path, so the proxy receives the path after the mount.
