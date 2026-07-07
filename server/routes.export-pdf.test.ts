@@ -8,12 +8,14 @@ import { MAX_CONCURRENT_PDF_EXPORTS, INVALID_ID_ERROR } from "./routes";
 // Hoisted mocks — vi.mock factories are hoisted to the top of the file, so
 // any variables they capture must be created with vi.hoisted().
 // ---------------------------------------------------------------------------
-const { mockBuildPdf, mockDbSelectWhere, mockCheckSharedRateLimit, mockCheckHeavyOpRateLimit } =
+const { mockBuildPdf, mockDbSelectWhere, mockCheckSharedRateLimit, mockCheckHeavyOpRateLimit, mockGetFirstHeadingLevel, mockBuildHeadingRenumberedNoteHtml } =
   vi.hoisted(() => ({
     mockBuildPdf: vi.fn(),
     mockDbSelectWhere: vi.fn(),
     mockCheckSharedRateLimit: vi.fn(),
     mockCheckHeavyOpRateLimit: vi.fn(),
+    mockGetFirstHeadingLevel: vi.fn(),
+    mockBuildHeadingRenumberedNoteHtml: vi.fn(),
   }));
 
 // ---------------------------------------------------------------------------
@@ -95,7 +97,10 @@ vi.mock("./storage", () => ({
 // ---------------------------------------------------------------------------
 vi.mock("./lib/accessibility-engine", async () => {
   const { createAccessibilityEngineMock } = await import("./test-utils/accessibility-engine-mock");
-  return createAccessibilityEngineMock();
+  return createAccessibilityEngineMock({
+    getFirstHeadingLevel: mockGetFirstHeadingLevel,
+    buildHeadingRenumberedNoteHtml: mockBuildHeadingRenumberedNoteHtml,
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -316,4 +321,75 @@ describe("GET /api/conversions/:id/download-pdf — guard paths", () => {
     resolvePdf(Buffer.from("%PDF-1.4 fake"));
     await req1Done;
   }, 15_000);
+});
+
+// ---------------------------------------------------------------------------
+// Tests: renumbering notice survives PDF export
+//
+// When a document's topmost heading is not H1, the route calls
+// getFirstHeadingLevel → buildHeadingRenumberedNoteHtml and splices the
+// resulting notice into the HTML immediately after <body>.  These tests assert
+// that the notice text is present in the HTML argument actually passed to
+// buildPdf, so a silent drop or stripping in the HTML-preparation step is
+// caught before it reaches the PDF renderer.
+// ---------------------------------------------------------------------------
+describe("GET /api/conversions/:id/download-pdf — renumbering notice", () => {
+  let app: express.Express;
+
+  const H2_CONVERSION = {
+    id: 1,
+    accessibleHtml:
+      '<html lang="en"><head><title>Lecture</title></head><body><h2>Section One</h2></body></html>',
+    originalFilename: "lecture.pdf",
+    status: "completed",
+    updatedAt: new Date("2025-06-01T10:00:00Z"),
+  };
+
+  const NOTE_SENTINEL =
+    '<div role="note" aria-label="Heading levels renumbered notice">Headings were shifted by 1 level</div>';
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    app = await buildApp();
+
+    mockCheckSharedRateLimit.mockResolvedValue(true);
+    mockCheckHeavyOpRateLimit.mockReturnValue(true);
+    mockBuildPdf.mockResolvedValue(Buffer.from("%PDF-1.4 fake"));
+  });
+
+  it("passes the renumbering notice to buildPdf when the topmost heading is not H1", async () => {
+    mockDbSelectWhere.mockResolvedValue([H2_CONVERSION]);
+    mockGetFirstHeadingLevel.mockReturnValue(2);
+    mockBuildHeadingRenumberedNoteHtml.mockReturnValue(NOTE_SENTINEL);
+
+    const res = await request(app).get("/api/conversions/1/download-pdf");
+
+    expect(res.status).toBe(200);
+    expect(mockBuildPdf).toHaveBeenCalledTimes(1);
+    const htmlArg: string = mockBuildPdf.mock.calls[0][0];
+    expect(htmlArg).toContain(NOTE_SENTINEL);
+    expect(mockBuildHeadingRenumberedNoteHtml).toHaveBeenCalledWith(2);
+  });
+
+  it("does not pass a renumbering notice to buildPdf when the topmost heading is already H1", async () => {
+    mockDbSelectWhere.mockResolvedValue([H2_CONVERSION]);
+    mockGetFirstHeadingLevel.mockReturnValue(1);
+
+    const res = await request(app).get("/api/conversions/1/download-pdf");
+
+    expect(res.status).toBe(200);
+    expect(mockBuildPdf).toHaveBeenCalledTimes(1);
+    expect(mockBuildHeadingRenumberedNoteHtml).not.toHaveBeenCalled();
+  });
+
+  it("does not pass a renumbering notice to buildPdf when no heading is detected", async () => {
+    mockDbSelectWhere.mockResolvedValue([H2_CONVERSION]);
+    mockGetFirstHeadingLevel.mockReturnValue(null);
+
+    const res = await request(app).get("/api/conversions/1/download-pdf");
+
+    expect(res.status).toBe(200);
+    expect(mockBuildPdf).toHaveBeenCalledTimes(1);
+    expect(mockBuildHeadingRenumberedNoteHtml).not.toHaveBeenCalled();
+  });
 });

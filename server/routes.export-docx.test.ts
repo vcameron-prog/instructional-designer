@@ -7,10 +7,12 @@ import request from "supertest";
 // ---------------------------------------------------------------------------
 // Hoisted mocks
 // ---------------------------------------------------------------------------
-const { mockBuildDocx, mockDbSelectWhere, currentUser } = vi.hoisted(() => ({
+const { mockBuildDocx, mockDbSelectWhere, currentUser, mockGetFirstHeadingLevel, mockBuildHeadingRenumberedNoteHtml } = vi.hoisted(() => ({
   mockBuildDocx: vi.fn(),
   mockDbSelectWhere: vi.fn(),
   currentUser: { sub: "user-abc" },
+  mockGetFirstHeadingLevel: vi.fn(),
+  mockBuildHeadingRenumberedNoteHtml: vi.fn(),
 }));
 
 // ---------------------------------------------------------------------------
@@ -92,7 +94,10 @@ vi.mock("./storage", () => ({
 // ---------------------------------------------------------------------------
 vi.mock("./lib/accessibility-engine", async () => {
   const { createAccessibilityEngineMock } = await import("./test-utils/accessibility-engine-mock");
-  return createAccessibilityEngineMock();
+  return createAccessibilityEngineMock({
+    getFirstHeadingLevel: mockGetFirstHeadingLevel,
+    buildHeadingRenumberedNoteHtml: mockBuildHeadingRenumberedNoteHtml,
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -358,4 +363,74 @@ describe("GET /api/conversions/:id/download-docx — 503 concurrency cap", () =>
     resolveDocx(Buffer.from("PK\x03\x04fake-docx"));
     await req1Done;
   }, 15_000);
+});
+
+// ---------------------------------------------------------------------------
+// Tests: renumbering notice survives DOCX export
+//
+// When a document's topmost heading is not H1, the route calls
+// getFirstHeadingLevel → buildHeadingRenumberedNoteHtml and splices the
+// resulting notice into the HTML immediately after <body>.  These tests assert
+// that the notice text is present in the HTML argument actually passed to
+// buildDocx, so a silent drop or stripping in the HTML-preparation step is
+// caught before it reaches the DOCX builder.
+// ---------------------------------------------------------------------------
+describe("GET /api/conversions/:id/download-docx — renumbering notice", () => {
+  let app: express.Express;
+
+  const H2_CONVERSION = {
+    accessibleHtml:
+      '<html lang="en"><head><title>Lecture</title></head><body><h2>Section One</h2></body></html>',
+    originalFilename: "lecture.pdf",
+    status: "completed",
+    updatedAt: new Date("2025-06-01T10:00:00Z"),
+  };
+
+  const NOTE_SENTINEL =
+    '<div role="note" aria-label="Heading levels renumbered notice">Headings were shifted by 1 level</div>';
+
+  beforeEach(async () => {
+    vi.resetModules();
+    vi.clearAllMocks();
+    currentUser.sub = "user-abc";
+    app = await buildApp();
+
+    mockBuildDocx.mockResolvedValue(Buffer.from("PK\x03\x04fake-docx-content"));
+  });
+
+  it("passes the renumbering notice to buildDocx when the topmost heading is not H1", async () => {
+    mockDbSelectWhere.mockResolvedValue([H2_CONVERSION]);
+    mockGetFirstHeadingLevel.mockReturnValue(2);
+    mockBuildHeadingRenumberedNoteHtml.mockReturnValue(NOTE_SENTINEL);
+
+    const res = await request(app).get("/api/conversions/1/download-docx");
+
+    expect(res.status).toBe(200);
+    expect(mockBuildDocx).toHaveBeenCalledTimes(1);
+    const htmlArg: string = mockBuildDocx.mock.calls[0][0];
+    expect(htmlArg).toContain(NOTE_SENTINEL);
+    expect(mockBuildHeadingRenumberedNoteHtml).toHaveBeenCalledWith(2);
+  });
+
+  it("does not pass a renumbering notice to buildDocx when the topmost heading is already H1", async () => {
+    mockDbSelectWhere.mockResolvedValue([H2_CONVERSION]);
+    mockGetFirstHeadingLevel.mockReturnValue(1);
+
+    const res = await request(app).get("/api/conversions/1/download-docx");
+
+    expect(res.status).toBe(200);
+    expect(mockBuildDocx).toHaveBeenCalledTimes(1);
+    expect(mockBuildHeadingRenumberedNoteHtml).not.toHaveBeenCalled();
+  });
+
+  it("does not pass a renumbering notice to buildDocx when no heading is detected", async () => {
+    mockDbSelectWhere.mockResolvedValue([H2_CONVERSION]);
+    mockGetFirstHeadingLevel.mockReturnValue(null);
+
+    const res = await request(app).get("/api/conversions/1/download-docx");
+
+    expect(res.status).toBe(200);
+    expect(mockBuildDocx).toHaveBeenCalledTimes(1);
+    expect(mockBuildHeadingRenumberedNoteHtml).not.toHaveBeenCalled();
+  });
 });
