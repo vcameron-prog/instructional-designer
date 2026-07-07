@@ -358,7 +358,14 @@ export async function registerRoutes(
   const OLE_MAGIC = Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]); // legacy .doc/.xls/.ppt
   const ZIP_MAGIC = Buffer.from([0x50, 0x4b, 0x03, 0x04]);
 
-  type DetectedDocCategory = "pdf" | "docx" | "xlsx" | "pptx" | "doc" | "odt" | "ods" | "odp" | "epub";
+  // UTF-16LE stream names embedded in OLE compound-file directory entries.
+  // Scanning the leading bytes for these names disambiguates legacy .doc / .xls / .ppt
+  // without a full OLE parse, the same technique used for OOXML part names.
+  const OLE_STREAM_WORKBOOK = Buffer.from("Workbook", "utf16le");
+  const OLE_STREAM_BOOK = Buffer.from("Book", "utf16le");
+  const OLE_STREAM_PPT = Buffer.from("PowerPoint Document", "utf16le");
+
+  type DetectedDocCategory = "pdf" | "docx" | "xlsx" | "pptx" | "doc" | "xls" | "ppt" | "odt" | "ods" | "odp" | "epub";
 
   const DETECTED_DOC_TYPES: Record<DetectedDocCategory, { label: string; extension: string }> = {
     pdf: { label: "PDF", extension: ".pdf" },
@@ -366,6 +373,8 @@ export async function registerRoutes(
     xlsx: { label: "Excel spreadsheet (.xlsx)", extension: ".xlsx" },
     pptx: { label: "PowerPoint presentation (.pptx)", extension: ".pptx" },
     doc: { label: "legacy Word document (.doc)", extension: ".doc" },
+    xls: { label: "legacy Excel spreadsheet (.xls)", extension: ".xls" },
+    ppt: { label: "legacy PowerPoint presentation (.ppt)", extension: ".ppt" },
     odt: { label: "OpenDocument text file (.odt)", extension: ".odt" },
     ods: { label: "OpenDocument spreadsheet (.ods)", extension: ".ods" },
     odp: { label: "OpenDocument presentation (.odp)", extension: ".odp" },
@@ -394,6 +403,12 @@ export async function registerRoutes(
       return "pdf";
     }
     if (buffer.length >= OLE_MAGIC.length && buffer.subarray(0, OLE_MAGIC.length).equals(OLE_MAGIC)) {
+      // All legacy binary Office formats share the same OLE2 magic bytes, so
+      // disambiguate by scanning the directory sector for well-known UTF-16LE
+      // stream names — the same technique used for OOXML part names in zip files.
+      const head = buffer.subarray(0, Math.min(buffer.length, 65536));
+      if (head.includes(OLE_STREAM_WORKBOOK) || head.includes(OLE_STREAM_BOOK)) return "xls";
+      if (head.includes(OLE_STREAM_PPT)) return "ppt";
       return "doc";
     }
     if (buffer.length >= ZIP_MAGIC.length && buffer.subarray(0, ZIP_MAGIC.length).equals(ZIP_MAGIC)) {
@@ -424,6 +439,8 @@ export async function registerRoutes(
       case "xlsx": return "xlsx";
       case "pptx": return "pptx";
       case "doc": return "doc";
+      case "xls": return "xls";
+      case "ppt": return "ppt";
       case "odt": return "odt";
       case "ods": return "ods";
       case "odp": return "odp";

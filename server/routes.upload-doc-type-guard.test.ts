@@ -170,11 +170,27 @@ function fakePdfBuffer(): Buffer {
   return Buffer.from("%PDF-1.4\n%some pdf content here");
 }
 
-/** Minimal legacy .doc bytes: OLE compound-file magic header. */
+/** Minimal legacy .doc bytes: OLE compound-file magic + UTF-16LE "WordDocument" stream name. */
 function fakeLegacyDocBuffer(): Buffer {
   return Buffer.concat([
     Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]),
-    Buffer.from("legacy doc content"),
+    Buffer.from("WordDocument", "utf16le"),
+  ]);
+}
+
+/** Minimal legacy .xls bytes: OLE compound-file magic + UTF-16LE "Workbook" stream name. */
+function fakeLegacyXlsBuffer(): Buffer {
+  return Buffer.concat([
+    Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]),
+    Buffer.from("Workbook", "utf16le"),
+  ]);
+}
+
+/** Minimal legacy .ppt bytes: OLE compound-file magic + UTF-16LE "PowerPoint Document" stream name. */
+function fakeLegacyPptBuffer(): Buffer {
+  return Buffer.concat([
+    Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]),
+    Buffer.from("PowerPoint Document", "utf16le"),
   ]);
 }
 
@@ -377,4 +393,48 @@ describe("POST /api/conversions/upload — renamed-document guard", () => {
     expect(res.status).toBe(200);
     expect(mockDbInsertReturning).toHaveBeenCalled();
   });
+
+  it("rejects a legacy .xls file uploaded with a .pdf extension with a format-specific message", async () => {
+    const res = await request(app)
+      .post("/api/conversions/upload")
+      .attach("file", fakeLegacyXlsBuffer(), {
+        filename: "gradebook.pdf",
+        contentType: "application/pdf",
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/legacy Excel spreadsheet \(\.xls\)/i);
+    expect(res.body.detectedType).toBe("legacy Excel spreadsheet (.xls)");
+    expect(mockDbInsertReturning).not.toHaveBeenCalled();
+  });
+
+  it("rejects a legacy .ppt file uploaded with a .pdf extension with a format-specific message", async () => {
+    const res = await request(app)
+      .post("/api/conversions/upload")
+      .attach("file", fakeLegacyPptBuffer(), {
+        filename: "lecture.pdf",
+        contentType: "application/pdf",
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/legacy PowerPoint presentation \(\.ppt\)/i);
+    expect(res.body.detectedType).toBe("legacy PowerPoint presentation (.ppt)");
+    expect(mockDbInsertReturning).not.toHaveBeenCalled();
+  });
+
+  it("rejects a legacy .xls file uploaded with a .doc extension with a format-specific message", async () => {
+    const res = await request(app)
+      .post("/api/conversions/upload")
+      .attach("file", fakeLegacyXlsBuffer(), {
+        filename: "gradebook.doc",
+        contentType: "application/msword",
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/legacy Excel spreadsheet \(\.xls\)/i);
+    expect(res.body.detectedType).toBe("legacy Excel spreadsheet (.xls)");
+    expect(mockDbInsertReturning).not.toHaveBeenCalled();
+  });
+
 });
+
