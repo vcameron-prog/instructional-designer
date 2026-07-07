@@ -1,29 +1,30 @@
-import { useEffect, useRef } from "react";
+import { lazy, Suspense, useEffect, useRef } from "react";
 import { Router, Switch, Route, useParams, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import NotFound from "@/pages/not-found";
-import LandingPage from "@/pages/landing";
-import CourseForm from "@/pages/course-form";
-import ToolSelection from "@/pages/tool-selection";
-import ToolForm from "@/pages/tool-form";
-import ResultPage from "@/pages/result";
-import ResultBatchPage from "@/pages/result-batch";
-import HelpPage from "@/pages/help";
-import ResearchPage from "@/pages/research";
-import LibraryPage from "@/pages/library";
-import QuickToolsPage from "@/pages/quick-tools";
-import AdminDashboard from "@/pages/admin-dashboard";
-import SettingsPage from "@/pages/settings";
-import AccessibilityToolsPage from "@/pages/accessibility-tools";
-import UrlScannerPage from "@/pages/url-scanner";
-import ColorContrastPage from "@/pages/color-contrast";
-import AltTextGeneratorPage from "@/pages/alt-text-generator";
-import MathOcrPage from "@/pages/math-ocr";
 import { ThemeProvider } from "@/components/theme-provider";
 import { FontSizeProvider } from "@/components/font-size-provider";
+
+const NotFound              = lazy(() => import("@/pages/not-found"));
+const LandingPage           = lazy(() => import("@/pages/landing"));
+const CourseForm            = lazy(() => import("@/pages/course-form"));
+const ToolSelection         = lazy(() => import("@/pages/tool-selection"));
+const ToolForm              = lazy(() => import("@/pages/tool-form"));
+const ResultPage            = lazy(() => import("@/pages/result"));
+const ResultBatchPage       = lazy(() => import("@/pages/result-batch"));
+const HelpPage              = lazy(() => import("@/pages/help"));
+const ResearchPage          = lazy(() => import("@/pages/research"));
+const LibraryPage           = lazy(() => import("@/pages/library"));
+const QuickToolsPage        = lazy(() => import("@/pages/quick-tools"));
+const AdminDashboard        = lazy(() => import("@/pages/admin-dashboard"));
+const SettingsPage          = lazy(() => import("@/pages/settings"));
+const AccessibilityToolsPage = lazy(() => import("@/pages/accessibility-tools"));
+const UrlScannerPage        = lazy(() => import("@/pages/url-scanner"));
+const ColorContrastPage     = lazy(() => import("@/pages/color-contrast"));
+const AltTextGeneratorPage  = lazy(() => import("@/pages/alt-text-generator"));
+const MathOcrPage           = lazy(() => import("@/pages/math-ocr"));
 
 function NewCourseWrapper() {
   return <CourseForm />;
@@ -55,6 +56,7 @@ function FocusManager() {
 function AppRouter() {
   return (
     <Router base="/faculty">
+    <Suspense fallback={<div aria-live="polite" aria-label="Loading page" />}>
     <Switch>
       <Route path="/" component={LandingPage} />
       <Route path="/bsu" component={LandingPage} />
@@ -80,6 +82,7 @@ function AppRouter() {
       <Route path="/accessibility-tools/math-ocr" component={MathOcrPage} />
       <Route component={NotFound} />
     </Switch>
+    </Suspense>
     </Router>
   );
 }

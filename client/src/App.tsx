@@ -1,23 +1,10 @@
-import { useEffect, useRef } from "react";
+import { lazy, Suspense, useEffect, useRef } from "react";
 import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
-import NotFound from "@/pages/not-found";
-import CaiLandingPage from "@/pages/cai-landing";
-import PdfUpload from "@/pages/pdf-upload";
-import PdfHistory from "@/pages/pdf-history";
-import PdfConversion from "@/pages/pdf-conversion";
-import PdfFaq from "@/pages/pdf-faq";
-import SettingsPage from "@/pages/settings";
-import HelpPage from "@/pages/help";
-import AdminDashboard from "@/pages/admin-dashboard";
-import UrlScannerPage from "@/pages/url-scanner";
-import ColorContrastPage from "@/pages/color-contrast";
-import AltTextGeneratorPage from "@/pages/alt-text-generator";
-import MathOcrPage from "@/pages/math-ocr";
 import { ThemeProvider } from "@/components/theme-provider";
 import { FontSizeProvider } from "@/components/font-size-provider";
 import { ProtectedRoute } from "@/components/protected-route";
@@ -31,6 +18,20 @@ import { ROUTE_VISIBILITY } from "@/lib/route-visibility";
 // the Playwright sign-in button visibility spec.  Add every new page there
 // first, then add its component to ROUTE_COMPONENTS below.
 // ---------------------------------------------------------------------------
+
+const NotFound              = lazy(() => import("@/pages/not-found"));
+const CaiLandingPage        = lazy(() => import("@/pages/cai-landing"));
+const PdfUpload             = lazy(() => import("@/pages/pdf-upload"));
+const PdfHistory            = lazy(() => import("@/pages/pdf-history"));
+const PdfConversion         = lazy(() => import("@/pages/pdf-conversion"));
+const PdfFaq                = lazy(() => import("@/pages/pdf-faq"));
+const SettingsPage          = lazy(() => import("@/pages/settings"));
+const HelpPage              = lazy(() => import("@/pages/help"));
+const AdminDashboard        = lazy(() => import("@/pages/admin-dashboard"));
+const UrlScannerPage        = lazy(() => import("@/pages/url-scanner"));
+const ColorContrastPage     = lazy(() => import("@/pages/color-contrast"));
+const AltTextGeneratorPage  = lazy(() => import("@/pages/alt-text-generator"));
+const MathOcrPage           = lazy(() => import("@/pages/math-ocr"));
 
 const ROUTE_COMPONENTS: Record<string, React.ComponentType> = {
   "/":                          CaiLandingPage,
@@ -100,16 +101,18 @@ function SlowSignInNotice() {
 
 function Router() {
   return (
-    <Switch>
-      {ROUTES.map(({ path, component: Component, requiresAuth }) => (
-        <Route key={path} path={path}>
-          {requiresAuth
-            ? () => <ProtectedRoute component={Component} />
-            : () => <Component />}
-        </Route>
-      ))}
-      <Route component={NotFound} />
-    </Switch>
+    <Suspense fallback={<div aria-live="polite" aria-label="Loading page" />}>
+      <Switch>
+        {ROUTES.map(({ path, component: Component, requiresAuth }) => (
+          <Route key={path} path={path}>
+            {requiresAuth
+              ? () => <ProtectedRoute component={Component} />
+              : () => <Component />}
+          </Route>
+        ))}
+        <Route component={NotFound} />
+      </Switch>
+    </Suspense>
   );
 }
 
