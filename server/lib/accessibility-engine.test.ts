@@ -4165,6 +4165,24 @@ describe("fixComplianceIssue – fixture-based regression tests", () => {
     await fixComplianceIssue(html, ariaIssue, issues.indexOf(ariaIssue), report);
     expect(mockCreate).not.toHaveBeenCalled();
   });
+
+  it("preserves good descriptive link text verbatim when fixing an unrelated compliance issue via AI", async () => {
+    const descriptiveLinkText = "Download the 2024 Report";
+    const html = `<!DOCTYPE html><html lang="en"><head><title>Annual Reports</title></head><body><main><h1>Annual Reports</h1><p>Please review our latest findings.</p><p><a href="/reports/2024.pdf">${descriptiveLinkText}</a></p><img src="chart.png"></main></body></html>`;
+
+    const issues = runDeterministicChecks(html);
+    const altIssue = issues.find((i) => i.criterion === "1.1.1")!;
+    expect(altIssue).toBeDefined();
+    expect(altIssue.status).toBe("fail");
+
+    const fixedHtml = html.replace('<img src="chart.png">', '<img src="chart.png" alt="Bar chart showing 2024 annual data">');
+    mockAiResponse(`<!DOCTYPE html>\n${fixedHtml}`);
+
+    const report = makeReport(issues);
+    const result = await fixComplianceIssue(html, altIssue, issues.indexOf(altIssue), report);
+
+    expect(result.accessibleHtml).toContain(`<a href="/reports/2024.pdf">${descriptiveLinkText}</a>`);
+  });
 });
 
 // ---------------------------------------------------------------------------
