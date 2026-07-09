@@ -9,6 +9,8 @@ import { useAuth } from "@/hooks/use-auth";
 interface HeaderControlsProps {
   variant?: "light" | "dark";
   homePath?: string;
+  homeHref?: string;
+  showHome?: boolean;
   showLibrary?: boolean;
   showHelp?: boolean;
   showSettings?: boolean;
@@ -19,6 +21,8 @@ interface HeaderControlsProps {
 export function HeaderControls({
   variant = "light",
   homePath = "/",
+  homeHref,
+  showHome: showHomeProp,
   showLibrary = true,
   showHelp = true,
   showSettings = true,
@@ -29,7 +33,7 @@ export function HeaderControls({
   const { theme, toggleTheme } = useTheme();
   const { fontSize, increaseFontSize, decreaseFontSize } = useFontSize();
   const [location, navigate] = useLocation();
-  const showHome = location !== homePath;
+  const showHome = showHomeProp !== undefined ? showHomeProp : location !== homePath;
 
   const isDark = variant === "dark";
   const btnVariant = isDark ? "ghost" : "outline";
@@ -103,7 +107,7 @@ export function HeaderControls({
               variant={btnVariant}
               size="icon"
               className={btnClass}
-              onClick={() => navigate(homePath)}
+              onClick={() => homeHref ? (window.location.href = homeHref) : navigate(homePath)}
               data-testid="button-home"
               aria-label="Go to home"
             >

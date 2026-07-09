@@ -124,7 +124,7 @@ export default function LandingPage() {
             </span>
           </div>
         )}
-        <HeaderControls showLogout={isAuthenticated} showLogin={false} />
+        <HeaderControls showLogout={isAuthenticated} showLogin={false} showHome={true} homeHref="/" />
       </nav>
 
       <div className="relative z-10 container mx-auto px-4 py-12 md:py-20">
