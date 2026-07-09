@@ -2350,8 +2350,13 @@ export default function PdfConversion() {
                       Content Fidelity
                     </h2>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Advisory review of content accuracy — separate from the
-                      WCAG compliance score above and never blocks export.
+                      This check looks at whether all of your original text made
+                      it through the conversion. Formatting changes can
+                      occasionally cause content to be dropped or duplicated, so
+                      this section flags anything worth a quick look. It is{" "}
+                      <strong>advisory only</strong> — it won't block you from
+                      exporting, but it's worth scanning if anything is
+                      highlighted.
                     </p>
                   </div>
                   <div className="p-4 space-y-3">
@@ -2376,6 +2381,14 @@ export default function PdfConversion() {
                       </p>
                     </div>
 
+                    {contentFidelity.overallStatus === "warning" && (
+                      <p className="text-xs text-amber-700 dark:text-amber-400" data-testid="text-content-fidelity-action-prompt">
+                        Scroll through the converted document and compare it
+                        against the original to confirm nothing is missing or
+                        out of place.
+                      </p>
+                    )}
+
                     <ul className="space-y-2">
                       {contentFidelity.findings.map((finding, idx) => (
                         <li
@@ -2395,6 +2408,15 @@ export default function PdfConversion() {
                                 {finding.details}
                               </p>
                             )}
+                            {finding.type === "text-coverage" && (
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                Note: the converted output often has a higher
+                                word count than the source. Alt text for images,
+                                ARIA labels, and heading markup all add words
+                                that weren't in the original — this is expected
+                                and not a sign of added content.
+                              </p>
+                            )}
                           </div>
                         </li>
                       ))}
@@ -2402,8 +2424,14 @@ export default function PdfConversion() {
 
                     {contentFidelity.brokenTransitions.length > 0 && (
                       <div className="rounded-xl border bg-secondary/30 p-2.5">
-                        <p className="text-xs font-bold uppercase text-muted-foreground mb-1.5">
+                        <p className="text-xs font-bold uppercase text-muted-foreground mb-0.5">
                           Possible cut-off sections
+                        </p>
+                        <p className="text-xs text-muted-foreground mb-1.5">
+                          These are sentence fragments where the conversion may
+                          have split a passage mid-sentence. Compare each
+                          snippet against your original document to check
+                          whether any text is missing.
                         </p>
                         <ul className="space-y-1">
                           {contentFidelity.brokenTransitions.slice(0, 5).map((snippet, idx) => (
