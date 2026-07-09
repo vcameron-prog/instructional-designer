@@ -1656,6 +1656,9 @@ export default function PdfConversion() {
                       <li><span className="font-medium">Tagged PDF</span> — best for sharing a standalone accessible PDF.</li>
                       <li><span className="font-medium">HTML</span> — use when embedding content directly in a website.</li>
                     </ul>
+                    <p className="mt-1.5 text-blue-700 dark:text-blue-400" data-testid="text-formatting-loss-results-notice">
+                      <span className="font-medium">Formatting note:</span> Colors, custom fonts, and visual layout from the original are intentionally removed. This produces a clean, semantically structured document that meets WCAG accessibility standards.
+                    </p>
                     <p className="mt-1.5 text-blue-700 dark:text-blue-400">
                       Any issues listed below are items the AI could not fix automatically — the file is still usable, but reviewing them before sharing with students is encouraged.
                       <span className="ml-1"><span className="font-medium">Re-convert</span> re-runs the AI pass on your original file; <span className="font-medium">Convert Another</span> starts fresh with a new file.</span>

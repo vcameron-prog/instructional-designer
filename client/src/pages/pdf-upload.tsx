@@ -19,6 +19,7 @@ import {
   Eye,
   Calculator,
   TriangleAlert,
+  Info,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { ConverterHeader } from "@/components/header-controls";
@@ -596,6 +597,16 @@ export default function PdfUpload() {
               onUpload={handleFileDrop}
               isUploading={uploadMutation.isPending}
             />
+            <div
+              className="rounded-xl border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30 px-4 py-3 text-sm text-blue-800 dark:text-blue-300 flex items-start gap-2"
+              role="note"
+              data-testid="text-formatting-loss-notice"
+            >
+              <Info className="w-4 h-4 flex-shrink-0 mt-0.5 text-blue-500 dark:text-blue-400" aria-hidden="true" />
+              <p>
+                <span className="font-semibold">Formatting note:</span> The converted document will be clean, structured HTML. Colors, custom fonts, and visual layout from the original are intentionally removed — this is what makes the output WCAG-compliant and readable by screen readers.
+              </p>
+            </div>
             {sizeWarning && (
               <div
                 className="rounded-xl border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/40 px-4 py-3 text-sm text-amber-800 dark:text-amber-300"
