@@ -346,7 +346,7 @@ export function RichTextEditor({
       <div
         role="toolbar"
         aria-label="Text formatting"
-        className="flex flex-wrap items-center gap-0.5 px-2 py-1.5 border-b bg-secondary/40"
+        className="flex flex-wrap items-center gap-0.5 px-2 py-1.5 border-b bg-muted"
       >
         <ToolbarButton
           label="Bold"

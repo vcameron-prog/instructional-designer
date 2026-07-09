@@ -576,7 +576,7 @@ export default function PdfUpload() {
         )}
 
         <div className="w-full max-w-2xl mx-auto mb-8 bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
-          <div className="px-6 py-4 bg-secondary/50 border-b border-border flex items-center gap-3">
+          <div className="px-6 py-4 bg-muted border-b border-border flex items-center gap-3">
             <div className="p-2 rounded-lg bg-primary text-primary-foreground">
               <FileText className="w-5 h-5" aria-hidden="true" />
             </div>
@@ -639,7 +639,7 @@ export default function PdfUpload() {
         {fileQueue.length > 0 && (
           <div className="w-full max-w-2xl mx-auto mb-6">
             <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
-              <div className="px-5 py-3 bg-secondary/50 border-b border-border flex items-center justify-between">
+              <div className="px-5 py-3 bg-muted border-b border-border flex items-center justify-between">
                 <h3 className="font-semibold text-sm text-foreground">
                   Upload Queue —{" "}
                   {fileQueue.filter((f) => f.status === "done").length}/{fileQueue.length} complete
@@ -734,7 +734,7 @@ export default function PdfUpload() {
 
           {/* Google Workspace (Docs / Sheets / Slides) */}
           <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden flex flex-col">
-            <div className="px-4 py-3 bg-secondary/50 border-b border-border flex items-center gap-2">
+            <div className="px-4 py-3 bg-muted border-b border-border flex items-center gap-2">
               <div className="p-1.5 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 text-white">
                 <SiGoogledrive className="w-4 h-4" aria-hidden="true" />
               </div>
@@ -798,7 +798,7 @@ export default function PdfUpload() {
 
           {/* Google Sheets */}
           <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden flex flex-col">
-            <div className="px-4 py-3 bg-secondary/50 border-b border-border flex items-center gap-2">
+            <div className="px-4 py-3 bg-muted border-b border-border flex items-center gap-2">
               <div className="p-1.5 rounded-lg bg-gradient-to-br from-emerald-500 to-green-600 text-white">
                 <SiGooglesheets className="w-4 h-4" aria-hidden="true" />
               </div>
@@ -881,7 +881,7 @@ export default function PdfUpload() {
 
           {/* Google Slides */}
           <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden flex flex-col">
-            <div className="px-4 py-3 bg-secondary/50 border-b border-border flex items-center gap-2">
+            <div className="px-4 py-3 bg-muted border-b border-border flex items-center gap-2">
               <div className="p-1.5 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 text-white">
                 <SiGoogleslides className="w-4 h-4" aria-hidden="true" />
               </div>

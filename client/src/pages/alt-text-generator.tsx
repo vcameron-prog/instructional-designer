@@ -225,7 +225,7 @@ export default function AltTextGeneratorPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               {result.isDecorative ? (
-                <div className="p-4 bg-secondary/50 rounded-lg space-y-2">
+                <div className="p-4 bg-muted rounded-lg space-y-2">
                   <p className="font-semibold text-foreground">Decorative Image</p>
                   <p className="text-sm text-muted-foreground">
                     This image appears to be decorative. Use <code className="text-xs bg-muted px-1 py-0.5 rounded">alt=""</code> (empty alt attribute) in your HTML.
@@ -236,7 +236,7 @@ export default function AltTextGeneratorPage() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <div className="relative p-4 bg-secondary/50 rounded-lg">
+                  <div className="relative p-4 bg-muted rounded-lg">
                     <p className="text-foreground pr-10" data-testid="text-generated-alt">{result.altText}</p>
                     <button
                       onClick={() => copy(result.altText)}

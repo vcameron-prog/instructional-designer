@@ -2069,7 +2069,7 @@ export default function PdfConversion() {
               </h2>
             </div>
             <div
-              className="flex gap-1 mb-4 bg-secondary/50 rounded-xl p-1"
+              className="flex gap-1 mb-4 bg-muted rounded-xl p-1"
               role="tablist"
             >
               {(["blackboard", "share", "website"] as const).map((tab) => (
@@ -2360,7 +2360,7 @@ export default function PdfConversion() {
                   className="bg-card border rounded-2xl overflow-hidden"
                   data-testid="section-content-fidelity"
                 >
-                  <div className="bg-secondary/50 border-b px-6 py-4">
+                  <div className="bg-muted border-b px-6 py-4">
                     <h2 className="flex items-center gap-2 font-bold">
                       <FileCheck2 className="w-5 h-5" />
                       Content Fidelity
@@ -2506,7 +2506,7 @@ export default function PdfConversion() {
                       </button>
                     </div>
                   )}
-                  <div className="bg-secondary/50 border-b px-6 py-4 flex items-center justify-between">
+                  <div className="bg-muted border-b px-6 py-4 flex items-center justify-between">
                     <h2 className="flex items-center gap-2 font-bold">
                       <Code className="w-5 h-5" />
                       Accessible HTML
@@ -2577,7 +2577,7 @@ export default function PdfConversion() {
                           successfully
                         </div>
                       )}
-                      <div className="flex items-center justify-between px-4 py-3 bg-secondary/50 border-t">
+                      <div className="flex items-center justify-between px-4 py-3 bg-muted border-t">
                         <p className="text-xs text-muted-foreground">
                           {htmlDirty ? (
                             <span className="text-amber-600 dark:text-amber-400 font-semibold">
