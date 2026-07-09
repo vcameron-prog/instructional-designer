@@ -389,7 +389,6 @@ export default function PdfUpload() {
             <ConverterHeader
               showLibrary={false}
               showHelp={false}
-              showHome={false}
             />
           </div>
         </div>
