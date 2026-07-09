@@ -8596,4 +8596,18 @@ describe("content preservation — round-trip text fidelity", () => {
     expect(result.accessibleHtml).not.toContain("Step 1:");
     expect(result.accessibleHtml).not.toContain("For example,");
   });
+
+  it("preserves descriptive link text verbatim when the source already has good links", async () => {
+    const linkText = "Download the 2024 Annual Report";
+    const sourceText = `Resources. Please visit our website. ${linkText} for details.`;
+    const outputHtml = `<!DOCTYPE html><html lang="en"><head><title>Resources</title></head><body><main><h1>Resources</h1><p>Please visit our website. <a href="https://example.edu/report-2024.pdf">${linkText}</a> for details.</p></main></body></html>`;
+
+    mockCreate.mockResolvedValueOnce({
+      content: [{ type: "text", text: outputHtml }],
+    });
+
+    const result = await generateAccessibleDocument(sourceText, "resources.pdf", { title: "Resources" });
+
+    expect(result.accessibleHtml).toContain(linkText);
+  });
 });
