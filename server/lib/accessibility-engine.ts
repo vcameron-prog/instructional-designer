@@ -3023,23 +3023,36 @@ function tableContentSignature(rows: string[][]): string {
   return rows.map((r) => r.map((c) => c.trim().toLowerCase().replace(/\s+/g, " ")).join("|")).join("||");
 }
 
-function ensureMissingTables(html: string, tables: ExtractedTable[]): string {
+export function ensureMissingTables(html: string, tables: ExtractedTable[]): string {
   if (tables.length === 0) return html;
 
-  const existingTableRegex = /<table[\s\S]*?<\/table>/gi;
-  const existingTables = html.match(existingTableRegex) || [];
+  // Use a proper HTML parser so nested tables are handled correctly. The
+  // previous non-greedy regex (<table[\s\S]*?<\/table>) stopped at the first
+  // </table> it encountered — which is the *inner* table's closing tag when
+  // tables are nested — so the outer table's signature was never computed and
+  // it was always re-inserted as a duplicate "Additional Tables" section.
+  // node-html-parser walks the real DOM tree, making each <table> element
+  // fully self-contained regardless of nesting depth.
+  //
+  // Using el.text (rather than innerHTML + regex stripping) also correctly
+  // decodes HTML entities (&amp; → &, &lt; → <, etc.) so the signature
+  // matches the plain-text content stored in ExtractedTable.rows.
+  const root = parseHtml(html);
+  const existingTableEls = root.querySelectorAll("table");
   const existingSignatures = new Set<string>();
 
-  for (const tHtml of existingTables) {
-    const rowMatches = tHtml.match(/<tr[\s\S]*?<\/tr>/gi) || [];
+  for (const tableEl of existingTableEls) {
+    // Exclude rows and cells that belong to nested inner tables so each
+    // table's signature is computed only from its own direct content.
+    const innerTableEls = tableEl.querySelectorAll("table");
+    const innerTableRows = new Set(innerTableEls.flatMap((t) => t.querySelectorAll("tr")));
+    const innerTableCells = new Set(innerTableEls.flatMap((t) => t.querySelectorAll("td, th")));
+
+    const ownRows = tableEl.querySelectorAll("tr").filter((r) => !innerTableRows.has(r));
     const rows: string[][] = [];
-    for (const rowHtml of rowMatches) {
-      const cells: string[] = [];
-      const cellRegex = new RegExp(`<(?:td|th)${ATTR_PATTERN}>([\\s\\S]*?)<\\/(?:td|th)>`, "gi");
-      let cellMatch;
-      while ((cellMatch = cellRegex.exec(rowHtml)) !== null) {
-        cells.push(cellMatch[1].replace(/<[^>]*>/g, "").trim());
-      }
+    for (const rowEl of ownRows) {
+      const ownCells = rowEl.querySelectorAll("td, th").filter((c) => !innerTableCells.has(c));
+      const cells = ownCells.map((c) => c.text.trim());
       if (cells.length > 0) rows.push(cells);
     }
     if (rows.length > 0) {

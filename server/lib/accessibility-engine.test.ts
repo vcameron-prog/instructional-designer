@@ -33,6 +33,7 @@ import {
   ensureAltText,
   injectImageData,
   ensureMissingImages,
+  ensureMissingTables,
   registerDeterministicFixer,
   AI_FIX_RETRY_METRIC_KEY,
   getAiFixRetryMetrics,
@@ -3602,6 +3603,92 @@ describe("ensureMissingImages", () => {
       expect(result).toContain(`src="data:image/png;base64,ANGLEMISS"`);
       expect(result).toContain("Additional document images");
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ensureMissingTables
+// ---------------------------------------------------------------------------
+
+function makeTable(rows: string[][], pageNumber = 1): { rows: string[][]; pageNumber: number } {
+  return { rows, pageNumber };
+}
+
+describe("ensureMissingTables", () => {
+  it("returns html unchanged when tables list is empty", () => {
+    const html = `<html><body><p>No tables</p></body></html>`;
+    expect(ensureMissingTables(html, [])).toBe(html);
+  });
+
+  it("does not insert an Additional Tables section when the table is already present in the HTML", () => {
+    const table = makeTable([["Header"], ["Row 1"], ["Row 2"]]);
+    const html = `<html><body><table><thead><tr><th>Header</th></tr></thead><tbody><tr><td>Row 1</td></tr><tr><td>Row 2</td></tr></tbody></table></body></html>`;
+    const result = ensureMissingTables(html, [table]);
+    expect(result).not.toContain("Additional Tables");
+    expect(result).toBe(html);
+  });
+
+  it("inserts a missing table that has no match in the HTML", () => {
+    const table = makeTable([["Col A", "Col B"], ["val1", "val2"]]);
+    const html = `<html><body><p>No tables here</p></body></html>`;
+    const result = ensureMissingTables(html, [table]);
+    expect(result).toContain("Additional Tables");
+    expect(result).toContain("Col A");
+    expect(result).toContain("val1");
+  });
+
+  it("does not duplicate a table when the document has multiple tables and all are present", () => {
+    const checklist = makeTable([["Task", "Done"], ["Write tests", "Yes"], ["Review PR", "No"]], 1);
+    const schedule = makeTable([["Day", "Activity"], ["Monday", "Meeting"], ["Tuesday", "Coding"]], 2);
+    const html = `<html><body>
+      <table><caption>Checklist</caption><thead><tr><th>Task</th><th>Done</th></tr></thead><tbody><tr><td>Write tests</td><td>Yes</td></tr><tr><td>Review PR</td><td>No</td></tr></tbody></table>
+      <table><caption>Schedule</caption><thead><tr><th>Day</th><th>Activity</th></tr></thead><tbody><tr><td>Monday</td><td>Meeting</td></tr><tr><td>Tuesday</td><td>Coding</td></tr></tbody></table>
+      </body></html>`;
+    const result = ensureMissingTables(html, [checklist, schedule]);
+    expect(result).not.toContain("Additional Tables");
+    expect(result).toBe(html);
+  });
+
+  it("correctly detects a present table even when it contains HTML-encoded entities", () => {
+    const table = makeTable([["Name", "Value"], ["A & B", "< 10"]]);
+    const html = `<html><body><table><thead><tr><th>Name</th><th>Value</th></tr></thead><tbody><tr><td>A &amp; B</td><td>&lt; 10</td></tr></tbody></table></body></html>`;
+    const result = ensureMissingTables(html, [table]);
+    expect(result).not.toContain("Additional Tables");
+  });
+
+  it("correctly detects a present outer table even when it contains a nested inner table", () => {
+    const outerTable = makeTable([["Category", "Items"], ["Fruit", "Apple, Banana"]]);
+    const html = `<html><body>
+      <table>
+        <thead><tr><th>Category</th><th>Items</th></tr></thead>
+        <tbody><tr><td>Fruit</td><td>
+          <table><tbody><tr><td>Apple, Banana</td></tr></tbody></table>
+        </td></tr></tbody>
+      </table>
+      </body></html>`;
+    const result = ensureMissingTables(html, [outerTable]);
+    expect(result).not.toContain("Additional Tables");
+  });
+
+  it("inserts only the table missing from HTML when some tables are already present", () => {
+    const checklist = makeTable([["Task", "Done"], ["Deploy", "Yes"]], 1);
+    const missing = makeTable([["Step", "Notes"], ["Test", "All pass"]], 2);
+    const html = `<html><body>
+      <table><thead><tr><th>Task</th><th>Done</th></tr></thead><tbody><tr><td>Deploy</td><td>Yes</td></tr></tbody></table>
+      </body></html>`;
+    const result = ensureMissingTables(html, [checklist, missing]);
+    expect(result).toContain("Additional Tables");
+    expect(result).toContain("Test");
+    expect(result).toContain("All pass");
+    const tableCount = (result.match(/<table/gi) || []).length;
+    expect(tableCount).toBe(2);
+  });
+
+  it("comparison is case-insensitive and whitespace-normalised", () => {
+    const table = makeTable([["  ITEM  ", "  QTY  "], ["  Widget  ", "  5  "]]);
+    const html = `<html><body><table><thead><tr><th>item</th><th>qty</th></tr></thead><tbody><tr><td>widget</td><td>5</td></tr></tbody></table></body></html>`;
+    const result = ensureMissingTables(html, [table]);
+    expect(result).not.toContain("Additional Tables");
   });
 });
 
