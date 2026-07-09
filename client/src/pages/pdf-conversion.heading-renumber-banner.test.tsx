@@ -8,6 +8,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 vi.mock("wouter", () => ({
   useParams: vi.fn(() => ({ id: "42" })),
   useLocation: vi.fn(() => ["/pdf-accessibility/42", vi.fn()]),
+  Link: ({ children }: { children: unknown }) => children,
 }));
 
 vi.mock("@/hooks/use-auth", () => ({

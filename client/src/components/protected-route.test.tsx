@@ -9,6 +9,7 @@ vi.mock("@/hooks/use-auth", () => ({
 
 vi.mock("wouter", () => ({
   useLocation: vi.fn(() => ["/settings", vi.fn()]),
+  Link: ({ children }: { children: unknown }) => children,
 }));
 
 import { useAuth } from "@/hooks/use-auth";

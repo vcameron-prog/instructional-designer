@@ -9,6 +9,7 @@ import { PAGE_TITLE_FALLBACK_NOTE, PAGE_TITLE_LOW_QUALITY_NOTE } from "@shared/p
 vi.mock("wouter", () => ({
   useParams: vi.fn(() => ({ id: "42" })),
   useLocation: vi.fn(() => ["/pdf-accessibility/42", vi.fn()]),
+  Link: ({ children }: { children: unknown }) => children,
 }));
 
 vi.mock("@/hooks/use-auth", () => ({
