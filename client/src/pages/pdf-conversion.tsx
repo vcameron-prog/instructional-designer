@@ -1891,7 +1891,7 @@ export default function PdfConversion() {
                 </p>
                 {elapsedSeconds > 0 && (
                   <span
-                    className="text-xs text-muted-foreground tabular-nums bg-secondary px-2 py-0.5 rounded-full"
+                    className="text-xs text-muted-foreground tabular-nums bg-secondary dark:bg-white/10 dark:text-foreground px-2 py-0.5 rounded-full"
                     data-testid="text-elapsed-timer"
                     aria-label={`Elapsed time: ${Math.floor(elapsedSeconds / 60)} minutes ${elapsedSeconds % 60} seconds`}
                   >
