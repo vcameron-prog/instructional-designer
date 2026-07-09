@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* LIGHT MODE - BSU Themed (Crimson, Black, White) */
+/* LIGHT MODE - BSU Themed (Navy Blue, Black, White) */
 /* Color-blind friendly design with high contrast */
 :root {
   --button-outline: rgba(0,0,0, .10);
@@ -19,15 +19,15 @@
   --sidebar: 0 0% 96%;
   --sidebar-foreground: 0 0% 10%;
   --sidebar-border: 0 0% 88%;
-  --sidebar-primary: 350 75% 35%;
+  --sidebar-primary: 215 65% 35%;
   --sidebar-primary-foreground: 0 0% 100%;
   --sidebar-accent: 0 0% 90%;
   --sidebar-accent-foreground: 0 0% 10%;
-  --sidebar-ring: 350 75% 35%;
+  --sidebar-ring: 215 65% 35%;
   --popover: 0 0% 100%;
   --popover-foreground: 0 0% 10%;
   --popover-border: 0 0% 85%;
-  --primary: 350 75% 35%;
+  --primary: 215 65% 35%;
   --primary-foreground: 0 0% 100%;
   --secondary: 0 0% 15%;
   --secondary-foreground: 0 0% 100%;
@@ -38,11 +38,11 @@
   --destructive: 0 84% 42%;
   --destructive-foreground: 0 0% 98%;
   --input: 0 0% 75%;
-  --ring: 350 75% 35%;
-  --chart-1: 350 75% 35%;
+  --ring: 215 65% 35%;
+  --chart-1: 215 65% 35%;
   --chart-2: 0 0% 20%;
   --chart-3: 0 0% 50%;
-  --chart-4: 350 60% 50%;
+  --chart-4: 215 60% 50%;
   --chart-5: 0 0% 35%;
   --font-sans: "Atkinson Hyperlegible", Lexend, system-ui, sans-serif;
   --font-serif: Georgia, serif;
@@ -90,15 +90,15 @@
   --sidebar: 0 0% 10%;
   --sidebar-foreground: 0 0% 95%;
   --sidebar-border: 0 0% 16%;
-  --sidebar-primary: 350 70% 50%;
+  --sidebar-primary: 215 70% 60%;
   --sidebar-primary-foreground: 0 0% 100%;
   --sidebar-accent: 0 0% 18%;
   --sidebar-accent-foreground: 0 0% 95%;
-  --sidebar-ring: 350 70% 50%;
+  --sidebar-ring: 215 70% 60%;
   --popover: 0 0% 14%;
   --popover-foreground: 0 0% 95%;
   --popover-border: 0 0% 20%;
-  --primary: 350 70% 50%;
+  --primary: 215 70% 60%;
   --primary-foreground: 0 0% 100%;
   --secondary: 0 0% 85%;
   --secondary-foreground: 0 0% 10%;
@@ -109,11 +109,11 @@
   --destructive: 0 80% 40%;
   --destructive-foreground: 0 0% 98%;
   --input: 0 0% 25%;
-  --ring: 350 70% 50%;
-  --chart-1: 350 70% 55%;
+  --ring: 215 70% 60%;
+  --chart-1: 215 70% 60%;
   --chart-2: 0 0% 70%;
   --chart-3: 0 0% 50%;
-  --chart-4: 350 55% 60%;
+  --chart-4: 215 55% 60%;
   --chart-5: 0 0% 40%;
   --shadow-2xs: 0px 2px 0px 0px hsl(0 0% 0% / 0.00);
   --shadow-xs: 0px 2px 0px 0px hsl(0 0% 0% / 0.00);
