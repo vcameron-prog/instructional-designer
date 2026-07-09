@@ -1,11 +1,12 @@
 /**
  * Shared Playwright auth helpers.
  *
- * loginAndRedirect() submits a form POST to /api/test/login with the given
- * user fields and a returnTo path.  The test endpoint creates a real session
- * and responds with a 302 redirect; the browser follows that redirect
- * naturally — no manual page.goto() is needed.  This mirrors the real OIDC
- * callback's req.session.returnTo redirect flow.
+ * loginAndRedirect() navigates to GET /api/test/login with the given user
+ * fields as query parameters.  The test endpoint creates a real session and
+ * responds with a 302 redirect; the browser follows that redirect naturally
+ * and lands on `returnTo`.  This approach works from any initial page state
+ * (including about:blank) because page.goto() resolves the URL against
+ * Playwright's configured baseURL rather than the current document origin.
  *
  * Usage:
  *   import { loginAndRedirect, DEFAULT_TEST_USER } from "../helpers/auth";
@@ -29,8 +30,8 @@ export const DEFAULT_TEST_USER: TestUser = {
 };
 
 /**
- * POST to /api/test/login via a synthetic form submission so the browser
- * follows the server-issued 302 redirect and lands on `returnTo`.
+ * Navigate to GET /api/test/login so the browser follows the server-issued
+ * 302 redirect and lands on `returnTo`.
  *
  * @param page      - Playwright Page object.
  * @param returnTo  - The path (and optional query string) to redirect to after
@@ -44,33 +45,16 @@ export async function loginAndRedirect(
   user: TestUser = DEFAULT_TEST_USER,
   timeout = 15_000,
 ): Promise<void> {
-  await page.evaluate(
-    ({ fields }: { fields: Record<string, string> }) => {
-      const form = document.createElement("form");
-      form.method = "POST";
-      form.action = "/api/test/login";
-      for (const [name, value] of Object.entries(fields)) {
-        const input = document.createElement("input");
-        input.type = "hidden";
-        input.name = name;
-        input.value = value;
-        form.appendChild(input);
-      }
-      document.body.appendChild(form);
-      form.submit();
-    },
-    {
-      fields: {
-        sub: user.sub,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        returnTo,
-      },
-    },
-  );
+  const params = new URLSearchParams({
+    sub: user.sub,
+    email: user.email,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    returnTo,
+  });
 
   try {
+    await page.goto(`/api/test/login?${params.toString()}`, { timeout });
     await page.waitForURL(`**${returnTo}`, { timeout });
   } catch (err: unknown) {
     const isTimeout =
