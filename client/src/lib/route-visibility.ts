@@ -60,4 +60,5 @@ export const ROUTE_VISIBILITY: RouteVisibility[] = [
   { path: "/settings",                  requiresAuth: true                    },
   { path: "/help",                      requiresAuth: false, showSignIn: true  },
   { path: "/admin",                     requiresAuth: true                    },
+  { path: "/accessibility-statement",   requiresAuth: false, showSignIn: false },
 ];

@@ -39,14 +39,16 @@ const SEVERITY_LABELS: Record<string, string> = {
   minor: "Minor",
 };
 
-function IssueCard({ issue }: { issue: ScanIssue }) {
+function IssueCard({ issue, index }: { issue: ScanIssue; index: number }) {
   const [expanded, setExpanded] = useState(false);
+  const detailsId = `issue-details-${index}`;
   return (
     <div className="border border-border rounded-lg p-4" data-testid={`issue-card-${issue.severity}`}>
       <button
         className="w-full flex items-start gap-3 text-left"
         onClick={() => setExpanded(!expanded)}
         aria-expanded={expanded}
+        aria-controls={detailsId}
       >
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2 mb-1">
@@ -63,18 +65,16 @@ function IssueCard({ issue }: { issue: ScanIssue }) {
           <ChevronDown className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-0.5" aria-hidden="true" />
         )}
       </button>
-      {expanded && (
-        <div className="mt-3 space-y-2 text-sm">
-          <div>
-            <p className="font-medium text-muted-foreground text-xs uppercase tracking-wider mb-0.5">Issue</p>
-            <p className="text-foreground">{issue.description}</p>
-          </div>
-          <div>
-            <p className="font-medium text-muted-foreground text-xs uppercase tracking-wider mb-0.5">How to Fix</p>
-            <p className="text-foreground">{issue.recommendation}</p>
-          </div>
+      <div id={detailsId} hidden={!expanded} className="mt-3 space-y-2 text-sm">
+        <div>
+          <p className="font-medium text-muted-foreground text-xs uppercase tracking-wider mb-0.5">Issue</p>
+          <p className="text-foreground">{issue.description}</p>
         </div>
-      )}
+        <div>
+          <p className="font-medium text-muted-foreground text-xs uppercase tracking-wider mb-0.5">How to Fix</p>
+          <p className="text-foreground">{issue.recommendation}</p>
+        </div>
+      </div>
     </div>
   );
 }
@@ -233,7 +233,7 @@ export default function UrlScannerPage() {
                 </h2>
                 <div className="space-y-2">
                   {[...criticalIssues, ...majorIssues, ...minorIssues].map((issue, i) => (
-                    <IssueCard key={i} issue={issue} />
+                    <IssueCard key={i} issue={issue} index={i} />
                   ))}
                 </div>
               </div>

@@ -368,8 +368,8 @@ export default function AdminDashboard() {
                     <table className="w-full text-sm" aria-label="User activity">
                       <thead>
                         <tr className="border-b border-border text-left">
-                          <th className="pb-2 font-medium text-muted-foreground">User</th>
-                          <th className="pb-2 font-medium text-muted-foreground text-right">Content Generated</th>
+                          <th scope="col" className="pb-2 font-medium text-muted-foreground">User</th>
+                          <th scope="col" className="pb-2 font-medium text-muted-foreground text-right">Content Generated</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border">
@@ -399,12 +399,12 @@ export default function AdminDashboard() {
                       <table className="w-full text-sm" aria-label="Export history">
                         <thead>
                           <tr className="border-b border-border text-left">
-                            <th className="pb-2 font-medium text-muted-foreground">Exported By</th>
-                            <th className="pb-2 font-medium text-muted-foreground">Date &amp; Time</th>
-                            <th className="pb-2 font-medium text-muted-foreground text-right">Courses</th>
-                            <th className="pb-2 font-medium text-muted-foreground text-right">Content</th>
-                            <th className="pb-2 font-medium text-muted-foreground text-right">Conversions</th>
-                            <th className="pb-2 font-medium text-muted-foreground text-right">Users</th>
+                            <th scope="col" className="pb-2 font-medium text-muted-foreground">Exported By</th>
+                            <th scope="col" className="pb-2 font-medium text-muted-foreground">Date &amp; Time</th>
+                            <th scope="col" className="pb-2 font-medium text-muted-foreground text-right">Courses</th>
+                            <th scope="col" className="pb-2 font-medium text-muted-foreground text-right">Content</th>
+                            <th scope="col" className="pb-2 font-medium text-muted-foreground text-right">Conversions</th>
+                            <th scope="col" className="pb-2 font-medium text-muted-foreground text-right">Users</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-border">

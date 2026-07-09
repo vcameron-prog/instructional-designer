@@ -247,6 +247,18 @@
   outline-offset: 2px;
 }
 
+/* Accessible focus indicator — keyboard users see a consistent ring on all
+   interactive elements. Mouse users rely on :hover states instead. */
+:focus-visible {
+  outline: 3px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+/* Remove the browser default outline for pointer/touch users */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
 /* Custom animations */
 @keyframes fade-in-up {
   from {
@@ -288,6 +300,28 @@
 
 .animate-spin-slow {
   animation: spin-slow 3s linear infinite;
+}
+
+/* Respect prefers-reduced-motion — instantly stop all decorative animations
+   and transitions for users who opt out of motion (WCAG 2.3.3 / 2.2). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .animate-fade-in-up,
+  .animate-fade-in,
+  .animate-pulse-subtle,
+  .animate-spin-slow {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
 }
 
 /* Pattern background */

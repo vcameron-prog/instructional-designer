@@ -19,19 +19,20 @@ import { ROUTE_VISIBILITY } from "@/lib/route-visibility";
 // first, then add its component to ROUTE_COMPONENTS below.
 // ---------------------------------------------------------------------------
 
-const NotFound              = lazy(() => import("@/pages/not-found"));
-const CaiLandingPage        = lazy(() => import("@/pages/cai-landing"));
-const PdfUpload             = lazy(() => import("@/pages/pdf-upload"));
-const PdfHistory            = lazy(() => import("@/pages/pdf-history"));
-const PdfConversion         = lazy(() => import("@/pages/pdf-conversion"));
-const PdfFaq                = lazy(() => import("@/pages/pdf-faq"));
-const SettingsPage          = lazy(() => import("@/pages/settings"));
-const HelpPage              = lazy(() => import("@/pages/help"));
-const AdminDashboard        = lazy(() => import("@/pages/admin-dashboard"));
-const UrlScannerPage        = lazy(() => import("@/pages/url-scanner"));
-const ColorContrastPage     = lazy(() => import("@/pages/color-contrast"));
-const AltTextGeneratorPage  = lazy(() => import("@/pages/alt-text-generator"));
-const MathOcrPage           = lazy(() => import("@/pages/math-ocr"));
+const NotFound                  = lazy(() => import("@/pages/not-found"));
+const CaiLandingPage            = lazy(() => import("@/pages/cai-landing"));
+const PdfUpload                 = lazy(() => import("@/pages/pdf-upload"));
+const PdfHistory                = lazy(() => import("@/pages/pdf-history"));
+const PdfConversion             = lazy(() => import("@/pages/pdf-conversion"));
+const PdfFaq                    = lazy(() => import("@/pages/pdf-faq"));
+const SettingsPage              = lazy(() => import("@/pages/settings"));
+const HelpPage                  = lazy(() => import("@/pages/help"));
+const AdminDashboard            = lazy(() => import("@/pages/admin-dashboard"));
+const UrlScannerPage            = lazy(() => import("@/pages/url-scanner"));
+const ColorContrastPage         = lazy(() => import("@/pages/color-contrast"));
+const AltTextGeneratorPage      = lazy(() => import("@/pages/alt-text-generator"));
+const MathOcrPage               = lazy(() => import("@/pages/math-ocr"));
+const AccessibilityStatementPage = lazy(() => import("@/pages/accessibility-statement"));
 
 function AccessibilityRedirect() {
   return <Redirect to="/pdf-accessibility" />;
@@ -51,6 +52,7 @@ const ROUTE_COMPONENTS: Record<string, React.ComponentType> = {
   "/settings":                  SettingsPage,
   "/help":                      HelpPage,
   "/admin":                     AdminDashboard,
+  "/accessibility-statement":   AccessibilityStatementPage,
 };
 
 interface RouteConfig {
