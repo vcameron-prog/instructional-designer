@@ -1645,6 +1645,22 @@ export default function PdfConversion() {
               )}
               {conversion.status === "completed" && (
                 <>
+                  <div
+                    className="w-full mb-2 px-4 py-3 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-sm text-blue-900 dark:text-blue-200"
+                    role="note"
+                    data-testid="download-guidance"
+                  >
+                    <p className="font-semibold mb-1">Your converted file is ready to download.</p>
+                    <ul className="list-disc list-inside space-y-0.5 text-blue-800 dark:text-blue-300">
+                      <li><span className="font-medium">Word (.docx)</span> — recommended for uploading to Blackboard or another LMS.</li>
+                      <li><span className="font-medium">Tagged PDF</span> — best for sharing a standalone accessible PDF.</li>
+                      <li><span className="font-medium">HTML</span> — use when embedding content directly in a website.</li>
+                    </ul>
+                    <p className="mt-1.5 text-blue-700 dark:text-blue-400">
+                      Any issues listed below are items the AI could not fix automatically — the file is still usable, but reviewing them before sharing with students is encouraged.
+                      <span className="ml-1"><span className="font-medium">Re-convert</span> re-runs the AI pass on your original file; <span className="font-medium">Convert Another</span> starts fresh with a new file.</span>
+                    </p>
+                  </div>
                   <button
                     onClick={handleDownloadDocx}
                     disabled={isDownloadingDocx || !conversion.accessibleHtml}
