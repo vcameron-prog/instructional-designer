@@ -2703,10 +2703,11 @@ Rules:
 4. Ensure the fix follows accessibility best practices
 5. Preserve all img src attributes exactly as they are - do not modify, remove, or rewrite any src values
 6. Output ONLY the complete fixed HTML document, no markdown, no code fences
-7. Start with <!DOCTYPE html>`;
+7. Start with <!DOCTYPE html>
+8. CONTENT PRESERVATION (CRITICAL): Never rewrite, rephrase, expand, or alter any text content. All changes must be limited to HTML tags and attributes only. The visible words and sentences in the document must remain byte-for-byte identical to the input except where the specific issue explicitly requires a text change (e.g. adding descriptive alt text to an image that has none, or fixing a vague link label).`;
     if (!strict) return base;
     return `${base}
-8. CRITICAL: You MUST output the ENTIRE document. Do NOT truncate or omit any part of the HTML. The response must include every element from <!DOCTYPE html> through to </html>, with <body> and </body> tags present and closed. Incomplete output is not acceptable.`;
+9. CRITICAL: You MUST output the ENTIRE document. Do NOT truncate or omit any part of the HTML. The response must include every element from <!DOCTYPE html> through to </html>, with <body> and </body> tags present and closed. Incomplete output is not acceptable.`;
   }
 
   async function callAi(strict: boolean): Promise<string> {
@@ -3376,6 +3377,7 @@ Your task is to convert extracted PDF content into a fully accessible HTML docum
 11. PAGE TITLE: Include a descriptive <title> element.
 12. PARSING (WCAG 4.1.1): Every id attribute must be unique within the document. All elements must be properly nested and closed. No <p> inside <p>, no <li> outside <ul>/<ol>.
 13. INTERACTIVE ELEMENTS (WCAG 4.1.2): Every <button> must have descriptive visible text or aria-label. Every <input> must have an associated <label> or aria-label. Every <a> must have descriptive text — not just an icon or image without alt text.
+14. CONTENT PRESERVATION (CRITICAL): Preserve ALL source text verbatim. Do NOT add explanatory steps, instructions, rationale, or any content that was not present in the source document. Do NOT rephrase, expand, summarize, or editorialize the author's words. Do NOT change factual findings, scores, evaluations, or judgments made by the author. Only change HTML structure and attributes — never the text content itself. If the source says "H2 jumping to H4", the output must say exactly that; do not change it to "H2 jumping to H3". If the source labels something "Borderline", the output must say "Borderline", not "Needs fix" or any other term.
 
 Output ONLY the complete HTML document, no markdown, no code fences. Start with <!DOCTYPE html>.
 Include inline CSS for basic readable styling that meets contrast requirements.`;
@@ -3417,6 +3419,7 @@ Follow the same WCAG 2.1 Level AA rules:
 - PARSING: All ids must be unique. Elements must be properly nested and closed.
 - INTERACTIVE ELEMENTS: Every <button> needs descriptive text or aria-label. Every <input> needs a <label> or aria-label.
 - FIDELITY: Convert every word of the text under "EXTRACTED TEXT (CONTINUATION)" below, from its very first word to its very last word. Do NOT drop, summarize, or truncate the first or last sentence of the chunk, and do not insert ellipses or "content omitted" markers.
+- CONTENT PRESERVATION (CRITICAL): Reproduce source text exactly as written. Do NOT add explanatory steps, instructions, rationale, or any content that was not in the source. Do NOT rephrase, expand, or editorialize the author's words. Do NOT change factual findings, scores, or judgments. Only change HTML structure and attributes — never the text content itself.
 
 ${headingOutline}
 ${previousTail ? `\nThe previous section ended with this text (shown ONLY so you know where continuity picks up — do NOT repeat, rephrase, or output this text again):\n"...${previousTail}"\n` : ""}

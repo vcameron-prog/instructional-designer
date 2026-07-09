@@ -8389,3 +8389,124 @@ describe("continuation chunk context-leak detection", () => {
     expect(getContextLeakMetrics().count).toBe(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Content-preservation — prompt instructions and round-trip text fidelity
+// ---------------------------------------------------------------------------
+
+describe("content preservation — system prompt instructions", () => {
+  beforeEach(() => {
+    mockCreate.mockReset();
+  });
+
+  it("includes CONTENT PRESERVATION instruction in the main conversion system prompt", async () => {
+    const sourceText = "The accessibility audit found H2 jumping to H4 in the document. Rating: Borderline.";
+
+    mockCreate.mockResolvedValue({
+      content: [
+        {
+          type: "text",
+          text: `<!DOCTYPE html><html lang="en"><head><title>Test</title></head><body><main><p>${sourceText}</p></main></body></html>`,
+        },
+      ],
+    });
+
+    await generateAccessibleDocument(sourceText, "test.pdf", { title: "Test" });
+
+    expect(mockCreate).toHaveBeenCalled();
+    const firstCall = mockCreate.mock.calls[0][0];
+    const systemPrompt: string = firstCall.system ?? "";
+    expect(systemPrompt).toContain("CONTENT PRESERVATION");
+    expect(systemPrompt).toMatch(/preserve.*source text verbatim|Preserve ALL source text verbatim/i);
+    expect(systemPrompt).toMatch(/do not add|Do NOT add/i);
+    expect(systemPrompt).toMatch(/do not rephrase|Do NOT rephrase/i);
+  });
+
+  it("includes CONTENT PRESERVATION instruction in continuation chunk system prompt", async () => {
+    const pageBody = "Borderline result: H2 jumping to H4. ".repeat(350);
+    const longText = `Page 1\n${pageBody}\nPage 2\n${pageBody}`;
+
+    mockCreate.mockResolvedValue({
+      content: [{ type: "text", text: "<p>chunk html</p>" }],
+    });
+
+    await generateAccessibleDocument(longText, "test.pdf", { title: "Test" });
+
+    expect(mockCreate.mock.calls.length).toBeGreaterThanOrEqual(2);
+    const secondCall = mockCreate.mock.calls[1][0];
+    const continuationSystemPrompt: string = secondCall.system ?? "";
+    expect(continuationSystemPrompt).toContain("CONTENT PRESERVATION");
+    expect(continuationSystemPrompt).toMatch(/do not add|Do NOT add/i);
+    expect(continuationSystemPrompt).toMatch(/do not rephrase|Do NOT rephrase/i);
+  });
+
+  it("includes CONTENT PRESERVATION instruction in the AI fix system prompt", async () => {
+    const html = `<!DOCTYPE html><html lang="en"><head><title>Doc</title></head><body><main><p>The finding was rated Borderline; H2 jumping to H4 noted.</p></main></body></html>`;
+    const issues = runDeterministicChecks(html);
+    const report = buildComplianceReport(issues);
+    const vagueLinkIssue: ComplianceIssue = {
+      criterion: "2.4.4",
+      title: "Link Purpose",
+      level: "AA",
+      status: "fail",
+      description: "Link text should describe the destination.",
+      details: "Found vague link text: click here",
+    };
+    const issueIndex = 0;
+
+    mockCreate.mockResolvedValueOnce({
+      content: [{ type: "text", text: html }],
+    });
+
+    await fixComplianceIssue(html, vagueLinkIssue, issueIndex, report);
+
+    expect(mockCreate).toHaveBeenCalled();
+    const firstCall = mockCreate.mock.calls[0][0];
+    const systemPrompt: string = firstCall.system ?? "";
+    expect(systemPrompt).toContain("CONTENT PRESERVATION");
+    expect(systemPrompt).toMatch(/changes must be limited to HTML tags and attributes/i);
+  });
+});
+
+describe("content preservation — round-trip text fidelity", () => {
+  beforeEach(() => {
+    mockCreate.mockReset();
+  });
+
+  it("preserves verbatim phrases from source text in the converted output", async () => {
+    const phrase1 = "H2 jumping to H4";
+    const phrase2 = "Borderline";
+    const phrase3 = "The audit found three issues on page seven.";
+    const sourceText = `${phrase3} Finding: ${phrase1}. Rating: ${phrase2}.`;
+
+    mockCreate.mockResolvedValueOnce({
+      content: [
+        {
+          type: "text",
+          text: `<!DOCTYPE html><html lang="en"><head><title>Audit</title></head><body><main><p>${phrase3} Finding: ${phrase1}. Rating: ${phrase2}.</p></main></body></html>`,
+        },
+      ],
+    });
+
+    const result = await generateAccessibleDocument(sourceText, "audit.pdf", { title: "Audit" });
+
+    expect(result.accessibleHtml).toContain(phrase1);
+    expect(result.accessibleHtml).toContain(phrase2);
+    expect(result.accessibleHtml).toContain(phrase3);
+  });
+
+  it("does not add content to the output when the AI respects the prompt", async () => {
+    const sourceText = "Section 1. This document has one paragraph.";
+    const expectedHtml = `<!DOCTYPE html><html lang="en"><head><title>Doc</title></head><body><main><h1>Section 1</h1><p>This document has one paragraph.</p></main></body></html>`;
+
+    mockCreate.mockResolvedValueOnce({
+      content: [{ type: "text", text: expectedHtml }],
+    });
+
+    const result = await generateAccessibleDocument(sourceText, "doc.pdf", { title: "Doc" });
+
+    expect(result.accessibleHtml).toContain("This document has one paragraph.");
+    expect(result.accessibleHtml).not.toContain("Step 1:");
+    expect(result.accessibleHtml).not.toContain("For example,");
+  });
+});
