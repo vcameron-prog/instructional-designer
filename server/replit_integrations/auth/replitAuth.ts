@@ -636,6 +636,7 @@ export const optionalAuth: RequestHandler = async (req, _res, next) => {
     return next();
   }
 
+  // Token is expired. Attempt refresh if a refresh token is available.
   const refreshToken = user.refresh_token;
   if (refreshToken) {
     try {
@@ -643,9 +644,15 @@ export const optionalAuth: RequestHandler = async (req, _res, next) => {
       const tokenResponse = await client.refreshTokenGrant(config, refreshToken);
       updateUserSession(user, tokenResponse);
       await persistSession(req, user);
+      return next();
     } catch {
-      req.logout(() => {});
+      // Refresh failed — fall through to logout below.
     }
   }
+
+  // No refresh token, or refresh failed: clear the expired session so
+  // downstream handlers see an anonymous request instead of an expired
+  // authenticated one. req.logout() must complete before next() runs.
+  await new Promise<void>((resolve) => req.logout(resolve));
   return next();
 };
