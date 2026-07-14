@@ -2723,7 +2723,7 @@ export async function registerRoutes(
           resolvedCourseId = courseIdNum;
         }
 
-        if (!checkAiGenRateLimit(userId)) {
+        if (!await checkSharedRateLimit(userId, "ai-gen", AI_GEN_RATE_LIMIT, AI_GEN_RATE_WINDOW_MS, () => checkAiGenRateLimit(userId))) {
           return res.status(429).json({ error: "AI generation rate limit exceeded. Please try again later." });
         }
 
