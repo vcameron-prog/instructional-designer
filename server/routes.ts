@@ -4438,6 +4438,11 @@ export async function registerRoutes(
    * Host header and TLS SNI field so TLS verification is unaffected.
    * Redirects are not followed — any redirect response is treated as an error.
    */
+  // Maximum bytes to buffer from a remote HTML page before aborting.
+  // This caps attacker-controlled memory consumption independently of the
+  // 20,000-character truncation applied later for the AI prompt.
+  const MAX_HTML_FETCH_BYTES = 1 * 1024 * 1024; // 1 MB
+
   async function fetchHtmlWithIpPinTools(
     url: string,
     resolvedIp: string,
@@ -4449,12 +4454,21 @@ export async function registerRoutes(
 
     return new Promise((resolve) => {
       let settled = false;
+      // Holds the incoming response stream once headers arrive so the deadline
+      // timer can also abort body streaming (not just the outgoing request).
+      let incomingRes: import("http").IncomingMessage | null = null;
+
       function done(result: { ok: true; html: string } | { ok: false; error: string; status: number }) {
         if (!settled) { settled = true; resolve(result); }
       }
 
+      // Single absolute deadline covering the full lifecycle: connection,
+      // headers, AND body streaming.  Do NOT clear this timer when headers
+      // arrive — a slow-drip attacker can hold headers open and trickle body
+      // data indefinitely if the timer only covers the headers phase.
       const timer = setTimeout(() => {
         req.destroy();
+        if (incomingRes) incomingRes.destroy();
         done({ ok: false, error: "The URL took too long to respond (15s timeout)", status: 400 });
       }, 15_000);
 
@@ -4467,28 +4481,53 @@ export async function registerRoutes(
       };
 
       const handleResponse = (res: import("http").IncomingMessage) => {
-        clearTimeout(timer);
+        // Capture the response stream so the deadline timer can abort body reads.
+        // Do NOT clearTimeout(timer) here — the timer must remain active through
+        // the entire body streaming phase.
+        incomingRes = res;
         const sc = res.statusCode ?? 0;
         if (sc >= 300 && sc < 400) {
+          clearTimeout(timer);
           res.resume();
           done({ ok: false, error: "Failed to fetch URL. Make sure it is publicly accessible.", status: 400 });
           return;
         }
         if (sc < 200 || sc >= 300) {
+          clearTimeout(timer);
           res.resume();
           done({ ok: false, error: `Could not fetch URL: HTTP ${sc}`, status: 400 });
           return;
         }
         const ct = (res.headers["content-type"] as string | undefined) ?? "";
         if (!ct.includes("text/html")) {
+          clearTimeout(timer);
           res.resume();
           done({ ok: false, error: "URL does not return an HTML page", status: 400 });
           return;
         }
+        // Reject early based on Content-Length to avoid even starting a body
+        // read from an origin that advertises an oversized response.
+        const declaredLength = parseInt((res.headers["content-length"] as string | undefined) ?? "0", 10);
+        if (!isNaN(declaredLength) && declaredLength > MAX_HTML_FETCH_BYTES) {
+          clearTimeout(timer);
+          res.destroy();
+          done({ ok: false, error: "URL response is too large to analyze", status: 400 });
+          return;
+        }
         const chunks: Buffer[] = [];
-        res.on("data", (chunk: Buffer) => chunks.push(chunk));
-        res.on("end", () => done({ ok: true, html: Buffer.concat(chunks).toString("utf8") }));
-        res.on("error", () => done({ ok: false, error: "Failed to fetch URL. Make sure it is publicly accessible.", status: 400 }));
+        let bytesReceived = 0;
+        res.on("data", (chunk: Buffer) => {
+          bytesReceived += chunk.length;
+          if (bytesReceived > MAX_HTML_FETCH_BYTES) {
+            clearTimeout(timer);
+            res.destroy();
+            done({ ok: false, error: "URL response is too large to analyze", status: 400 });
+            return;
+          }
+          chunks.push(chunk);
+        });
+        res.on("end", () => { clearTimeout(timer); done({ ok: true, html: Buffer.concat(chunks).toString("utf8") }); });
+        res.on("error", () => { clearTimeout(timer); done({ ok: false, error: "Failed to fetch URL. Make sure it is publicly accessible.", status: 400 }); });
       };
 
       const req = isHttps
@@ -4589,6 +4628,16 @@ Limit to the 10 most impactful issues. Be precise and technical.`;
 
   app.post(
     "/api/tools/alt-text",
+    // Rate-limit and concurrency guard run BEFORE multer buffers the upload so
+    // excess or over-quota requests are rejected without reading any file data.
+    async (req: Request, res: Response, next: NextFunction) => {
+      const ip = req.ip || req.socket.remoteAddress || "unknown";
+      if (!await checkSharedRateLimit(`ip:${ip}`, "ai-gen", ANON_RATE_LIMIT, ANON_RATE_WINDOW_MS, () => checkAnonRateLimit(ip))) {
+        return res.status(429).json({ error: "Rate limit exceeded. Please try again later." });
+      }
+      next();
+    },
+    uploadConcurrencyGuard,
     (req: Request, res: Response, next: NextFunction) => {
       altTextUploadTools.single("image")(req, res, (err) => {
         if (err) return res.status(400).json({ error: err.message });
@@ -4596,10 +4645,6 @@ Limit to the 10 most impactful issues. Be precise and technical.`;
       });
     },
     async (req: Request, res: Response) => {
-      const ip = req.ip || req.socket.remoteAddress || "unknown";
-      if (!await checkSharedRateLimit(`ip:${ip}`, "ai-gen", ANON_RATE_LIMIT, ANON_RATE_WINDOW_MS, () => checkAnonRateLimit(ip))) {
-        return res.status(429).json({ error: "Rate limit exceeded. Please try again later." });
-      }
       if (!req.file) return res.status(400).json({ error: "No image file provided" });
       const { context } = req.body as { context?: string };
 
@@ -4665,6 +4710,16 @@ Respond with ONLY the alt text — no explanation, no quotes.`,
 
   app.post(
     "/api/tools/math-ocr",
+    // Rate-limit and concurrency guard run BEFORE multer buffers the upload so
+    // excess or over-quota requests are rejected without reading any file data.
+    async (req: Request, res: Response, next: NextFunction) => {
+      const ip = req.ip || req.socket.remoteAddress || "unknown";
+      if (!await checkSharedRateLimit(`ip:${ip}`, "ai-gen", ANON_RATE_LIMIT, ANON_RATE_WINDOW_MS, () => checkAnonRateLimit(ip))) {
+        return res.status(429).json({ error: "Rate limit exceeded. Please try again later." });
+      }
+      next();
+    },
+    uploadConcurrencyGuard,
     (req: Request, res: Response, next: NextFunction) => {
       mathOcrUploadTools.single("image")(req, res, (err) => {
         if (err) return res.status(400).json({ error: err.message });
@@ -4672,10 +4727,6 @@ Respond with ONLY the alt text — no explanation, no quotes.`,
       });
     },
     async (req: Request, res: Response) => {
-      const ip = req.ip || req.socket.remoteAddress || "unknown";
-      if (!await checkSharedRateLimit(`ip:${ip}`, "ai-gen", ANON_RATE_LIMIT, ANON_RATE_WINDOW_MS, () => checkAnonRateLimit(ip))) {
-        return res.status(429).json({ error: "Rate limit exceeded. Please try again later." });
-      }
       if (!req.file) return res.status(400).json({ error: "No image file provided" });
 
       const base64 = req.file.buffer.toString("base64");
