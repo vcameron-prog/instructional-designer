@@ -42,6 +42,7 @@ Production assumptions for this threat model:
   - BSU-restricted content approval route `/api/content/:id/approval`
 - **Primary production surfaces in the proxied nested app**:
   - Public quick-tool endpoints under `/faculty/api/tools/*`
+  - Quick-tool generation route `/faculty/api/generate-standalone`, which is intentionally anonymously reachable even though some faculty-app landing-page copy implies BSU-only access
   - Unauthenticated telemetry endpoints `/faculty/api/metrics` and `/faculty/api/stats/public`
   - BSU-authenticated course/content routes under `/faculty/api/courses/*` and `/faculty/api/content/*`
 - **Current deployment-scope calibration (July 2026)**: because the deployed app is public, internet-reachable abuse of unauthenticated endpoints is in scope when request cost, outbound access, or resource consumption is materially attacker-controlled.
@@ -56,6 +57,9 @@ Production assumptions for this threat model:
   - `sameSite: "lax"` and production `secure` cookies are in place.
   - `isBsuAuthenticated` enforces the `@bridgew.edu` email-domain gate for the BSU-only route(s) in the built app.
 - **Current production auth assumption from code**: the conversion system allows anonymous usage and treats any valid Replit OIDC user as authenticated; only BSU-gated routes require a `@bridgew.edu` email suffix.
+- **Current quick-tools calibration**:
+  - Anonymous quick-tool access is an intended product capability for this project per `replit.md`; do not treat `/api/generate-standalone` or `/faculty/api/generate-standalone` as an auth bypass unless the product requirements change.
+  - The relevant security question for those routes is abuse resistance (rate limiting, resource consumption, quota burn), not whether sign-in is required.
 - **Currently unreachable unless route registration changes**:
   - `server/replit_integrations/chat/*` is present in the repo but is not wired into `registerRoutes()` or startup.
 - **Usually dev-only**: `attached_assets/`, `server/vite.ts`, test files, build/test scripts.
