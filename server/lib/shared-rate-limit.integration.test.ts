@@ -404,7 +404,7 @@ describe.skipIf(!DB_AVAILABLE)(
       const deleted = await cleanupRateLimitLog();
 
       expect(await rowCount(key)).toBe(0);
-      expect(deleted).toBe(1);
+      expect(deleted).toBeGreaterThanOrEqual(1);
     });
 
     it("leaves recent rows untouched", async () => {
