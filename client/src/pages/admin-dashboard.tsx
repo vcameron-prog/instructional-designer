@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
+import { useAuth } from "@/hooks/use-auth";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -97,6 +98,7 @@ function displayName(row: { email: string | null; firstName: string | null; last
 export default function AdminDashboard() {
   usePageTitle("Admin Dashboard — BSU Accessibility Tool");
   const [, navigate] = useLocation();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
 
   const { data: isAdmin, isLoading: checkLoading } = useQuery<boolean>({
     queryKey: ["/api/admin/check"],
@@ -134,23 +136,36 @@ export default function AdminDashboard() {
   }
 
   if (!isAdmin) {
+    const notLoggedIn = !authLoading && !isAuthenticated;
     return (
       <main id="main-content" tabIndex={-1} className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="max-w-md w-full">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-destructive" data-testid="text-access-denied">
               <ShieldAlert className="w-5 h-5" />
-              Access Denied
+              {notLoggedIn ? "Sign In Required" : "Access Denied"}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-muted-foreground text-sm">
-              You do not have permission to view this page. Admin access is required.
+              {notLoggedIn
+                ? "Please sign in to access the Admin Dashboard."
+                : "You do not have permission to view this page. Admin access is required."}
             </p>
-            <Button variant="outline" onClick={() => navigate("/")} data-testid="button-go-home">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Go Home
-            </Button>
+            <div className="flex gap-2 flex-wrap">
+              {notLoggedIn && (
+                <Button
+                  onClick={() => { window.location.href = `/api/login?returnTo=${encodeURIComponent("/admin")}`; }}
+                  data-testid="button-sign-in"
+                >
+                  Sign In
+                </Button>
+              )}
+              <Button variant="outline" onClick={() => navigate("/")} data-testid="button-go-home">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Go Home
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </main>

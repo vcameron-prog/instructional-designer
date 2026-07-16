@@ -198,18 +198,16 @@ export default function CaiLandingPage() {
               Accessibility Statement
             </a>
           </p>
-          {isAdmin && (
-            <p className="text-xs text-muted-foreground">
-              <button
-                onClick={() => navigate("/admin")}
-                className="inline-flex items-center gap-1 underline underline-offset-2 hover:text-foreground transition-colors"
-                data-testid="link-footer-admin-dashboard"
-              >
-                <LayoutDashboard className="w-3 h-3" aria-hidden="true" />
-                Admin Dashboard
-              </button>
-            </p>
-          )}
+          <p className="text-xs text-muted-foreground">
+            <button
+              onClick={() => navigate("/admin")}
+              className="inline-flex items-center gap-1 underline underline-offset-2 hover:text-foreground transition-colors"
+              data-testid="link-footer-admin-dashboard"
+            >
+              <LayoutDashboard className="w-3 h-3" aria-hidden="true" />
+              Admin Dashboard
+            </button>
+          </p>
         </div>
       </footer>
       </main>
