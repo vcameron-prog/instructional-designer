@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +9,7 @@ import { ArrowLeft, Eye, CheckCircle, XCircle, AlertCircle, RefreshCw } from "lu
 import { HeaderControls, BackButton } from "@/components/header-controls";
 import { PoweredByFooter } from "@/components/powered-by-footer";
 import { usePageTitle } from "@/hooks/use-page-title";
+import { trackEvent } from "@/hooks/use-analytics";
 import { apiRequest } from "@/lib/queryClient";
 
 interface ContrastResult {
@@ -58,6 +59,8 @@ export default function ColorContrastPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => { trackEvent("color-contrast", "page_view"); }, []);
+
   async function checkContrast() {
     setError(null);
     setResult(null);
@@ -67,6 +70,7 @@ export default function ColorContrastPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to check contrast");
       setResult(data);
+      trackEvent("color-contrast", "tool_result");
     } catch (err: any) {
       setError(err.message || "Something went wrong. Please try again.");
     } finally {

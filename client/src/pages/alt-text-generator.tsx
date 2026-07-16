@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { ArrowLeft, Image, AlertCircle, RefreshCw, Upload, Copy, Check } from "l
 import { HeaderControls, BackButton } from "@/components/header-controls";
 import { PoweredByFooter } from "@/components/powered-by-footer";
 import { usePageTitle } from "@/hooks/use-page-title";
+import { trackEvent } from "@/hooks/use-analytics";
 
 interface AltTextResult {
   altText: string;
@@ -31,6 +32,8 @@ export default function AltTextGeneratorPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => { trackEvent("alt-text", "page_view"); }, []);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropRef = useRef<HTMLDivElement>(null);
 
@@ -80,6 +83,7 @@ export default function AltTextGeneratorPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to generate alt text");
       setResult(data);
+      trackEvent("alt-text", "tool_result");
     } catch (err: any) {
       setError(err.message || "Something went wrong. Please try again.");
     } finally {

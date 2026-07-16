@@ -25,7 +25,17 @@ import {
   ArrowLeft,
   ShieldAlert,
   Download,
+  Activity,
 } from "lucide-react";
+
+interface AnalyticsData {
+  totalEvents: number;
+  uniqueSessions: number;
+  byAction: { action: string; count: number }[];
+  byPage: { page: string; count: number }[];
+  byWeek: { week: string; events: number; sessions: number }[];
+  byMonth: { month: string; events: number; sessions: number }[];
+}
 
 interface ExportHistoryEntry {
   id: number;
@@ -105,6 +115,12 @@ export default function AdminDashboard() {
 
   const { data: exportHistory, refetch: refetchHistory } = useQuery<ExportHistoryEntry[]>({
     queryKey: ["/api/admin/export-history"],
+    enabled: isAdmin === true,
+    retry: false,
+  });
+
+  const { data: analyticsData } = useQuery<AnalyticsData>({
+    queryKey: ["/api/admin/analytics"],
     enabled: isAdmin === true,
     retry: false,
   });
@@ -385,6 +401,122 @@ export default function AdminDashboard() {
                 </CardContent>
               </Card>
             </section>
+            {/* Usage Analytics */}
+            <section aria-labelledby="section-analytics">
+              <Card>
+                <CardHeader>
+                  <CardTitle id="section-analytics" className="text-base flex items-center gap-2">
+                    <Activity className="w-4 h-4" aria-hidden="true" />
+                    Usage Analytics
+                    <span className="ml-1 text-xs font-normal text-muted-foreground">
+                      (privacy-first — no IPs, emails, or content stored)
+                    </span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {!analyticsData || analyticsData.totalEvents === 0 ? (
+                    <p className="text-sm text-muted-foreground" data-testid="text-no-analytics">No analytics data recorded yet.</p>
+                  ) : (
+                    <>
+                      {/* Summary cards */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="rounded-lg border border-border bg-muted/30 p-4 text-center">
+                          <p className="text-2xl font-bold text-foreground" data-testid="text-analytics-total-events">{analyticsData.totalEvents.toLocaleString()}</p>
+                          <p className="text-xs text-muted-foreground mt-1">Total Events</p>
+                        </div>
+                        <div className="rounded-lg border border-border bg-muted/30 p-4 text-center">
+                          <p className="text-2xl font-bold text-foreground" data-testid="text-analytics-unique-sessions">{analyticsData.uniqueSessions.toLocaleString()}</p>
+                          <p className="text-xs text-muted-foreground mt-1">Approx. Unique Sessions</p>
+                        </div>
+                        <div className="rounded-lg border border-border bg-muted/30 p-4 text-center">
+                          <p className="text-2xl font-bold text-foreground" data-testid="text-analytics-completed-actions">
+                            {analyticsData.byAction.filter(a => a.action !== "page_view").reduce((s, a) => s + a.count, 0).toLocaleString()}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">Completed Actions</p>
+                        </div>
+                      </div>
+
+                      {/* Monthly trend */}
+                      {analyticsData.byMonth.length > 0 && (
+                        <div>
+                          <h3 className="text-sm font-medium text-foreground mb-3">Monthly Sessions &amp; Events</h3>
+                          <ResponsiveContainer width="100%" height={200}>
+                            <BarChart data={analyticsData.byMonth} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                              <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                              <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                              <Tooltip />
+                              <Legend />
+                              <Bar dataKey="sessions" name="Sessions" fill="#8b1a1a" />
+                              <Bar dataKey="events" name="Events" fill="#555555" />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                      )}
+
+                      {/* Weekly trend */}
+                      {analyticsData.byWeek.length > 0 && (
+                        <div>
+                          <h3 className="text-sm font-medium text-foreground mb-3">Weekly Sessions &amp; Events (Last 12 Weeks)</h3>
+                          <ResponsiveContainer width="100%" height={180}>
+                            <BarChart data={analyticsData.byWeek} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                              <XAxis dataKey="week" tick={{ fontSize: 10 }} />
+                              <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                              <Tooltip />
+                              <Legend />
+                              <Bar dataKey="sessions" name="Sessions" fill="#8b1a1a" />
+                              <Bar dataKey="events" name="Events" fill="#555555" />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                      )}
+
+                      {/* Page breakdown */}
+                      {analyticsData.byPage.length > 0 && (
+                        <div>
+                          <h3 className="text-sm font-medium text-foreground mb-2">Events by Page</h3>
+                          <div className="space-y-1.5">
+                            {analyticsData.byPage.map(row => (
+                              <div key={row.page} className="flex items-center gap-2 text-sm">
+                                <span className="w-32 shrink-0 font-mono text-muted-foreground text-xs truncate">{row.page}</span>
+                                <div className="flex-1 bg-muted rounded-full h-2 overflow-hidden">
+                                  <div
+                                    className="bg-primary h-2 rounded-full"
+                                    style={{ width: `${Math.round((row.count / analyticsData.byPage[0].count) * 100)}%` }}
+                                  />
+                                </div>
+                                <span className="w-10 text-right font-mono text-muted-foreground text-xs">{row.count}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Action breakdown */}
+                      {analyticsData.byAction.length > 0 && (
+                        <div>
+                          <h3 className="text-sm font-medium text-foreground mb-2">Events by Action</h3>
+                          <div className="space-y-1.5">
+                            {analyticsData.byAction.map(row => (
+                              <div key={row.action} className="flex items-center gap-2 text-sm">
+                                <span className="w-40 shrink-0 font-mono text-muted-foreground text-xs truncate">{row.action}</span>
+                                <div className="flex-1 bg-muted rounded-full h-2 overflow-hidden">
+                                  <div
+                                    className="bg-primary h-2 rounded-full"
+                                    style={{ width: `${Math.round((row.count / analyticsData.byAction[0].count) * 100)}%` }}
+                                  />
+                                </div>
+                                <span className="w-10 text-right font-mono text-muted-foreground text-xs">{row.count}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </section>
+
             {/* Export history */}
             <section aria-labelledby="section-export-history">
               <Card>

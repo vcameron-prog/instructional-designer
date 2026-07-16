@@ -32,6 +32,7 @@ import { SiGoogledrive, SiGooglesheets, SiGoogleslides } from "react-icons/si";
 import { apiRequest } from "@/lib/queryClient";
 import { parseConversionsUploadError, isSessionExpiredMessage } from "@/lib/upload-error-utils";
 import { UploadDropzone } from "@/components/UploadDropzone";
+import { trackEvent } from "@/hooks/use-analytics";
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 B";
@@ -74,6 +75,7 @@ export default function PdfUpload() {
   );
   useEffect(() => {
     window.scrollTo(0, 0);
+    trackEvent("pdf-upload", "page_view");
   }, []);
   const { isLoading: authLoading, isAuthenticated } = useAuth();
   const [, navigate] = useLocation();
@@ -175,6 +177,7 @@ export default function PdfUpload() {
       return res.json();
     },
     onSuccess: (data) => {
+      trackEvent("pdf-upload", "google_doc_import");
       navigate(`/pdf-accessibility/${data.id}`);
     },
     onError: (err: Error) => {
@@ -205,6 +208,7 @@ export default function PdfUpload() {
       return res.json();
     },
     onSuccess: (data) => {
+      trackEvent("pdf-upload", "google_sheet_import");
       navigate(`/pdf-accessibility/${data.id}`);
     },
     onError: (err: Error) => {
@@ -273,6 +277,7 @@ export default function PdfUpload() {
       return res.json();
     },
     onSuccess: (data) => {
+      trackEvent("pdf-upload", "google_slide_import");
       navigate(`/pdf-accessibility/${data.id}`);
     },
     onError: (err: Error) => {

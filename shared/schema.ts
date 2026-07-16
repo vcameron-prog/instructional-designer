@@ -6,6 +6,7 @@ import {
   serial,
   integer,
   timestamp,
+  date,
   jsonb,
   boolean,
 } from "drizzle-orm/pg-core";
@@ -151,3 +152,20 @@ export const adminExports = pgTable("admin_exports", {
 });
 
 export type AdminExport = typeof adminExports.$inferSelect;
+
+// Privacy-conscious, server-side usage analytics.
+// Stores only: a random session ID (generated client-side per browser session),
+// the date (no time), the page name, and the completed action type.
+// No IP addresses, user IDs, email addresses, or content are stored here.
+export const analyticsEvents = pgTable("analytics_events", {
+  id: serial("id").primaryKey(),
+  sessionId: text("session_id").notNull(),
+  date: date("date").notNull(),
+  page: text("page").notNull(),
+  action: text("action").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .default(sql`CURRENT_TIMESTAMP`)
+    .notNull(),
+});
+
+export type AnalyticsEvent = typeof analyticsEvents.$inferSelect;

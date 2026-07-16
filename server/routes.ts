@@ -5,7 +5,7 @@ import http from "http";
 import { randomUUID, createHmac } from "crypto";
 import { z } from "zod";
 import { storage, type UserPreferences } from "./storage";
-import { conversions, courses, generatedContent, adminExports } from "@shared/schema";
+import { conversions, courses, generatedContent, adminExports, analyticsEvents } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import {
   setupAuth,
@@ -4783,6 +4783,111 @@ If the image does not contain clear mathematical content, return:
   );
 
   // ─── End accessibility quick tools ───────────────────────────────────────────
+
+  // ─── Privacy-conscious usage analytics ───────────────────────────────────────
+  // Stores only: date, random session ID, page name, action type.
+  // No IP, user ID, email, prompts, or document contents are recorded.
+
+  const ANALYTICS_VALID_PAGES = new Set([
+    "landing", "pdf-upload", "pdf-conversion", "pdf-history", "pdf-faq",
+    "url-scanner", "color-contrast", "alt-text", "math-ocr",
+    "settings", "help", "admin",
+  ]);
+
+  const ANALYTICS_VALID_ACTIONS = new Set([
+    "page_view", "conversion_started", "conversion_complete",
+    "tool_result", "download_html", "download_docx", "download_pdf",
+    "download_xlsx", "reprocess", "google_doc_import",
+    "google_sheet_import", "google_slide_import",
+  ]);
+
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  app.post("/api/analytics/event", async (req: Request, res: Response) => {
+    try {
+      const { sessionId, page, action } = req.body ?? {};
+      if (typeof sessionId !== "string" || !UUID_RE.test(sessionId)) {
+        return res.status(400).json({ error: "Invalid sessionId" });
+      }
+      if (typeof page !== "string" || !ANALYTICS_VALID_PAGES.has(page)) {
+        return res.status(400).json({ error: "Invalid page" });
+      }
+      if (typeof action !== "string" || !ANALYTICS_VALID_ACTIONS.has(action)) {
+        return res.status(400).json({ error: "Invalid action" });
+      }
+      const today = new Date().toISOString().slice(0, 10);
+      await db.insert(analyticsEvents).values({ sessionId, date: today, page, action });
+      return res.json({ ok: true });
+    } catch (err) {
+      console.error("Analytics event error:", err);
+      return res.status(500).json({ error: "Internal error" });
+    }
+  });
+
+  app.get("/api/admin/analytics", isAuthenticated, isAdmin, async (_req: Request, res: Response) => {
+    try {
+      const [totalsRow] = await db
+        .select({
+          totalEvents: sql<number>`count(*)::int`,
+          uniqueSessions: sql<number>`count(distinct session_id)::int`,
+        })
+        .from(analyticsEvents);
+
+      const byAction = await db
+        .select({
+          action: analyticsEvents.action,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(analyticsEvents)
+        .groupBy(analyticsEvents.action)
+        .orderBy(sql`count(*) desc`);
+
+      const byPage = await db
+        .select({
+          page: analyticsEvents.page,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(analyticsEvents)
+        .groupBy(analyticsEvents.page)
+        .orderBy(sql`count(*) desc`);
+
+      const byWeek = await db
+        .select({
+          week: sql<string>`to_char(date_trunc('week', date::timestamp), 'YYYY-MM-DD')`,
+          events: sql<number>`count(*)::int`,
+          sessions: sql<number>`count(distinct session_id)::int`,
+        })
+        .from(analyticsEvents)
+        .where(sql`date >= current_date - interval '84 days'`)
+        .groupBy(sql`date_trunc('week', date::timestamp)`)
+        .orderBy(sql`date_trunc('week', date::timestamp)`);
+
+      const byMonth = await db
+        .select({
+          month: sql<string>`to_char(date_trunc('month', date::timestamp), 'YYYY-MM')`,
+          events: sql<number>`count(*)::int`,
+          sessions: sql<number>`count(distinct session_id)::int`,
+        })
+        .from(analyticsEvents)
+        .where(sql`date >= current_date - interval '6 months'`)
+        .groupBy(sql`date_trunc('month', date::timestamp)`)
+        .orderBy(sql`date_trunc('month', date::timestamp)`);
+
+      return res.json({
+        totalEvents: totalsRow?.totalEvents ?? 0,
+        uniqueSessions: totalsRow?.uniqueSessions ?? 0,
+        byAction,
+        byPage,
+        byWeek,
+        byMonth,
+      });
+    } catch (err) {
+      console.error("Admin analytics error:", err);
+      return res.status(500).json({ error: "Internal error" });
+    }
+  });
+
+  // ─── End privacy-conscious usage analytics ────────────────────────────────────
 
   return httpServer;
 }

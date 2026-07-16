@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +9,7 @@ import { ArrowLeft, Globe, AlertCircle, RefreshCw, CheckCircle, ChevronDown, Che
 import { HeaderControls, BackButton } from "@/components/header-controls";
 import { PoweredByFooter } from "@/components/powered-by-footer";
 import { usePageTitle } from "@/hooks/use-page-title";
+import { trackEvent } from "@/hooks/use-analytics";
 import { apiRequest } from "@/lib/queryClient";
 
 interface ScanIssue {
@@ -101,6 +102,8 @@ export default function UrlScannerPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => { trackEvent("url-scanner", "page_view"); }, []);
+
   async function scan() {
     setError(null);
     setResult(null);
@@ -112,6 +115,7 @@ export default function UrlScannerPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Scan failed");
       setResult(data);
+      trackEvent("url-scanner", "tool_result");
     } catch (err: any) {
       setError(err.message || "Something went wrong. Please try again.");
     } finally {

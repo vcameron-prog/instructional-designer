@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,7 @@ import { ArrowLeft, Calculator, AlertCircle, RefreshCw, Upload, Copy, Check } fr
 import { HeaderControls, BackButton } from "@/components/header-controls";
 import { PoweredByFooter } from "@/components/powered-by-footer";
 import { usePageTitle } from "@/hooks/use-page-title";
+import { trackEvent } from "@/hooks/use-analytics";
 
 const DEFAULT_MAX_UPLOAD_MB = 5;
 
@@ -65,6 +66,8 @@ export default function MathOcrPage() {
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => { trackEvent("math-ocr", "page_view"); }, []);
+
   const { data: config } = useQuery<{ imageUploadMaxMB?: number }>({
     queryKey: ["/api/config"],
   });
@@ -110,6 +113,7 @@ export default function MathOcrPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to extract math content");
       setResult(data);
+      trackEvent("math-ocr", "tool_result");
     } catch (err: any) {
       setError(err.message || "Something went wrong. Please try again.");
     } finally {

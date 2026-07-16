@@ -75,6 +75,7 @@ import {
   Legend,
 } from "recharts";
 import { ConversionErrorPanel } from "@/components/conversion-error-panel";
+import { trackEvent } from "@/hooks/use-analytics";
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 B";
@@ -329,6 +330,7 @@ export default function PdfConversion() {
   usePageTitle("Conversion Details");
   useEffect(() => {
     window.scrollTo(0, 0);
+    trackEvent("pdf-conversion", "page_view");
   }, []);
 
   const {
@@ -1236,6 +1238,7 @@ export default function PdfConversion() {
   );
 
   const handleDownload = async () => {
+    trackEvent("pdf-conversion", "download_html");
     setIsDownloading(true);
     try {
       const resp = await fetch(`/api/conversions/${numericId}/download`, {
@@ -1259,6 +1262,7 @@ export default function PdfConversion() {
   };
 
   const handleDownloadDocx = async () => {
+    trackEvent("pdf-conversion", "download_docx");
     setIsDownloadingDocx(true);
     try {
       const resp = await fetch(`/api/conversions/${numericId}/download-docx`, {
@@ -1307,6 +1311,7 @@ export default function PdfConversion() {
   };
 
   const handleDownloadXlsx = async () => {
+    trackEvent("pdf-conversion", "download_xlsx");
     setIsDownloadingXlsx(true);
     try {
       const resp = await fetch(`/api/conversions/${numericId}/download-xlsx`, {
@@ -1345,6 +1350,7 @@ export default function PdfConversion() {
   };
 
   const handleDownloadPdf = async () => {
+    trackEvent("pdf-conversion", "download_pdf");
     setIsDownloadingPdf(true);
     try {
       const resp = await fetch(`/api/conversions/${numericId}/download-pdf`, {
@@ -1798,7 +1804,7 @@ export default function PdfConversion() {
                     {copyState === "copied" ? "Copied!" : "Copy HTML"}
                   </button>
                   <button
-                    onClick={() => reprocessMutation.mutate(numericId)}
+                    onClick={() => { trackEvent("pdf-conversion", "reprocess"); reprocessMutation.mutate(numericId); }}
                     disabled={reprocessMutation.isPending}
                     className="inline-flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-sm font-bold shadow-sm hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:transform-none"
                     data-testid="button-reprocess"
