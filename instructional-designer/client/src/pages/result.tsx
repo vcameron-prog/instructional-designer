@@ -46,7 +46,7 @@ import {
 import { PoweredByFooter } from "@/components/powered-by-footer";
 import { LoadingScreen } from "@/components/loading-screen";
 import { HeaderControls } from "@/components/header-controls";
-import { ArrowLeft, ArrowRight, Copy, Download, FileText, RefreshCw, CheckCircle, AlertTriangle, Lightbulb, ChevronDown, ChevronRight, Loader2, Library, Link2, Link2Off, History, RotateCcw, Pencil, Zap } from "lucide-react";
+import { ArrowLeft, ArrowRight, Copy, Download, FileText, RefreshCw, CheckCircle, AlertTriangle, Lightbulb, ChevronDown, ChevronRight, Loader2, Library, Link2, Link2Off, History, RotateCcw, Pencil, Zap, Github, ExternalLink } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TOOLS, LOADING_MESSAGES, getChainPrefillFields, getFixTypeDescription } from "@/lib/constants";
@@ -294,6 +294,12 @@ export default function ResultPage() {
   const [captionEditIndex, setCaptionEditIndex] = useState<number>(0);
   const [captionEditOtherCaptions, setCaptionEditOtherCaptions] = useState<string[]>([]);
   const [captionAllowDefault, setCaptionAllowDefault] = useState(false);
+  const [githubOpen, setGithubOpen] = useState(false);
+  const [githubRepo, setGithubRepo] = useState("");
+  const [githubBranch, setGithubBranch] = useState("main");
+  const [githubPath, setGithubPath] = useState("");
+  const [githubPushing, setGithubPushing] = useState(false);
+  const [githubResult, setGithubResult] = useState<{ url: string; updated: boolean } | null>(null);
 
   const firstChangeRef = useRef<HTMLDivElement | null>(null);
 
@@ -684,6 +690,31 @@ export default function ResultPage() {
     }
   };
 
+  const handlePushGithub = async () => {
+    if (!content || !githubRepo || !githubPath) return;
+    setGithubPushing(true);
+    setGithubResult(null);
+    try {
+      const res = await fetch(`/api/content/${contentId}/push-github`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ repo: githubRepo, branch: githubBranch || "main", path: githubPath }),
+      });
+      const data = await res.json() as { url?: string; updated?: boolean; error?: string };
+      if (!res.ok) {
+        toast({ title: "GitHub push failed", description: data.error ?? "Unknown error", variant: "destructive" });
+      } else {
+        setGithubResult({ url: data.url!, updated: !!data.updated });
+        toast({ title: data.updated ? "File updated on GitHub!" : "File pushed to GitHub!" });
+      }
+    } catch {
+      toast({ title: "GitHub push failed", description: "Network error", variant: "destructive" });
+    } finally {
+      setGithubPushing(false);
+    }
+  };
+
   const handleRefine = () => {
     if (!refinementRequest.trim()) {
       toast({ title: "Please describe what changes you'd like to make", variant: "destructive" });
@@ -936,6 +967,91 @@ export default function ResultPage() {
                 </span>
               </Button>
               )}
+              {isAuthenticated && <Dialog open={githubOpen} onOpenChange={(open) => { setGithubOpen(open); if (!open) setGithubResult(null); }}>
+                <DialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    data-testid="button-push-github"
+                  >
+                    <Github className="w-4 h-4 mr-1.5" />
+                    Push to GitHub
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Push to GitHub</DialogTitle>
+                    <DialogDescription>
+                      Save this content as a Markdown file in a GitHub repository.
+                    </DialogDescription>
+                  </DialogHeader>
+                  {githubResult ? (
+                    <div className="py-4 space-y-3">
+                      <div className="flex items-center gap-2 text-green-600">
+                        <CheckCircle className="w-5 h-5" />
+                        <span className="font-medium">{githubResult.updated ? "File updated!" : "File created!"}</span>
+                      </div>
+                      <a
+                        href={githubResult.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-sm text-primary underline underline-offset-2"
+                        data-testid="link-github-result"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        View on GitHub
+                      </a>
+                    </div>
+                  ) : (
+                    <div className="space-y-4 py-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="github-repo">Repository <span className="text-muted-foreground">(owner/repo)</span></Label>
+                        <Input
+                          id="github-repo"
+                          placeholder="e.g. vcameron/bsu-courses"
+                          value={githubRepo}
+                          onChange={(e) => setGithubRepo(e.target.value)}
+                          data-testid="input-github-repo"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="github-branch">Branch</Label>
+                        <Input
+                          id="github-branch"
+                          placeholder="main"
+                          value={githubBranch}
+                          onChange={(e) => setGithubBranch(e.target.value)}
+                          data-testid="input-github-branch"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="github-path">File path <span className="text-muted-foreground">(.md)</span></Label>
+                        <Input
+                          id="github-path"
+                          placeholder={`e.g. courses/${content?.toolName?.replace(/\s+/g, "-").toLowerCase() ?? "content"}.md`}
+                          value={githubPath}
+                          onChange={(e) => setGithubPath(e.target.value)}
+                          data-testid="input-github-path"
+                        />
+                      </div>
+                    </div>
+                  )}
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => { setGithubOpen(false); setGithubResult(null); }}>
+                      {githubResult ? "Close" : "Cancel"}
+                    </Button>
+                    {!githubResult && (
+                      <Button
+                        onClick={handlePushGithub}
+                        disabled={githubPushing || !githubRepo || !githubPath}
+                        data-testid="button-confirm-push-github"
+                      >
+                        {githubPushing ? <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" />Pushing…</> : <><Github className="w-4 h-4 mr-1.5" />Push</>}
+                      </Button>
+                    )}
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>}
               {isAuthenticated && <Dialog open={saveLibraryOpen} onOpenChange={setSaveLibraryOpen}>
                 <DialogTrigger asChild>
                   <Button

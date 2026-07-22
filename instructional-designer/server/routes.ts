@@ -3420,6 +3420,79 @@ Please generate an IMPROVED version that incorporates the requested changes whil
     },
   );
 
+  // Push generated content to a GitHub repository as a Markdown file.
+  app.post(
+    "/api/content/:id/push-github",
+    isBsuAuthenticated,
+    async (req: Request, res: Response) => {
+      try {
+        const token = process.env.GITHUB_TOKEN;
+        if (!token) {
+          return res.status(503).json({ error: "GitHub integration is not configured" });
+        }
+
+        const userId = getUserId(req) as string;
+        const id = parseInt(req.params.id as string);
+        const { repo, branch = "main", path } = req.body as { repo?: string; branch?: string; path?: string };
+
+        if (!repo || !path) {
+          return res.status(400).json({ error: "repo and path are required" });
+        }
+        if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) {
+          return res.status(400).json({ error: "Invalid repo format. Use owner/repo" });
+        }
+
+        const content = await storage.getContent(id);
+        if (!content) {
+          return res.status(404).json({ error: "Content not found" });
+        }
+
+        if (content.courseId) {
+          const course = await storage.getCourse(content.courseId, userId);
+          if (!course) return res.status(404).json({ error: "Content not found" });
+        } else if (!content.userId || content.userId !== userId) {
+          return res.status(403).json({ error: "Forbidden" });
+        }
+
+        const filePath = path.replace(/^\/+/, "");
+        const contentBase64 = Buffer.from(content.content, "utf-8").toString("base64");
+        const apiUrl = `https://api.github.com/repos/${repo}/contents/${filePath}`;
+        const ghHeaders = {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/vnd.github+json",
+          "X-GitHub-Api-Version": "2022-11-28",
+          "Content-Type": "application/json",
+        };
+
+        let sha: string | undefined;
+        const getRes = await fetch(`${apiUrl}?ref=${branch}`, { headers: ghHeaders });
+        if (getRes.ok) {
+          const existing = await getRes.json() as { sha: string };
+          sha = existing.sha;
+        }
+
+        const body: Record<string, unknown> = {
+          message: `${sha ? "Update" : "Add"} ${content.toolName} (BSU CAI Tools)`,
+          content: contentBase64,
+          branch,
+        };
+        if (sha) body.sha = sha;
+
+        const putRes = await fetch(apiUrl, { method: "PUT", headers: ghHeaders, body: JSON.stringify(body) });
+        if (!putRes.ok) {
+          const err = await putRes.json() as { message?: string };
+          return res.status(putRes.status).json({ error: err.message || "GitHub API error" });
+        }
+
+        const result = await putRes.json() as { content: { html_url: string } };
+        return res.json({ url: result.content.html_url, updated: !!sha });
+      } catch (error) {
+        console.error("Error pushing to GitHub:", error);
+        return res.status(500).json({ error: "Failed to push to GitHub" });
+      }
+    },
+  );
+
   // Download the accessible DOCX for a converted document (accessibility
   // converter flow). This app does not have a full conversions feature, but
   // the route is exposed with the same ownership/rate-limit/concurrency
