@@ -180,15 +180,6 @@ export default function CaiLandingPage() {
             AI-generated content may contain errors — please review all materials carefully.
           </p>
           <p className="text-xs text-muted-foreground">
-            <a
-              href="/accessibility-statement"
-              className="underline underline-offset-2 hover:text-foreground transition-colors"
-              data-testid="link-footer-accessibility-statement"
-            >
-              Accessibility Statement
-            </a>
-          </p>
-          <p className="text-xs text-muted-foreground">
             <button
               onClick={() => navigate("/admin")}
               className="inline-flex items-center gap-1 underline underline-offset-2 hover:text-foreground transition-colors"
