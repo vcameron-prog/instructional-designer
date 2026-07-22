@@ -444,64 +444,6 @@ export default function PdfUpload() {
 
       <div className="container mx-auto px-4 py-12 max-w-4xl">
 
-        {/* Additional accessibility tools */}
-        <div className="max-w-3xl mx-auto mb-6">
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-            More Accessibility Tools
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {[
-              {
-                path: "/accessibility-tools/url-scanner",
-                icon: <Globe className="w-5 h-5 text-white" />,
-                gradient: "from-sky-500 to-cyan-600",
-                label: "URL Scanner",
-                description: "Check any webpage for accessibility issues and WCAG violations.",
-                testid: "link-tool-url-scanner",
-              },
-              {
-                path: "/accessibility-tools/color-contrast",
-                icon: <Eye className="w-5 h-5 text-white" />,
-                gradient: "from-amber-500 to-orange-600",
-                label: "Color Contrast",
-                description: "Verify foreground/background color combinations meet WCAG contrast ratios.",
-                testid: "link-tool-color-contrast",
-              },
-              {
-                path: "/accessibility-tools/alt-text",
-                icon: <Image className="w-5 h-5 text-white" />,
-                gradient: "from-fuchsia-500 to-pink-600",
-                label: "Alt Text",
-                description: "Generate and review alternative text descriptions for images.",
-                testid: "link-tool-alt-text",
-              },
-              {
-                path: "/accessibility-tools/math-ocr",
-                icon: <Calculator className="w-5 h-5 text-white" />,
-                gradient: "from-rose-500 to-red-600",
-                label: "Math OCR",
-                description: "Extract and convert mathematical expressions into accessible formats.",
-                testid: "link-tool-math-ocr",
-              },
-            ].map((tool) => (
-                <Link
-                  key={tool.testid}
-                  href={tool.path}
-                  className="flex items-center gap-4 rounded-lg border bg-card p-4 hover:bg-secondary/50 transition-colors group"
-                  data-testid={tool.testid}
-                >
-                  <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${tool.gradient} flex items-center justify-center flex-shrink-0`}>
-                    {tool.icon}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-foreground text-sm group-hover:underline">{tool.label}</p>
-                    <p className="text-xs text-muted-foreground">{tool.description}</p>
-                  </div>
-                </Link>
-            ))}
-          </div>
-        </div>
-
         {uploadError && (
           <div
             className="w-full max-w-2xl mx-auto mb-6 p-4 bg-destructive/10 border border-destructive/20 text-destructive rounded-xl flex items-start gap-3 shadow-sm"
@@ -934,6 +876,63 @@ export default function PdfUpload() {
             </div>
           </div>
 
+        </div>
+
+        <div className="max-w-3xl mx-auto mt-6 mb-6">
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+            More Accessibility Tools
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {[
+              {
+                path: "/accessibility-tools/url-scanner",
+                icon: <Globe className="w-5 h-5 text-white" />,
+                gradient: "from-sky-500 to-cyan-600",
+                label: "URL Scanner",
+                description: "Check any webpage for accessibility issues and WCAG violations.",
+                testid: "link-tool-url-scanner",
+              },
+              {
+                path: "/accessibility-tools/color-contrast",
+                icon: <Eye className="w-5 h-5 text-white" />,
+                gradient: "from-amber-500 to-orange-600",
+                label: "Color Contrast",
+                description: "Verify foreground/background color combinations meet WCAG contrast ratios.",
+                testid: "link-tool-color-contrast",
+              },
+              {
+                path: "/accessibility-tools/alt-text",
+                icon: <Image className="w-5 h-5 text-white" />,
+                gradient: "from-fuchsia-500 to-pink-600",
+                label: "Alt Text",
+                description: "Generate and review alternative text descriptions for images.",
+                testid: "link-tool-alt-text",
+              },
+              {
+                path: "/accessibility-tools/math-ocr",
+                icon: <Calculator className="w-5 h-5 text-white" />,
+                gradient: "from-rose-500 to-red-600",
+                label: "Math OCR",
+                description: "Extract and convert mathematical expressions into accessible formats.",
+                testid: "link-tool-math-ocr",
+              },
+            ].map((tool) => (
+              <Link
+                key={tool.testid}
+                href={tool.path}
+                className="flex items-center gap-4 rounded-lg border bg-card p-4 hover:bg-secondary/50 transition-colors group"
+                data-testid={tool.testid}
+              >
+                <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${tool.gradient} flex items-center justify-center flex-shrink-0`}>
+                  {tool.icon}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-foreground text-sm group-hover:underline">{tool.label}</p>
+                  <p className="text-xs text-muted-foreground">{tool.description}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
         </div>
 
         {recent.length > 0 && (
