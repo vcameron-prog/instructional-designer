@@ -32,7 +32,6 @@ const UrlScannerPage            = lazy(() => import("@/pages/url-scanner"));
 const ColorContrastPage         = lazy(() => import("@/pages/color-contrast"));
 const AltTextGeneratorPage      = lazy(() => import("@/pages/alt-text-generator"));
 const MathOcrPage               = lazy(() => import("@/pages/math-ocr"));
-const AccessibilityStatementPage = lazy(() => import("@/pages/accessibility-statement"));
 
 function AccessibilityRedirect() {
   return <Redirect to="/pdf-accessibility" />;
@@ -52,7 +51,6 @@ const ROUTE_COMPONENTS: Record<string, React.ComponentType> = {
   "/settings":                  SettingsPage,
   "/help":                      HelpPage,
   "/admin":                     AdminDashboard,
-  "/accessibility-statement":   AccessibilityStatementPage,
 };
 
 interface RouteConfig {
