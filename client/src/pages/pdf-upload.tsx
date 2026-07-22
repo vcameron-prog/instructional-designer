@@ -13,7 +13,6 @@ import {
   Check,
   ClipboardCopy,
   Image,
-  AlignLeft,
   Globe,
   Eye,
   Calculator,
@@ -440,13 +439,6 @@ export default function PdfUpload() {
             A free, shared accessibility resource from the Bridgewater State University Center for Artificial Intelligence. Built to help Massachusetts state universities and community colleges work toward ADA Title II and WCAG 2.1 AA accessibility standards.
           </p>
 
-          <div className="flex flex-col items-center text-center gap-2 px-4">
-            <div className="w-12 h-12 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center flex-shrink-0">
-              <AlignLeft className="w-6 h-6 text-white" />
-            </div>
-            <h3 className="font-semibold text-white text-sm">Reading Order</h3>
-            <p className="text-xs text-gray-400">Restructures complex multi-column layouts into a linear, logical reading order for screen readers.</p>
-          </div>
         </div>
       </section>
 
