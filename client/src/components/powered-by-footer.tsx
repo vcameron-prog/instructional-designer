@@ -1,7 +1,7 @@
 import { Shield } from "lucide-react";
 import bsuAiLogo from "@assets/bsu-cai-logo.png";
 import bsuAiLogoWhite from "@assets/Center_for_AI_Apparel_&_Promotional_Items-WHITE_(1)_1775653892158.png";
-import { useLocation, Link } from "wouter";
+import { useLocation } from "wouter";
 
 export function PoweredByFooter() {
   const [location] = useLocation();
@@ -38,15 +38,6 @@ export function PoweredByFooter() {
           </span>
         </p>
 
-        <p className="text-center text-xs text-gray-500 dark:text-gray-500">
-          <Link
-            href="/accessibility-statement"
-            className="underline underline-offset-2 hover:opacity-80"
-            data-testid="link-accessibility-statement"
-          >
-            Accessibility Statement
-          </Link>
-        </p>
       </div>
     </footer>
   );
