@@ -12,7 +12,6 @@ import {
   HelpCircle,
   Check,
   ClipboardCopy,
-  Shield,
   Image,
   AlignLeft,
   Globe,
@@ -441,14 +440,7 @@ export default function PdfUpload() {
             A free, shared accessibility resource from the Bridgewater State University Center for Artificial Intelligence. Built to help Massachusetts state universities and community colleges work toward ADA Title II and WCAG 2.1 AA accessibility standards.
           </p>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl mx-auto">
-            <div className="flex flex-col items-center text-center gap-2 px-4">
-              <div className="w-12 h-12 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center flex-shrink-0">
-                <Shield className="w-6 h-6 text-white" />
-              </div>
-              <h3 className="font-semibold text-white text-sm">Title II Compliant</h3>
-              <p className="text-xs text-gray-400">Prepares your documents to meet the rigorous standards required of state and local governments.</p>
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl mx-auto">
             <div className="flex flex-col items-center text-center gap-2 px-4">
               <div className="w-12 h-12 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center flex-shrink-0">
                 <Image className="w-6 h-6 text-white" />
