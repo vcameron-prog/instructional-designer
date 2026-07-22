@@ -1,6 +1,5 @@
 import { useEffect } from "react";
 import { useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { BookOpen, ArrowRight, Users, GraduationCap, FileText, Shield, Zap, LayoutDashboard } from "lucide-react";
 import { HeaderControls } from "@/components/header-controls";
@@ -23,15 +22,6 @@ export default function CaiLandingPage() {
     "Free AI-powered accessibility converter and tools from the BSU Center for Artificial Intelligence. Convert PDF, Word, and Google Docs to WCAG 2.1 AA-compliant accessible HTML.",
   );
   const [, navigate] = useLocation();
-
-  const { data: isAdmin } = useQuery<boolean>({
-    queryKey: ["/api/admin/check"],
-    queryFn: async () => {
-      const res = await fetch("/api/admin/check", { credentials: "include" });
-      return res.status === 200;
-    },
-    retry: false,
-  });
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
