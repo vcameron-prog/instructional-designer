@@ -47,11 +47,11 @@ jobs:
         run: npm ci
 
       - name: Install Playwright Chromium browser
-        run: npx playwright install chromium --with-deps
+        run: ./node_modules/.bin/playwright install chromium --with-deps
 
       - name: Run URL scanner round-trip test
         id: playwright
-        run: npx playwright test --config playwright.nightly.config.ts
+        run: ./node_modules/.bin/playwright test --config playwright.nightly.config.ts
 
       - name: Upload test results
         if: always()
