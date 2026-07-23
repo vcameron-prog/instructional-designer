@@ -60,6 +60,7 @@ Production assumptions for this threat model:
 - **Current quick-tools calibration**:
   - Anonymous quick-tool access is an intended product capability for this project per `replit.md`; do not treat `/api/generate-standalone` or `/faculty/api/generate-standalone` as an auth bypass unless the product requirements change.
   - The relevant security question for those routes is abuse resistance (rate limiting, resource consumption, quota burn), not whether sign-in is required.
+  - The root app's `/api/tools/url-scanner` currently has explicit remote-response size and body-stream timeout limits; the nested instructional-designer `/faculty/api/tools/url-scanner` must be reviewed separately because its fetch helper does not automatically inherit those controls.
 - **Currently unreachable unless route registration changes**:
   - `server/replit_integrations/chat/*` is present in the repo but is not wired into `registerRoutes()` or startup.
 - **Usually dev-only**: `attached_assets/`, `server/vite.ts`, test files, build/test scripts.
