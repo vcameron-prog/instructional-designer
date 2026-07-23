@@ -34,7 +34,7 @@ export default defineConfig({
   webServer: {
     command: "PLAYWRIGHT_TEST=1 npm run dev",
     url: "http://127.0.0.1:5000",
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: true,
     timeout: 60_000,
   },
 });

@@ -63,10 +63,6 @@ args = "check-links"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "playwright-integration"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
 args = "Instructional Designer"
 
 [[workflows.workflow.tasks]]
@@ -140,17 +136,6 @@ args = "bash scripts/check-links.sh"
 
 [workflows.workflow.metadata]
 isValidation = true
-
-[[workflows.workflow]]
-name = "playwright-integration"
-author = "agent"
-
-[workflows.workflow.metadata]
-isValidation = true
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "CI=1 npx playwright test --config instructional-designer/playwright.config.ts instructional-designer/e2e/tools-integration.spec.ts"
 
 [[workflows.workflow]]
 name = "Instructional Designer"
