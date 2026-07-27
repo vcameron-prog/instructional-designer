@@ -11,3 +11,4 @@
 - [Deterministic accessibility fixer route pattern](deterministic-accessibility-fixers.md) — fixType dispatcher; ARIA-role fixers must be dynamically imported inside the handler, not statically.
 - [Nested npm install causes duplicate React instances](nested-node-modules-react-dup.md) — installing a package inside a sub-app dir can create a local node_modules/react, causing "Invalid hook call" in shared-tooling vitest runs.
 - [PDF font-size metadata via pdf-parse internals](pdf-font-metadata-extraction.md) — pdf-parse's public API has no per-line font size; reach into `(parser as any).doc` defensively, or prefer mammoth's h1-h6 for DOCX.
+- [Top-level route calls crash the CJS bundle](routes-ts-top-level-guard.md) — app.get() outside registerRoutes() + createRequire(import.meta.url) both cause startup crashes in esbuild CJS output.

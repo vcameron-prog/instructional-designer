@@ -2,7 +2,10 @@ import { createRequire } from "module";
 import iconv from "iconv-lite";
 import type { PdfExtraction } from "./pdf-processor";
 
-const require = createRequire(import.meta.url);
+// createRequire(import.meta.url) is not safe in esbuild CJS bundles because
+// esbuild leaves import.meta.url as undefined in CJS output.  __filename is
+// always a valid string in any Node.js CJS context (including bundled output).
+const require = createRequire(__filename);
 
 interface RtfSpan {
   value: string;

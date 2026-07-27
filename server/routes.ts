@@ -18,7 +18,7 @@ import {
 import Anthropic from "@anthropic-ai/sdk";
 import multer from "multer";
 import { db } from "./db";
-import { eq, and, isNull, sql, desc, inArray } from "drizzle-orm";
+import { eq, and, isNull, sql, desc, inArray, gte, lt } from "drizzle-orm";
 import { getDeterministicFixerKeys, getAiFixRetryMetrics, getPersistAiFixRetryLastFailed, applyHeadingHierarchyFix, getContextLeakMetrics, applyCustomPageTitle, getFirstHeadingLevel, buildHeadingRenumberedNoteHtml, buildMainLandmarkNoteHtml, buildPageTitleFallbackNoteHtml, buildPageTitleLowQualityNoteHtml, BYPASS_BLOCKS_FIX_NOTE } from "./lib/accessibility-engine";
 import { PAGE_TITLE_FALLBACK_NOTE, PAGE_TITLE_LOW_QUALITY_NOTE } from "@shared/page-title-messages";
 import {
@@ -256,6 +256,45 @@ export async function registerRoutes(
   // Setup authentication (before other routes)
   await setupAuth(app);
   registerAuthRoutes(app);
+
+  // Public monthly stats endpoint — called by the BSU dashboard auto-pull
+  app.get("/api/stats/monthly", async (req: Request, res: Response) => {
+    const month = typeof req.query.month === "string"
+      ? req.query.month
+      : new Date().toISOString().slice(0, 7); // YYYY-MM
+
+    const startDate = new Date(`${month}-01`);
+    const endDate = new Date(startDate);
+    endDate.setMonth(endDate.getMonth() + 1);
+
+    const [conversionsResult] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(conversions)
+      .where(
+        and(
+          gte(conversions.createdAt, startDate),
+          lt(conversions.createdAt, endDate),
+          eq(conversions.status, "completed")
+        )
+      );
+
+    const [checksResult] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(analyticsEvents)
+      .where(
+        and(
+          gte(analyticsEvents.date, startDate.toISOString().slice(0, 10)),
+          lt(analyticsEvents.date, endDate.toISOString().slice(0, 10)),
+          eq(analyticsEvents.action, "tool_result")
+        )
+      );
+
+    res.json({
+      month,
+      documentsConverted: conversionsResult?.count ?? 0,
+      accessibilityChecksRun: checksResult?.count ?? 0,
+    });
+  });
 
   // Redirect retired Toolkit tool paths to their in-app equivalents
   for (const [oldPath, idPath] of Object.entries(TOOLKIT_REDIRECTS)) {
