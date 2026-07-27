@@ -192,6 +192,44 @@ const isAdmin = (req: Request, res: Response, next: NextFunction) => {
   next();
 };
 
+/**
+ * Middleware for the read-only stats/analytics routes.
+ *
+ * Passes when EITHER:
+ *  a) the request carries a valid admin session (existing behaviour), OR
+ *  b) the `Authorization: Bearer <key>` or `x-api-key: <key>` header matches
+ *     the `STATS_API_KEY` environment variable (and that variable is non-empty).
+ *
+ * When `STATS_API_KEY` is unset or empty, option (b) is disabled entirely —
+ * there is no silent open door.
+ */
+export const isAdminOrApiKey = (req: Request, res: Response, next: NextFunction) => {
+  // Path (a): valid admin session
+  if (checkIsAdmin(req)) {
+    return next();
+  }
+
+  // Path (b): API key header
+  const statsKey = process.env.STATS_API_KEY;
+  if (statsKey) {
+    const authHeader = req.headers["authorization"];
+    const xApiKey = req.headers["x-api-key"];
+
+    let provided: string | undefined;
+    if (typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
+      provided = authHeader.slice("Bearer ".length).trim();
+    } else if (typeof xApiKey === "string") {
+      provided = xApiKey.trim();
+    }
+
+    if (provided && provided === statsKey) {
+      return next();
+    }
+  }
+
+  return res.status(403).json({ error: "Forbidden" });
+};
+
 // ─── End admin helpers ────────────────────────────────────────────────────────
 
 // ─── Toolkit retirement redirects ────────────────────────────────────────────
@@ -3953,7 +3991,7 @@ export async function registerRoutes(
     res.json({ isAdmin: true });
   });
 
-  app.get("/api/admin/stats", isAuthenticated, isAdmin, async (_req: Request, res: Response) => {
+  app.get("/api/admin/stats", optionalAuth, isAdminOrApiKey, async (_req: Request, res: Response) => {
     try {
       const now = new Date();
       const sixMonthsAgo = new Date(now);
@@ -4114,7 +4152,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/admin/stats/export", isAuthenticated, isAdmin, async (_req: Request, res: Response) => {
+  app.get("/api/admin/stats/export", optionalAuth, isAdminOrApiKey, async (_req: Request, res: Response) => {
     try {
       const now = new Date();
       const sixMonthsAgo = new Date(now);
@@ -4293,7 +4331,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/admin/export-history", isAuthenticated, isAdmin, async (_req: Request, res: Response) => {
+  app.get("/api/admin/export-history", optionalAuth, isAdminOrApiKey, async (_req: Request, res: Response) => {
     try {
       const history = await db
         .select({
@@ -4824,7 +4862,7 @@ If the image does not contain clear mathematical content, return:
     }
   });
 
-  app.get("/api/admin/analytics", isAuthenticated, isAdmin, async (_req: Request, res: Response) => {
+  app.get("/api/admin/analytics", optionalAuth, isAdminOrApiKey, async (_req: Request, res: Response) => {
     try {
       const [totalsRow] = await db
         .select({
