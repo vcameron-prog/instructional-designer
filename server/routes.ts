@@ -261,7 +261,7 @@ export async function registerRoutes(
   app.get("/api/stats/monthly", async (req: Request, res: Response) => {
     const month = typeof req.query.month === "string"
       ? req.query.month
-      : new Date().toISOString().slice(0, 7); // YYYY-MM
+      : new Date().toISOString().slice(0, 7);
 
     const startDate = new Date(`${month}-01`);
     const endDate = new Date(startDate);
@@ -278,21 +278,10 @@ export async function registerRoutes(
         )
       );
 
-    const [checksResult] = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(analyticsEvents)
-      .where(
-        and(
-          gte(analyticsEvents.date, startDate.toISOString().slice(0, 10)),
-          lt(analyticsEvents.date, endDate.toISOString().slice(0, 10)),
-          eq(analyticsEvents.action, "tool_result")
-        )
-      );
-
     res.json({
       month,
       documentsConverted: conversionsResult?.count ?? 0,
-      accessibilityChecksRun: checksResult?.count ?? 0,
+      accessibilityChecksRun: conversionsResult?.count ?? 0,
     });
   });
 
