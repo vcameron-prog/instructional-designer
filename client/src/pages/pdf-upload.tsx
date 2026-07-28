@@ -32,6 +32,16 @@ import { parseConversionsUploadError, isSessionExpiredMessage } from "@/lib/uplo
 import { UploadDropzone } from "@/components/UploadDropzone";
 import { trackEvent } from "@/hooks/use-analytics";
 
+function reportToolUsage(toolName: "tool:url-scanner" | "tool:color-contrast" | "tool:alt-text" | "tool:math-ocr") {
+  const body = JSON.stringify({ type: "feature", feature: toolName });
+  fetch("https://accessibility-converter.replit.app/api/usage/events", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body,
+    keepalive: true,
+  }).catch(() => {}); // fire-and-forget, never block the UI
+}
+
 function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 B";
   const k = 1024;
@@ -891,6 +901,7 @@ export default function PdfUpload() {
                 label: "URL Scanner",
                 description: "Check any webpage for accessibility issues and WCAG violations.",
                 testid: "link-tool-url-scanner",
+                toolName: "tool:url-scanner" as const,
               },
               {
                 path: "/accessibility-tools/color-contrast",
@@ -899,6 +910,7 @@ export default function PdfUpload() {
                 label: "Color Contrast",
                 description: "Verify foreground/background color combinations meet WCAG contrast ratios.",
                 testid: "link-tool-color-contrast",
+                toolName: "tool:color-contrast" as const,
               },
               {
                 path: "/accessibility-tools/alt-text",
@@ -907,6 +919,7 @@ export default function PdfUpload() {
                 label: "Alt Text",
                 description: "Generate and review alternative text descriptions for images.",
                 testid: "link-tool-alt-text",
+                toolName: "tool:alt-text" as const,
               },
               {
                 path: "/accessibility-tools/math-ocr",
@@ -915,6 +928,7 @@ export default function PdfUpload() {
                 label: "Math OCR",
                 description: "Extract and convert mathematical expressions into accessible formats.",
                 testid: "link-tool-math-ocr",
+                toolName: "tool:math-ocr" as const,
               },
             ].map((tool) => (
               <Link
@@ -922,6 +936,7 @@ export default function PdfUpload() {
                 href={tool.path}
                 className="flex items-center gap-4 rounded-lg border bg-card p-4 hover:bg-secondary/50 transition-colors group"
                 data-testid={tool.testid}
+                onClick={() => reportToolUsage(tool.toolName)}
               >
                 <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${tool.gradient} flex items-center justify-center flex-shrink-0`}>
                   {tool.icon}
