@@ -165,6 +165,9 @@ export default function UrlScannerPage() {
             <CardDescription>
               Enter the full URL of any publicly accessible page. The page must not require a login.
             </CardDescription>
+            <p className="text-xs text-muted-foreground mt-1">
+              Pages are capped at <strong>1 MB</strong> of HTML. Only the first <strong>20,000 characters</strong> of markup are sent for AI analysis, so very large pages may return partial results.
+            </p>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
