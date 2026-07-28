@@ -33,13 +33,12 @@ import { UploadDropzone } from "@/components/UploadDropzone";
 import { trackEvent } from "@/hooks/use-analytics";
 
 function reportToolUsage(toolName: "tool:url-scanner" | "tool:color-contrast" | "tool:alt-text" | "tool:math-ocr") {
-  const body = JSON.stringify({ type: "feature", feature: toolName });
   fetch("https://accessibility-converter.replit.app/api/usage/events", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body,
+    body: JSON.stringify({ type: "feature", feature: toolName }),
     keepalive: true,
-  }).catch(() => {}); // fire-and-forget, never block the UI
+  }).catch(() => {});
 }
 
 function formatBytes(bytes: number): string {
