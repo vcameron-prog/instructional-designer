@@ -267,21 +267,33 @@ export async function registerRoutes(
     const endDate = new Date(startDate);
     endDate.setMonth(endDate.getMonth() + 1);
 
-    const [conversionsResult] = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(conversions)
-      .where(
-        and(
-          gte(conversions.createdAt, startDate),
-          lt(conversions.createdAt, endDate),
-          eq(conversions.status, "completed")
-        )
-      );
+    const [[conversionsResult], [checksResult]] = await Promise.all([
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(conversions)
+        .where(
+          and(
+            gte(conversions.createdAt, startDate),
+            lt(conversions.createdAt, endDate),
+            eq(conversions.status, "completed"),
+          ),
+        ),
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(analyticsEvents)
+        .where(
+          and(
+            gte(analyticsEvents.date, startDate.toISOString().slice(0, 10)),
+            lt(analyticsEvents.date, endDate.toISOString().slice(0, 10)),
+            eq(analyticsEvents.action, "tool_result"),
+          ),
+        ),
+    ]);
 
     res.json({
       month,
       documentsConverted: conversionsResult?.count ?? 0,
-      accessibilityChecksRun: conversionsResult?.count ?? 0,
+      accessibilityChecksRun: checksResult?.count ?? 0,
     });
   });
 
