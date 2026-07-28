@@ -40,6 +40,20 @@ ID_PID=$!
 echo "[pre-start] Instructional Designer started (PID $ID_PID)"
 
 echo ""
+echo "[pre-start] Step 4b: Waiting for Instructional Designer to bind on port 3001..."
+for i in $(seq 1 30); do
+  if nc -z 127.0.0.1 3001 2>/dev/null; then
+    echo "[pre-start] Instructional Designer is ready on port 3001 (${i}s)"
+    break
+  fi
+  if ! kill -0 "$ID_PID" 2>/dev/null; then
+    echo "[pre-start] ERROR: Instructional Designer process exited before binding to port 3001" >&2
+    exit 1
+  fi
+  sleep 1
+done
+
+echo ""
 echo "[pre-start] Step 5: Starting main server..."
 echo "============================================================"
 echo ""
