@@ -46,8 +46,15 @@ async function buildProd() {
     bundle: true,
     format: "cjs",
     outfile: "dist/index.cjs",
+    // Shim import.meta.url for any bundled ESM packages that reference it at
+    // module level. Without this, those packages crash with
+    // "fileURLToPath received undefined" when loaded as CJS.
+    banner: {
+      js: 'const __cjsImportMetaUrl=require("url").pathToFileURL(__filename).href;',
+    },
     define: {
       "process.env.NODE_ENV": '"production"',
+      "import.meta.url": "__cjsImportMetaUrl",
     },
     minify: true,
     external: externals,
