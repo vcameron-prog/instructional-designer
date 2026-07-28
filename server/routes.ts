@@ -280,12 +280,12 @@ export async function registerRoutes(
         ),
       db
         .select({ count: sql<number>`count(*)::int` })
-        .from(analyticsEvents)
+        .from(generatedContent)
         .where(
           and(
-            gte(analyticsEvents.date, startDate.toISOString().slice(0, 10)),
-            lt(analyticsEvents.date, endDate.toISOString().slice(0, 10)),
-            eq(analyticsEvents.action, "tool_result"),
+            gte(generatedContent.createdAt, startDate),
+            lt(generatedContent.createdAt, endDate),
+            eq(generatedContent.toolName, "accessibility"),
           ),
         ),
     ]);
