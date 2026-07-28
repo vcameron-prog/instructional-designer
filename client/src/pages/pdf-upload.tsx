@@ -68,7 +68,7 @@ const LOGO_BANNER_BACKGROUND: "light" | "dark" = "dark";
 
 export default function PdfUpload() {
   usePageTitle(
-    "Accessibility Tools",
+    "Accessibility Remediation Tools",
     "Convert PDF, Word, PowerPoint, Excel, and Google Docs to WCAG 2.1 AA-compliant accessible HTML using AI-powered remediation. Free, no login required.",
   );
   useEffect(() => {
@@ -430,7 +430,7 @@ export default function PdfUpload() {
             className="text-3xl md:text-4xl font-bold mb-3 tracking-tight"
             data-testid="text-page-title"
           >
-            Accessibility Tools
+            Accessibility Remediation Tools
           </h1>
           <span className="inline-block text-xs font-semibold bg-white/10 border border-white/20 text-gray-200 px-3 py-1 rounded-full mb-6">
             ADA Title II · WCAG 2.1 AA
@@ -880,7 +880,7 @@ export default function PdfUpload() {
 
         <div className="max-w-3xl mx-auto mt-6 mb-6">
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-            More Accessibility Tools
+            More Accessibility Remediation Tools
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {[

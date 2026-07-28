@@ -221,7 +221,7 @@ export function BackButton({ variant = "light" }: { variant?: "light" | "dark" }
   const [location, navigate] = useLocation();
   if (location === "/") return null;
   const dest = location === "/accessibility" ? "/" : "/accessibility";
-  const label = dest === "/" ? "Home" : "Accessibility Tools";
+  const label = dest === "/" ? "Home" : "Accessibility Remediation Tools";
   const isDark = variant === "dark";
   return (
     <Button

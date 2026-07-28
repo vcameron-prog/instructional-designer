@@ -146,7 +146,7 @@ export default function UrlScannerPage() {
             data-testid="button-back"
           >
             <ArrowLeft className="w-4 h-4" aria-hidden="true" />
-            Back to Accessibility Tools
+            Back to Accessibility Remediation Tools
           </button>
           <div className="flex items-center gap-3 mb-1">
             <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-sky-500 to-cyan-600 flex items-center justify-center flex-shrink-0">
