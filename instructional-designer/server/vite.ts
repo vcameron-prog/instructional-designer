@@ -3,6 +3,7 @@ import { createServer as createViteServer, createLogger } from "vite";
 import { type Server } from "http";
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 import { nanoid } from "nanoid";
 
 const viteLogger = createLogger();
@@ -36,8 +37,10 @@ export async function setupVite(server: Server, app: Express) {
     const url = req.originalUrl;
 
     try {
+      // fileURLToPath(import.meta.url) works in dev (tsx/ESM) and in the CJS
+      // production bundle, where esbuild's define shims import.meta.url.
       const clientTemplate = path.resolve(
-        __dirname,
+        path.dirname(fileURLToPath(import.meta.url)),
         "..",
         "client",
         "index.html",

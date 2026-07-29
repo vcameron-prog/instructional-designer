@@ -304,6 +304,15 @@ export async function registerRoutes(
     });
   }
 
+  // The PDF upload tool moved to the standalone converter app. 301 the exact
+  // page (bookmarks, external links) there; sub-pages like /history stay local.
+  app.get("/pdf-accessibility", (_req: Request, res: Response) => {
+    res.redirect(
+      301,
+      "https://accessibility-converter.replit.app/pdf-accessibility",
+    );
+  });
+
   // Redirect canonical alias paths (duplicate public routes) with 301
   for (const [oldPath, canonicalPath] of Object.entries(ALIAS_REDIRECTS)) {
     app.get(oldPath, (_req: Request, res: Response) => {

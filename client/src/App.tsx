@@ -21,7 +21,6 @@ import { ROUTE_VISIBILITY } from "@/lib/route-visibility";
 
 const NotFound                  = lazy(() => import("@/pages/not-found"));
 const CaiLandingPage            = lazy(() => import("@/pages/cai-landing"));
-const PdfUpload                 = lazy(() => import("@/pages/pdf-upload"));
 const PdfHistory                = lazy(() => import("@/pages/pdf-history"));
 const PdfConversion             = lazy(() => import("@/pages/pdf-conversion"));
 const PdfFaq                    = lazy(() => import("@/pages/pdf-faq"));
@@ -37,10 +36,26 @@ function AccessibilityRedirect() {
   return <Redirect to="/pdf-accessibility" />;
 }
 
+// The PDF upload tool now lives solely in the standalone converter app.
+// Bookmarks and in-app links to /pdf-accessibility are forwarded there.
+const PDF_CONVERTER_URL =
+  "https://accessibility-converter.replit.app/pdf-accessibility";
+
+function PdfAccessibilityExternalRedirect() {
+  useEffect(() => {
+    window.location.replace(PDF_CONVERTER_URL);
+  }, []);
+  return (
+    <div aria-live="polite" className="p-8 text-center">
+      Redirecting to the PDF Accessibility Converter…
+    </div>
+  );
+}
+
 const ROUTE_COMPONENTS: Record<string, React.ComponentType> = {
   "/":                          CaiLandingPage,
   "/accessibility":             AccessibilityRedirect,
-  "/pdf-accessibility":         PdfUpload,
+  "/pdf-accessibility":         PdfAccessibilityExternalRedirect,
   "/pdf-accessibility/history": PdfHistory,
   "/pdf-accessibility/faq":     PdfFaq,
   "/pdf-accessibility/:id":     PdfConversion,
