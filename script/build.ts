@@ -34,9 +34,10 @@ const allowlist = [
 ];
 
 async function buildAll() {
-  console.log("syncing database schema...");
-  execSync("npm run db:push -- --force", { stdio: "inherit" });
-
+  // NOTE: no db:push here. During a deployment build this script runs against
+  // the production database, where drizzle-kit push can hit interactive
+  // data-loss prompts (no TTY → crash) and bypasses the migration journal.
+  // Schema changes are applied by migrations in scripts/pre-start.sh instead.
   await rm("dist", { recursive: true, force: true });
 
   console.log("building client...");

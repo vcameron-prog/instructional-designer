@@ -72,8 +72,13 @@ try {
     )
   `);
 
-  const { rows: dbRows } = await client.query<{ id: number; hash: string }>(
-    `SELECT id, hash FROM drizzle.__drizzle_migrations`,
+  const { rows: dbRows } = await client.query<{
+    id: number;
+    hash: string;
+    created_at: string | null;
+  }>(
+    `SELECT id, hash, created_at FROM drizzle.__drizzle_migrations
+     ORDER BY created_at ASC NULLS FIRST, id ASC`,
   );
 
   // ── 1. ORPHAN CLEANUP ────────────────────────────────────────────────────
@@ -94,9 +99,89 @@ try {
     );
   }
 
+  // ── 1b. DUPLICATE CLEANUP ───────────────────────────────────────────────
+  // A migration can end up tracked twice (same hash, two rows) when a journal
+  // entry's `when` timestamp is corrected after the migration was already
+  // applied — drizzle-kit re-applies it under the new timestamp and inserts a
+  // second row. Drizzle's migration cursor is the greatest created_at, so we
+  // must keep the NEWEST row per hash (deleting it would make the migration
+  // look unapplied and db:migrate would recreate the duplicate). We then align
+  // the survivor's created_at with the journal's `when` so the cursor matches
+  // the journal exactly. Rows are ordered by created_at ASC, so the last row
+  // seen per hash is the newest.
+  const journalWhenByHash = new Map<string, number>(); // hash → journal `when`
+  const journalHashCounts = new Map<string, number>();
+  for (const entry of journal.entries) {
+    const sqlPath = path.join(migrationsDir, `${entry.tag}.sql`);
+    if (!fs.existsSync(sqlPath)) continue;
+    const h = crypto
+      .createHash("sha256")
+      .update(fs.readFileSync(sqlPath, "utf-8"))
+      .digest("hex");
+    journalWhenByHash.set(h, entry.when);
+    journalHashCounts.set(h, (journalHashCounts.get(h) ?? 0) + 1);
+  }
+
+  const newestRowByHash = new Map<string, { id: number; created_at: string | null }>();
+  const rowsByHash = new Map<string, number[]>();
+  for (const row of dbRows) {
+    if (orphanIds.includes(row.id)) continue;
+    newestRowByHash.set(row.hash, row); // rows are created_at ASC → last wins
+    const ids = rowsByHash.get(row.hash) ?? [];
+    ids.push(row.id);
+    rowsByHash.set(row.hash, ids);
+  }
+
+  const duplicateIds: number[] = [];
+  for (const [hash, ids] of rowsByHash) {
+    if (ids.length <= 1) continue;
+    if ((journalHashCounts.get(hash) ?? 1) > 1) {
+      // Ambiguous: two distinct journal entries share identical SQL content.
+      // Deduping here could delete a legitimately-tracked row — refuse.
+      console.warn(
+        `[recover-journal] WARNING: hash ${hash.slice(0, 12)}… maps to multiple ` +
+          `journal entries; skipping duplicate cleanup for it.`,
+      );
+      continue;
+    }
+    const keepId = newestRowByHash.get(hash)!.id;
+    for (const id of ids) if (id !== keepId) duplicateIds.push(id);
+  }
+  if (duplicateIds.length > 0) {
+    await client.query(
+      `DELETE FROM drizzle.__drizzle_migrations WHERE id = ANY($1::int[])`,
+      [duplicateIds],
+    );
+    console.log(
+      `[recover-journal] Removed ${duplicateIds.length} duplicate tracking row(s) ` +
+        `(same hash tracked more than once; kept newest per hash).`,
+    );
+  }
+
+  // Align each surviving row's created_at with the journal's `when` so
+  // drizzle's cursor (max created_at) reflects the journal and db:migrate
+  // won't re-apply an already-tracked migration.
+  let realigned = 0;
+  for (const [hash, row] of newestRowByHash) {
+    const when = journalWhenByHash.get(hash);
+    if (when === undefined || (journalHashCounts.get(hash) ?? 1) > 1) continue;
+    if (row.created_at !== null && Number(row.created_at) === when) continue;
+    await client.query(
+      `UPDATE drizzle.__drizzle_migrations SET created_at = $1 WHERE id = $2`,
+      [when, row.id],
+    );
+    realigned++;
+  }
+  if (realigned > 0) {
+    console.log(
+      `[recover-journal] Realigned created_at on ${realigned} tracking row(s) to match the journal.`,
+    );
+  }
+
   // Rebuild the set of applied hashes after cleanup.
+  const removedIds = new Set([...orphanIds, ...duplicateIds]);
   const appliedHashes = new Set(
-    dbRows.filter((r) => !orphanIds.includes(r.id)).map((r) => r.hash),
+    dbRows.filter((r) => !removedIds.has(r.id)).map((r) => r.hash),
   );
 
   // ── 2. FORWARD RECOVERY ──────────────────────────────────────────────────
@@ -145,13 +230,14 @@ try {
   }
 
   // ── Summary ──────────────────────────────────────────────────────────────
-  if (orphanIds.length === 0 && recovered === 0) {
+  if (orphanIds.length === 0 && duplicateIds.length === 0 && recovered === 0) {
     console.log(
       `[recover-journal] All migrations already tracked — no recovery needed.`,
     );
   } else {
     const parts: string[] = [];
     if (orphanIds.length > 0) parts.push(`removed ${orphanIds.length} orphan(s)`);
+    if (duplicateIds.length > 0) parts.push(`removed ${duplicateIds.length} duplicate(s)`);
     if (recovered > 0) parts.push(`recovered ${recovered} missing migration(s)`);
     console.log(
       `[recover-journal] Done: ${parts.join(", ")}. Journal is now consistent.`,
