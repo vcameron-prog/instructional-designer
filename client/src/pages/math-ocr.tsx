@@ -169,7 +169,7 @@ export default function MathOcrPage() {
               role="button"
               tabIndex={0}
               aria-label="Click or drag and drop an image here"
-              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") fileInputRef.current?.click(); }}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileInputRef.current?.click(); } }}
               data-testid="dropzone-math-image"
             >
               <input

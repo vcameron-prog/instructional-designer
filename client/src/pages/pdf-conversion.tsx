@@ -2639,6 +2639,7 @@ export default function PdfConversion() {
                         </p>
                         <div className="flex items-center gap-2">
                           <button
+                            type="button"
                             onClick={() => {
                               setEditedHtml(conversion.accessibleHtml || "");
                               setHtmlDirty(false);
@@ -2650,6 +2651,7 @@ export default function PdfConversion() {
                             <X className="w-3.5 h-3.5" /> Discard
                           </button>
                           <button
+                            type="button"
                             onClick={() => {
                               setSaveStatus("idle");
                               updateHtmlMutation.mutate(

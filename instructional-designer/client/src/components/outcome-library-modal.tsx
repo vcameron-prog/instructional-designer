@@ -293,7 +293,7 @@ export function OutcomeLibraryModal({ open, onClose, onAddOutcomes }: OutcomeLib
               </div>
               <div className="flex gap-3 flex-wrap">
                 <Select value={disciplineFilter} onValueChange={setDisciplineFilter}>
-                  <SelectTrigger className="w-44" data-testid="select-outcome-discipline">
+                  <SelectTrigger className="w-44" aria-label="Filter by discipline" data-testid="select-outcome-discipline">
                     <SelectValue placeholder="All disciplines" />
                   </SelectTrigger>
                   <SelectContent>
@@ -304,7 +304,7 @@ export function OutcomeLibraryModal({ open, onClose, onAddOutcomes }: OutcomeLib
                   </SelectContent>
                 </Select>
                 <Select value={bloomsFilter} onValueChange={setBloomsFilter}>
-                  <SelectTrigger className="w-44" data-testid="select-outcome-blooms">
+                  <SelectTrigger className="w-44" aria-label="Filter by Bloom's level" data-testid="select-outcome-blooms">
                     <SelectValue placeholder="All Bloom's levels" />
                   </SelectTrigger>
                   <SelectContent>
