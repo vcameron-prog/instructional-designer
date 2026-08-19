@@ -82,6 +82,35 @@ interface AdminStats {
 
 const PIE_COLORS = ["#8b1a1a", "#333333", "#555555", "#888888", "#aaaaaa", "#cccccc"];
 
+/**
+ * SVG pattern fills so multi-series charts are distinguishable without
+ * perceiving color (WCAG 1.4.1). Each pattern keeps its series' base color
+ * as the background with white texture on top, so grayscale/color-blind
+ * users can tell bars apart by texture while the overall palette is unchanged.
+ * url(#id) references resolve document-wide, so the Recharts legend icons
+ * pick up the same textures automatically.
+ */
+function ChartPatternDefs() {
+  return (
+    <svg width="0" height="0" style={{ position: "absolute" }} aria-hidden="true" focusable="false">
+      <defs>
+        <pattern id="pattern-diagonal-dark" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">
+          <rect width="6" height="6" fill="#333333" />
+          <line x1="0" y1="0" x2="0" y2="6" stroke="#ffffff" strokeWidth="1.5" />
+        </pattern>
+        <pattern id="pattern-dots-gray" patternUnits="userSpaceOnUse" width="6" height="6">
+          <rect width="6" height="6" fill="#888888" />
+          <circle cx="3" cy="3" r="1.3" fill="#ffffff" />
+        </pattern>
+        <pattern id="pattern-diagonal-gray" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">
+          <rect width="6" height="6" fill="#555555" />
+          <line x1="0" y1="0" x2="0" y2="6" stroke="#ffffff" strokeWidth="1.5" />
+        </pattern>
+      </defs>
+    </svg>
+  );
+}
+
 function formatMonth(ym: string) {
   const [year, month] = ym.split("-");
   const d = new Date(Number(year), Number(month) - 1, 1);
@@ -176,6 +205,7 @@ export default function AdminDashboard() {
 
   return (
     <main id="main-content" tabIndex={-1} className="min-h-screen bg-background">
+      <ChartPatternDefs />
       <div className="container mx-auto max-w-6xl px-4 py-8 space-y-8">
 
         {/* Header */}
@@ -275,8 +305,8 @@ export default function AdminDashboard() {
                         <Tooltip formatter={(v: number, name: string) => [v, name.charAt(0).toUpperCase() + name.slice(1)]} labelFormatter={formatMonth} />
                         <Legend />
                         <Bar dataKey="courses" fill="#8b1a1a" name="Courses" radius={[3, 3, 0, 0]} />
-                        <Bar dataKey="content" fill="#333333" name="Content" radius={[3, 3, 0, 0]} />
-                        <Bar dataKey="conversions" fill="#888888" name="Conversions" radius={[3, 3, 0, 0]} />
+                        <Bar dataKey="content" fill="url(#pattern-diagonal-dark)" name="Content" radius={[3, 3, 0, 0]} />
+                        <Bar dataKey="conversions" fill="url(#pattern-dots-gray)" name="Conversions" radius={[3, 3, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -462,7 +492,7 @@ export default function AdminDashboard() {
                               <Tooltip />
                               <Legend />
                               <Bar dataKey="sessions" name="Sessions" fill="#8b1a1a" />
-                              <Bar dataKey="events" name="Events" fill="#555555" />
+                              <Bar dataKey="events" name="Events" fill="url(#pattern-diagonal-gray)" />
                             </BarChart>
                           </ResponsiveContainer>
                         </div>
@@ -479,7 +509,7 @@ export default function AdminDashboard() {
                               <Tooltip />
                               <Legend />
                               <Bar dataKey="sessions" name="Sessions" fill="#8b1a1a" />
-                              <Bar dataKey="events" name="Events" fill="#555555" />
+                              <Bar dataKey="events" name="Events" fill="url(#pattern-diagonal-gray)" />
                             </BarChart>
                           </ResponsiveContainer>
                         </div>
