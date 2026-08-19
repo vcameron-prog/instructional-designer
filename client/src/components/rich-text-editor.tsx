@@ -290,7 +290,7 @@ export function RichTextEditor({
         "aria-label": "Edit accessible HTML",
         "data-testid": "rich-text-editor-content",
         class:
-          "prose prose-slate max-w-none dark:prose-invert focus:outline-none min-h-[400px] p-4",
+          "prose prose-slate max-w-none dark:prose-invert focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-md min-h-[400px] p-4",
       },
     },
   });
