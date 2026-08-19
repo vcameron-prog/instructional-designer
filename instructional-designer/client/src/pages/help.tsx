@@ -511,7 +511,7 @@ export default function HelpPage() {
                 <div>
                   <h3 className="font-semibold text-lg mb-1">Convert Documents to Accessible Formats</h3>
                   <p className="text-muted-foreground">
-                    The Accessibility Converter transforms PDF files, Word documents (.docx), and Google Docs into WCAG 2.1 AA compliant 
+                    The Accessibility Converter transforms PDF files, Word documents (.docx), and Google Docs into more
                     accessible formats. Using AI-powered remediation, it analyzes your document's structure, images, 
                     and tables to produce properly structured HTML or Word documents that work with screen readers 
                     and other assistive technologies.

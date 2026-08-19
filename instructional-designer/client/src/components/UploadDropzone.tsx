@@ -106,7 +106,7 @@ export function UploadDropzone({
             <p className="text-sm text-muted-foreground max-w-sm mx-auto">
               {isUploading
                 ? "Your document is being prepared for accessibility remediation."
-                : "We will automatically generate a WCAG 2.1 AA compliant accessible version."}
+                : "We will automatically generate a more accessible version designed to support WCAG 2.1 AA goals."}
             </p>
           </div>
           {!isUploading && (

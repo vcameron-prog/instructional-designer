@@ -2,12 +2,12 @@
 
 > AI-powered accessibility and instructional design platform for Bridgewater State University faculty and staff.
 
-This site helps BSU faculty create WCAG 2.1 AA-compliant course materials, convert documents to accessible formats, and use a suite of accessibility tools. It also provides an AI-powered instructional design workspace for building UDL-aligned course content.
+This site helps BSU faculty create more accessible course materials designed to support WCAG 2.1 AA goals, convert documents to accessible formats, and use a suite of accessibility tools. It also provides an AI-powered instructional design workspace for building UDL-aligned course content. These tools improve accessibility but do not guarantee full WCAG 2.1 compliance; always verify with a human reviewer and assistive technology testing.
 
 ## Public sections
 
 - [Home](https://accessibility.bridgew.edu/): Landing page with an overview of the accessibility platform.
-- [Accessibility Converter](https://accessibility.bridgew.edu/accessibility): Upload PDF, Word (.docx), or Google Docs links for conversion to accessible HTML, DOCX, or tagged PDF with WCAG 2.1 AA compliance reporting.
+- [Accessibility Converter](https://accessibility.bridgew.edu/accessibility): Upload PDF, Word (.docx), or Google Docs links for conversion to more accessible HTML, DOCX, or tagged PDF with WCAG 2.1 AA accessibility checks and reporting.
 - [PDF Accessibility](https://accessibility.bridgew.edu/pdf-accessibility): Dedicated PDF-to-accessible-HTML conversion pipeline with AI extraction and compliance checks.
 - [PDF Accessibility FAQ](https://accessibility.bridgew.edu/pdf-accessibility/faq): Frequently asked questions about the PDF accessibility conversion process.
 - [Help](https://accessibility.bridgew.edu/help): Guidance on using the accessibility tools and understanding accessibility requirements.

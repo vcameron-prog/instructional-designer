@@ -26,7 +26,7 @@ const PUBLIC_ROUTE_META: Record<string, RouteMeta> = {
   "/": {
     title: "BSU Accessibility Tool | Bridgewater State University",
     description:
-      "AI-powered accessibility converter for BSU faculty. Convert PDF, Word, and Google Docs documents to WCAG 2.1 AA compliant HTML using Claude AI.",
+      "AI-powered accessibility converter for BSU faculty. Convert PDF, Word, and Google Docs documents to more accessible HTML designed to support WCAG 2.1 AA goals, using Claude AI.",
     bodyContent: `
       <main id="main-content">
         <h1>BSU Accessibility &amp; Instructional Design Tools</h1>
@@ -43,7 +43,7 @@ const PUBLIC_ROUTE_META: Record<string, RouteMeta> = {
         </section>
         <section aria-labelledby="converter-section-heading">
           <h2 id="converter-section-heading">Accessibility Converter</h2>
-          <p>Convert PDF, Word, PowerPoint, Excel, and Google Docs to WCAG 2.1 AA compliant accessible HTML.
+          <p>Convert PDF, Word, PowerPoint, Excel, and Google Docs to more accessible HTML designed to support WCAG 2.1 AA goals.
              No login required &mdash; free to use instantly.</p>
           <ul>
             <li>Supports PDF, Word (.docx), Excel (.xlsx), PowerPoint (.pptx), and Google Docs</li>
@@ -57,12 +57,12 @@ const PUBLIC_ROUTE_META: Record<string, RouteMeta> = {
   "/accessibility": {
     title: "Accessibility Converter | BSU Accessibility Tool",
     description:
-      "Convert PDF, Word (.docx), Excel, PowerPoint, and Google Docs to WCAG 2.1 AA compliant accessible HTML. ADA Title II document remediation for BSU faculty.",
+      "Convert PDF, Word (.docx), Excel, PowerPoint, and Google Docs to more accessible HTML designed to support WCAG 2.1 AA goals. Document remediation support for BSU faculty working toward ADA Title II requirements.",
     bodyContent: `
       <main id="main-content">
         <h1>Accessibility Converter</h1>
-        <p>Convert PDF, Word (.docx), Excel, PowerPoint, and Google Docs to WCAG 2.1 AA compliant accessible HTML.
-           AI-powered document remediation for ADA Title II compliance.</p>
+        <p>Convert PDF, Word (.docx), Excel, PowerPoint, and Google Docs to more accessible HTML designed to support WCAG 2.1 AA goals.
+           AI-powered document remediation to support ADA Title II accessibility efforts.</p>
         <section aria-labelledby="how-it-works-heading">
           <h2 id="how-it-works-heading">How It Works</h2>
           <ol>
@@ -86,12 +86,12 @@ const PUBLIC_ROUTE_META: Record<string, RouteMeta> = {
   "/pdf-accessibility": {
     title: "Accessibility Converter | BSU Accessibility Tool",
     description:
-      "Convert PDF, Word (.docx), Excel, PowerPoint, and Google Docs to WCAG 2.1 AA compliant accessible HTML. ADA Title II document remediation for BSU faculty.",
+      "Convert PDF, Word (.docx), Excel, PowerPoint, and Google Docs to more accessible HTML designed to support WCAG 2.1 AA goals. Document remediation support for BSU faculty working toward ADA Title II requirements.",
     bodyContent: `
       <main id="main-content">
         <h1>Accessibility Converter</h1>
-        <p>Convert PDF, Word (.docx), Excel, PowerPoint, and Google Docs to WCAG 2.1 AA compliant accessible HTML.
-           AI-powered document remediation for ADA Title II compliance.</p>
+        <p>Convert PDF, Word (.docx), Excel, PowerPoint, and Google Docs to more accessible HTML designed to support WCAG 2.1 AA goals.
+           AI-powered document remediation to support ADA Title II accessibility efforts.</p>
         <section aria-labelledby="how-it-works-heading">
           <h2 id="how-it-works-heading">How It Works</h2>
           <ol>
@@ -170,12 +170,12 @@ const PUBLIC_ROUTE_META: Record<string, RouteMeta> = {
   "/accessibility-tools/color-contrast": {
     title: "Color Contrast Checker | BSU Accessibility Tool",
     description:
-      "Check text and background color combinations for WCAG 2.1 AA contrast compliance. Ensure your course materials meet accessibility standards.",
+      "Check text and background color combinations for WCAG 2.1 AA contrast compliance. Help your course materials work toward accessibility standards.",
     bodyContent: `
       <main id="main-content">
         <h1>Color Contrast Checker</h1>
         <p>Check text and background color combinations for WCAG 2.1 AA contrast compliance.
-           Ensure your course materials and web content meet accessibility standards for all learners.</p>
+           Helps you work toward accessibility standards in your course materials and web content for all learners.</p>
         <section aria-labelledby="contrast-ratios-heading">
           <h2 id="contrast-ratios-heading">WCAG 2.1 Contrast Requirements</h2>
           <ul>
@@ -229,12 +229,12 @@ const PUBLIC_ROUTE_META: Record<string, RouteMeta> = {
   "/help": {
     title: "Help & Resources | BSU Accessibility Tool",
     description:
-      "Step-by-step guidance for using the BSU accessibility converter and accessibility tools. Learn how to make your course materials ADA compliant.",
+      "Step-by-step guidance for using the BSU accessibility converter and accessibility tools. Learn how to make your course materials more accessible in support of ADA requirements.",
     bodyContent: `
       <main id="main-content">
         <h1>Help &amp; Resources</h1>
         <p>Step-by-step guidance for using the BSU accessibility converter and accessibility tools.
-           Learn how to make your course materials ADA Title II and WCAG 2.1 AA compliant.</p>
+           Learn how to make your course materials more accessible in support of ADA Title II and WCAG 2.1 AA standards.</p>
         <section aria-labelledby="help-steps-heading">
           <h2 id="help-steps-heading">How to Use the Accessibility Converter</h2>
           <ol>

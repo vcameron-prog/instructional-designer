@@ -15,7 +15,7 @@ This app helps BSU faculty build high-quality, UDL-aligned course materials — 
 ## Faculty Accessibility Tools
 
 - [Accessibility Tools Hub](https://accessibility.bridgew.edu/faculty/accessibility-tools): Overview of accessibility tools available within the faculty workspace.
-- [URL Scanner](https://accessibility.bridgew.edu/faculty/accessibility-tools/url-scanner): Scan any URL for WCAG 2.1 AA compliance issues.
+- [URL Scanner](https://accessibility.bridgew.edu/faculty/accessibility-tools/url-scanner): Scan any URL for WCAG 2.1 AA accessibility issues.
 - [Color Contrast Checker](https://accessibility.bridgew.edu/faculty/accessibility-tools/color-contrast): Verify color contrast ratios for accessible course materials.
 - [Alt Text Generator](https://accessibility.bridgew.edu/faculty/accessibility-tools/alt-text): AI-generated alt text for images used in course content.
 - [Math OCR](https://accessibility.bridgew.edu/faculty/accessibility-tools/math-ocr): Convert math expressions from images to accessible LaTeX or MathML for course materials.

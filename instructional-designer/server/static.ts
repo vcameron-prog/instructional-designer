@@ -46,7 +46,7 @@ const PUBLIC_ROUTE_META: Record<string, RouteMeta> = {
           <h2 id="tools-heading">Available Tools</h2>
           <ul>
             <li><strong>Accessibility Converter</strong> &mdash; Convert PDFs, Word documents, and Google Docs
-                into WCAG 2.1 AA compliant accessible documents</li>
+                into more accessible documents designed to support WCAG 2.1 AA goals</li>
             <li><strong>Quick Tools</strong> &mdash; Generate individual course materials without creating a full course</li>
             <li><strong>Course Designer</strong> &mdash; Design a complete course with AI-generated materials
                 including syllabi, assignments, rubrics, and learning modules</li>
@@ -78,7 +78,7 @@ const PUBLIC_ROUTE_META: Record<string, RouteMeta> = {
           <h2 id="tools-heading">Available Tools</h2>
           <ul>
             <li><strong>Accessibility Converter</strong> &mdash; Convert PDFs, Word documents, and Google Docs
-                into WCAG 2.1 AA compliant accessible documents</li>
+                into more accessible documents designed to support WCAG 2.1 AA goals</li>
             <li><strong>Quick Tools</strong> &mdash; Generate individual course materials without creating a full course</li>
             <li><strong>Course Designer</strong> &mdash; Design a complete course with AI-generated materials</li>
           </ul>
@@ -163,7 +163,7 @@ const PUBLIC_ROUTE_META: Record<string, RouteMeta> = {
           <ul>
             <li><strong>URL Accessibility Scanner</strong> &mdash; Scan any web page for WCAG 2.1 AA violations</li>
             <li><strong>Color Contrast Checker</strong> &mdash; Verify text and background color contrast ratios</li>
-            <li><strong>Alt Text Generator</strong> &mdash; AI-generated image descriptions for WCAG 2.1 compliance</li>
+            <li><strong>Alt Text Generator</strong> &mdash; AI-generated image descriptions designed to support WCAG 2.1 goals</li>
             <li><strong>Math OCR</strong> &mdash; Convert math equation images to accessible text and LaTeX</li>
           </ul>
         </section>
@@ -194,12 +194,12 @@ const PUBLIC_ROUTE_META: Record<string, RouteMeta> = {
   "/faculty/accessibility-tools/color-contrast": {
     title: "Color Contrast Checker | BSU Instructional Designer",
     description:
-      "Check text and background color combinations for WCAG 2.1 AA contrast compliance. Ensure your course materials meet accessibility standards.",
+      "Check text and background color combinations for WCAG 2.1 AA contrast compliance. Help your course materials work toward accessibility standards.",
     bodyContent: `
       <main id="main-content">
         <h1>Color Contrast Checker</h1>
         <p>Check text and background color combinations for WCAG 2.1 AA contrast compliance.
-           Ensure your course materials and web content meet accessibility standards for all learners.</p>
+           Helps you work toward accessibility standards in your course materials and web content for all learners.</p>
         <section aria-labelledby="contrast-ratios-heading">
           <h2 id="contrast-ratios-heading">WCAG 2.1 Contrast Requirements</h2>
           <ul>

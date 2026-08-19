@@ -18,7 +18,7 @@ const TOOLS = [
     id: "document-converter",
     label: "Document Converter",
     description:
-      "Convert PDFs, Word documents, PowerPoint, Excel, and Google Docs into WCAG 2.1 AA compliant accessible documents.",
+      "Convert PDFs, Word documents, PowerPoint, Excel, and Google Docs into more accessible documents designed to support WCAG 2.1 AA goals.",
     icon: <FileText className="w-6 h-6 text-white" aria-hidden="true" />,
     gradient: "from-blue-500 to-indigo-600",
     href: null,

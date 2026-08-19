@@ -22,7 +22,7 @@ const DEFAULT_MAX_UPLOAD_MB = 5;
 export default function AltTextGeneratorPage() {
   usePageTitle(
     "Alt Text Generator",
-    "Generate accurate, descriptive alt text for images using AI. Upload any image and get WCAG-compliant alternative text to improve accessibility.",
+    "Generate accurate, descriptive alt text for images using AI. Upload any image and get descriptive alternative text, informed by WCAG guidance, to improve accessibility.",
   );
   const [, navigate] = useLocation();
   const [file, setFile] = useState<File | null>(null);

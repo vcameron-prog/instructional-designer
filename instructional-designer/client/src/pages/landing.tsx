@@ -198,7 +198,7 @@ export default function LandingPage() {
                       </div>
                       <CardTitle className="text-2xl mb-3">Accessibility Converter</CardTitle>
                       <CardDescription className="text-base mb-4" style={{ textWrap: "balance" }}>
-                        Convert PDFs, Word documents, and Google Docs into WCAG 2.1 AA compliant accessible documents.
+                        Convert PDFs, Word documents, and Google Docs into more accessible documents designed to support WCAG 2.1 AA goals.
                       </CardDescription>
                       <Button className="mt-auto gap-2" data-testid="button-pdf-accessibility">
                         Convert a Document <ArrowRight className="w-4 h-4" />
@@ -317,7 +317,7 @@ export default function LandingPage() {
                       </div>
                       <CardTitle className="text-2xl mb-3">Accessibility Converter</CardTitle>
                       <CardDescription className="text-base mb-4" style={{ textWrap: "balance" }}>
-                        Convert PDFs, Word documents, and Google Docs into WCAG 2.1 AA compliant accessible documents.
+                        Convert PDFs, Word documents, and Google Docs into more accessible documents designed to support WCAG 2.1 AA goals.
                       </CardDescription>
                       <Button className="mt-auto gap-2" data-testid="button-pdf-accessibility">
                         Convert a Document <ArrowRight className="w-4 h-4" />

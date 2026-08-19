@@ -244,7 +244,7 @@ const PIPELINE_STEPS = [
   {
     key: "generate",
     label: "Generating accessible HTML",
-    description: "Creating WCAG 2.1 AA compliant markup",
+    description: "Creating markup aligned with WCAG 2.1 AA guidelines",
     thresholdSec: 25,
   },
   {
@@ -1663,7 +1663,7 @@ export default function PdfConversion() {
                       <li><span className="font-medium">HTML</span> — use when embedding content directly in a website.</li>
                     </ul>
                     <p className="mt-1.5 text-blue-700 dark:text-blue-400" data-testid="text-formatting-loss-results-notice">
-                      <span className="font-medium">Formatting note:</span> Colors, custom fonts, and visual layout from the original are intentionally removed. This produces a clean, semantically structured document that meets WCAG accessibility standards.
+                      <span className="font-medium">Formatting note:</span> Colors, custom fonts, and visual layout from the original are intentionally removed. This produces a clean, semantically structured document designed to support WCAG accessibility goals. Always verify the result with a human reviewer and assistive technology testing.
                     </p>
                     <p className="mt-1.5 text-blue-700 dark:text-blue-400">
                       Any issues listed below are items the AI could not fix automatically — the file is still usable, but reviewing them before sharing with students is encouraged.

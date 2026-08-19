@@ -19,7 +19,7 @@ export default function CaiLandingPage() {
   useEffect(() => { window.scrollTo(0, 0); }, []);
   usePageTitle(
     "CAI Tools — Bridgewater State University",
-    "Free AI-powered accessibility converter and tools from the BSU Center for Artificial Intelligence. Convert PDF, Word, and Google Docs to WCAG 2.1 AA-compliant accessible HTML.",
+    "Free AI-powered accessibility converter and tools from the BSU Center for Artificial Intelligence. Convert PDF, Word, and Google Docs to more accessible HTML designed to support WCAG 2.1 AA goals.",
   );
   const [, navigate] = useLocation();
 
