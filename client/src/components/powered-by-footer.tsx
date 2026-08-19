@@ -29,7 +29,7 @@ export function PoweredByFooter() {
           />
         </div>
 
-        <p className="text-center text-xs text-gray-600 dark:text-gray-400 max-w-2xl mx-auto flex items-start justify-center gap-2" style={{ textWrap: "balance" }} data-testid="text-privacy">
+        <p className="text-center text-xs text-gray-700 dark:text-gray-400 max-w-2xl mx-auto flex items-start justify-center gap-2" style={{ textWrap: "balance" }} data-testid="text-privacy">
           <Shield className="w-3 h-3 flex-shrink-0 mt-0.5" aria-hidden="true" />
           <span>
             Your data is stored securely, never shared, and not used to train AI models. Powered by{" "}
