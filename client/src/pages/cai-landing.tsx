@@ -53,7 +53,7 @@ export default function CaiLandingPage() {
           <div className="flex flex-col md:flex-row items-center gap-10">
             <div className="flex-1">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-muted text-muted-foreground text-xs font-semibold mb-4">
-                <GraduationCap className="w-3.5 h-3.5" />
+                <GraduationCap className="w-3.5 h-3.5" aria-hidden="true" />
                 UDL · Inclusive Design · BSU Faculty
               </div>
               <h2

@@ -171,7 +171,7 @@ export default function AdminDashboard() {
         <Card className="max-w-md w-full">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-destructive" data-testid="text-access-denied">
-              <ShieldAlert className="w-5 h-5" />
+              <ShieldAlert className="w-5 h-5" aria-hidden="true" />
               {notLoggedIn ? "Sign In Required" : "Access Denied"}
             </CardTitle>
           </CardHeader>
@@ -191,7 +191,7 @@ export default function AdminDashboard() {
                 </Button>
               )}
               <Button variant="outline" onClick={() => navigate("/")} data-testid="button-go-home">
-                <ArrowLeft className="w-4 h-4 mr-2" />
+                <ArrowLeft className="w-4 h-4 mr-2" aria-hidden="true" />
                 Go Home
               </Button>
             </div>
@@ -212,7 +212,7 @@ export default function AdminDashboard() {
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="sm" onClick={() => navigate("/")} data-testid="button-back-home">
-              <ArrowLeft className="w-4 h-4 mr-1" />
+              <ArrowLeft className="w-4 h-4 mr-1" aria-hidden="true" />
               Home
             </Button>
             <h1 className="text-2xl font-bold text-foreground" data-testid="heading-admin-dashboard">
@@ -226,7 +226,7 @@ export default function AdminDashboard() {
               onClick={() => { refetch(); refetchHistory(); }}
               data-testid="button-refresh-stats"
             >
-              <RefreshCw className="w-4 h-4 mr-2" />
+              <RefreshCw className="w-4 h-4 mr-2" aria-hidden="true" />
               Refresh
             </Button>
             <Button
@@ -243,7 +243,7 @@ export default function AdminDashboard() {
               }}
               data-testid="button-export-csv"
             >
-              <Download className="w-4 h-4 mr-2" />
+              <Download className="w-4 h-4 mr-2" aria-hidden="true" />
               Export CSV
             </Button>
           </div>
@@ -261,7 +261,7 @@ export default function AdminDashboard() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <Card data-testid="card-total-courses">
                   <CardContent className="pt-6 flex flex-col items-center gap-2">
-                    <BookOpen className="w-6 h-6 text-primary" />
+                    <BookOpen className="w-6 h-6 text-primary" aria-hidden="true" />
                     <p className="text-3xl font-bold text-foreground" data-testid="text-total-courses">{stats.totals.courses}</p>
                     <p className="text-xs text-muted-foreground">Total Courses</p>
                   </CardContent>
