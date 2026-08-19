@@ -722,6 +722,39 @@ export default function PdfConversion() {
     }
   }, [isProcessingOrUploaded, conversion?.processingStartedAt]);
 
+  // Screen-reader completion announcement (WCAG 4.1.3): announce when
+  // processing transitions to completed/failed instead of the processing
+  // live region silently unmounting.
+  const [completionAnnouncement, setCompletionAnnouncement] = useState("");
+  const prevStatusRef = useRef<string | null>(null);
+  const prevAnnounceIdRef = useRef<number | null>(null);
+  useEffect(() => {
+    // Reset announcement state when navigating between conversions
+    // without unmounting the page.
+    if (prevAnnounceIdRef.current !== numericId) {
+      prevAnnounceIdRef.current = numericId;
+      prevStatusRef.current = null;
+      setCompletionAnnouncement("");
+    }
+    const prev = prevStatusRef.current;
+    const cur = conversion?.status ?? null;
+    const wasInProgress = prev === "processing" || prev === "uploaded";
+    if (wasInProgress && cur === "completed") {
+      setCompletionAnnouncement(
+        "Document processing complete. Results are ready.",
+      );
+    } else if (wasInProgress && cur === "failed") {
+      setCompletionAnnouncement(
+        "Document processing failed. See the error details on this page.",
+      );
+    } else if (cur === "processing" || cur === "uploaded") {
+      // Clear stale text so a subsequent completion is a fresh DOM change
+      // that assistive technology will announce (e.g. after reprocessing).
+      setCompletionAnnouncement("");
+    }
+    prevStatusRef.current = cur;
+  }, [conversion?.status, numericId]);
+
   const isBannerShown = isAuthenticated && !!user && conversion?.userId === user?.id &&
     (conversion?.status === "completed" || conversion?.status === "failed") && !bannerDismissed;
 
@@ -1466,6 +1499,14 @@ export default function PdfConversion() {
       tabIndex={-1}
       className="min-h-screen bg-background"
     >
+      <div
+        role="status"
+        aria-live="polite"
+        className="sr-only"
+        data-testid="status-completion-announcement"
+      >
+        {completionAnnouncement}
+      </div>
       <header className="border-b bg-card">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -2717,6 +2758,17 @@ export default function PdfConversion() {
                     );
                   })()}
                 </div>
+
+                <span
+                  role="status"
+                  aria-live="polite"
+                  className="sr-only"
+                  data-testid="status-fix-all-progress"
+                >
+                  {isFixingAll && fixAllProgress
+                    ? `Fixing issue ${fixAllProgress.current} of ${fixAllProgress.total}`
+                    : ""}
+                </span>
 
                 {fixError && (
                   <div

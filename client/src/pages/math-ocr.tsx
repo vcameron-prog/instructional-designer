@@ -219,6 +219,19 @@ export default function MathOcrPage() {
               )}
             </Button>
 
+            <span
+              role="status"
+              aria-live="polite"
+              className="sr-only"
+              data-testid="status-math-progress"
+            >
+              {loading
+                ? "Uploading image and extracting math content. Please wait."
+                : result
+                  ? "Math content extracted. Results are below."
+                  : ""}
+            </span>
+
             {error && (
               <div className="flex items-start gap-2 p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm" role="alert" data-testid="text-math-error">
                 <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" aria-hidden="true" />

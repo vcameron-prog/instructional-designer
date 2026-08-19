@@ -78,6 +78,11 @@ export function UploadDropzone({
           aria-label="Document File Upload"
           data-testid="input-file-upload"
         />
+        <span role="status" aria-live="polite" className="sr-only">
+          {isUploading
+            ? "Upload in progress. Your document is being uploaded and prepared for accessibility remediation."
+            : ""}
+        </span>
         <div className="flex flex-col items-center justify-center space-y-3">
           <div
             className={cn(

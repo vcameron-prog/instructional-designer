@@ -14,3 +14,5 @@
 - [PDF font-size metadata via pdf-parse internals](pdf-font-metadata-extraction.md) — pdf-parse's public API has no per-line font size; reach into `(parser as any).doc` defensively, or prefer mammoth's h1-h6 for DOCX.
 - [Top-level route calls crash the CJS bundle](routes-ts-top-level-guard.md) — app.get() outside registerRoutes() + createRequire(import.meta.url) both cause startup crashes in esbuild CJS output.
 - [ID rate-limit validation flake](id-rate-limit-validation-flake.md) — DB-backed ai-gen limit persists across runs; repeated smoke tests hit 429; clear rate_limit_log to unblock.
+- [Root app upload UI is dead code](root-upload-dead-code.md) — UploadDropzone.tsx in both apps is unmounted; /pdf-accessibility redirects to a standalone converter, real upload flows are alt-text-generator and math-ocr.
+- [Validation runs flake on timeouts/rate limits](validation-flakes.md) — full validation can fail on vitest hook timeouts under parallel load or the ID smoke SSRF test hitting 429; verify locally, then just retry markTaskComplete.
