@@ -1494,11 +1494,7 @@ export default function PdfConversion() {
       : conversion.status;
 
   return (
-    <main
-      id="main-content"
-      tabIndex={-1}
-      className="min-h-screen bg-background"
-    >
+    <div className="min-h-screen bg-background">
       <div
         role="status"
         aria-live="polite"
@@ -1555,6 +1551,8 @@ export default function PdfConversion() {
           />
         </div>
       </header>
+
+      <main id="main-content" tabIndex={-1}>
 
       <div className="container mx-auto px-4 py-6 space-y-6">
         {isBannerShown && (
@@ -3611,7 +3609,8 @@ export default function PdfConversion() {
           </div>
         )}
       </div>
+      </main>
       <PoweredByFooter />
-    </main>
+    </div>
   );
 }

@@ -128,7 +128,7 @@ export default function UrlScannerPage() {
   const minorIssues = result?.issues.filter(i => i.severity === "minor") ?? [];
 
   return (
-    <main id="main-content" tabIndex={-1} className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-20 flex items-center justify-between px-4 py-2 bg-background/95 backdrop-blur-sm border-b border-border">
         <nav aria-label="Back navigation">
           <BackButton />
@@ -137,6 +137,8 @@ export default function UrlScannerPage() {
           <HeaderControls showLogout={false} showLogin={false} />
         </nav>
       </header>
+
+      <main id="main-content" tabIndex={-1}>
 
       <div className="container mx-auto px-4 py-8 max-w-2xl">
         <div className="mb-6">
@@ -268,7 +270,8 @@ export default function UrlScannerPage() {
           </div>
         )}
       </div>
+      </main>
       <PoweredByFooter />
-    </main>
+    </div>
   );
 }

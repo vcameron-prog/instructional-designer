@@ -159,6 +159,7 @@ export default function AdminDashboard() {
   if (checkLoading) {
     return (
       <main id="main-content" tabIndex={-1} className="min-h-screen flex items-center justify-center bg-background">
+        <h1 className="sr-only">Admin Dashboard</h1>
         <p className="text-muted-foreground" data-testid="text-admin-loading">Loading…</p>
       </main>
     );
@@ -170,9 +171,11 @@ export default function AdminDashboard() {
       <main id="main-content" tabIndex={-1} className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="max-w-md w-full">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-destructive" data-testid="text-access-denied">
-              <ShieldAlert className="w-5 h-5" aria-hidden="true" />
-              {notLoggedIn ? "Sign In Required" : "Access Denied"}
+            <CardTitle className="text-destructive" data-testid="text-access-denied">
+              <h1 className="flex items-center gap-2">
+                <ShieldAlert className="w-5 h-5" aria-hidden="true" />
+                {notLoggedIn ? "Sign In Required" : "Access Denied"}
+              </h1>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">

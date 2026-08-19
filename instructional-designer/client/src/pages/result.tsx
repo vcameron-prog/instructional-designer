@@ -832,7 +832,7 @@ export default function ResultPage() {
                   <RefreshCw className="w-10 h-10 text-white animate-spin-slow" aria-hidden="true" />
                 </div>
               </div>
-              <h2 className="text-2xl font-bold mb-4">Refining Your Content</h2>
+              <h1 className="text-2xl font-bold mb-4">Refining Your Content</h1>
               <p className="text-muted-foreground mb-6 animate-pulse-subtle">
                 {loadingMessage}
               </p>

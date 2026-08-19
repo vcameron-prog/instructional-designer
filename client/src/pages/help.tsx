@@ -117,7 +117,7 @@ export default function HelpPage() {
   );
 
   return (
-    <main id="main-content" tabIndex={-1} className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background">
       <header className="border-b bg-background/95 backdrop-blur sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -145,6 +145,8 @@ export default function HelpPage() {
           </div>
         </div>
       </header>
+
+      <main id="main-content" tabIndex={-1}>
 
       <div className="container mx-auto px-4 py-8 max-w-4xl">
 
@@ -268,7 +270,8 @@ export default function HelpPage() {
 
       </div>
 
+      </main>
       <PoweredByFooter />
-    </main>
+    </div>
   );
 }

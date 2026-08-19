@@ -238,7 +238,7 @@ export default function LibraryPage() {
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <Library className="w-12 h-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Your content library is empty</h3>
+              <h2 className="text-lg font-semibold mb-2">Your content library is empty</h2>
               <p className="text-muted-foreground text-center max-w-md">
                 Save generated content as templates to reuse across any course. 
                 Look for the "Save as Template" button on any generated content.
@@ -257,7 +257,7 @@ export default function LibraryPage() {
                         <Icon className="w-5 h-5 text-primary" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold truncate">{item.title}</h3>
+                        <h2 className="font-semibold truncate">{item.title}</h2>
                         {item.description && (
                           <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
                             {item.description}
