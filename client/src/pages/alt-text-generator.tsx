@@ -158,6 +158,7 @@ export default function AltTextGeneratorPage() {
                 type="file"
                 accept="image/jpeg,image/png,image/gif,image/webp"
                 className="sr-only"
+                aria-label="Upload an image for alt text generation (JPEG, PNG, GIF, or WebP)"
                 onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
                 data-testid="input-image-file"
               />

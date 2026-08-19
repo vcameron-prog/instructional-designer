@@ -379,7 +379,10 @@ export default function SettingsPage() {
               >
                 Minimum page title length
               </label>
-              <p className="text-sm text-muted-foreground">
+              <p
+                id="settings-title-quality-min-length-description"
+                className="text-sm text-muted-foreground"
+              >
                 Extracted page titles shorter than this many characters (or generic placeholders like "Slide 1") are flagged for manual review. Lower this if you have legitimate short titles like "FAQ".
               </p>
               <div className="flex items-center gap-2">
@@ -388,6 +391,7 @@ export default function SettingsPage() {
                   type="number"
                   min={TITLE_QUALITY_MIN_LENGTH_BOUNDS.min}
                   max={TITLE_QUALITY_MIN_LENGTH_BOUNDS.max}
+                  aria-describedby="settings-title-quality-min-length-description"
                   value={titleQualityMinLength}
                   onChange={(e) => {
                     const parsed = parseInt(e.target.value, 10);

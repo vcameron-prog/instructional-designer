@@ -3211,7 +3211,7 @@ export default function PdfConversion() {
                                     maxLength={200}
                                     className="flex-1 rounded-md border border-blue-300 dark:border-blue-700 bg-white dark:bg-blue-950/40 px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500"
                                     data-testid={`input-page-title-${i}`}
-                                    aria-label="Custom page title"
+                                    aria-label={`Custom page title for issue ${i + 1}${issue.title ? `: ${issue.title}` : ""}`}
                                   />
                                   <button
                                     type="button"
