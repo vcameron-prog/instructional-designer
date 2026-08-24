@@ -81,11 +81,10 @@ function IssueCard({ issue }: { issue: ScanIssue }) {
 
 function ScoreMeter({ score }: { score: number }) {
   const color = score >= 80 ? "text-emerald-600 dark:text-emerald-400" : score >= 60 ? "text-amber-600 dark:text-amber-400" : "text-red-600 dark:text-red-400";
-  const label = score >= 80 ? "Good" : score >= 60 ? "Needs Work" : "Poor";
   return (
     <div className="text-center">
       <p className={`text-5xl font-bold ${color}`} data-testid="text-scan-score">{score}</p>
-      <p className="text-muted-foreground text-sm mt-1">{label} accessibility score</p>
+      <p className="text-muted-foreground text-sm mt-1">Score for automated checks performed</p>
     </div>
   );
 }
@@ -148,7 +147,7 @@ export default function UrlScannerPage() {
             <h1 className="text-2xl font-bold text-foreground">URL Accessibility Scanner</h1>
           </div>
           <p className="text-muted-foreground text-sm">
-            Check any public webpage for WCAG 2.1 accessibility issues using AI analysis.
+            Run an AI-assisted automated check for selected accessibility issues detectable in a public webpage.
           </p>
         </div>
 
@@ -217,7 +216,7 @@ export default function UrlScannerPage() {
                     <span className="text-muted-foreground">{minorIssues.length} minor</span>
                   )}
                   {result.issues.length === 0 && (
-                    <span className="text-emerald-600 dark:text-emerald-400 font-semibold">No issues found</span>
+                    <span className="text-emerald-600 dark:text-emerald-400 font-semibold">No issues found by these checks</span>
                   )}
                 </div>
               </CardContent>
@@ -226,7 +225,7 @@ export default function UrlScannerPage() {
             {result.issues.length > 0 && (
               <div>
                 <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-                  Issues Found ({result.issues.length})
+                  Issues Found by Automated Checks ({result.issues.length})
                 </h2>
                 <div className="space-y-2">
                   {[...criticalIssues, ...majorIssues, ...minorIssues].map((issue, i) => (
@@ -239,7 +238,7 @@ export default function UrlScannerPage() {
             {result.passed.length > 0 && (
               <div>
                 <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-                  Passing Checks ({result.passed.length})
+                  Automated Checks Passed ({result.passed.length})
                 </h2>
                 <div className="space-y-1.5">
                   {result.passed.map((item, i) => (
@@ -253,7 +252,7 @@ export default function UrlScannerPage() {
             )}
 
             <p className="text-xs text-muted-foreground">
-              This scan uses AI analysis of the page&apos;s HTML. Results are a starting point and may not catch all issues — always verify with a human reviewer and assistive technology testing.
+              This scan uses AI analysis of the page&apos;s HTML. Its score and results cover only the automated checks performed and are not an overall WCAG 2.1 conformance determination. Other accessibility issues may exist. Always verify with a human reviewer and assistive technology testing.
             </p>
           </div>
         )}

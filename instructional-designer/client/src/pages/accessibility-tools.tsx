@@ -31,7 +31,7 @@ const TOOLS = [
     id: "url-scanner",
     label: "URL Scanner",
     description:
-      "Check any public webpage for accessibility issues and WCAG 2.1 violations using AI-powered analysis.",
+      "Run an AI-assisted automated check of selected accessibility issues detectable in a public webpage. This is not a determination of overall WCAG conformance.",
     icon: <Globe className="w-6 h-6 text-white" aria-hidden="true" />,
     gradient: "from-sky-500 to-cyan-600",
     route: "/accessibility-tools/url-scanner",
@@ -43,7 +43,7 @@ const TOOLS = [
     id: "color-contrast",
     label: "Color Contrast",
     description:
-      "Verify foreground/background color combinations meet WCAG 2.1 contrast ratios for AA and AAA compliance.",
+      "Test one foreground/background color combination against WCAG 2.1 contrast thresholds for normal and large text.",
     icon: <Eye className="w-6 h-6 text-white" aria-hidden="true" />,
     gradient: "from-amber-500 to-orange-600",
     route: "/accessibility-tools/color-contrast",
@@ -80,7 +80,7 @@ const TOOLS = [
 export default function AccessibilityToolsPage() {
   usePageTitle(
     "Accessibility Tools",
-    "Built-in accessibility tools for BSU faculty: check color contrast, generate alt text, scan web pages for WCAG issues, and extract math equations from images.",
+    "Built-in accessibility tools for BSU faculty: test color contrast, run selected automated webpage checks, generate alt text, and extract math equations from images.",
   );
   const [, navigate] = useLocation();
   const converterUrl = getConverterUrl();
@@ -162,7 +162,7 @@ export default function AccessibilityToolsPage() {
         </div>
 
         <p className="text-xs text-muted-foreground text-center mt-10 max-w-md mx-auto">
-          These tools improve accessibility but do not guarantee full WCAG 2.1 compliance.
+          These limited automated results are not an overall WCAG 2.1 conformance determination.
           Always verify with a human reviewer and assistive technology testing.
         </p>
       </div>

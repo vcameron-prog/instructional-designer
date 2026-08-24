@@ -115,7 +115,7 @@ export default function ColorContrastPage() {
             <h1 className="text-2xl font-bold text-foreground">Color Contrast Checker</h1>
           </div>
           <p className="text-muted-foreground text-sm ml-13">
-            Verify foreground/background color combinations meet WCAG 2.1 contrast ratios.
+            Test one foreground/background color combination against WCAG 2.1 text contrast thresholds.
           </p>
         </div>
 
@@ -229,13 +229,13 @@ export default function ColorContrastPage() {
                     className="text-base px-4 py-2"
                     data-testid="badge-contrast-rating"
                   >
-                    {ratingSeverity(result) === "good" ? "AA Pass" : ratingSeverity(result) === "ok" ? "Large Text Only" : "Fails WCAG"}
+                    {ratingSeverity(result) === "good" ? "Meets AA Text Contrast" : ratingSeverity(result) === "ok" ? "Meets AA for Large Text Only" : "Does Not Meet AA Text Contrast"}
                   </Badge>
                 </div>
 
                 <div className="border border-border rounded-lg p-4">
                   <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-                    WCAG 2.1 Results
+                    WCAG 2.1 Text Contrast Results
                   </h2>
                   <PassFail pass={result.aa_normal} label="AA — Normal text (≥ 4.5:1)" />
                   <PassFail pass={result.aa_large} label="AA — Large text / UI (≥ 3:1)" />
@@ -245,6 +245,7 @@ export default function ColorContrastPage() {
 
                 <p className="text-xs text-muted-foreground">
                   <strong>Large text</strong> is defined as 18pt (24px) or 14pt (18.67px) bold. Normal text applies to all smaller text.
+                  These results apply only to the tested foreground/background contrast criterion and are not an overall WCAG 2.1 conformance determination.
                 </p>
               </div>
             )}
