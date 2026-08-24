@@ -387,6 +387,7 @@ export default function ToolForm() {
       courseLevel: urlCourseLevel || savedCourseLevel,
     };
   });
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [isGenerating, setIsGenerating] = useState(false);
   const [activeStepIndex, setActiveStepIndex] = useState(0);
   const stepTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -619,6 +620,12 @@ export default function ToolForm() {
     if (name === "outputDetail") {
       try { localStorage.setItem(DEFAULT_OUTPUT_DETAIL_KEY, value); } catch {}
     }
+    setFieldErrors(prev => {
+      if (!prev[name]) return prev;
+      const next = { ...prev };
+      delete next[name];
+      return next;
+    });
   };
 
   const handleCheckboxChange = (name: string, option: string, checked: boolean) => {
@@ -631,6 +638,12 @@ export default function ToolForm() {
       }
     });
     setPreFilledFields(prev => { const next = new Set(prev); next.delete(name); return next; });
+    setFieldErrors(prev => {
+      if (!prev[name]) return prev;
+      const next = { ...prev };
+      delete next[name];
+      return next;
+    });
   };
 
   const handlePrefillSelect = (itemId: string) => {
@@ -705,6 +718,11 @@ export default function ToolForm() {
     if (Object.keys(nonEmptyFields).length > 0) {
       setFormData(prev => ({ ...prev, ...nonEmptyFields }));
       setPreFilledFields(new Set(Object.keys(nonEmptyFields)));
+      setFieldErrors(prev => {
+        const next = { ...prev };
+        Object.keys(nonEmptyFields).forEach(name => delete next[name]);
+        return next;
+      });
       toast({ title: "Form pre-filled", description: "Fields have been populated from the selected item. Review and adjust as needed." });
     }
   };
@@ -726,6 +744,7 @@ export default function ToolForm() {
         if (typeof k === "string") safe[k] = v;
       }
       setFormData(safe);
+      setFieldErrors({});
       setPresetOpen(false);
       toast({ title: `Preset "${preset.name}" loaded` });
     }
@@ -746,17 +765,25 @@ export default function ToolForm() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Basic validation
+
+    const errors: Record<string, string> = {};
     for (const field of formFields) {
-      if (field.required) {
-        const value = formData[field.name];
-        if (!value || (Array.isArray(value) && value.length === 0)) {
-          toast({ title: `${field.label} is required`, variant: "destructive" });
-          document.getElementById(field.name)?.focus();
-          return;
-        }
+      const value = formData[field.name];
+      const isEmpty = typeof value === "string"
+        ? value.trim().length === 0
+        : !value || (Array.isArray(value) && value.length === 0);
+      if (field.required && isEmpty) {
+        errors[field.name] = `${field.label} is required`;
       }
+    }
+    setFieldErrors(errors);
+    const firstInvalidField = formFields.find(field => errors[field.name]);
+    if (firstInvalidField) {
+      const target = firstInvalidField.type === "checkbox-group"
+        ? document.querySelector<HTMLElement>(`[data-field-group="${firstInvalidField.name}"] [role="checkbox"]`)
+        : document.getElementById(firstInvalidField.name);
+      requestAnimationFrame(() => target?.focus());
+      return;
     }
 
     setChainSourceName(null);
@@ -959,6 +986,12 @@ export default function ToolForm() {
                       onClick={() => {
                         clearContext();
                         setFormData(prev => ({ ...prev, subject: "", courseLevel: "" }));
+                        setFieldErrors(prev => {
+                          const next = { ...prev };
+                          delete next.subject;
+                          delete next.courseLevel;
+                          return next;
+                        });
                         const urlParams = new URLSearchParams(window.location.search);
                         urlParams.delete("subject");
                         urlParams.delete("courseLevel");
@@ -1064,6 +1097,10 @@ export default function ToolForm() {
             <CardContent className="space-y-6">
               {formFields.map((field) => {
                 const isPrefilled = preFilledFields.has(field.name);
+                const error = fieldErrors[field.name];
+                const helperId = `${field.name}-description`;
+                const errorId = `${field.name}-error`;
+                const describedBy = [field.helper ? helperId : null, error ? errorId : null].filter(Boolean).join(" ") || undefined;
                 return (
                 <div
                   key={field.name}
@@ -1072,7 +1109,7 @@ export default function ToolForm() {
                 >
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <div className="flex items-center gap-2">
-                      <Label htmlFor={field.name}>
+                      <Label id={`${field.name}-label`} htmlFor={field.name}>
                         {field.label}
                         {field.required && <span className="text-destructive ml-1">*</span>}
                       </Label>
@@ -1108,6 +1145,8 @@ export default function ToolForm() {
                       value={formData[field.name] || ""}
                       onChange={(e) => handleInputChange(field.name, e.target.value)}
                       aria-required={field.required ? "true" : undefined}
+                      aria-invalid={!!error}
+                      aria-describedby={describedBy}
                       data-testid={`input-${field.name}`}
                     />
                   )}
@@ -1120,6 +1159,8 @@ export default function ToolForm() {
                       value={formData[field.name] || ""}
                       onChange={(e) => handleInputChange(field.name, e.target.value)}
                       aria-required={field.required ? "true" : undefined}
+                      aria-invalid={!!error}
+                      aria-describedby={describedBy}
                       data-testid={`input-${field.name}`}
                     />
                   )}
@@ -1131,6 +1172,8 @@ export default function ToolForm() {
                       value={formData[field.name] || ""}
                       onChange={(e) => handleInputChange(field.name, e.target.value)}
                       aria-required={field.required ? "true" : undefined}
+                      aria-invalid={!!error}
+                      aria-describedby={describedBy}
                       data-testid={`input-${field.name}`}
                     />
                   )}
@@ -1143,6 +1186,8 @@ export default function ToolForm() {
                       onChange={(e) => handleInputChange(field.name, e.target.value)}
                       className="min-h-28"
                       aria-required={field.required ? "true" : undefined}
+                      aria-invalid={!!error}
+                      aria-describedby={describedBy}
                       data-testid={`textarea-${field.name}`}
                     />
                   )}
@@ -1152,7 +1197,7 @@ export default function ToolForm() {
                       value={formData[field.name] || ""}
                       onValueChange={(value) => handleInputChange(field.name, value)}
                     >
-                      <SelectTrigger data-testid={`select-${field.name}`} aria-required={field.required ? "true" : undefined}>
+                      <SelectTrigger id={field.name} data-testid={`select-${field.name}`} aria-required={field.required ? "true" : undefined} aria-invalid={!!error} aria-describedby={describedBy}>
                         <SelectValue placeholder={`Select ${field.label.toLowerCase()}`} />
                       </SelectTrigger>
                       <SelectContent>
@@ -1164,7 +1209,7 @@ export default function ToolForm() {
                   )}
 
                   {field.type === "checkbox-group" && field.options && (
-                    <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="grid gap-3 sm:grid-cols-2" role="group" aria-labelledby={`${field.name}-label`} aria-invalid={!!error} aria-describedby={describedBy} data-field-group={field.name}>
                       {field.options.map((option) => (
                         <div key={option} className="flex items-start gap-3">
                           <Checkbox
@@ -1185,8 +1230,11 @@ export default function ToolForm() {
                   )}
 
                   {field.helper && (
-                    <p className="text-sm text-muted-foreground">{field.helper}</p>
+                    <p id={helperId} className="text-sm text-muted-foreground">{field.helper}</p>
                   )}
+                  <p id={errorId} className="text-sm font-medium text-destructive" aria-live="polite">
+                    {error || ""}
+                  </p>
                 </div>
                 );
               })}

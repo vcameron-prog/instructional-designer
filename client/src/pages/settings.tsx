@@ -62,9 +62,9 @@ export default function SettingsPage() {
   );
   const [titleQualityMinLength, setTitleQualityMinLength] = useState(() => {
     const stored = parseInt(localStorage.getItem(TITLE_QUALITY_MIN_LENGTH_KEY) || "", 10);
-    return Number.isFinite(stored) && stored >= TITLE_QUALITY_MIN_LENGTH_BOUNDS.min && stored <= TITLE_QUALITY_MIN_LENGTH_BOUNDS.max
+    return String(Number.isFinite(stored) && stored >= TITLE_QUALITY_MIN_LENGTH_BOUNDS.min && stored <= TITLE_QUALITY_MIN_LENGTH_BOUNDS.max
       ? stored
-      : DEFAULT_TITLE_QUALITY_MIN_LENGTH;
+      : DEFAULT_TITLE_QUALITY_MIN_LENGTH);
   });
   const [hydrated, setHydrated] = useState(false);
 
@@ -105,7 +105,7 @@ export default function SettingsPage() {
       }
     }
     if (serverPrefs.titleQualityMinLength !== undefined) {
-      setTitleQualityMinLength(serverPrefs.titleQualityMinLength);
+      setTitleQualityMinLength(String(serverPrefs.titleQualityMinLength));
       localStorage.setItem(TITLE_QUALITY_MIN_LENGTH_KEY, String(serverPrefs.titleQualityMinLength));
     }
     setHydrated(true);
@@ -169,19 +169,26 @@ export default function SettingsPage() {
     persist({ preferredTool: value });
   };
 
-  const handleTitleQualityMinLengthChange = (value: number) => {
-    const clamped = Math.min(
-      TITLE_QUALITY_MIN_LENGTH_BOUNDS.max,
-      Math.max(TITLE_QUALITY_MIN_LENGTH_BOUNDS.min, value)
-    );
-    setTitleQualityMinLength(clamped);
-    localStorage.setItem(TITLE_QUALITY_MIN_LENGTH_KEY, String(clamped));
-    persist({ titleQualityMinLength: clamped });
+  const handleTitleQualityMinLengthChange = (value: string) => {
+    setTitleQualityMinLength(value);
+    const parsed = Number(value);
+    if (!Number.isInteger(parsed) || parsed < TITLE_QUALITY_MIN_LENGTH_BOUNDS.min || parsed > TITLE_QUALITY_MIN_LENGTH_BOUNDS.max) {
+      return;
+    }
+    localStorage.setItem(TITLE_QUALITY_MIN_LENGTH_KEY, String(parsed));
+    persist({ titleQualityMinLength: parsed });
   };
 
   const quickTools = TOOLS.filter(t => QUICK_TOOL_IDS.includes(t.id));
   const isSyncing = saveMutation.isPending;
   const isSaveError = saveError && !isSyncing;
+  const parsedTitleQualityMinLength = Number(titleQualityMinLength);
+  const titleQualityMinLengthError =
+    !Number.isInteger(parsedTitleQualityMinLength)
+    || parsedTitleQualityMinLength < TITLE_QUALITY_MIN_LENGTH_BOUNDS.min
+    || parsedTitleQualityMinLength > TITLE_QUALITY_MIN_LENGTH_BOUNDS.max
+      ? `Enter a whole number from ${TITLE_QUALITY_MIN_LENGTH_BOUNDS.min} to ${TITLE_QUALITY_MIN_LENGTH_BOUNDS.max}`
+      : "";
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -391,17 +398,18 @@ export default function SettingsPage() {
                   type="number"
                   min={TITLE_QUALITY_MIN_LENGTH_BOUNDS.min}
                   max={TITLE_QUALITY_MIN_LENGTH_BOUNDS.max}
-                  aria-describedby="settings-title-quality-min-length-description"
+                  aria-invalid={!!titleQualityMinLengthError}
+                  aria-describedby={`settings-title-quality-min-length-description${titleQualityMinLengthError ? " settings-title-quality-min-length-error" : ""}`}
                   value={titleQualityMinLength}
-                  onChange={(e) => {
-                    const parsed = parseInt(e.target.value, 10);
-                    if (Number.isFinite(parsed)) handleTitleQualityMinLengthChange(parsed);
-                  }}
+                  onChange={(e) => handleTitleQualityMinLengthChange(e.target.value)}
                   className="mt-1 w-24 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   data-testid="input-settings-title-quality-min-length"
                 />
                 <span className="text-sm text-muted-foreground">characters (default: {DEFAULT_TITLE_QUALITY_MIN_LENGTH})</span>
               </div>
+              <p id="settings-title-quality-min-length-error" className="text-sm font-medium text-destructive" aria-live="polite">
+                {titleQualityMinLengthError}
+              </p>
             </div>
           </CardContent>
         </Card>

@@ -247,6 +247,7 @@ export default function ResultPage() {
   const [showAccessibility, setShowAccessibility] = useState(false);
   const [refinementOpen, setRefinementOpen] = useState(false);
   const [refinementRequest, setRefinementRequest] = useState("");
+  const [refinementError, setRefinementError] = useState("");
   const [isRefining, setIsRefining] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("");
   const [saveLibraryOpen, setSaveLibraryOpen] = useState(false);
@@ -298,6 +299,7 @@ export default function ResultPage() {
   const [githubRepo, setGithubRepo] = useState("");
   const [githubBranch, setGithubBranch] = useState("main");
   const [githubPath, setGithubPath] = useState("");
+  const [githubErrors, setGithubErrors] = useState<{ repo?: string; path?: string }>({});
   const [githubPushing, setGithubPushing] = useState(false);
   const [githubResult, setGithubResult] = useState<{ url: string; updated: boolean } | null>(null);
 
@@ -577,10 +579,51 @@ export default function ResultPage() {
     setCaptionDialogOpen(true);
   };
 
-  const handleApplyCaptionFix = () => {
-    if (captionEditMode === "edit" && (!captionEditText.trim() || captionEditText.trim().toLowerCase() === "table summary")) {
-      return;
+  const getCaptionErrors = () => {
+    if (captionEditMode === "edit") {
+      const normalized = captionEditText.trim().toLowerCase();
+      if (!normalized) return ["Caption text is required"];
+      if (normalized === "table summary") return ['Replace the default "Table summary" text with a descriptive caption'];
+      if (captionEditOtherCaptions.some(caption => caption.trim().toLowerCase() === normalized)) {
+        return ["Another table already uses this caption. Enter a unique caption"];
+      }
+      return [""];
     }
+
+    const normalized = captionTexts.map(caption => caption.trim().toLowerCase());
+    return normalized.map((caption, index) => {
+      if (!caption) return "Caption text is required";
+      if (caption === "table summary" && !captionAllowDefault) {
+        return 'Replace the default "Table summary" text or confirm that you want to use it';
+      }
+      if (normalized.some((other, otherIndex) => otherIndex !== index && other === caption)) {
+        return "Each table must have a unique caption";
+      }
+      return "";
+    });
+  };
+
+  const focusFirstInvalidCaption = (errors: string[]) => {
+    const firstInvalidIndex = errors.findIndex(Boolean);
+    if (firstInvalidIndex < 0) return false;
+    requestAnimationFrame(() => {
+      document.getElementById(captionEditMode === "edit" ? "caption-input-edit" : `caption-input-${firstInvalidIndex}`)?.focus();
+    });
+    return true;
+  };
+
+  const handleCaptionProgress = () => {
+    const errors = getCaptionErrors();
+    if (focusFirstInvalidCaption(errors)) return;
+    if (captionEditMode === "edit") {
+      handleApplyCaptionFix();
+    } else {
+      setCaptionStep("preview");
+    }
+  };
+
+  const handleApplyCaptionFix = () => {
+    if (focusFirstInvalidCaption(getCaptionErrors())) return;
     setCaptionDialogOpen(false);
     if (captionEditMode === "edit") {
       setFixingIssue("edit-html-table-caption");
@@ -691,7 +734,16 @@ export default function ResultPage() {
   };
 
   const handlePushGithub = async () => {
-    if (!content || !githubRepo || !githubPath) return;
+    const errors = {
+      repo: githubRepo.trim() ? undefined : "Repository is required",
+      path: githubPath.trim() ? undefined : "File path is required",
+    };
+    setGithubErrors(errors);
+    const firstInvalidId = errors.repo ? "github-repo" : errors.path ? "github-path" : null;
+    if (!content || firstInvalidId) {
+      if (firstInvalidId) requestAnimationFrame(() => document.getElementById(firstInvalidId)?.focus());
+      return;
+    }
     setGithubPushing(true);
     setGithubResult(null);
     try {
@@ -717,9 +769,11 @@ export default function ResultPage() {
 
   const handleRefine = () => {
     if (!refinementRequest.trim()) {
-      toast({ title: "Please describe what changes you'd like to make", variant: "destructive" });
+      setRefinementError("Describe the changes you'd like to make");
+      requestAnimationFrame(() => document.querySelector<HTMLElement>('[data-testid="textarea-refinement"]')?.focus());
       return;
     }
+    setRefinementError("");
     setIsRefining(true);
     let index = 0;
     setLoadingMessage("Processing your refinement request...");
@@ -1010,9 +1064,21 @@ export default function ResultPage() {
                           id="github-repo"
                           placeholder="e.g. vcameron/bsu-courses"
                           value={githubRepo}
-                          onChange={(e) => setGithubRepo(e.target.value)}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setGithubRepo(value);
+                            setGithubErrors(current => ({
+                              ...current,
+                              repo: current.repo && !value.trim() ? "Repository is required" : undefined,
+                            }));
+                          }}
+                          aria-invalid={!!githubErrors.repo}
+                          aria-describedby="github-repo-error"
                           data-testid="input-github-repo"
                         />
+                        <p id="github-repo-error" className="text-sm font-medium text-destructive" aria-live="polite">
+                          {githubErrors.repo || ""}
+                        </p>
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="github-branch">Branch</Label>
@@ -1030,9 +1096,21 @@ export default function ResultPage() {
                           id="github-path"
                           placeholder={`e.g. courses/${content?.toolName?.replace(/\s+/g, "-").toLowerCase() ?? "content"}.md`}
                           value={githubPath}
-                          onChange={(e) => setGithubPath(e.target.value)}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setGithubPath(value);
+                            setGithubErrors(current => ({
+                              ...current,
+                              path: current.path && !value.trim() ? "File path is required" : undefined,
+                            }));
+                          }}
+                          aria-invalid={!!githubErrors.path}
+                          aria-describedby="github-path-error"
                           data-testid="input-github-path"
                         />
+                        <p id="github-path-error" className="text-sm font-medium text-destructive" aria-live="polite">
+                          {githubErrors.path || ""}
+                        </p>
                       </div>
                     </div>
                   )}
@@ -1043,7 +1121,7 @@ export default function ResultPage() {
                     {!githubResult && (
                       <Button
                         onClick={handlePushGithub}
-                        disabled={githubPushing || !githubRepo || !githubPath}
+                        disabled={githubPushing}
                         data-testid="button-confirm-push-github"
                       >
                         {githubPushing ? <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" />Pushing…</> : <><Github className="w-4 h-4 mr-1.5" />Push</>}
@@ -1492,10 +1570,21 @@ export default function ResultPage() {
                 <Textarea
                   placeholder="e.g., Make the rubric more detailed, add more UDL accommodations, simplify the language..."
                   value={refinementRequest}
-                  onChange={(e) => setRefinementRequest(e.target.value)}
+                   onChange={(e) => {
+                     const value = e.target.value;
+                     setRefinementRequest(value);
+                     if (refinementError) {
+                       setRefinementError(value.trim() ? "" : "Describe the changes you'd like to make");
+                     }
+                   }}
                   className="min-h-32"
+                   aria-invalid={!!refinementError}
+                   aria-describedby="refinement-request-error"
                   data-testid="textarea-refinement"
                 />
+                 <p id="refinement-request-error" className="text-sm font-medium text-destructive" aria-live="polite">
+                   {refinementError}
+                 </p>
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setRefinementOpen(false)}>
                     Cancel
@@ -1979,10 +2068,15 @@ export default function ResultPage() {
                       value={captionEditText}
                       onChange={(e) => setCaptionEditText(e.target.value)}
                       placeholder="e.g., Weekly assignment schedule"
-                      onKeyDown={(e) => { if (e.key === "Enter") handleApplyCaptionFix(); }}
+                      onKeyDown={(e) => { if (e.key === "Enter") handleCaptionProgress(); }}
+                      aria-invalid={!!getCaptionErrors()[0]}
+                      aria-describedby="caption-input-edit-error"
                       data-testid="input-caption-text"
                       autoFocus
                     />
+                    <p id="caption-input-edit-error" className="text-sm font-medium text-destructive" aria-live="polite">
+                      {getCaptionErrors()[0]}
+                    </p>
                   </div>
                 ) : captionTexts.map((text, index) => (
                   <div key={index} className="space-y-1">
@@ -1998,10 +2092,15 @@ export default function ResultPage() {
                         setCaptionTexts(updated);
                       }}
                       placeholder="e.g., Weekly assignment schedule"
-                      onKeyDown={(e) => { if (e.key === "Enter" && index === captionTexts.length - 1 && captionTexts.every((t) => t.trim()) && (captionAllowDefault || !captionTexts.some((t) => t.trim().toLowerCase() === "table summary")) && (() => { const g: Record<string, number> = {}; for (const t of captionTexts) { const k = t.trim().toLowerCase(); g[k] = (g[k] ?? 0) + 1; if (g[k] > 1) return false; } return true; })()) setCaptionStep("preview"); }}
+                      onKeyDown={(e) => { if (e.key === "Enter" && index === captionTexts.length - 1) handleCaptionProgress(); }}
+                      aria-invalid={!!getCaptionErrors()[index]}
+                      aria-describedby={`caption-input-${index}-error`}
                       data-testid={`input-caption-text-${index}`}
                       autoFocus={index === 0}
                     />
+                    <p id={`caption-input-${index}-error`} className="text-sm font-medium text-destructive" aria-live="polite">
+                      {getCaptionErrors()[index]}
+                    </p>
                   </div>
                 ))}
               </div>
@@ -2083,9 +2182,8 @@ export default function ResultPage() {
                   Cancel
                 </Button>
                 <Button
-                  onClick={captionEditMode === "edit" ? handleApplyCaptionFix : () => setCaptionStep("preview")}
+                  onClick={handleCaptionProgress}
                   className="gap-2"
-                  disabled={captionEditMode === "edit" ? (!captionEditText.trim() || captionEditText.trim().toLowerCase() === "table summary") : (captionTexts.some((t) => !t.trim()) || (!captionAllowDefault && captionTexts.some((t) => t.trim().toLowerCase() === "table summary")) || (() => { const g: Record<string, number> = {}; for (const t of captionTexts) { const k = t.trim().toLowerCase(); if (!k) continue; g[k] = (g[k] ?? 0) + 1; if (g[k] > 1) return true; } return false; })())}
                   data-testid="button-apply-caption"
                 >
                   <CheckCircle className="w-4 h-4" />

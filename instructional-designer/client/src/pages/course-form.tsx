@@ -183,6 +183,25 @@ export default function CourseForm({ courseId }: { courseId?: number }) {
     } : undefined,
   });
 
+  const focusFirstInvalidField = (errors: typeof form.formState.errors) => {
+    const firstInvalidName = Object.keys(errors)[0] as keyof CourseFormData | undefined;
+    if (firstInvalidName) {
+      const customControlTestIds: Partial<Record<keyof CourseFormData, string>> = {
+        courseLevel: "select-course-level",
+        credits: "select-credits",
+        semester: "select-semester-type",
+      };
+      const customControl = customControlTestIds[firstInvalidName]
+        ? document.querySelector<HTMLElement>(`[data-testid="${customControlTestIds[firstInvalidName]}"]`)
+        : null;
+      if (customControl) {
+        requestAnimationFrame(() => customControl.focus());
+      } else {
+        form.setFocus(firstInvalidName);
+      }
+    }
+  };
+
   const createMutation = useMutation({
     mutationFn: async (data: CourseFormData) => {
       const response = await apiRequest("POST", "/api/courses", data);
@@ -321,7 +340,7 @@ export default function CourseForm({ courseId }: { courseId?: number }) {
 
       <div className="container mx-auto px-4 py-8">
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 max-w-4xl mx-auto">
+          <form onSubmit={form.handleSubmit(onSubmit, focusFirstInvalidField)} noValidate className="space-y-8 max-w-4xl mx-auto">
             {!courseId && (
               <Card className="bg-primary/5 border-primary/20">
                 <CardHeader>

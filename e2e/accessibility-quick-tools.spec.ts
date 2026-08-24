@@ -502,6 +502,7 @@ test.describe("Math OCR (/accessibility-tools/math-ocr)", () => {
     page,
   }) => {
     await expect(page.getByTestId("dropzone-math-image")).toBeVisible();
+    await expect(page.getByLabel("Upload image for math OCR")).toHaveAttribute("type", "file");
     await expect(page.getByTestId("button-extract-math")).toBeVisible();
   });
 

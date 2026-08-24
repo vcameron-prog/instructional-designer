@@ -110,4 +110,33 @@ describe("Settings page - save-failed indicator dismiss button", () => {
 
     expect(fetchMock.mock.calls.length).toBe(callCountAfterFailure);
   });
+
+  it("associates an invalid title-length value with its persistent error and clears it when corrected", async () => {
+    const user = userEvent.setup();
+    global.fetch = vi.fn(async (url: string) => {
+      if (url === "/api/preferences") {
+        return new Response(JSON.stringify({}), { status: 200 });
+      }
+      return new Response(JSON.stringify({}), { status: 200 });
+    }) as unknown as typeof fetch;
+
+    renderSettings();
+    const input = await screen.findByTestId("input-settings-title-quality-min-length");
+    const errorId = "settings-title-quality-min-length-error";
+
+    await user.clear(input);
+
+    expect(input).toHaveAttribute("aria-invalid", "true");
+    expect(input).toHaveAttribute(
+      "aria-describedby",
+      `settings-title-quality-min-length-description ${errorId}`,
+    );
+    expect(document.getElementById(errorId)).toHaveTextContent("Enter a whole number from 1 to 20");
+
+    await user.type(input, "5");
+
+    expect(input).toHaveAttribute("aria-invalid", "false");
+    expect(input).toHaveAttribute("aria-describedby", "settings-title-quality-min-length-description");
+    expect(document.getElementById(errorId)).toBeEmptyDOMElement();
+  });
 });

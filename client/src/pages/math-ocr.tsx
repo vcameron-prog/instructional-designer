@@ -179,7 +179,7 @@ export default function MathOcrPage() {
                 type="file"
                 accept="image/jpeg,image/png,image/gif,image/webp"
                 className="sr-only"
-                aria-label="Upload a math image (JPEG, PNG, GIF, or WebP)"
+                aria-label="Upload image for math OCR"
                 onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
                 data-testid="input-math-file"
               />

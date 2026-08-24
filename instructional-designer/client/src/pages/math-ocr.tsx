@@ -168,6 +168,7 @@ export default function MathOcrPage() {
               <input
                 ref={fileInputRef}
                 type="file"
+                aria-label="Upload image for math OCR"
                 accept="image/jpeg,image/png,image/gif,image/webp"
                 className="sr-only"
                 onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
