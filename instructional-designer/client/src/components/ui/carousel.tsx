@@ -12,12 +12,16 @@ type UseCarouselParameters = Parameters<typeof useEmblaCarousel>
 type CarouselOptions = UseCarouselParameters[0]
 type CarouselPlugin = UseCarouselParameters[1]
 
+type CarouselAccessibleName =
+  | { "aria-label": string; "aria-labelledby"?: never }
+  | { "aria-label"?: never; "aria-labelledby": string }
+
 type CarouselProps = {
   opts?: CarouselOptions
   plugins?: CarouselPlugin
   orientation?: "horizontal" | "vertical"
   setApi?: (api: CarouselApi) => void
-}
+} & CarouselAccessibleName
 
 type CarouselContextProps = {
   carouselRef: ReturnType<typeof useEmblaCarousel>[0]
@@ -26,7 +30,7 @@ type CarouselContextProps = {
   scrollNext: () => void
   canScrollPrev: boolean
   canScrollNext: boolean
-} & CarouselProps
+} & Omit<CarouselProps, "aria-label" | "aria-labelledby">
 
 const CarouselContext = React.createContext<CarouselContextProps | null>(null)
 
@@ -42,7 +46,8 @@ function useCarousel() {
 
 const Carousel = React.forwardRef<
   HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement> & CarouselProps
+  Omit<React.HTMLAttributes<HTMLDivElement>, "aria-label" | "aria-labelledby"> &
+    CarouselProps
 >(
   (
     {
@@ -153,6 +158,8 @@ const CarouselContent = React.forwardRef<
   React.HTMLAttributes<HTMLDivElement>
 >(({ className, ...props }, ref) => {
   const { carouselRef, orientation } = useCarousel()
+  const slides = React.Children.toArray(props.children)
+  const slideCount = slides.length
 
   return (
     <div ref={carouselRef} className="overflow-hidden">
@@ -164,7 +171,16 @@ const CarouselContent = React.forwardRef<
           className
         )}
         {...props}
-      />
+      >
+        {slides.map((child, index) =>
+          React.isValidElement(child)
+            ? React.cloneElement(
+                child as React.ReactElement<React.HTMLAttributes<HTMLDivElement>>,
+                { "aria-label": `Slide ${index + 1} of ${slideCount}` }
+              )
+            : child
+        )}
+      </div>
     </div>
   )
 })

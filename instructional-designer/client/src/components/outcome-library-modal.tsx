@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef, type KeyboardEvent } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,16 @@ const BLOOMS_COLORS: Record<BloomsLevel, string> = {
 
 type Tab = "library" | "my-outcomes";
 
+const TAB_IDS: Record<Tab, string> = {
+  library: "outcome-library-tab-library",
+  "my-outcomes": "outcome-library-tab-my-outcomes",
+};
+
+const PANEL_IDS: Record<Tab, string> = {
+  library: "outcome-library-panel-library",
+  "my-outcomes": "outcome-library-panel-my-outcomes",
+};
+
 interface OutcomeLibraryModalProps {
   open: boolean;
   onClose: () => void;
@@ -51,6 +61,27 @@ export function OutcomeLibraryModal({ open, onClose, onAddOutcomes }: OutcomeLib
   const [customText, setCustomText] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingText, setEditingText] = useState("");
+  const libraryTabRef = useRef<HTMLButtonElement>(null);
+  const myOutcomesTabRef = useRef<HTMLButtonElement>(null);
+
+  const handleTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+
+    event.preventDefault();
+    const availableTabs: Tab[] = isAuthenticated
+      ? ["library", "my-outcomes"]
+      : ["library"];
+    const currentIndex = availableTabs.indexOf(activeTab);
+    const direction = event.key === "ArrowRight" ? 1 : -1;
+    const nextTab =
+      availableTabs[
+        (currentIndex + direction + availableTabs.length) % availableTabs.length
+      ];
+
+    setActiveTab(nextTab);
+    const nextRef = nextTab === "library" ? libraryTabRef : myOutcomesTabRef;
+    nextRef.current?.focus();
+  };
 
   const { data: savedOutcomes = [], isLoading: isLoadingMine } = useQuery<SavedOutcome[]>({
     queryKey: ["/api/outcomes"],
@@ -244,10 +275,15 @@ export function OutcomeLibraryModal({ open, onClose, onAddOutcomes }: OutcomeLib
         {/* Tab bar */}
         <div className="flex border-b shrink-0" role="tablist" aria-label="Outcome library tabs">
           <button
+            id={TAB_IDS.library}
+            ref={libraryTabRef}
             role="tab"
             aria-selected={activeTab === "library"}
+            aria-controls={PANEL_IDS.library}
+            tabIndex={activeTab === "library" ? 0 : -1}
             data-testid="tab-library"
             onClick={() => setActiveTab("library")}
+            onKeyDown={handleTabKeyDown}
             className={`flex-1 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset ${
               activeTab === "library"
                 ? "border-b-2 border-primary text-primary"
@@ -258,10 +294,15 @@ export function OutcomeLibraryModal({ open, onClose, onAddOutcomes }: OutcomeLib
           </button>
           {isAuthenticated && (
             <button
+              id={TAB_IDS["my-outcomes"]}
+              ref={myOutcomesTabRef}
               role="tab"
               aria-selected={activeTab === "my-outcomes"}
+              aria-controls={PANEL_IDS["my-outcomes"]}
+              tabIndex={activeTab === "my-outcomes" ? 0 : -1}
               data-testid="tab-my-outcomes"
               onClick={() => setActiveTab("my-outcomes")}
+              onKeyDown={handleTabKeyDown}
               className={`flex-1 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset ${
                 activeTab === "my-outcomes"
                   ? "border-b-2 border-primary text-primary"
@@ -279,7 +320,12 @@ export function OutcomeLibraryModal({ open, onClose, onAddOutcomes }: OutcomeLib
         </div>
 
         {activeTab === "library" && (
-          <>
+          <div
+            id={PANEL_IDS.library}
+            role="tabpanel"
+            aria-labelledby={TAB_IDS.library}
+            className="flex flex-1 min-h-0 flex-col"
+          >
             <div className="px-6 py-4 space-y-3 border-b shrink-0">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
@@ -402,11 +448,16 @@ export function OutcomeLibraryModal({ open, onClose, onAddOutcomes }: OutcomeLib
                 </ul>
               )}
             </ScrollArea>
-          </>
+          </div>
         )}
 
         {activeTab === "my-outcomes" && isAuthenticated && (
-          <>
+          <div
+            id={PANEL_IDS["my-outcomes"]}
+            role="tabpanel"
+            aria-labelledby={TAB_IDS["my-outcomes"]}
+            className="flex flex-1 min-h-0 flex-col"
+          >
             <div className="px-6 py-4 space-y-3 border-b shrink-0">
               <div className="flex gap-2">
                 <Input
@@ -545,7 +596,7 @@ export function OutcomeLibraryModal({ open, onClose, onAddOutcomes }: OutcomeLib
                 </ul>
               )}
             </ScrollArea>
-          </>
+          </div>
         )}
 
         <DialogFooter className="px-6 py-4 border-t shrink-0 flex-row justify-between gap-3">
