@@ -63,21 +63,33 @@ export function OutcomeLibraryModal({ open, onClose, onAddOutcomes }: OutcomeLib
   const [editingText, setEditingText] = useState("");
   const libraryTabRef = useRef<HTMLButtonElement>(null);
   const myOutcomesTabRef = useRef<HTMLButtonElement>(null);
+  const openerRef = useRef<HTMLElement | null>(null);
 
   const handleTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
-    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
-
-    event.preventDefault();
     const availableTabs: Tab[] = isAuthenticated
       ? ["library", "my-outcomes"]
       : ["library"];
-    const currentIndex = availableTabs.indexOf(activeTab);
-    const direction = event.key === "ArrowRight" ? 1 : -1;
-    const nextTab =
-      availableTabs[
-        (currentIndex + direction + availableTabs.length) % availableTabs.length
-      ];
+    const currentTab = event.currentTarget.dataset.testid === "tab-my-outcomes"
+      ? "my-outcomes"
+      : "library";
+    const currentIndex = availableTabs.indexOf(currentTab);
+    let nextTab: Tab;
 
+    if (event.key === "Home") {
+      nextTab = availableTabs[0];
+    } else if (event.key === "End") {
+      nextTab = availableTabs[availableTabs.length - 1];
+    } else if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+      const direction = event.key === "ArrowRight" ? 1 : -1;
+      nextTab =
+        availableTabs[
+          (currentIndex + direction + availableTabs.length) % availableTabs.length
+        ];
+    } else {
+      return;
+    }
+
+    event.preventDefault();
     setActiveTab(nextTab);
     const nextRef = nextTab === "library" ? libraryTabRef : myOutcomesTabRef;
     nextRef.current?.focus();
@@ -261,7 +273,21 @@ export function OutcomeLibraryModal({ open, onClose, onAddOutcomes }: OutcomeLib
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); }}>
-      <DialogContent className="max-w-2xl w-full flex flex-col gap-0 p-0 overflow-hidden max-h-[90vh]">
+      <DialogContent
+        className="max-w-2xl w-full flex flex-col gap-0 p-0 overflow-hidden max-h-[90vh]"
+        onOpenAutoFocus={() => {
+          openerRef.current =
+            document.activeElement instanceof HTMLElement
+              ? document.activeElement
+              : null;
+        }}
+        onCloseAutoFocus={(event) => {
+          if (!openerRef.current) return;
+          event.preventDefault();
+          openerRef.current.focus();
+          openerRef.current = null;
+        }}
+      >
         <DialogHeader className="px-6 pt-6 pb-4 border-b shrink-0">
           <div className="flex items-center gap-2">
             <Library className="w-5 h-5 text-primary" aria-hidden="true" />

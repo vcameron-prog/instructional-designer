@@ -47,7 +47,7 @@ describe("OutcomeLibraryModal tabs", () => {
     expect(screen.getAllByRole("tabpanel")).toHaveLength(1)
   })
 
-  it("uses roving tab focus and selects with Left and Right Arrow", () => {
+  it("uses roving tab focus and selects with arrows, Home, and End", () => {
     render(<OutcomeLibraryModal open onClose={vi.fn()} onAddOutcomes={vi.fn()} />)
 
     const libraryTab = screen.getByRole("tab", { name: "Library" })
@@ -68,6 +68,14 @@ describe("OutcomeLibraryModal tabs", () => {
 
     expect(libraryTab).toHaveFocus()
     expect(libraryTab).toHaveAttribute("aria-selected", "true")
+
+    fireEvent.keyDown(libraryTab, { key: "End" })
+    expect(myOutcomesTab).toHaveFocus()
+    expect(myOutcomesTab).toHaveAttribute("aria-selected", "true")
+
+    fireEvent.keyDown(myOutcomesTab, { key: "Home" })
+    expect(libraryTab).toHaveFocus()
+    expect(libraryTab).toHaveAttribute("aria-selected", "true")
   })
 
   it("limits keyboard navigation to the available tab for signed-out users", () => {
@@ -77,6 +85,7 @@ describe("OutcomeLibraryModal tabs", () => {
     const libraryTab = screen.getByRole("tab", { name: "Library" })
     libraryTab.focus()
     fireEvent.keyDown(libraryTab, { key: "ArrowRight" })
+    fireEvent.keyDown(libraryTab, { key: "End" })
 
     expect(libraryTab).toHaveFocus()
     expect(libraryTab).toHaveAttribute("aria-selected", "true")

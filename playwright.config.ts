@@ -31,10 +31,19 @@ export default defineConfig({
   // When running the full Playwright suite independently, spin up a
   // test-mode dev server.  Re-use the already-running server if it
   // answers on port 5000 (typical for development).
-  webServer: {
-    command: "PLAYWRIGHT_TEST=1 npm run dev",
-    url: "http://127.0.0.1:5000",
-    reuseExistingServer: true,
-    timeout: 60_000,
-  },
+  webServer: [
+    {
+      command: "PLAYWRIGHT_TEST=1 npm run dev",
+      url: "http://127.0.0.1:5000",
+      reuseExistingServer: true,
+      timeout: 60_000,
+    },
+    {
+      command:
+        "cd instructional-designer && PORT=3097 PLAYWRIGHT_TEST=1 npm run dev",
+      url: "http://127.0.0.1:3097",
+      reuseExistingServer: true,
+      timeout: 60_000,
+    },
+  ],
 });

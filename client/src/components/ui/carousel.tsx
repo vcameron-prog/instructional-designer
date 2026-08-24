@@ -70,6 +70,7 @@ const Carousel = React.forwardRef<
     )
     const [canScrollPrev, setCanScrollPrev] = React.useState(false)
     const [canScrollNext, setCanScrollNext] = React.useState(false)
+    const [slideAnnouncement, setSlideAnnouncement] = React.useState("")
 
     const onSelect = React.useCallback((api: CarouselApi) => {
       if (!api) {
@@ -78,6 +79,9 @@ const Carousel = React.forwardRef<
 
       setCanScrollPrev(api.canScrollPrev())
       setCanScrollNext(api.canScrollNext())
+      setSlideAnnouncement(
+        `Slide ${api.selectedScrollSnap() + 1} of ${api.scrollSnapList().length}`
+      )
     }, [])
 
     const scrollPrev = React.useCallback(() => {
@@ -96,9 +100,18 @@ const Carousel = React.forwardRef<
         } else if (event.key === "ArrowRight") {
           event.preventDefault()
           scrollNext()
+        } else if (event.key === "Home") {
+          event.preventDefault()
+          api?.scrollTo(0)
+        } else if (event.key === "End") {
+          event.preventDefault()
+          const lastSlide = api ? api.scrollSnapList().length - 1 : -1
+          if (lastSlide >= 0) {
+            api?.scrollTo(lastSlide)
+          }
         }
       },
-      [scrollPrev, scrollNext]
+      [api, scrollPrev, scrollNext]
     )
 
     React.useEffect(() => {
@@ -119,6 +132,7 @@ const Carousel = React.forwardRef<
       api.on("select", onSelect)
 
       return () => {
+        api.off("reInit", onSelect)
         api?.off("select", onSelect)
       }
     }, [api, onSelect])
@@ -146,6 +160,9 @@ const Carousel = React.forwardRef<
           {...props}
         >
           {children}
+          <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+            {slideAnnouncement}
+          </div>
         </div>
       </CarouselContext.Provider>
     )

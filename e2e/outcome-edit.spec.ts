@@ -1,14 +1,16 @@
 import { test, expect, type BrowserContext } from "@playwright/test";
 import { randomBytes } from "crypto";
 
-const BASE = process.env.PLAYWRIGHT_BASE_URL || "http://localhost:5000";
+const OUTCOME_APP_ORIGIN =
+  process.env.OUTCOME_APP_BASE_URL || "http://127.0.0.1:3097";
+const OUTCOME_APP_BASE = `${OUTCOME_APP_ORIGIN}/faculty`;
 
 function uid() {
   return randomBytes(4).toString("hex");
 }
 
 async function loginAs(context: BrowserContext, sub: string, email: string) {
-  const res = await context.request.post(`${BASE}/api/test/login`, {
+  const res = await context.request.post(`${OUTCOME_APP_ORIGIN}/api/test/login`, {
     data: { sub, email, firstName: "Test", lastName: "Faculty" },
   });
   if (!res.ok()) {
@@ -22,7 +24,7 @@ async function createOutcome(
   context: BrowserContext,
   text: string,
 ): Promise<number> {
-  const res = await context.request.post(`${BASE}/api/outcomes`, {
+  const res = await context.request.post(`${OUTCOME_APP_ORIGIN}/api/outcomes`, {
     data: { text },
   });
   if (!res.ok()) {
@@ -46,6 +48,55 @@ async function createOutcome(
 test.describe("Outcome edit flow", () => {
   test.describe.configure({ mode: "serial" });
 
+  test("dialog traps focus, supports the complete tab key model, and restores focus on Escape", async ({
+    page,
+    context,
+  }) => {
+    const sub = `outcome-keyboard-e2e-${uid()}`;
+    const email = `${sub}@bridgew.edu`;
+
+    await loginAs(context, sub, email);
+    await page.goto(`${OUTCOME_APP_BASE}/new-course`);
+
+    const browseBtn = page.getByTestId("button-browse-outcome-library");
+    await expect(browseBtn).toBeVisible({ timeout: 15_000 });
+    await browseBtn.focus();
+    await page.keyboard.press("Enter");
+
+    const dialog = page.getByRole("dialog", { name: "Learning Outcome Library" });
+    await expect(dialog).toBeVisible();
+
+    const libraryTab = page.getByTestId("tab-library");
+    const myOutcomesTab = page.getByTestId("tab-my-outcomes");
+    await libraryTab.focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(myOutcomesTab).toBeFocused();
+    await expect(myOutcomesTab).toHaveAttribute("aria-selected", "true");
+
+    await page.keyboard.press("Home");
+    await expect(libraryTab).toBeFocused();
+    await expect(libraryTab).toHaveAttribute("aria-selected", "true");
+
+    await page.keyboard.press("End");
+    await expect(myOutcomesTab).toBeFocused();
+    await expect(myOutcomesTab).toHaveAttribute("aria-selected", "true");
+
+    const focusable = dialog.locator(
+      'button:not([disabled]):not([tabindex="-1"]), input:not([disabled]):not([tabindex="-1"]), select:not([disabled]):not([tabindex="-1"]), textarea:not([disabled]):not([tabindex="-1"]), [href]:not([tabindex="-1"]), [tabindex]:not([tabindex="-1"])',
+    );
+    const first = focusable.first();
+    await first.focus();
+    await page.keyboard.press("Shift+Tab");
+    await expect(dialog.locator(":focus")).toHaveCount(1);
+    await expect(first).not.toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(first).toBeFocused();
+
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
+    await expect(browseBtn).toBeFocused();
+  });
+
   test("pencil → edit text → Enter → updated text appears in My Outcomes list", async ({
     page,
     context,
@@ -60,7 +111,7 @@ test.describe("Outcome edit flow", () => {
 
     const outcomeId = await createOutcome(context, originalText);
 
-    await page.goto(`${BASE}/new-course`);
+    await page.goto(`${OUTCOME_APP_BASE}/new-course`);
 
     const browseBtn = page.getByTestId("button-browse-outcome-library");
     await expect(browseBtn).toBeVisible({ timeout: 15_000 });
@@ -100,7 +151,7 @@ test.describe("Outcome edit flow", () => {
     const originalText = `Cancel test outcome ${uid()}`;
     const outcomeId = await createOutcome(context, originalText);
 
-    await page.goto(`${BASE}/new-course`);
+    await page.goto(`${OUTCOME_APP_BASE}/new-course`);
 
     const browseBtn = page.getByTestId("button-browse-outcome-library");
     await expect(browseBtn).toBeVisible({ timeout: 15_000 });
@@ -138,7 +189,7 @@ test.describe("Outcome edit flow", () => {
     const updatedText = `Checkmark updated ${uid()}`;
     const outcomeId = await createOutcome(context, originalText);
 
-    await page.goto(`${BASE}/new-course`);
+    await page.goto(`${OUTCOME_APP_BASE}/new-course`);
 
     const browseBtn = page.getByTestId("button-browse-outcome-library");
     await expect(browseBtn).toBeVisible({ timeout: 15_000 });
@@ -180,7 +231,7 @@ test.describe("Outcome edit flow", () => {
     const outcomeText = `Delete 204 test outcome ${uid()}`;
     const outcomeId = await createOutcome(context, outcomeText);
 
-    await page.goto(`${BASE}/new-course`);
+    await page.goto(`${OUTCOME_APP_BASE}/new-course`);
 
     const browseBtn = page.getByTestId("button-browse-outcome-library");
     await expect(browseBtn).toBeVisible({ timeout: 15_000 });
@@ -217,7 +268,7 @@ test.describe("Outcome edit flow", () => {
     const outcomeText = `500 delete test outcome ${uid()}`;
     const outcomeId = await createOutcome(context, outcomeText);
 
-    await page.goto(`${BASE}/new-course`);
+    await page.goto(`${OUTCOME_APP_BASE}/new-course`);
 
     const browseBtn = page.getByTestId("button-browse-outcome-library");
     await expect(browseBtn).toBeVisible({ timeout: 15_000 });
@@ -270,7 +321,7 @@ test.describe("Outcome edit flow", () => {
 
     await loginAs(context, sub, email);
 
-    await page.goto(`${BASE}/new-course`);
+    await page.goto(`${OUTCOME_APP_BASE}/new-course`);
 
     const browseBtn = page.getByTestId("button-browse-outcome-library");
     await expect(browseBtn).toBeVisible({ timeout: 15_000 });
@@ -321,7 +372,7 @@ test.describe("Outcome edit flow", () => {
 
     await loginAs(context, sub, email);
 
-    await page.goto(`${BASE}/new-course`);
+    await page.goto(`${OUTCOME_APP_BASE}/new-course`);
 
     const browseBtn = page.getByTestId("button-browse-outcome-library");
     await expect(browseBtn).toBeVisible({ timeout: 15_000 });
@@ -357,7 +408,7 @@ test.describe("Outcome edit flow", () => {
 
     await loginAs(context, sub, email);
 
-    await page.goto(`${BASE}/new-course`);
+    await page.goto(`${OUTCOME_APP_BASE}/new-course`);
 
     const browseBtn = page.getByTestId("button-browse-outcome-library");
     await expect(browseBtn).toBeVisible({ timeout: 15_000 });
@@ -405,7 +456,7 @@ test.describe("Outcome edit flow", () => {
 
     await loginAs(context, sub, email);
 
-    await page.goto(`${BASE}/new-course`);
+    await page.goto(`${OUTCOME_APP_BASE}/new-course`);
 
     const browseBtn = page.getByTestId("button-browse-outcome-library");
     await expect(browseBtn).toBeVisible({ timeout: 15_000 });
@@ -468,7 +519,7 @@ test.describe("Outcome edit flow", () => {
     const outcomeText = `Stale edit test outcome ${uid()}`;
     const outcomeId = await createOutcome(context, outcomeText);
 
-    await page.goto(`${BASE}/new-course`);
+    await page.goto(`${OUTCOME_APP_BASE}/new-course`);
 
     const browseBtn = page.getByTestId("button-browse-outcome-library");
     await expect(browseBtn).toBeVisible({ timeout: 15_000 });
@@ -491,7 +542,7 @@ test.describe("Outcome edit flow", () => {
 
     // While the edit field is open, delete the outcome from a "parallel session"
     // by calling the API directly — the browser page is unaware of this yet.
-    await context.request.delete(`${BASE}/api/outcomes/${outcomeId}`);
+    await context.request.delete(`${OUTCOME_APP_ORIGIN}/api/outcomes/${outcomeId}`);
 
     // Force React Query to re-fetch /api/outcomes by calling invalidateQueries
     // through the queryClient exposed on window.__rqClient.  The app has
@@ -528,7 +579,7 @@ test.describe("Outcome edit flow", () => {
     const outcomeText = `404 delete test outcome ${uid()}`;
     const outcomeId = await createOutcome(context, outcomeText);
 
-    await page.goto(`${BASE}/new-course`);
+    await page.goto(`${OUTCOME_APP_BASE}/new-course`);
 
     const browseBtn = page.getByTestId("button-browse-outcome-library");
     await expect(browseBtn).toBeVisible({ timeout: 15_000 });
@@ -543,7 +594,7 @@ test.describe("Outcome edit flow", () => {
 
     // Simulate the item being removed by another session so the server-side
     // GET /api/outcomes will return an empty list on the next refetch.
-    await context.request.delete(`${BASE}/api/outcomes/${outcomeId}`);
+    await context.request.delete(`${OUTCOME_APP_ORIGIN}/api/outcomes/${outcomeId}`);
 
     // Now intercept the DELETE in the browser so it returns 404, matching the
     // scenario where the UI still shows a stale item that no longer exists.
